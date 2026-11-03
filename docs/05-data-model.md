@@ -414,8 +414,9 @@ Schema `assistant_sql`: 11 read-only views for the owner assistant's SQL lane ([
 | `orders` | order_id, business_id, code, status, counts_as_revenue, is_cancelled, source, created_by_kind, item_qty, subtotal, discount_amount, shipping_fee, shipping_fee_charged, total, paid, remaining, cod_amount, cost_total, profit, customer_name, carrier, conversation_id, placed_at, confirmed_at, cancelled_at |
 | `order_items` | order_item_id, business_id, order_id, product_id, variant_id, product_name, variant_name, sku, qty, unit_price, unit_cost, line_total, order_status, counts_as_revenue, placed_at |
 | `products` | product_id, business_id, code, name, category, status, visible_to_bot, created_at |
-| `product_variants` | variant_id, business_id, product_id, sku, name, price, cost, archived, stock_on_hand, stock_reserved |
-| `customers` | customer_id, business_id, name, province, source_name, first_source_name, status_name, has_phone, archived, created_at |
+| `product_variants` | variant_id, business_id, product_id, sku, name, price, cost, archived, stock_on_hand, stock_reserved (null for a course or service, 0064) |
+| `customers` | customer_id, business_id, name, province, source_name, first_source_name, status_name, has_phone, archived, created_at, status_key (0064) |
+| `customer_requests` (0064) | request_id, business_id, customer_id, kind, is_update, item (course, service or plan), branch, preferred_date, created_at, current_status_key, current_status_name |
 | `conversations` | conversation_id, business_id, channel_id, channel_provider, bot_id, customer_id, status, mode, created_at, last_activity_at |
 | `channels` | channel_id, business_id, provider, name, status, bot_id, created_at |
 | `bots` | bot_id, business_id, name, industry, is_active, order_taking, created_at |
@@ -426,6 +427,16 @@ Schema `assistant_sql`: 11 read-only views for the owner assistant's SQL lane ([
 - Never exposed: phone, email, address, birthday and gender of customers and recipients, `orders.recipient`, free-text notes, conversation and message text, `customer_phone` and the platform `customer_id`, tokens, settings, external ids, staff names and user ids, anything billing, identity, assistant or audit. `customers.has_phone` is a boolean.
 - Roles: `app_assistant_reader` (NOLOGIN, no members) owns the views, has column-level `SELECT` on the base columns they read and one `FOR SELECT` policy per base table with the inlined business filter (ADR-004 amendment, T-171); it has no write privilege. `app_assistant_sql` (NOLOGIN group) has `USAGE` on the schema and `SELECT` on the views only; its login is `DATABASE_ASSISTANT_SQL_URL` (`packages/db/README.md`).
 - **Rule:** a migration that changes or drops a base column a view reads must recreate that view (and its column grant) in the same migration; Postgres refuses to drop a column a view depends on. An integration test compares the views with the catalog in `apps/backend/src/modules/assistant/application/sql/sql-views.ts`.
+
+## Implemented education and spa verticals (ADR-025, migration 0064)
+
+Migration `0064_service_verticals.sql` is additive:
+
+- `products.offering jsonb` (nullable): a course or a service (`kind course | service`, `durationMinutes`, `sessions`, `period`, `format online | offline | hybrid`, `level`, `schedule`, `audience`, `outcomes[]` ≤ 5, `priceNote`; zod `OfferingDetails` in `packages/contracts`). CHECK `products_offering_or_accommodation`: never both. An offering product has no stock; KiotViet sync never writes it.
+- Customer requests have no table (ESV-R2). A bot-recorded request is a `contact_history` row of type `contact.request_recorded`, or `contact.request_updated` for the same kind within 24 h. Its `data` is `{ kind, details, dateLabel }`: `details` holds the profile fields without phone or email, and `preferredDate` stays `YYYY-MM-DD`. A note signed "Bot AI" and a status move go with it. Partial index `contact_history_requests_idx (workspace_id, created_at) WHERE type = 'contact.request_recorded'`.
+- `crm_statuses`: education and spa businesses get their own built-in sets (`EDUCATION_STATUSES`, `SPA_STATUSES`) on their next status read. Older businesses keep their generic statuses next to them (no backfill).
+- `assistant_sql`: `customers.status_key` (appended), the new `customer_requests` view (no names, phones or free text) and null stock in `product_variants` for offerings. `app_assistant_reader` gets column grants on `crm_statuses.key`, the `contact_history` columns the view reads and `products.offering`, plus the 0060-style reader policy on `contact_history`.
+- `assistant_schedules`: the template checks accept `new_requests` (report or alert).
 
 ## Implemented shop-bot turn traces (T-174)
 

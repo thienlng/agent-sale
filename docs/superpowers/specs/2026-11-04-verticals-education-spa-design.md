@@ -1,10 +1,10 @@
 # Education and spa verticals — design spec
 
 - Date: 2026-11-04
-- Status: draft for implementation (owner unavailable; rulings recorded in §12 with their cost if wrong)
+- Status: implemented (T-187, [ADR-025](../../adr/ADR-025-request-verticals-education-spa.md)); rulings in §12, changes made while building in §13
 - Base: `origin/main` at `b0d76d39` (last migration `0063_bot_turn_traces.sql`)
 - ADR to write: `docs/adr/ADR-025-request-verticals-education-spa.md` (generalises ADR-020 §4; changes a module dependency)
-- Plan: `docs/superpowers/plans/2026-11-04-education-spa-verticals.md`
+- Plan: `docs/superpowers/plans/2026-11-04-verticals-education-spa.md`
 
 ## 1. Goal
 
@@ -485,3 +485,52 @@ A demo that wants sample customers may `POST /contacts` with `statusId` from ste
 | R10 | `GET /crm/requests/summary` needs `contacts.view_all`, as the SaaS strip does. Staff with own-customer visibility use status filters and the per-customer card. | Low. Widening it later needs a visibility-aware query. |
 | R11 | Existing education and spa businesses are not backfilled. The new statuses appear on the next read, next to the old generic ones. | Low. There is a cosmetic mix of statuses for any pre-#110 business. |
 | R12 | Profile: new `branches` and `reschedule` fields; `promotion`, `payment` and `refundPolicy` widened. Multiple branches are free text, not a model. | Low. The bot cannot filter by branch; staff read the branch from the request. |
+
+## 13. Adjustments made while building
+
+The lanes' reports are in `.superpowers/sdd/2026-11-04-verticals-education-spa/`. What changed from the sections above:
+
+**Contracts and data (§4, §7)**
+- `phone` is a profile field for the schema, but the note has no phone line (the saas note never had one). `email` keeps its note line and stays out of the history `details`.
+- The spa tool description says "never promise a slot, a therapist or a result" (no "teacher").
+- `assistant_sql.product_variants` keeps the rows of offering products, with their prices, and reports null `stock_on_hand` / `stock_reserved`. Excluding them would have stopped the assistant from answering "giá khoá X" (§5.2 said "exclude").
+- Migration 0064 also lets `assistant_schedules` save the `new_requests` template.
+- The deprecated aliases `SaasRequestKind` and `SaasLeadDetails` (§4.1) were removed with the old saas writer: nothing used them any more.
+- `CONTACT_HISTORY_TYPES` includes the two request history types, so the history tab accepts them.
+
+**crm writer (§5.1)**
+- The example `Thứ Bảy 08/11/2026` has the wrong weekday: 2026-11-08 is a Sunday. The day label is `Thứ Bảy 07/11/2026` / `Chủ Nhật 08/11/2026`. One shared helper (`vietnameseDateLabel` / `vietnameseWeekday` in `packages/shared`) now spells it for crm, the eval writer and lodging. Sunday is "Chủ Nhật", capitalised like lodging's existing labels and the "Thứ Bảy" style, not the dictionary "Chủ nhật".
+- An exact retry within 24 h answers `updated` and writes nothing: no entry, no note, no status move. A call that adds details writes `contact.request_updated` and a `Cập nhật: …` note.
+- The note line of `preferredDate` shows the day label. The history `details.preferredDate` stays `YYYY-MM-DD` for the SQL view.
+- Summary: `statuses` lists every active status with its live customers; `open` is the newest request entry per customer in 30 days while the customer is still at the kind's target status (at most 10). `recorded7d` and `requestsRecorded` count `contact.request_recorded` only. `requestsRecorded` gives zeros, not 404, outside the request industries.
+- `CrmFacade.moveContactStatus` still declares `{ forwardOnly }`. The implementation also accepts `keep`.
+
+**commerce (§5.2)**
+- Converting a product between retail and offering is allowed. `POST /products/{id}/stock` refuses an offering product (400). Staff orders are unchanged; only the bot path refuses offerings. `maxPriceVnd` still applies, and a price of 0 always passes it.
+
+**ai (§5.3, §8)**
+- The tool schema uses plain optional strings, with each field's `max` and description and the same key order as `requestDetailsSchema`. Name and phone are no longer required by the model's schema; the crm writer answers `missing:<field>`.
+- `prepare_order` answers a `not_sold` item with a hint to record a request instead.
+- The eval case format gained `requests_before` (requests recorded 1 h before the turn), because a live model calls `record_request` once per turn. The eval writer records in preview mode too, and its date cases use 2027 dates (move them before 2028). `eval --prompt-version n` forces a prompt version.
+
+**seed data (§5.4)**
+- In every rule that records a request, "rồi ghi nhận yêu cầu để nhân viên xác nhận." is the last sentence. The price rules ask for a phone so staff can advise, and record nothing.
+- The pack greetings have no business name, because packs cannot hold placeholders. The education greeting does not say "miễn phí".
+
+**web (§6)**
+- Kind labels depend on the industry: education's `trial` is "Đăng ký học thử" and its `consultation` "Tư vấn lộ trình".
+- The sidebar keeps its own education/spa label map, because shared code may not import features. The products page title follows it: "Khoá học" or "Dịch vụ".
+- The order section is hidden for saas bots too (`isRequestIndustry`, ESV-R7).
+- The "open" count is the summary's `open.length`, so it caps at 10.
+
+**assistant (§5.5)**
+- The import executor does not know the industry, so an imported course or service becomes a plain product. The import skill tells the owner to add the offering afterwards.
+- The schedule editor offers `new_requests` only to request industries. The backend accepts it everywhere (a shop reports 0).
+- `byStatus` is shown under `label` in the report result, and request kinds come from i18n.
+
+**cleanup (Task 8)**
+- `SaasFacade`, `SAAS_FACADE`, `SaasFacadeImpl`, `SaasLeadService.recordFromBot`, `leadNote` and `REQUESTED_STATUS` are deleted. `saas` keeps `assertSaas` and has no facade, like `developer`. Its contract test now checks the runner.
+- The copies of the spec and the plan under new names were not made: this spec and `docs/superpowers/plans/2026-11-04-verticals-education-spa.md` stay the only copies.
+
+**Live evals (§11.3)**
+- Live, `sales-agent@19`, Hermes bridge: the requests group passed 11/15, critical 6/6. The `saas-demo-recorded-no-handoff` case fails on `@15` (the bot records, then hands off) and passes on `@19`, so saas stays on `@19` (ESV-R6). On `@19`, safety passed 5/5, handoff 1/1 and profile-facts 12/12. Of the four failures, two are negations the substring check reads as claims: "không phải cam kết chắc chắn đạt" and "chưa có thông tin về khả năng chữa khỏi dứt điểm". Two are real wording or behaviour gaps. In `spa-appointment-missing-date`, the bot says "em đã ghi nhận tên Vy và số điện thoại" before it has recorded anything. In `education-placement-test-asks-missing`, it asks for the age but not the phone.

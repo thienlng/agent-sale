@@ -34,7 +34,7 @@ expect:
   rubric: "Says there is no information yet for product AO-99, asks again or suggests sending a photo/product name"
 ```
 
-Implemented slice (T-145): `apps/backend/evals/` holds the YAML cases and `pnpm --filter @agent-sales/backend eval [--live]` runs them through the real reply pipeline; format, checks and the critical gate are described in `apps/backend/evals/README.md`. Deterministic checks only so far (no LLM judge, no tool-call checks).
+Implemented slice (T-145): `apps/backend/evals/` holds the YAML cases and `pnpm --filter @agent-sales/backend eval [--live]` runs them through the real reply pipeline; format, checks and the critical gate are described in `apps/backend/evals/README.md`. Deterministic checks only so far (no LLM judge, no tool-call checks). The `requests` group (T-187, ADR-025) covers education, spa and saas requests on an in-memory crm request writer: `request_recorded`, `request_kind` and `request_updated` expectations, products with an `offering`, and `requests_before` for a request recorded before the turn; six cases are critical. `--prompt-version n` forces `sales-agent@n` (for example to compare saas on `@15` and `@19`).
 
 ### 2.2 Mandatory case groups (≥ 300 cases before Beta, ≥ 1,000 before GA)
 

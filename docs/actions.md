@@ -50,7 +50,7 @@ The owner can paste an endpoint's docs or a curl example into the owner assistan
 
 ## Built-in actions
 
-Some industries get an action without declaring it: a SaaS bot has the built-in tool `record_saas_request` (ADR-020), which records a demo / trial / consultation request on the customer through the `saas` facade in-process (no HTTP, no run log, no confirmation). Its contact details are vouched by their own rule: the phone's last 9 digits or the whole email address must appear in what the customer wrote. See [SaaS businesses](saas.md#bot-behavior).
+Some industries get an action without declaring it: a bot of a request industry (`saas`, `education`, `spa`) has the built-in tool `record_request` (ADR-025, generalising ADR-020). It records a demo, trial, consultation, placement-test or appointment request on the customer through the `crm` facade in-process (no HTTP, no run log, no confirmation). Its contact details are vouched by their own rule: the phone's last 9 digits or the whole email address must appear in what the customer wrote. See [SaaS businesses](saas.md#bot-behavior) and [Education and spa businesses](education-and-spa.md).
 
 ## Known limits (v1)
 
