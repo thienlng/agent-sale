@@ -4,6 +4,11 @@ import { Module } from '@nestjs/common';
 import { DB_SYSTEM, DB_TENANT } from '../../common/db/db.module.js';
 import { AccountModule } from '../account/account.module.js';
 import { AiModule } from '../ai/ai.module.js';
+import {
+  IDENTITY_DELEGATION_FACADE,
+  type IdentityDelegationFacade,
+} from '../identity/api/index.js';
+import { IdentityModule } from '../identity/identity.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { ASSISTANT_FACADE } from './api/assistant.facade.js';
 import { ASSISTANT_RUNNER } from './api/assistant.runner.js';
@@ -20,6 +25,7 @@ import { SkillsService } from './application/skills.service.js';
 import { SuggestionsService } from './application/suggestions.service.js';
 import { ThreadPromptService } from './application/thread-prompt.service.js';
 import { ASSISTANT_REPOSITORY } from './domain/ports/assistant.repository.js';
+import { ACCESS_DELEGATION } from './domain/ports/access-delegation.port.js';
 import { ROUTE_INVOKER } from './domain/ports/route-invoker.port.js';
 import { FastifyRouteInvoker } from './infrastructure/http/fastify-route-invoker.js';
 import { DrizzleAssistantRepository } from './infrastructure/persistence/assistant.drizzle-repository.js';
@@ -34,7 +40,13 @@ import { AssistantController } from './interface/http/assistant.controller.js';
  * worker's review runs on; the worker needs both `DB_TENANT` and `DB_SYSTEM` (job claims).
  */
 @Module({
-  imports: [AccountModule, WorkspaceModule, AiModule],
+  imports: [
+    AccountModule,
+    WorkspaceModule,
+    // Route tools and approvals use a short-lived delegated token of the owner (QA N-3).
+    IdentityModule,
+    AiModule,
+  ],
   controllers: [AssistantController, AssistantSettingsController],
   providers: [
     {
@@ -51,6 +63,11 @@ import { AssistantController } from './interface/http/assistant.controller.js';
     { provide: SkillCatalog, useFactory: () => SkillCatalog.load() },
     // Route tools and approved proposals run in process through Fastify inject (spec §6).
     { provide: ROUTE_INVOKER, useClass: FastifyRouteInvoker },
+    {
+      provide: ACCESS_DELEGATION,
+      inject: [IDENTITY_DELEGATION_FACADE],
+      useFactory: (identity: IdentityDelegationFacade) => identity,
+    },
     SkillsService,
     ThreadPromptService,
     CompactionService,

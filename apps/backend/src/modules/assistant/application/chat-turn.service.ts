@@ -7,7 +7,7 @@ import {
 } from '@agent-sales/ai-core';
 import type { AssistantUiAction, SendAssistantMessageRequest } from '@agent-sales/contracts';
 import { newId } from '@agent-sales/shared';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { AI_LLM_GATEWAY, isAiNotConfiguredError, type LlmGatewayPort } from '../../ai/api/index.js';
 import {
@@ -27,9 +27,14 @@ import {
   type StepRecord,
   type ThreadRecord,
 } from '../domain/ports/assistant.repository.js';
+import {
+  ACCESS_DELEGATION,
+  type AccessDelegation,
+} from '../domain/ports/access-delegation.port.js';
 import { ROUTE_INVOKER, type RouteInvoker } from '../domain/ports/route-invoker.port.js';
 import { CompactionService, threadCacheKey } from './compaction.service.js';
 import { CORE_TOOL_DEFINITIONS, coreTools, type ToolContext } from './core-tools.js';
+import { DELEGATION_MARGIN_SECONDS, delegatedAuthorization } from './delegated-authorization.js';
 import { isVisibleMessage } from './mappers.js';
 import { currentIndustry } from './owner-access.js';
 import { MEMORY_TOOL_DEFINITION, memoryTool } from './memory-tools.js';
@@ -164,7 +169,8 @@ const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof
  * the client `turnId`), store the owner's message, compact the thread when due (never failing the
  * turn), run the shared agent loop on the `pro` tier
  * with the core, memory, skill and route tools, store the tool exchange and the answer, and finish
- * the run with its usage. Route tools read with the owner's own `authorization` (memory only);
+ * the run with its usage. Route tools read with a delegated token of the owner, minted from the
+ * owner's `authorization` for the turn budget plus a margin (memory only, QA N-3);
  * writes become proposals. Steps are written as they happen so `GET /assistant/runs/{id}` shows progress.
  */
 @Injectable()
@@ -177,6 +183,9 @@ export class ChatTurnService {
     @Inject(SkillsService) private readonly skills: SkillsService,
     @Inject(ROUTE_INVOKER) private readonly invoker: RouteInvoker,
     @Inject(CompactionService) private readonly compaction: CompactionService,
+    @Inject(ACCESS_DELEGATION)
+    @Optional()
+    private readonly delegation: AccessDelegation | null = null,
   ) {}
 
   /** The routes the assistant may use; tests replace it. */
@@ -267,6 +276,14 @@ export class ChatTurnService {
     let idx = 0;
     let result: AgentLoopResult | undefined;
     let failure: unknown;
+    // A compaction at the start of the turn spends part of the turn's budget.
+    const budgetMs = Math.max(TURN_BUDGET_MS - (Date.now() - startedAt), MIN_ANSWER_BUDGET_MS);
+    // The owner's token may expire mid-turn (15 min): route tools use one minted for this turn.
+    const turnAuth = await delegatedAuthorization(
+      this.delegation,
+      authorization,
+      Math.ceil(budgetMs / 1000) + DELEGATION_MARGIN_SECONDS,
+    );
     try {
       result = await runAgentLoop({
         base: {
@@ -299,7 +316,7 @@ export class ChatTurnService {
               repo: this.repo,
               invoker: this.invoker,
               catalog: this.catalog,
-              authorization,
+              authorization: turnAuth,
               threadId: thread.id,
               runId,
               proposalIds,
@@ -310,8 +327,7 @@ export class ChatTurnService {
         ),
         generate: (r) => this.gateway.generate(r),
         maxRounds: TURN_MAX_ROUNDS,
-        // A compaction at the start of the turn spends part of the turn's budget.
-        budgetMs: Math.max(TURN_BUDGET_MS - (Date.now() - startedAt), MIN_ANSWER_BUDGET_MS),
+        budgetMs,
         wrapUpNotice: OWNER_WRAP_UP_NOTICE,
         onStep: (s) => {
           // Written at once so polling sees the run progress; awaited after the loop.

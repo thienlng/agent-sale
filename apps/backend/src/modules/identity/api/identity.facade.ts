@@ -47,3 +47,18 @@ export interface IdentityApiKeysFacade {
 }
 
 export const IDENTITY_API_KEYS_FACADE = Symbol('IDENTITY_API_KEYS_FACADE');
+
+/**
+ * Delegated access (ADR-023): in-process callers whose work can outlive the caller's 15-min
+ * access token (the owner assistant's route tools and approved proposals) trade a valid
+ * `Authorization: Bearer <access token>` for a short-lived token of the same user and session.
+ */
+export interface IdentityDelegationFacade {
+  /**
+   * A bare token (no `Bearer ` prefix) valid for `ttlSeconds` (1 s to 10 min), or null when the
+   * header is not a valid, non-delegated access token. Hold it in memory only: never log or store it.
+   */
+  delegate(authorization: string, ttlSeconds: number): Promise<string | null>;
+}
+
+export const IDENTITY_DELEGATION_FACADE = Symbol('IDENTITY_DELEGATION_FACADE');
