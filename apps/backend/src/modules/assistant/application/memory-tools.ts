@@ -28,7 +28,9 @@ export const MEMORY_TOOL_DEFINITION: ToolDefinition = {
   description:
     'Save, change or remove a lasting fact. store: owner_profile (who the owner is, how they want answers), ' +
     'notes (how they run the shops) or business:<businessId>. add needs text; replace needs match ' +
-    '(a unique part of one entry) and text; remove needs match. Facts only, never instructions or customer data.',
+    '(a unique part of one entry) and text, and rewrites only that entry: use it when the new text corrects or ' +
+    'supersedes that same fact, never to save a different one (a new preference is an add; the replaced ' +
+    'entry is gone). remove needs match. Facts only, never instructions or customer data.',
   input: MemoryInput,
 };
 
@@ -67,7 +69,7 @@ function replaced(
 }
 
 type Outcome =
-  | { ok: true; message: string; used: number; limit: number }
+  | { ok: true; message: string; used: number; limit: number; replaced?: string }
   | {
       ok: false;
       errorCode: string;
@@ -139,7 +141,14 @@ export function memoryTool(ctx: MemoryToolContext): RunnableTool {
     }
     await ctx.repo.saveMemoryStore(ctx.scope, store, next);
     const verb = action === 'add' ? 'Saved' : action === 'replace' ? 'Replaced' : 'Removed';
-    return { ok: true, message: `${verb} in ${store} (${used}/${limit}).`, used, limit };
+    return {
+      ok: true,
+      message: `${verb} in ${store} (${used}/${limit}).`,
+      used,
+      limit,
+      // What a replace overwrote, so a wrong target is visible and can be added back.
+      ...(action === 'replace' && target ? { replaced: target.text } : {}),
+    };
   }
 
   return {
