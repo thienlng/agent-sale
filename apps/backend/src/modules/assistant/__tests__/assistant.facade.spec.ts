@@ -514,6 +514,17 @@ describe('AssistantFacade (contract)', () => {
       expect((await facade.listProposals(me, t.id)).items.map((x) => x.status)).toEqual(['done']);
     });
 
+    it('approves with a token minted for the approval when identity can delegate one', async () => {
+      const { repo, scope, p, invoke } = await withProposal();
+      const delegate = vi.fn(() => Promise.resolve('approval-token'));
+      const proposals = new ProposalService(repo, { invoke }, {} as SchedulesService, {
+        delegate,
+      });
+      expect(await proposals.approve(scope, p.id, AUTH)).toMatchObject({ status: 'done' });
+      expect(delegate).toHaveBeenCalledWith(AUTH, 600);
+      expect(invoke.mock.calls[0]?.[0]).toMatchObject({ authorization: 'Bearer approval-token' });
+    });
+
     it('marks a refused execution failed with the HTTP status', async () => {
       const { facade, me, p, t, invoke } = await withProposal();
       invoke.mockResolvedValueOnce({ status: 403, body: { error: { code: 'FORBIDDEN' } } });
@@ -648,6 +659,45 @@ describe('AssistantFacade (contract)', () => {
         errorCode: 'target_changed',
       });
       expect(invoke).toHaveBeenCalledTimes(1);
+    });
+
+    it('checks a date-range price edit against the item inside its property (no own GET)', async () => {
+      const property = newId();
+      const rateId = newId();
+      const rate = { id: rateId, kind: 'override', sell: 15_000_000, version: 1 };
+      const draft = (sell: number) =>
+        withProposal({
+          routeKey: 'PATCH /lodging/properties/{id}/overrides/{rateId}',
+          path: `/lodging/properties/${property}/overrides/${rateId}`,
+          body: { sell: 17_000_000, version: 1 },
+          before: rate,
+        }).then((ctx) => {
+          ctx.invoke.mockImplementation((i) =>
+            Promise.resolve(
+              i.method === 'get'
+                ? { status: 200, body: { id: property, rates: [{ ...rate, sell }] } }
+                : { status: 200, body: { ...rate, sell: 17_000_000 } },
+            ),
+          );
+          return ctx;
+        });
+
+      // Changed on the calendar after the draft: refused, and the PATCH never runs.
+      const moved = await draft(16_000_000);
+      expect(await moved.facade.approveProposal(moved.me, moved.p.id, AUTH)).toMatchObject({
+        status: 'failed',
+        errorCode: 'target_changed',
+      });
+      expect(moved.invoke.mock.calls.map((c) => [c[0].method, c[0].path])).toEqual([
+        ['get', `/lodging/properties/${property}`],
+      ]);
+
+      // Unchanged: applied.
+      const same = await draft(15_000_000);
+      expect(await same.facade.approveProposal(same.me, same.p.id, AUTH)).toMatchObject({
+        status: 'done',
+      });
+      expect(same.invoke.mock.calls.at(-1)?.[0]).toMatchObject({ method: 'patch' });
     });
 
     it('expires a stale proposal instead of running it', async () => {

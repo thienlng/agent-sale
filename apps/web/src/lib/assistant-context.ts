@@ -1,4 +1,8 @@
-import type { AssistantPageContext, AssistantPageForm } from '@agent-sales/contracts';
+import {
+  ASSISTANT_FORM_VALUE_MAX,
+  type AssistantPageContext,
+  type AssistantPageForm,
+} from '@agent-sales/contracts';
 import { useEffect, useRef } from 'react';
 import { create } from 'zustand';
 
@@ -27,7 +31,11 @@ export function useAssistantContext(ctx: AssistantPageInfo): void {
 
 // ─── Forms the assistant may fill (`fill_form`) ───────────────────────────────
 
-/** A fillable field: what the model sees, and `empty` read from the page's current values. */
+/**
+ * A fillable field: what the model sees, and `empty` read from the page's current values. A text
+ * or textarea field also passes its current `value`; the registry sends it (cut) only when the
+ * field is not empty, so an overwrite edits the owner's text and keeps its rules (QA N-5).
+ */
 export type AssistantFormField = AssistantPageForm['fields'][number];
 export type AssistantFormValues = Record<string, string | number>;
 
@@ -188,6 +196,29 @@ export function waitForAssistantForm(formId: string, timeoutMs: number): Promise
 const MAX_TARGETS = 40;
 const MAX_FORMS = 5;
 const MAX_FIELDS = 30;
+/** All current values of one page context together, so a long page keeps the request small. */
+export const MAX_FORM_VALUES_TOTAL = 6_000;
+
+/** `text` cut to at most `max` characters, marked with `…` when cut. */
+function cut(text: string, max: number): string {
+  const chars = Array.from(text);
+  return chars.length <= max ? text : `${chars.slice(0, max - 1).join('')}…`;
+}
+
+/**
+ * The fields as sent: a current value only on a non-empty text or textarea field, cut to
+ * 1 500 chars, while the page's value budget lasts; selects and numbers never carry one.
+ */
+function sentFields(fields: AssistantFormField[], budget: { left: number }): AssistantFormField[] {
+  return fields.map(({ value, ...field }) => {
+    const text = value?.trim();
+    if (!text || field.empty || (field.type !== 'text' && field.type !== 'textarea')) return field;
+    if (budget.left <= 1) return field;
+    const sent = cut(text, Math.min(ASSISTANT_FORM_VALUE_MAX, budget.left));
+    budget.left -= Array.from(sent).length;
+    return { ...field, value: sent };
+  });
+}
 
 /** The page context sent with a message: the page's own description, route, targets and forms. */
 export function collectPageContext(route: string): AssistantPageContext {
@@ -198,9 +229,12 @@ export function collectPageContext(route: string): AssistantPageContext {
         .filter((id) => id && id.length <= 60),
     ),
   ].slice(0, MAX_TARGETS);
+  const budget = { left: MAX_FORM_VALUES_TOTAL };
   const onScreen = [...forms.keys()].slice(0, MAX_FORMS).flatMap((id) => {
     const form = activeForm(id);
-    return form && !form.busy() ? [{ id, fields: form.fields().slice(0, MAX_FIELDS) }] : [];
+    return form && !form.busy()
+      ? [{ id, fields: sentFields(form.fields().slice(0, MAX_FIELDS), budget) }]
+      : [];
   });
   const info = usePageInfo.getState().info;
   return {

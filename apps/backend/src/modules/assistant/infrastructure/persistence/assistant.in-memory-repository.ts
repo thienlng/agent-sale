@@ -8,6 +8,7 @@ import {
   JOB_MAX_ATTEMPTS,
   type JobKind,
   type JobRecord,
+  type ReviewScope,
   type MessageFeedback,
   type NewJob,
   type NewSchedule,
@@ -121,6 +122,10 @@ function definedOnly<T extends object>(patch: T): Partial<T> {
 
 const mine = (s: Owned, row: Owned) =>
   row.accountId === s.accountId && row.ownerUserId === s.ownerUserId;
+
+/** Two review scopes on one queued job: different scopes become `combined`. */
+const mergeScope = (a: ReviewScope | null, b: ReviewScope | null): ReviewScope | null =>
+  a && b && a !== b ? 'combined' : (a ?? b);
 
 /** Process-local twin of the Drizzle repository (tests, and the API without a database). */
 export class InMemoryAssistantRepository implements AssistantRepository {
@@ -971,7 +976,7 @@ export class InMemoryAssistantRepository implements AssistantRepository {
   ): Promise<boolean> {
     const x = this.jobs.get(job.id);
     if (!x || !mine(s, x) || x.status !== 'running' || x.attempts !== job.attempts) return false;
-    const sibling = [...this.jobs.values()].some(
+    const sibling = [...this.jobs.values()].find(
       (y) =>
         y !== x &&
         mine(s, y) &&
@@ -982,8 +987,14 @@ export class InMemoryAssistantRepository implements AssistantRepository {
     x.errorCode = retry.errorCode;
     x.leaseUntil = null;
     if (sibling) {
+      // Merged into the queued job: it runs no later than the retry, with both scopes, and is
+      // re-stamped so it no longer reads as an idle review that later messages push back.
+      const now = this.#now();
+      if (sibling.runAfter.getTime() > retry.runAfter.getTime()) sibling.runAfter = retry.runAfter;
+      sibling.reviewScope = mergeScope(sibling.reviewScope, x.reviewScope);
+      sibling.createdAt = now;
       x.status = 'failed';
-      x.finishedAt = this.#now();
+      x.finishedAt = now;
     } else {
       x.status = 'queued';
       x.runAfter = retry.runAfter;
@@ -1272,7 +1283,7 @@ export class InMemoryAssistantRepository implements AssistantRepository {
       commentaryRunId: null,
       notificationId: null,
       threadId: null,
-      startedAt: this.#now(),
+      startedAt: row.startedAt ?? this.#now(),
     };
     this.scheduleRuns.set(r.id, r);
     return structuredClone(r);

@@ -55,6 +55,7 @@
     "hidePreview": "Ẩn chi tiết",
     "before": "Hiện tại",
     "changes": "Thay đổi",
+    "beforeUnavailable": "Không đọc được giá trị cũ",
     "apply": "Áp dụng",
     "reject": "Bỏ",
     "applying": "Đang áp dụng…",

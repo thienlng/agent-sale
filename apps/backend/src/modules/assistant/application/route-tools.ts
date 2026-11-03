@@ -11,6 +11,7 @@ import { z } from 'zod';
 import type { OwnerScope } from '../domain/owner-scope.js';
 import type { AssistantRepository } from '../domain/ports/assistant.repository.js';
 import type { RouteInvoker } from '../domain/ports/route-invoker.port.js';
+import { readCurrentState } from './current-state.js';
 import { type CatalogEntry, type RouteCatalog, searchCatalog } from './route-catalog.js';
 import type { NativeToolEntry } from './sql/sql-tools.js';
 
@@ -274,18 +275,20 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
       return fail('too_many_pending', { max: MAX_PENDING_PROPOSALS });
     }
     let before: unknown;
-    const reader = MUTATING_WITH_STATE.has(p.entry.method)
-      ? ctx.catalog.readerOf(p.entry)
-      : undefined;
-    if (reader) {
+    let beforeUnavailable = false;
+    if (MUTATING_WITH_STATE.has(p.entry.method)) {
       // The current state, so the owner sees what changes (a PUT replaces it whole).
-      const current = await ctx.invoker.invoke({
-        method: 'get',
+      const current = await readCurrentState({
+        catalog: ctx.catalog,
+        invoker: ctx.invoker,
+        entry: p.entry,
         path: p.path,
         businessId: p.businessId,
         authorization: ctx.authorization,
       });
-      if (current.status < 300) before = current.body;
+      if (current.found) before = current.value;
+      // Said on the card instead of an empty "before" the owner could take for "nothing".
+      else beforeUnavailable = current.viaParent;
     }
     const proposal = await ctx.repo.createProposal(ctx.scope, {
       id: newId(),
@@ -301,6 +304,7 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
         body: p.body ?? null,
         query: p.query ?? null,
         ...(before !== undefined ? { before } : {}),
+        ...(beforeUnavailable ? { beforeUnavailable: true } : {}),
       },
       expiresAt: new Date(now().getTime() + PROPOSAL_TTL_MS),
     });

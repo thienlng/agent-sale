@@ -29,10 +29,15 @@ import {
   type StepRecord,
   type ThreadRecord,
 } from '../domain/ports/assistant.repository.js';
+import {
+  ACCESS_DELEGATION,
+  type AccessDelegation,
+} from '../domain/ports/access-delegation.port.js';
 import { ROUTE_INVOKER, type RouteInvoker } from '../domain/ports/route-invoker.port.js';
 import { ASSISTANT_SQL_RUNNER, type SqlRunner } from '../domain/ports/sql-runner.port.js';
 import { CompactionService, threadCacheKey } from './compaction.service.js';
 import { CORE_TOOL_DEFINITIONS, coreTools, type ToolContext } from './core-tools.js';
+import { DELEGATION_MARGIN_SECONDS, delegatedAuthorization } from './delegated-authorization.js';
 import { buildImportBlock } from './import-block.js';
 import { IMPORT_TOOL_DEFINITIONS, importTools } from './import-tools.js';
 import { isVisibleMessage } from './mappers.js';
@@ -60,6 +65,9 @@ export const TURN_CALL_TIMEOUT_MS = 60_000;
 export const TITLE_CHARS = 60;
 /** Said when the turn ends without a usable answer, or the model failed. */
 export const FALLBACK_REPLY = 'Dạ em chưa trả lời được lúc này, anh/chị thử lại giúp em nhé.';
+/** The fallback when the turn drafted a proposal before the model failed (QA TinyMind N5). */
+export const PROPOSAL_FALLBACK_REPLY =
+  'Dạ em đã soạn đề xuất bên dưới, anh/chị xem và duyệt giúp em nhé.';
 /**
  * Safety cap on the active messages the model sees; compaction normally keeps the history far
  * shorter (ruling 1b-R5). The window starts at a user, event or summary message, so an assistant
@@ -181,12 +189,17 @@ export function finalUiActions(actions: AssistantUiAction[]): AssistantUiAction[
 
 const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof e);
 
+/** A turn with no answer: point at the proposal card it drafted, else apologise. */
+const fallback = (proposalIds: readonly string[]): string =>
+  proposalIds.length > 0 ? PROPOSAL_FALLBACK_REPLY : FALLBACK_REPLY;
+
 /**
  * One chat turn of the owner assistant: start the run (one at a time per owner, idempotent by
  * the client `turnId`), store the owner's message, compact the thread when due (never failing the
  * turn), run the shared agent loop on the `pro` tier
  * with the core, memory, skill and route tools, store the tool exchange and the answer, and finish
- * the run with its usage. Route tools read with the owner's own `authorization` (memory only);
+ * the run with its usage. Route tools read with a delegated token of the owner, minted from the
+ * owner's `authorization` for the turn budget plus a margin (memory only, QA N-3);
  * writes become proposals. Steps are written as they happen so `GET /assistant/runs/{id}` shows progress.
  */
 @Injectable()
@@ -203,6 +216,9 @@ export class ChatTurnService {
     @Inject(ASSISTANT_SQL_RUNNER)
     @Optional()
     private readonly sqlRunner: SqlRunner | null = null,
+    @Inject(ACCESS_DELEGATION)
+    @Optional()
+    private readonly delegation: AccessDelegation | null = null,
   ) {}
 
   /**
@@ -357,6 +373,14 @@ export class ChatTurnService {
     let idx = 0;
     let result: AgentLoopResult | undefined;
     let failure: unknown;
+    // A compaction at the start of the turn spends part of the turn's budget.
+    const budgetMs = Math.max(TURN_BUDGET_MS - (Date.now() - startedAt), MIN_ANSWER_BUDGET_MS);
+    // The owner's token may expire mid-turn (15 min): route tools use one minted for this turn.
+    const turnAuth = await delegatedAuthorization(
+      this.delegation,
+      authorization,
+      Math.ceil(budgetMs / 1000) + DELEGATION_MARGIN_SECONDS,
+    );
     try {
       result = await runAgentLoop({
         base: {
@@ -392,7 +416,7 @@ export class ChatTurnService {
               repo: this.repo,
               invoker: this.invoker,
               catalog: this.catalog,
-              authorization,
+              authorization: turnAuth,
               threadId: thread.id,
               runId,
               proposalIds,
@@ -405,7 +429,7 @@ export class ChatTurnService {
               scope,
               repo: this.repo,
               invoker: this.invoker,
-              authorization,
+              authorization: turnAuth,
               threadId: thread.id,
               runId,
               proposalIds,
@@ -427,8 +451,7 @@ export class ChatTurnService {
         ),
         generate: (r) => this.gateway.generate(r),
         maxRounds: TURN_MAX_ROUNDS,
-        // A compaction at the start of the turn spends part of the turn's budget.
-        budgetMs: Math.max(TURN_BUDGET_MS - (Date.now() - startedAt), MIN_ANSWER_BUDGET_MS),
+        budgetMs,
         wrapUpNotice: OWNER_WRAP_UP_NOTICE,
         onStep: (s) => {
           // Written at once so polling sees the run progress; awaited after the loop.
@@ -459,8 +482,8 @@ export class ChatTurnService {
         throw failure;
       }
       const [answer] = await this.repo.appendMessages(scope, thread.id, [
-        // No answer, so no UI action: the owner sees the apology only.
-        row({ role: 'assistant', content: FALLBACK_REPLY, runId }),
+        // No answer, so no UI action: the owner sees the apology, or the drafted card.
+        row({ role: 'assistant', content: fallback(proposalIds), runId }),
       ]);
       await this.repo.finishRun(scope, runId, {
         status: 'failed',
@@ -476,7 +499,7 @@ export class ChatTurnService {
       ...result.followUps.map((m) => toRow(m, runId)),
       row({
         role: 'assistant',
-        content: answered ? replyText : FALLBACK_REPLY,
+        content: answered ? replyText : fallback(proposalIds),
         uiActions: answered ? finalUiActions(ctx.uiActions) : [],
         runId,
       }),

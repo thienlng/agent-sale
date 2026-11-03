@@ -618,7 +618,7 @@ export type NewScheduleRun = Pick<
   ScheduleRunRecord,
   'id' | 'accountId' | 'ownerUserId' | 'scheduleId' | 'trigger' | 'scheduledFor'
 > &
-  Partial<Pick<ScheduleRunRecord, 'status' | 'errorCode' | 'finishedAt'>>;
+  Partial<Pick<ScheduleRunRecord, 'status' | 'errorCode' | 'startedAt' | 'finishedAt'>>;
 
 export type ScheduleRunPatch = Partial<
   Pick<
@@ -865,8 +865,10 @@ export interface AssistantRepository {
   /**
    * Fenced like `finishJob`: puts a failed attempt back in the queue (`queued`, `run_after`,
    * `error_code`, no lease). When the owner already has another queued job of that thread and
-   * kind, this one is failed instead (the queued one covers it). False when the job was
-   * cancelled or re-claimed meanwhile.
+   * kind (one queued job per thread and kind), the retry is merged into it instead: the queued
+   * job takes the earlier `run_after`, both review scopes (`combined` when they differ) and a
+   * fresh `created_at` (so it is not taken for an idle review), and this attempt is marked
+   * `failed`. False when the job was cancelled or re-claimed meanwhile.
    */
   retryJob(
     s: OwnerKey,

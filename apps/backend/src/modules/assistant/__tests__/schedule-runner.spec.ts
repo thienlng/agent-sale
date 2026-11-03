@@ -154,6 +154,29 @@ describe('ScheduleRunner', () => {
     expect(await t.runner().tick(at(MIN))).toBe(0);
   });
 
+  it('never records a run as finished before it started (QA M-6)', async () => {
+    const t = setup();
+    const s = await t.create({ nextRunAt: at(-HOUR) });
+    // The tick's `now` was taken before the batch reached this schedule, and delivery takes 5 s.
+    vi.setSystemTime(at(2_000));
+    t.notify.mockImplementationOnce(async () => {
+      vi.advanceTimersByTime(5_000);
+      return { id: newId(), deduped: false };
+    });
+    await t.runner().tick(NOW);
+    const [run] = t.runsOf(s.id);
+    expect(run?.status).toBe('done');
+    expect(run!.startedAt.getTime()).toBeGreaterThanOrEqual(at(2_000).getTime());
+    expect(run!.finishedAt!.getTime()).toBeGreaterThanOrEqual(run!.startedAt.getTime() + 5_000);
+
+    // A run inserted already finished (a missed slot) has started == finished at most.
+    const missed = await t.create({ nextRunAt: at(-7 * HOUR) });
+    await t.runner().tick(NOW);
+    const [skipped] = t.runsOf(missed.id);
+    expect(skipped?.status).toBe('skipped');
+    expect(skipped!.finishedAt!.getTime()).toBeGreaterThanOrEqual(skipped!.startedAt.getTime());
+  });
+
   it('gives one run when two runners tick the same slot', async () => {
     const t = setup();
     const s = await t.create();

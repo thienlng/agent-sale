@@ -3,9 +3,11 @@
 export {
   IDENTITY_ADMIN_FACADE,
   IDENTITY_API_KEYS_FACADE,
+  IDENTITY_DELEGATION_FACADE,
   IDENTITY_FACADE,
   type IdentityAdminFacade,
   type IdentityApiKeysFacade,
+  type IdentityDelegationFacade,
   type IdentityFacade,
   type UserRef,
 } from './identity.facade.js';

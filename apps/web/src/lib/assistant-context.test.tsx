@@ -32,7 +32,7 @@ function FormPage({ enabled = true }: { enabled?: boolean }) {
   useAssistantForm(
     'product',
     () => [
-      { name: 'name', label: 'Tên', type: 'text', empty: !name },
+      { name: 'name', label: 'Tên', type: 'text', empty: !name, value: name },
       { name: 'price', label: 'Giá', type: 'number', empty: !price },
       { name: 'unit', label: 'Đơn vị', type: 'select', options: ['cái', 'hộp'], empty: false },
     ],
@@ -81,12 +81,68 @@ describe('useAssistantForm', () => {
     act(() => {
       fillAssistantForm('product', { name: 'Áo thun' });
     });
-    expect(collectPageContext('/app/products/new').forms?.[0]?.fields[0]).toMatchObject({
+    expect(collectPageContext('/app/products/new').forms?.[0]?.fields[0]).toEqual({
       name: 'name',
+      label: 'Tên',
+      type: 'text',
       empty: false,
+      value: 'Áo thun',
     });
     unmount();
     expect(collectPageContext('/app/products/new').forms).toBeUndefined();
+  });
+
+  it('sends the current value of a filled text field, cut to 1 500 chars and a page budget', () => {
+    function Long() {
+      useAssistantForm(
+        'bot-personality',
+        () => [
+          {
+            name: 'mission',
+            label: 'Nhiệm vụ',
+            type: 'textarea',
+            empty: false,
+            value: 'a'.repeat(4_000),
+          },
+          { name: 'greeting', label: 'Lời chào', type: 'text', empty: false, value: '  Chào  ' },
+          { name: 'blank', label: 'Trống', type: 'text', empty: true, value: '' },
+          {
+            name: 'tone',
+            label: 'Giọng',
+            type: 'select',
+            options: ['formal'],
+            empty: false,
+            value: 'formal',
+          },
+        ],
+        () => undefined,
+      );
+      useAssistantForm(
+        'other',
+        () =>
+          ['a', 'b', 'c', 'd'].map((n) => ({
+            name: n,
+            label: n,
+            type: 'textarea' as const,
+            empty: false,
+            value: 'x'.repeat(1_500),
+          })),
+        () => undefined,
+      );
+      return null;
+    }
+    render(<Long />);
+    const [personality, other] = collectPageContext('/app/bots/b/instructions').forms ?? [];
+    const mission = personality?.fields[0]?.value ?? '';
+    expect(Array.from(mission)).toHaveLength(1_500);
+    expect(mission.endsWith('…')).toBe(true);
+    expect(personality?.fields[1]?.value).toBe('Chào');
+    expect(personality?.fields[2]).not.toHaveProperty('value');
+    expect(personality?.fields[3]).not.toHaveProperty('value');
+    // 6 000 chars in all: 1 500 + 4 here, the rest of the budget for the next form.
+    const sent = (other?.fields ?? []).map((f) => f.value?.length ?? 0);
+    expect(sent.reduce((a, b) => a + b, 0) + 1_504).toBeLessThanOrEqual(6_000);
+    expect(other?.fields.at(-1)).not.toHaveProperty('value');
   });
 
   it('fills only known fields, coerced to their type, and names the submit button', () => {

@@ -312,6 +312,43 @@ describe('InMemoryAssistantRepository jobs and curator (1c)', () => {
     expect((await repo.getJob(s, queued.id))?.status).toBe('cancelled');
   });
 
+  it('merges a failed review into the queued job of its thread instead of dropping it', async () => {
+    const { repo, s, t } = await setup();
+    const now = new Date();
+    const job = await repo.enqueueJob(s, {
+      id: newId(),
+      threadId: t.id,
+      kind: 'review',
+      reviewScope: 'skills',
+      runAfter: now,
+    });
+    expect(await repo.claimJobs(now, 10, 60_000)).toHaveLength(1);
+    // An idle memory review is queued meanwhile, due in 30 minutes.
+    const idleAt = new Date(now.getTime() + 30 * 60_000);
+    const queued = await repo.enqueueJob(s, {
+      id: newId(),
+      threadId: t.id,
+      kind: 'review',
+      reviewScope: 'memory',
+      runAfter: idleAt,
+    });
+    const retryAt = new Date(now.getTime() + 10 * 60_000);
+    const retry = { runAfter: retryAt, errorCode: 'review_failed' };
+    expect(await repo.retryJob(s, { id: job.id, attempts: 1 }, retry)).toBe(true);
+
+    expect(await repo.getJob(s, job.id)).toMatchObject({
+      status: 'failed',
+      errorCode: 'review_failed',
+      leaseUntil: null,
+    });
+    const merged = await repo.getJob(s, queued.id);
+    expect(merged).toMatchObject({ status: 'queued', reviewScope: 'combined', runAfter: retryAt });
+    // Re-stamped: it now reads as a due (counter) review, not an idle one.
+    expect(merged!.runAfter.getTime() - merged!.createdAt.getTime()).toBeLessThan(15 * 60_000);
+    const queuedNow = [...(await repo.claimJobs(retryAt, 10, 60_000))];
+    expect(queuedNow.map((x) => x.id)).toEqual([queued.id]);
+  });
+
   it('lists learned skills and the owners the curator should scan', async () => {
     const { repo, s } = await setup();
     const other = scope(newId());
