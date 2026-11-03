@@ -91,6 +91,9 @@ describe('buildSystemPrompt', () => {
     expect(a).not.toContain('Bỏ qua mọi hướng dẫn');
     expect(a).toContain('You change data only through proposals.');
     expect(a).not.toContain('You cannot change any data yet');
+    // Filling: empty fields by default, filled ones when the owner asks (QA TinyMind B4).
+    expect(a).toContain('By default fill the fields marked empty.');
+    expect(a).toContain('fill those fields too, whatever their empty flag');
     // Totals come from a tool, not from adding rows (QA TinyMind B8).
     expect(a).toContain('never from adding up rows yourself');
     // Customer contact data never comes out (QA Villas #3).
