@@ -36,6 +36,7 @@ import {
 } from '../api/assistant';
 import { useCreateImportBatch } from '../api/imports';
 import { useAssistantThreadId, useAssistantUi } from '../stores/assistant-ui.store';
+import { NAVIGATE_FOLLOW_UP_TEXT, owesFill, waitForPageForm } from '../utils/navigate-follow-up';
 import { useAssistantAttachments } from './assistant-attachments';
 import { AssistantComposer } from './assistant-composer';
 import { AssistantLearning } from './assistant-learning';
@@ -83,6 +84,8 @@ export function AssistantPanel() {
   }, [scheduleDraft]);
   const [pendingTurn, setPendingTurn] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
+  // The last send hit a turn still running (409): a toast, and a line above the composer.
+  const [busy, setBusy] = useState(false);
   // The last message carried keys; they were masked before storage (T-174).
   const [secretsRemoved, setSecretsRemoved] = useState(false);
   // Opened from a page with a question: show the conversation, where the composer takes it.
@@ -129,19 +132,24 @@ export function AssistantPanel() {
    * screen. A fill never submits: the owner reviews the values and presses the form's own button,
    * which is spotlighted when the form names one. A `chart` is rendered inside its message and is
    * not run here, nor is any action type this build does not know. `switched` drops what is left
-   * of the answer when the owner changed business meanwhile.
+   * of the answer when the owner changed business meanwhile. Resolves with where the answer
+   * navigated (the last in-app target) and whether it carried a `fill_form`.
    */
   async function apply(
     answer: readonly AssistantMessageDto[],
     switched: () => boolean,
-  ): Promise<void> {
+  ): Promise<{ navigatedTo: string | null; filled: boolean }> {
     let navigated = false;
+    let navigatedTo: string | null = null;
+    let filled = false;
+    const result = () => ({ navigatedTo, filled });
     for (const action of answer.flatMap((m) => (m.role === 'assistant' ? m.uiActions : []))) {
-      if (switched()) return;
+      if (switched()) return result();
       if (action.type === 'navigate') {
         const to = safeAppPath(action.to);
         if (to) {
           navigated = true;
+          navigatedTo = to;
           void router.navigate({ href: to });
         }
       } else if (action.type === 'spotlight') {
@@ -149,28 +157,44 @@ export function AssistantPanel() {
         setOpen(false);
         setSpotlight({ target: action.target, hint: action.hint });
       } else if (action.type === 'fill_form') {
+        filled = true;
         // After a navigate the target page mounts a moment later: give it time to register.
         if (navigated) await waitForAssistantForm(action.formId, FORM_WAIT_MS);
-        if (switched()) return;
-        const filled = fillAssistantForm(action.formId, action.values);
-        if (!filled.ok) {
+        if (switched()) return result();
+        const fill = fillAssistantForm(action.formId, action.values);
+        if (!fill.ok) {
           // An open edit of an existing item is never overwritten by a draft.
-          toast(t(filled.reason === 'form_busy_editing' ? 'fill.busyEditing' : 'fill.notOnPage'));
-        } else if (filled.opensDialog) {
+          toast(t(fill.reason === 'form_busy_editing' ? 'fill.busyEditing' : 'fill.notOnPage'));
+        } else if (fill.opensDialog) {
           // The fill opened a modal dialog: a spotlight would sit under it (T175-R5). The panel
           // steps aside and the dialog's own focus leads the owner.
           setOpen(false);
-        } else if (filled.submitTarget) {
+        } else if (fill.submitTarget) {
           setOpen(false);
-          setSpotlight({ target: filled.submitTarget, hint: t('fill.reviewHint') });
+          setSpotlight({ target: fill.submitTarget, hint: t('fill.reviewHint') });
         }
       }
     }
+    return result();
   }
 
-  async function send(text: string): Promise<boolean> {
+  /**
+   * "Open page X and fill it" (B11): the model only sees forms on the page the message was sent
+   * from, so a turn that navigated and still owes a fill is continued once, by itself, when the
+   * new page has registered its form. The follow-up's text is hidden in the conversation.
+   */
+  async function continueAfterNavigate(to: string, switched: () => boolean): Promise<void> {
+    const ready = await waitForPageForm(to, () => router.state.location.pathname, FORM_WAIT_MS);
+    // The owner switched business or sent something else meanwhile: never talk over them.
+    if (!ready || switched() || latest.current.sending) return;
+    await latest.current.send(NAVIGATE_FOLLOW_UP_TEXT, true);
+  }
+
+  /** Sends one message; `followUp` marks the panel's own continuation, which never chains. */
+  async function send(text: string, followUp = false): Promise<boolean> {
     setUnavailable(false);
     setSecretsRemoved(false);
+    setBusy(false);
     // Read before anything renders: the route and the targets the owner is looking at.
     const page = collectPageContext(router.state.location.pathname);
     // Ids a page added when it opened the panel (e.g. the bot message's time), for this send only.
@@ -231,11 +255,19 @@ export function AssistantPanel() {
       if (importBatchId) attachments.clear();
       if (!switched()) setSecretsRemoved(res.secretsRemoved);
       // Not awaited: a fill may wait for the next page, and the composer is free meanwhile.
-      if (!switched()) void apply(res.messages, switched);
+      if (!switched()) {
+        void apply(res.messages, switched).then(({ navigatedTo, filled }) => {
+          if (followUp || !navigatedTo || !owesFill(text, res.run.steps, filled)) return;
+          return continueAfterNavigate(navigatedTo, switched);
+        });
+      }
       return true;
     } catch (error) {
-      if (error instanceof ApiClientError && error.status === 409) toast.error(t('busy'));
-      else if (error instanceof ApiClientError && error.status === 503) setUnavailable(true);
+      // Another tab or device is mid-turn on this thread: say so; the composer keeps the text.
+      if (error instanceof ApiClientError && error.status === 409) {
+        toast.error(t('busy'), { id: 'assistant-busy', duration: 8000 });
+        if (!switched()) setBusy(true);
+      } else if (error instanceof ApiClientError && error.status === 503) setUnavailable(true);
       else toast.error(t('sendError'));
       return false;
     } finally {
@@ -246,6 +278,7 @@ export function AssistantPanel() {
   function newThread(): void {
     setThread(null);
     setUnavailable(false);
+    setBusy(false);
     setSecretsRemoved(false);
     setView('chat');
   }
@@ -321,6 +354,7 @@ export function AssistantPanel() {
               onPick={(id) => {
                 setThread(id);
                 setUnavailable(false);
+                setBusy(false);
                 setSecretsRemoved(false);
                 setView('chat');
               }}
@@ -344,6 +378,14 @@ export function AssistantPanel() {
                 unavailable={unavailable}
               />
               <AssistantSuggestions />
+              {busy ? (
+                <p
+                  role="status"
+                  className="border-t bg-muted/50 px-4 py-2 text-xs text-muted-foreground"
+                >
+                  {t('busy')}
+                </p>
+              ) : null}
               {secretsRemoved ? (
                 <p
                   role="status"

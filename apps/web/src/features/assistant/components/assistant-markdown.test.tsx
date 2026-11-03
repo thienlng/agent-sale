@@ -1,7 +1,12 @@
 import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+
+import { loadNamespace } from '@/lib/i18n';
+import { renderWithProviders } from '@/testing/render';
 
 import { AssistantMarkdown } from './assistant-markdown';
+
+beforeAll(() => loadNamespace('assistant'));
 
 describe('AssistantMarkdown', () => {
   it('renders bold, italic and inline code, with line breaks kept', () => {
@@ -48,6 +53,34 @@ describe('AssistantMarkdown', () => {
     expect(within(rows[1]).getByText('gỗ').tagName).toBe('STRONG');
     expect(within(rows[2]).getByText('Bóng | đỏ')).toBeInTheDocument();
     expect(within(rows[1]).getByText('5')).toHaveClass('text-right');
+  });
+
+  it('shows a quoted raw status as its label, in text and in table cells', () => {
+    const { container } = renderWithProviders(
+      <AssistantMarkdown
+        content={
+          'Trạng thái là `awaiting_owner_approval`.\n\n| Đơn | Trạng thái |\n|---|---|\n| DH-1 | cancelled |\n| DH-2 | `new` |'
+        }
+      />,
+    );
+    expect(container.textContent).toContain('Trạng thái là Chờ anh/chị duyệt.');
+    expect(container.textContent).not.toMatch(/awaiting_owner_approval|cancelled|`new`/);
+    expect(container.querySelector('code')).toBeNull();
+    const rows = within(screen.getByRole('table')).getAllByRole('row');
+    expect(rows[1]?.textContent).toBe('DH-1Đã huỷ');
+    expect(rows[2]?.textContent).toBe('DH-2Mới');
+  });
+
+  it('keeps a one-word cell on one line and lets a wide table scroll', () => {
+    render(
+      <AssistantMarkdown
+        content={'| Mã | Sản phẩm |\n|---|---|\n| JS-038 | Bàn đập chốt gỗ cho bé |'}
+      />,
+    );
+    const table = screen.getByRole('table');
+    expect(within(table).getByText('JS-038')).toHaveClass('whitespace-nowrap');
+    expect(within(table).getByText('Bàn đập chốt gỗ cho bé')).not.toHaveClass('whitespace-nowrap');
+    expect(table.parentElement).toHaveClass('overflow-x-auto');
   });
 
   it('keeps raw HTML as text', () => {
