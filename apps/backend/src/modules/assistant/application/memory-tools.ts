@@ -48,6 +48,33 @@ const json = (value: unknown): string => JSON.stringify(value).replaceAll('<', '
 /** One line, trimmed: an entry never spans lines in the prompt. */
 const clean = (text: string): string => text.replace(/\s+/g, ' ').trim();
 
+/** Shorter normalised texts only count as a duplicate when equal, never by containment. */
+const MIN_CONTAINED_CHARS = 8;
+
+/** Lowercase, no diacritics (đ → d), punctuation and runs of spaces folded to one space. */
+export function normaliseMemoryText(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/đ/gi, 'd')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+}
+
+/**
+ * Two entries say the same thing (QA TinyMind B12b): equal once normalised, or one contains the
+ * other (the shorter one at least 8 chars, so a short word never blocks a longer fact).
+ */
+export function isNearDuplicate(a: string, b: string): boolean {
+  const x = normaliseMemoryText(a);
+  const y = normaliseMemoryText(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const [short, long] = x.length <= y.length ? [x, y] : [y, x];
+  return short.length >= MIN_CONTAINED_CHARS && ` ${long} `.includes(` ${short} `);
+}
+
 /**
  * A replaced entry. A review rewrite keeps the text and origin it replaced (the first ones,
  * across repeated review rewrites), so undo gives the owner their text back; any other write
@@ -80,7 +107,7 @@ type Outcome =
     };
 
 /**
- * The `memory` tool for one turn (spec §10): bounded stores, exact duplicates refused, every
+ * The `memory` tool for one turn (spec §10): bounded stores, near-duplicates refused, every
  * new text scanned (`unsafe:<issues>`), `match` must hit exactly one entry. A full store answers
  * `store_full` with the entries and a consolidate hint. After 3 failed calls in the turn the tool
  * answers `stop_retrying`. A new or replaced entry takes the context's `origin` (a replace also
@@ -114,7 +141,23 @@ export function memoryTool(ctx: MemoryToolContext): RunnableTool {
       if (hits.length > 1) return { ok: false, errorCode: 'match_not_unique' };
       target = hits[0];
     }
-    if (text && entries.some((e) => e.text === text)) return { ok: false, errorCode: 'duplicate' };
+    // Near-duplicates too (case, spaces, diacritics, one inside the other); a replace may grow
+    // the entry it rewrites.
+    const same = text
+      ? entries.find((e) =>
+          e === target
+            ? normaliseMemoryText(e.text) === normaliseMemoryText(text)
+            : isNearDuplicate(e.text, text),
+        )
+      : undefined;
+    if (same) {
+      return {
+        ok: false,
+        errorCode: 'duplicate',
+        entries: [same.text],
+        hint: 'already saved: keep it, or replace that entry to change it',
+      };
+    }
 
     let next: MemoryEntry[];
     if (action === 'remove') {
