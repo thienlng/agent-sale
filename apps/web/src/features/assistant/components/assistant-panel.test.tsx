@@ -958,6 +958,41 @@ describe('AssistantPanel', () => {
     expect(calls.filter((c) => c.key === forget)).toHaveLength(1);
   });
 
+  it("hides a review's notice once its skill is archived or gone (N4b)", async () => {
+    useAssistantUi.setState({ open: true, workspaceId: WS, threadId: null });
+    const { fetchStub } = stubFetch({
+      'GET /assistant/learning': {
+        status: 200,
+        body: {
+          items: [
+            learnedSkillFixture({ state: 'archived', name: 'tinymind-stock-and-order-queries' }),
+            learnedSkillFixture({
+              action: 'patch',
+              state: null,
+              name: 'da-xoa',
+              skillEventId: '01a1a0e3-dce5-7453-8000-000000000002',
+            }),
+            learnedSkillFixture({
+              actor: 'curator',
+              action: 'archive',
+              state: 'archived',
+              skillEventId: '01a1a0e3-dce5-7453-8000-000000000003',
+            }),
+          ],
+        },
+      },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderApp();
+
+    const notices = await screen.findByRole('region', { name: 'Trợ lý vừa học' });
+    expect(within(notices).getAllByRole('listitem')).toHaveLength(1);
+    expect(
+      within(notices).getByText('Trợ lý đã lưu trữ kỹ năng lâu không dùng: bao-gia-si'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/tinymind-stock-and-order-queries|da-xoa/)).not.toBeInTheDocument();
+  });
+
   it('opens the skills view from a pending skill notice', async () => {
     useAssistantUi.setState({ open: true, workspaceId: WS, threadId: null });
     const { fetchStub } = stubFetch({
