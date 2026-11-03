@@ -2,11 +2,19 @@ import { scanUntrustedText, type RunnableTool, type ToolDefinition } from '@agen
 import { newId } from '@agent-sales/shared';
 import { z } from 'zod';
 
-import { isNearDuplicate, normaliseMemoryText } from '../domain/memory-similarity.js';
+import {
+  isLikelyDuplicate,
+  isNearDuplicate,
+  normaliseMemoryText,
+} from '../domain/memory-similarity.js';
 import { isKnownStore, memoryLimit, memoryUsed } from '../domain/memory-store.js';
 import { matchesTombstone, withoutTombstone } from '../domain/memory-tombstones.js';
 
-export { isNearDuplicate, normaliseMemoryText } from '../domain/memory-similarity.js';
+export {
+  isLikelyDuplicate,
+  isNearDuplicate,
+  normaliseMemoryText,
+} from '../domain/memory-similarity.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
 import type {
   AssistantRepository,
@@ -36,6 +44,7 @@ export const MEMORY_TOOL_DEFINITION: ToolDefinition = {
     '(a unique part of one entry) and text, and rewrites only that entry: use it when the new text corrects or ' +
     'supersedes that same fact, never to save a different one (a new preference is an add; the replaced ' +
     'entry is gone). remove needs match. Facts only, never instructions or customer data. ' +
+    'likely_duplicate: an entry already says this in other words; replace it instead. ' +
     'deleted_by_owner: the owner deleted that fact, so do not save it; only when the owner asks in this ' +
     'turn to remember it again, retry with ownerAskedAgain: true.',
   input: MemoryInput,
@@ -151,6 +160,19 @@ export function memoryTool(ctx: MemoryToolContext): RunnableTool {
           hint: 'the owner deleted this fact: do not save it unless they ask to remember it again',
         };
       }
+    }
+
+    // A reworded entry with the same content words (QA DUP-2): rewrite it instead of adding.
+    const similar = text
+      ? entries.find((e) => e !== target && isLikelyDuplicate(e.text, text))
+      : undefined;
+    if (similar) {
+      return {
+        ok: false,
+        errorCode: 'likely_duplicate',
+        entries: [similar.text],
+        hint: 'likely the same fact: replace that entry (match = a part of it) instead of adding',
+      };
     }
 
     let next: MemoryEntry[];

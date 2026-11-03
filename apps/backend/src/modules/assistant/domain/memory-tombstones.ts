@@ -1,4 +1,4 @@
-import { isNearDuplicate, normaliseMemoryText } from './memory-similarity.js';
+import { isLikelyDuplicate, isNearDuplicate, normaliseMemoryText } from './memory-similarity.js';
 import type { MemoryTombstone } from './ports/assistant.repository.js';
 
 /** How long an owner-deleted memory entry blocks the same text from coming back (QA NB-4). */
@@ -35,14 +35,18 @@ export function withoutTombstone(
   text: string,
   now = new Date(),
 ): MemoryTombstone[] {
-  return liveTombstones(list, now).filter((t) => !isNearDuplicate(t.norm, text));
+  return liveTombstones(list, now).filter(
+    (t) => !isNearDuplicate(t.norm, text) && !isLikelyDuplicate(t.norm, text),
+  );
 }
 
-/** True when `text` says what an owner-deleted entry said (same near-duplicate rule as saving). */
+/** True when `text` says what an owner-deleted entry said (the duplicate rules of saving). */
 export function matchesTombstone(
   list: readonly MemoryTombstone[] | undefined,
   text: string,
   now = new Date(),
 ): boolean {
-  return liveTombstones(list, now).some((t) => isNearDuplicate(t.norm, text));
+  return liveTombstones(list, now).some(
+    (t) => isNearDuplicate(t.norm, text) || isLikelyDuplicate(t.norm, text),
+  );
 }

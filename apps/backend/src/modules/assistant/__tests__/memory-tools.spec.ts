@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CONSOLIDATE_HINT,
+  isLikelyDuplicate,
   isNearDuplicate,
   MEMORY_TOOL,
   MEMORY_TOOL_DEFINITION,
@@ -325,5 +326,65 @@ describe('memory tombstones (QA NB-4)', () => {
     expect(await turn()({ action: 'add', store: 'notes', text: 'Nghỉ chủ nhật' })).toMatchObject({
       ok: true,
     });
+  });
+});
+
+describe('reworded duplicates (QA DUP-2)', () => {
+  const pairs: [string, string][] = [
+    // TinyMind retest 3: chat entry vs the review's paraphrase 34 s later.
+    [
+      "Khi trả lời câu hỏi 'nhiều nhất', nêu top 3 thay vì chỉ nhóm đứng đầu.",
+      'Khi trả lời câu hỏi “nhiều nhất”, chủ tài khoản muốn xem top 3 thay vì chỉ một kết quả.',
+    ],
+    // Villas retest 3 (b).
+    [
+      'Khi báo giá villa cho chủ tài khoản, luôn tách giá từng đêm theo thứ và in đậm tổng tiền',
+      'BÁO GIÁ VILLA: luôn tách giá từng đêm theo thứ, in đậm tổng tiền',
+    ],
+    // The same without diacritics.
+    [
+      'khi bao gia villa luon tach gia tung dem theo thu va in dam tong tien',
+      'Anh/chị muốn báo giá villa được tách giá từng đêm theo thứ, in đậm tổng tiền',
+    ],
+  ];
+
+  it.each(pairs)('treats "%s" and "%s" as likely the same', (a, b) => {
+    expect(isLikelyDuplicate(a, b)).toBe(true);
+    expect(isLikelyDuplicate(b, a)).toBe(true);
+  });
+
+  it('keeps different facts apart', () => {
+    for (const [a, b] of [
+      ['Giao hàng buổi chiều từ thứ 2 đến thứ 6', 'Nghỉ bán chủ nhật và ngày lễ'],
+      ['Báo cáo doanh thu ngắn gọn vào sáng thứ Hai', 'Báo giá villa tách giá từng đêm'],
+      ['Shop có COD toàn quốc', 'Shop giao hỏa tốc nội thành Hà Nội'],
+      ['Bán đồ len', 'Bán đồ cotton'],
+    ] as const) {
+      expect(isLikelyDuplicate(a, b)).toBe(false);
+    }
+  });
+
+  it('answers likely_duplicate with the entry; a replace of that entry goes through', async () => {
+    const { turn, entries } = setup();
+    const call = turn();
+    const first = pairs[0]![0];
+    const second = pairs[0]![1];
+    expect(await call({ action: 'add', store: 'owner_profile', text: first })).toMatchObject({
+      ok: true,
+    });
+    expect(await call({ action: 'add', store: 'owner_profile', text: second })).toMatchObject({
+      ok: false,
+      errorCode: 'likely_duplicate',
+      entries: [first],
+    });
+    expect(
+      await call({
+        action: 'replace',
+        store: 'owner_profile',
+        match: 'nhóm đứng đầu',
+        text: second,
+      }),
+    ).toMatchObject({ ok: true });
+    expect(await entries('owner_profile')).toEqual([second]);
   });
 });
