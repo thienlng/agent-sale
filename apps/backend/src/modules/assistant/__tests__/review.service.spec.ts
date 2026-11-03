@@ -706,4 +706,31 @@ describe('learning feed', () => {
     });
     expect((await learningFeed(s.repo, s.scope, 30)).items).toHaveLength(4);
   });
+
+  it('shows the skill’s current state, and the create row’s undo retires an approved skill (QA N-4)', async () => {
+    const s = setup();
+    await s.skills.manage(
+      s.scope,
+      { actor: 'review', runId: null, loadedSkills: new Set() },
+      { action: 'create', name: 'weekly-revenue', description: 'Doanh thu tuần', body: 'Bước 1.' },
+    );
+    const [row] = await s.repo.listSkills(s.scope);
+    await s.skills.approve(s.scope, row!.id, row!.updatedAt);
+
+    const item = (await learningFeed(s.repo, s.scope, 7)).items.find((i) => i.kind === 'skill');
+    expect(item).toMatchObject({ action: 'create', state: 'active', undone: false });
+    const eventId = item && 'skillEventId' in item ? item.skillEventId : '';
+
+    // The approval came after the create: its undo still works and retires the skill.
+    const undone = await s.skills.undo(s.scope, eventId);
+    expect(undone).toMatchObject({ state: 'archived', body: 'Bước 1.' });
+    expect(
+      (await learningFeed(s.repo, s.scope, 7)).items.find((i) => i.kind === 'skill'),
+    ).toMatchObject({ state: 'archived', undone: true });
+    await expect(s.skills.undo(s.scope, eventId)).rejects.toMatchObject({
+      details: { reason: 'event_already_undone' },
+    });
+    // "Khôi phục" brings it back as it was.
+    expect((await s.skills.restore(s.scope, row!.id)).state).toBe('active');
+  });
 });

@@ -405,7 +405,10 @@ export const AssistantLearnedSkillDto = z.object({
   /** The skill's name and description after the change (before it, for a change with no after). */
   name: z.string(),
   description: z.string(),
-  /** The skill's state after the change. */
+  /**
+   * The skill's current state (not the state this change left it in: an approved learned skill
+   * says `active` on its `create` row too), or null when the skill is gone.
+   */
   state: AssistantSkillState.nullable(),
   undone: z.boolean(),
   at: z.iso.datetime(),

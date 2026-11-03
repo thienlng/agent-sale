@@ -329,7 +329,9 @@ export class SkillsService {
    * Undoes one ledger entry: the skill goes back to the entry's `before` snapshot (a created
    * skill is archived), an `undo` entry is appended and the entry is marked undone. Only while
    * the skill still matches the entry's `after` snapshot (else `stale_skill`); an entry undone
-   * already, or an `undo` entry, cannot be undone.
+   * already, or an `undo` entry, cannot be undone. Undoing a `create` undoes the whole chain
+   * (QA N-4/N7, the learning notice's "Hoàn tác" on a skill approved since): the skill is
+   * archived whatever came after it, keeping its current text so "Khôi phục" brings it back.
    */
   async undo(s: OwnerKey, eventId: string): Promise<AssistantSkillDto> {
     const event = isUuid(eventId) ? await this.repo.getSkillEvent(s, eventId) : null;
@@ -339,6 +341,9 @@ export class SkillsService {
       throw new AssistantSkillConflictError('event_not_undoable');
     }
     const row = await this.#row(s, event.skillId);
+    if (event.action === 'create' && !sameSnapshot(skillSnapshot(row), event.after)) {
+      return this.#retire(s, row, event.id);
+    }
     if (!sameSnapshot(skillSnapshot(row), event.after)) {
       throw new AssistantSkillConflictError('stale_skill');
     }
@@ -362,6 +367,23 @@ export class SkillsService {
     if (!updated) throw new AssistantSkillConflictError('stale_skill');
     await this.repo.markSkillEventUndone(s, event.id, new Date());
     return toSkillDto(updated);
+  }
+
+  /** Undo of a `create` the skill has moved on from: archive it as it is now, mark the entry. */
+  async #retire(s: OwnerKey, row: SkillRecord, eventId: string): Promise<AssistantSkillDto> {
+    let skill = row;
+    if (row.state !== 'archived') {
+      const updated = await this.repo.updateSkill(
+        s,
+        row.id,
+        { state: 'archived' },
+        { expectedUpdatedAt: row.updatedAt, event: ownerEvent('undo') },
+      );
+      if (!updated) throw new AssistantSkillConflictError('stale_skill');
+      skill = updated;
+    }
+    await this.repo.markSkillEventUndone(s, eventId, new Date());
+    return toSkillDto(skill);
   }
 
   // ─── Helpers ───
