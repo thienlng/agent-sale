@@ -92,7 +92,8 @@ export function ProductForm({
   const setVariant = (i: number, patch: Partial<VariantDraft>) =>
     setVariants((vs) => vs.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
 
-  // The owner assistant may fill a new product's main fields (the first variant's SKU and price);
+  // The owner assistant may fill a new product's main fields (the first variant's SKU, price,
+  // cost and weight; the SKU is required to save);
   // the owner reviews them and saves. Editing an existing product is a proposal, not a fill.
   const first = variants[0];
   useAssistantForm(
@@ -114,6 +115,13 @@ export function ProductForm({
       },
       { name: 'sku', label: t('products.form.sku'), type: 'text', empty: !first?.sku.trim() },
       { name: 'price', label: t('products.form.price'), type: 'number', empty: !first?.price },
+      { name: 'cost', label: t('products.form.cost'), type: 'number', empty: !first?.cost },
+      {
+        name: 'weightGram',
+        label: t('products.form.weight'),
+        type: 'number',
+        empty: !first?.weightGram,
+      },
     ],
     (values) => {
       if (typeof values['code'] === 'string') setCode(values['code'].slice(0, 64));
@@ -125,6 +133,10 @@ export function ProductForm({
       if (typeof values['sku'] === 'string') patch.sku = values['sku'].slice(0, 64);
       if (typeof values['price'] === 'number' && values['price'] >= 0)
         patch.price = Math.round(values['price']);
+      if (typeof values['cost'] === 'number' && values['cost'] >= 0)
+        patch.cost = Math.round(values['cost']);
+      if (typeof values['weightGram'] === 'number' && values['weightGram'] >= 0)
+        patch.weightGram = Math.round(values['weightGram']);
       if (Object.keys(patch).length) setVariant(0, patch);
     },
     { submitTarget: 'products.save', enabled: !product },

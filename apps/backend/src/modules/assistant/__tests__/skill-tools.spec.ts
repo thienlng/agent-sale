@@ -37,6 +37,16 @@ describe('platform skills', () => {
   });
 });
 
+describe('add-products fill (QA TinyMind B10)', () => {
+  it('fills cost and weight and makes a SKU when the owner gives none', async () => {
+    const skills = await loadSkillDir(ASSISTANT_SKILLS_DIR);
+    const add = skills.find((s) => s.name === 'add-products')!;
+    expect(add.version).toBe(2);
+    expect(add.body).toContain('cost (giá vốn) and weightGram');
+    expect(add.body).toContain('The SKU is required to save');
+  });
+});
+
 describe('skill tools', () => {
   async function setup() {
     const catalog = await SkillCatalog.load();
