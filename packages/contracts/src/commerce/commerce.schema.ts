@@ -128,6 +128,29 @@ export const MAX_PRODUCT_IMAGES = 5;
 export const ProductImageUrl = PublicImageUrl;
 export const ProductImageUrls = z.array(ProductImageUrl).max(MAX_PRODUCT_IMAGES);
 
+/**
+ * A course (education) or a service (spa, salon) sold as a product (spec ESV §4.2). A product
+ * with an offering has no stock: the bot sees its facts, never "in stock" or "out of stock".
+ */
+export const OfferingDetails = z.object({
+  kind: z.enum(['course', 'service']),
+  /** One appointment (service) or one session (course), in minutes. */
+  durationMinutes: z.number().int().min(5).max(1440).nullable().default(null),
+  /** Sessions in a course or a treatment package ("liệu trình 10 buổi"). */
+  sessions: z.number().int().min(1).max(1000).nullable().default(null),
+  /** How long the whole course runs, as the business says it ("3 tháng"). */
+  period: z.string().trim().max(60).default(''),
+  format: z.enum(['online', 'offline', 'hybrid']).nullable().default(null),
+  level: z.string().trim().max(120).default(''),
+  schedule: z.string().trim().max(500).default(''),
+  audience: z.string().trim().max(300).default(''),
+  outcomes: z.array(z.string().trim().min(1).max(200)).max(5).default([]),
+  /** Shown instead of a 0 price, and next to any price: "giá tham khảo", "từ", "liên hệ". */
+  priceNote: z.string().trim().max(120).default(''),
+});
+export type OfferingDetails = z.infer<typeof OfferingDetails>;
+export type OfferingDetailsInput = z.input<typeof OfferingDetails>;
+
 export const ProductDto = z.object({
   id: z.uuid(),
   code: z.string(),
@@ -141,6 +164,8 @@ export const ProductDto = z.object({
   imageUrls: ProductImageUrls.default([]),
   /** Present only for an entire-property accommodation; retail stock is inapplicable. */
   accommodation: AccommodationDetails.nullable().optional(),
+  /** A course or a service (never together with `accommodation`); null for a retail product. */
+  offering: OfferingDetails.nullable().default(null),
   variants: z.array(ProductVariantDto),
   priceMin: Money,
   priceMax: Money,
@@ -187,6 +212,8 @@ export const UpsertProductRequest = z
     botInstructions: z.string().trim().max(4000).default(''),
     imageUrls: ProductImageUrls.default([]),
     accommodation: AccommodationDetails.nullable().optional(),
+    /** Omitted on update: the stored offering stays. Null clears it. */
+    offering: OfferingDetails.nullable().optional(),
     status: z.enum(['active', 'archived']).default('active'),
     variants: z.array(ProductVariantInput).min(1).max(100),
     /** Create only: also selects the new product for this bot (T-080). Ignored on update. */
@@ -195,6 +222,10 @@ export const UpsertProductRequest = z
   .refine((p) => new Set(p.variants.map((v) => v.sku.toLowerCase())).size === p.variants.length, {
     message: 'each variant needs a different SKU',
     path: ['variants'],
+  })
+  .refine((p) => !p.offering || !p.accommodation, {
+    message: 'a product is a course or service, or an accommodation, not both',
+    path: ['offering'],
   });
 export type UpsertProductRequest = z.input<typeof UpsertProductRequest>;
 

@@ -31,9 +31,26 @@ describe('profileFieldsFor', () => {
     expect(keys('retail')).toEqual(shop);
     expect(keys('fashion')).toEqual([...shop, 'sizeGuide']);
     expect(keys('cosmetics')).toEqual([...shop, 'authenticity']);
-    expect(keys('spa')).toEqual([...BASIC, 'payment', 'servicePrices', 'booking']);
+    expect(keys('spa')).toEqual([
+      ...BASIC,
+      'payment',
+      'promotion',
+      'servicePrices',
+      'booking',
+      'reschedule',
+      'branches',
+    ]);
     expect(keys('dental')).toEqual([...BASIC, 'payment', 'servicePrices', 'booking']);
-    expect(keys('education')).toEqual([...BASIC, 'courseFees', 'courseSchedule', 'courseTrial']);
+    expect(keys('education')).toEqual([
+      ...BASIC,
+      'payment',
+      'promotion',
+      'courseFees',
+      'courseSchedule',
+      'courseTrial',
+      'refundPolicy',
+      'branches',
+    ]);
     expect(keys('solar')).toEqual([...BASIC, 'warranty', 'priceRange', 'payback']);
     expect(keys('saas')).toEqual([
       ...BASIC,
@@ -47,6 +64,12 @@ describe('profileFieldsFor', () => {
       'dataSecurity',
       'refundPolicy',
     ]);
+  });
+
+  it('gives education and spa a branches field, and spa a reschedule field', () => {
+    const field = (key: string) => PROFILE_FIELDS.find((f) => f.key === key);
+    expect(field('branches')).toMatchObject({ max: 2000, industries: ['education', 'spa'] });
+    expect(field('reschedule')).toMatchObject({ max: 500, industries: ['spa'] });
   });
 
   it('has unique keys', () => {

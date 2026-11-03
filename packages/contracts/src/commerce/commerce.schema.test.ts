@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  OfferingDetails,
   OrderListQuery,
   OrderSummaryDto,
   ProductDto,
@@ -152,5 +153,67 @@ describe('product bot settings', () => {
     expect(
       UpdateProductBotSettingsRequest.safeParse({ botInstructions: 'a'.repeat(4001) }).success,
     ).toBe(false);
+  });
+});
+
+describe('product offerings', () => {
+  const accommodation = {
+    rentalType: 'entire_property',
+    bedrooms: 1,
+    standardAdults: 2,
+    standardChildren: 0,
+    childAgeBelow: 6,
+    maxGuests: null,
+    roomLayout: [{ name: 'Phòng 1', beds: '1 giường đôi' }],
+    amenities: [],
+    rateBasis: 'night',
+    rates: [{ days: [1, 2, 3, 4, 5, 6, 7], amount: 1_000_000 }],
+    gallery: [],
+  };
+
+  it('fills the defaults of a bare course', () => {
+    expect(OfferingDetails.parse({ kind: 'course' })).toEqual({
+      kind: 'course',
+      durationMinutes: null,
+      sessions: null,
+      period: '',
+      format: null,
+      level: '',
+      schedule: '',
+      audience: '',
+      outcomes: [],
+      priceNote: '',
+    });
+  });
+
+  it('bounds the numbers and the outcomes', () => {
+    const ok = (v: object) => OfferingDetails.safeParse({ kind: 'service', ...v }).success;
+    expect(ok({ durationMinutes: 90, sessions: 10, format: 'hybrid' })).toBe(true);
+    expect(ok({ durationMinutes: 4 })).toBe(false);
+    expect(ok({ durationMinutes: 1441 })).toBe(false);
+    expect(ok({ sessions: 0 })).toBe(false);
+    expect(ok({ outcomes: ['a', 'b', 'c', 'd', 'e', 'f'] })).toBe(false);
+    expect(ok({ outcomes: [' '] })).toBe(false);
+    expect(OfferingDetails.safeParse({ kind: 'package' }).success).toBe(false);
+  });
+
+  it('reads a product row without the field as no offering', () => {
+    expect(ProductDto.shape.offering.parse(undefined)).toBeNull();
+  });
+
+  it('takes an offering or an accommodation, never both', () => {
+    expect(UpsertProductRequest.parse(base).offering).toBeUndefined();
+    expect(UpsertProductRequest.parse({ ...base, offering: null }).offering).toBeNull();
+    expect(
+      UpsertProductRequest.parse({ ...base, offering: { kind: 'course' } }).offering?.kind,
+    ).toBe('course');
+    expect(UpsertProductRequest.safeParse({ ...base, accommodation }).success).toBe(true);
+    const both = UpsertProductRequest.safeParse({
+      ...base,
+      accommodation,
+      offering: { kind: 'service' },
+    });
+    expect(both.success).toBe(false);
+    expect(both.error?.issues[0]?.path).toEqual(['offering']);
   });
 });

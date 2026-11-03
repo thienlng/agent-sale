@@ -580,7 +580,9 @@
       "onboarding": "Cài đặt & hướng dẫn",
       "support": "Hỗ trợ khách hàng",
       "dataSecurity": "Bảo mật dữ liệu",
-      "refundPolicy": "Hoàn tiền & huỷ gói"
+      "refundPolicy": "Hoàn tiền & huỷ gói",
+      "branches": "Các cơ sở / chi nhánh",
+      "reschedule": "Đổi / huỷ lịch hẹn"
     },
     "examples": {
       "displayName": "Ví dụ: Cửa hàng Hoa Nắng",
@@ -617,7 +619,9 @@
       "onboarding": "Ví dụ: Hướng dẫn cài đặt miễn phí 1 buổi; chuyển dữ liệu từ Excel",
       "support": "Ví dụ: Zalo và hotline 8:00-22:00 hằng ngày, phản hồi trong 15 phút",
       "dataSecurity": "Ví dụ: Máy chủ tại Việt Nam, sao lưu hằng ngày, không chia sẻ dữ liệu cho bên thứ ba",
-      "refundPolicy": "Ví dụ: Huỷ gói bất kỳ lúc nào; hoàn tiền trong 7 ngày đầu nếu chưa dùng"
+      "refundPolicy": "Ví dụ: Huỷ gói bất kỳ lúc nào; hoàn tiền trong 7 ngày đầu nếu chưa dùng",
+      "branches": "Ví dụ: Cơ sở Quận 1 — 12 Nguyễn Huệ, 8:00-21:00\nCơ sở Thủ Đức — 5 Võ Văn Ngân, 9:00-20:00\nHọc online qua Zoom",
+      "reschedule": "Ví dụ: Đổi hoặc huỷ lịch trước 2 tiếng; đến trễ quá 15 phút sẽ nhường lịch cho khách khác"
     },
     "askFill": "Điền mẫu thông tin doanh nghiệp: điền vào biểu mẫu các ô còn thiếu từ dữ liệu của shop để mình kiểm tra rồi lưu."
   },

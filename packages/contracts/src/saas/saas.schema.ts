@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+import {
+  CustomerRequestKind,
+  SAAS_REQUEST_KINDS,
+  requestDetailsSchema,
+} from '../crm/customer-request.js';
+
 const text = (max: number) => z.string().trim().max(max);
 const Amount = z.number().int().min(0).max(1_000_000_000_000);
 /** Local calendar date (YYYY-MM-DD), never an instant. */
@@ -11,27 +17,41 @@ const CalendarDate = z
     return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
   }, 'must be a real calendar date');
 
-const Email = z.string().trim().toLowerCase().max(200).pipe(z.email());
-
 // ─── Demo / trial / consultation requests taken by the bot (ADR-020) ──────────
 
-export const SaasRequestKind = z.enum(['demo', 'trial', 'consultation']);
+/** @deprecated Use `CustomerRequestKind` and `REQUEST_PROFILES.saas.kinds` (ESV spec §4.1). */
+export const SaasRequestKind = CustomerRequestKind.extract(SAAS_REQUEST_KINDS);
 export type SaasRequestKind = z.infer<typeof SaasRequestKind>;
 
 /**
  * What a lead told the bot. The phone identifies the customer (one phone = one customer); the
  * rest goes to a note on the customer. Free text on purpose: "10-20 người", "chiều thứ 5".
  */
-export const SaasLeadDetails = z.object({
-  name: text(120).min(1),
-  phone: text(40).min(1),
-  email: Email.nullable().default(null),
-  company: text(200).default(''),
-  teamSize: text(60).default(''),
-  need: text(2000).default(''),
-  preferredTime: text(200).default(''),
-  planInterest: text(200).default(''),
-});
+interface SaasLeadDetailsOutput {
+  name: string;
+  phone: string;
+  email: string | null;
+  company: string;
+  teamSize: string;
+  need: string;
+  preferredTime: string;
+  planInterest: string;
+}
+interface SaasLeadDetailsInput {
+  name: string;
+  phone: string;
+  email?: string | null | undefined;
+  company?: string | undefined;
+  teamSize?: string | undefined;
+  need?: string | undefined;
+  preferredTime?: string | undefined;
+  planInterest?: string | undefined;
+}
+/** @deprecated Use `requestDetailsSchema('saas')` (ESV spec §4.1); same fields and limits. */
+export const SaasLeadDetails = requestDetailsSchema('saas') as unknown as z.ZodType<
+  SaasLeadDetailsOutput,
+  SaasLeadDetailsInput
+>;
 export type SaasLeadDetails = z.infer<typeof SaasLeadDetails>;
 
 // ─── Customer subscriptions ───────────────────────────────────────────────────
