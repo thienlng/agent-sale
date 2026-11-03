@@ -1105,7 +1105,7 @@ export class InMemoryAssistantRepository implements AssistantRepository {
       commentaryRunId: null,
       notificationId: null,
       threadId: null,
-      startedAt: this.#now(),
+      startedAt: row.startedAt ?? this.#now(),
     };
     this.scheduleRuns.set(r.id, r);
     return structuredClone(r);

@@ -529,7 +529,7 @@ export type NewScheduleRun = Pick<
   ScheduleRunRecord,
   'id' | 'accountId' | 'ownerUserId' | 'scheduleId' | 'trigger' | 'scheduledFor'
 > &
-  Partial<Pick<ScheduleRunRecord, 'status' | 'errorCode' | 'finishedAt'>>;
+  Partial<Pick<ScheduleRunRecord, 'status' | 'errorCode' | 'startedAt' | 'finishedAt'>>;
 
 export type ScheduleRunPatch = Partial<
   Pick<
