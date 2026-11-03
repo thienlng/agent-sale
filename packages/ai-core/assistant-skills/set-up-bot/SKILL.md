@@ -1,6 +1,8 @@
 ---
 name: set-up-bot
 description: Get a sales bot ready to answer customers: readiness checklist, reply guidance, business information and FAQ
+title: Thiết lập bot bán hàng
+description_vi: Chuẩn bị bot sẵn sàng trả lời khách: danh sách việc cần làm, cách trả lời, thông tin, FAQ
 toolsets: [ui, routes]
 version: 2
 ---

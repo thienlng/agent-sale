@@ -1,6 +1,8 @@
 ---
 name: bot-doctor
 description: Explain why the shop bot answered a customer badly, from its turn trace, and draft the fixes as proposals
+title: Khám lỗi trả lời của bot
+description_vi: Tìm vì sao bot trả lời khách chưa tốt và đề xuất cách sửa
 toolsets: [routes, ui]
 version: 1
 ---

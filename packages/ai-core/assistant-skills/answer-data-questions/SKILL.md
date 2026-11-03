@@ -1,6 +1,8 @@
 ---
 name: answer-data-questions
 description: Answer number questions about the shop (revenue, orders, products, customers) from the read-only SQL views
+title: Hỏi số liệu cửa hàng
+description_vi: Trả lời câu hỏi về doanh thu, đơn hàng, sản phẩm, khách hàng từ dữ liệu của shop
 toolsets: [sql]
 version: 1
 ---

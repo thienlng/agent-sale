@@ -1,6 +1,8 @@
 ---
 name: draft-reply-guidance
 description: Draft how a bot replies: mission, greeting, pronouns and tone, conversation scenarios and quick replies
+title: Soạn cách bot trả lời
+description_vi: Soạn nhiệm vụ, lời chào, cách xưng hô, giọng điệu, tình huống và tin nhắn nhanh
 toolsets: [ui, routes]
 version: 1
 ---

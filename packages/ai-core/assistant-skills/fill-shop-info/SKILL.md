@@ -1,6 +1,8 @@
 ---
 name: fill-shop-info
 description: Draft a bot's business information and FAQ, and the names and settings of a business or a bot
+title: Điền thông tin cửa hàng
+description_vi: Soạn thông tin doanh nghiệp, câu hỏi thường gặp và cài đặt của doanh nghiệp hoặc bot
 toolsets: [ui, routes]
 version: 1
 ---

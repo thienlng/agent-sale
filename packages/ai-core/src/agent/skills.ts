@@ -20,11 +20,22 @@ export interface SkillDoc {
   toolsets: string[];
   version: number;
   body: string;
+  /** Vietnamese name shown to the owner (`title`); required for platform skills by the linter. */
+  title?: string;
+  /** Short Vietnamese description shown to the owner (`description_vi`); the model reads `description`. */
+  descriptionVi?: string;
+}
+
+/** Options of `lintSkill` / `loadSkillDir`. */
+export interface SkillLintOptions {
+  /** A shipped platform skill: `title` and `description_vi` are required (shown to the owner). */
+  platform?: boolean;
 }
 
 const NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
 const NAME_MAX = 64;
 const DESCRIPTION_MAX = 120;
+const TITLE_MAX = 60;
 const BODY_MAX = 8000;
 
 function invalid(reason: string): Error {
@@ -53,7 +64,10 @@ function parseList(value: string): string[] {
     .filter((s) => s.length > 0);
 }
 
-/** Parses a SKILL.md: `---` front matter (name, description, toolsets, version), then the body. */
+/**
+ * Parses a SKILL.md: `---` front matter (name, description, toolsets, version; optional title and
+ * description_vi, the owner-facing Vietnamese texts), then the body.
+ */
 export function parseSkill(source: string): SkillDoc {
   const text = source.replace(/\r\n/g, '\n').replace(/^\uFEFF/, '');
   const lines = text.split('\n');
@@ -86,7 +100,19 @@ export function parseSkill(source: string): SkillDoc {
     .slice(end + 1)
     .join('\n')
     .trim();
-  return { name, description, toolsets, version: Number(versionText), body };
+  const title = fields.has('title') ? unquote(fields.get('title') ?? '') : '';
+  const descriptionVi = fields.has('description_vi')
+    ? unquote(fields.get('description_vi') ?? '')
+    : '';
+  return {
+    name,
+    description,
+    toolsets,
+    version: Number(versionText),
+    body,
+    ...(title ? { title } : {}),
+    ...(descriptionVi ? { descriptionVi } : {}),
+  };
 }
 
 /**
@@ -104,8 +130,18 @@ function stripAppPaths(text: string): string {
 }
 
 /** Returns the problems with a skill; empty when it is clean. */
-export function lintSkill(doc: SkillDoc): string[] {
+export function lintSkill(doc: SkillDoc, opts: SkillLintOptions = {}): string[] {
   const problems: string[] = [];
+  for (const [key, value, max] of [
+    ['title', doc.title, TITLE_MAX],
+    ['description_vi', doc.descriptionVi, DESCRIPTION_MAX],
+  ] as const) {
+    if (value === undefined) {
+      if (opts.platform) problems.push(`${key} is required for a platform skill`);
+    } else if (value.length > max || /[\r\n]/.test(value)) {
+      problems.push(`${key} must be one line of 1-${max} chars`);
+    }
+  }
   if (!NAME_RE.test(doc.name)) problems.push('name must match ^[a-z0-9][a-z0-9-]*$');
   if (doc.name.length > NAME_MAX) problems.push(`name longer than ${NAME_MAX} chars`);
   if (doc.description.length < 1 || doc.description.length > DESCRIPTION_MAX) {
@@ -115,7 +151,14 @@ export function lintSkill(doc: SkillDoc): string[] {
   if (/[\r\n]/.test(doc.description)) problems.push('description must be one line');
   if (doc.body.length > BODY_MAX) problems.push(`body longer than ${BODY_MAX} chars`);
   const scanned = stripAppPaths(
-    [doc.name, doc.description, doc.toolsets.join(' '), doc.body].join('\n'),
+    [
+      doc.name,
+      doc.description,
+      doc.title ?? '',
+      doc.descriptionVi ?? '',
+      doc.toolsets.join(' '),
+      doc.body,
+    ].join('\n'),
   );
   const { issues } = scanUntrustedText(scanned);
   for (const issue of issues) problems.push(`safety: ${issue}`);
@@ -130,8 +173,11 @@ export function renderSkillIndex(skills: Pick<SkillDoc, 'name' | 'description'>[
     .join('\n');
 }
 
-/** Loads `<dir>/<name>/SKILL.md` for every subfolder, sorted by folder name. Throws on any bad skill. */
-export async function loadSkillDir(dir: string): Promise<SkillDoc[]> {
+/**
+ * Loads `<dir>/<name>/SKILL.md` for every subfolder, sorted by folder name. Throws on any bad
+ * skill (with `platform`, also on a missing title or description_vi).
+ */
+export async function loadSkillDir(dir: string, opts: SkillLintOptions = {}): Promise<SkillDoc[]> {
   const entries = await readdir(dir, { withFileTypes: true });
   const folders = entries
     .filter((e) => e.isDirectory())
@@ -148,7 +194,7 @@ export async function loadSkillDir(dir: string): Promise<SkillDoc[]> {
     }
     if (doc.name !== folder)
       throw invalid(`${folder}: name "${doc.name}" does not match its folder`);
-    const problems = lintSkill(doc);
+    const problems = lintSkill(doc, opts);
     if (problems.length > 0) throw invalid(`${folder}: ${problems.join('; ')}`);
     skills.push(doc);
   }

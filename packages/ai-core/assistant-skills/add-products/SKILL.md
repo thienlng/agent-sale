@@ -1,6 +1,8 @@
 ---
 name: add-products
 description: Add or update products in the catalog, set stock, and choose which products a bot sells
+title: Thêm sản phẩm
+description_vi: Thêm hoặc sửa sản phẩm, đặt tồn kho và chọn sản phẩm cho bot bán
 toolsets: [ui, routes]
 version: 2
 ---

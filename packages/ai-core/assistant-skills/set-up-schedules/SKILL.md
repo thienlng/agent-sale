@@ -1,6 +1,8 @@
 ---
 name: set-up-schedules
 description: Turn "send me … every …" or "tell me when …" into a report or alert schedule the owner approves
+title: Lịch báo cáo và cảnh báo
+description_vi: Tạo lịch gửi báo cáo định kỳ hoặc cảnh báo khi có việc cần chú ý
 toolsets: [schedule]
 version: 1
 ---

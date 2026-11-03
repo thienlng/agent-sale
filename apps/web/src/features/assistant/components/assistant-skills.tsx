@@ -132,8 +132,10 @@ function SkillRow({
         className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">{skill.name}</span>
-          <span className="block truncate text-xs text-muted-foreground">{skill.description}</span>
+          <span className="block truncate text-sm font-medium">{skill.title ?? skill.name}</span>
+          <span className="block truncate text-xs text-muted-foreground">
+            {skill.descriptionVi ?? skill.description}
+          </span>
         </span>
         {skill.provenance === 'shadow' ? (
           <span className="shrink-0 text-xs text-primary">{t('skills.customised')}</span>

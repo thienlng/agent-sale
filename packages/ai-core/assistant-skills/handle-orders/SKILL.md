@@ -1,6 +1,8 @@
 ---
 name: handle-orders
 description: Find orders, review bot orders, change an order status and create an order for a customer
+title: Xử lý đơn hàng
+description_vi: Tìm đơn, duyệt đơn bot tạo, đổi trạng thái và tạo đơn cho khách
 toolsets: [ui, routes]
 version: 1
 ---

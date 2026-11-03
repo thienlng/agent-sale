@@ -1,6 +1,8 @@
 ---
 name: fill-sample-data
 description: Fill an empty bot page with a small editable sample (FAQ, scenarios, quick replies, profile) from real sources
+title: Điền dữ liệu mẫu
+description_vi: Điền mẫu câu hỏi thường gặp, tình huống, tin nhắn nhanh từ dữ liệu thật của shop
 toolsets: [ui, routes]
 version: 2
 ---

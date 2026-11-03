@@ -37,7 +37,7 @@ describe('platform skills', () => {
     const skills = await loadSkillDir(ASSISTANT_SKILLS_DIR);
     expect(skills.map((s) => s.name)).toEqual(PLATFORM_SKILLS);
     for (const skill of skills) {
-      expect(lintSkill(skill)).toEqual([]);
+      expect(lintSkill(skill, { platform: true })).toEqual([]);
       expect(skill.toolsets.length).toBeGreaterThan(0);
       expect(
         skill.toolsets.every(
@@ -109,6 +109,18 @@ describe('skill tools', () => {
     };
     return { catalog, tools, run };
   }
+
+  it('lists platform skills with their Vietnamese title and description (QA UX1)', async () => {
+    const { catalog } = await setup();
+    const repo = new InMemoryAssistantRepository();
+    const key = { accountId: newId(), ownerUserId: userId(newId()) };
+    const list = await new SkillsService(repo, catalog).list(key);
+    expect(list.items.find((i) => i.name === 'add-products')).toMatchObject({
+      provenance: 'platform',
+      title: 'Thêm sản phẩm',
+      descriptionVi: expect.stringMatching(/^Thêm hoặc sửa sản phẩm/),
+    });
+  });
 
   it('offers skills_list, load_skill and skill_manage, with a definition for each', async () => {
     const { tools } = await setup();

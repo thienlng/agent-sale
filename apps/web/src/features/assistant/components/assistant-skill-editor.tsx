@@ -245,7 +245,7 @@ export function AssistantSkillEditor({
       ) : (
         <div className="mt-3 flex flex-col gap-4">
           <div>
-            <h2 className="font-semibold break-words">{skill.data.name}</h2>
+            <h2 className="font-semibold break-words">{skill.data.title ?? skill.data.name}</h2>
             <p className="text-xs text-muted-foreground">
               {t(`skills.provenance.${skill.data.provenance}`)}
               {skill.data.state !== 'active' ? ` · ${t(`skills.states.${skill.data.state}`)}` : ''}
@@ -253,7 +253,7 @@ export function AssistantSkillEditor({
           </div>
           {skill.data.provenance === 'platform' ? (
             <>
-              <p className="text-sm">{skill.data.description}</p>
+              <p className="text-sm">{skill.data.descriptionVi ?? skill.data.description}</p>
               <pre className="max-h-72 overflow-y-auto rounded bg-muted p-2 text-xs whitespace-pre-wrap">
                 {skill.data.body}
               </pre>

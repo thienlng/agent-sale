@@ -1,6 +1,8 @@
 ---
 name: read-revenue
 description: Answer questions about revenue, order counts and trends for a date range, with the source of each figure
+title: Xem doanh thu
+description_vi: Trả lời về doanh thu, số đơn và xu hướng theo khoảng thời gian, kèm nguồn số liệu
 toolsets: [sql, routes]
 version: 2
 ---

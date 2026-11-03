@@ -197,6 +197,24 @@ describe('AssistantSkills', () => {
     );
   });
 
+  it('shows a platform skill by its Vietnamese title and description (QA UX1)', async () => {
+    const platform = platformSkillFixture({
+      name: 'add-products',
+      description: 'Add or update products in the catalog',
+      title: 'Thêm sản phẩm',
+      descriptionVi: 'Thêm hoặc sửa sản phẩm, đặt tồn kho',
+    });
+    const { fetchStub } = stubFetch({ 'GET /assistant/skills': list(platform) });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithProviders(<AssistantSkills />);
+    const builtIn = await screen.findByRole('region', { name: 'Có sẵn' });
+    expect(within(builtIn).getByText('Thêm sản phẩm')).toBeInTheDocument();
+    expect(within(builtIn).getByText('Thêm hoặc sửa sản phẩm, đặt tồn kho')).toBeInTheDocument();
+    expect(
+      within(builtIn).queryByText('Add or update products in the catalog'),
+    ).not.toBeInTheDocument();
+  });
+
   it('customises a platform skill into a shadow, which can go back to the original', async () => {
     const platformRef = `GET /assistant/skills/${encodeURIComponent('platform:tao-don')}`;
     const shadow = skillFixture({
