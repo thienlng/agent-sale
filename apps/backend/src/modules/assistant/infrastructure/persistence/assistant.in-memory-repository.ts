@@ -31,6 +31,7 @@ import {
   MEMORY_STORE_PATTERN,
   type MemoryEntry,
   type MemoryStoreRecord,
+  type MemoryTombstone,
   type MessageRecord,
   type NewMessage,
   type NewProposal,
@@ -380,6 +381,7 @@ export class InMemoryAssistantRepository implements AssistantRepository {
     s: OwnerScope,
     store: string,
     entries: MemoryEntry[],
+    tombstones?: MemoryTombstone[],
   ): Promise<MemoryStoreRecord> {
     // Mirrors the table's CHECK constraint.
     if (!MEMORY_STORE_PATTERN.test(store)) throw new Error(`invalid assistant memory store`);
@@ -395,6 +397,10 @@ export class InMemoryAssistantRepository implements AssistantRepository {
       this.memory.push(row);
     }
     row.entries = structuredClone(entries);
+    if (tombstones !== undefined) {
+      if (tombstones.length > 0) row.tombstones = structuredClone(tombstones);
+      else delete row.tombstones;
+    }
     row.updatedAt = this.#now();
     const { accountId: _a, ownerUserId: _o, ...rest } = row;
     return structuredClone(rest);

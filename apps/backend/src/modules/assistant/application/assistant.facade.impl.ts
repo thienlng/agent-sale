@@ -41,6 +41,7 @@ import {
   memoryLimit,
   memoryUsed,
 } from '../domain/memory-store.js';
+import { withTombstone } from '../domain/memory-tombstones.js';
 import {
   ASSISTANT_REPOSITORY,
   type AssistantRepository,
@@ -127,6 +128,10 @@ export class AssistantFacadeImpl implements AssistantFacade {
       ...(patch.archived !== undefined ? { archived: patch.archived } : {}),
     });
     if (!thread) throw new AssistantNotFoundError('thread', threadId);
+    // An archived thread is never reviewed: drop its queued review (QA NB-4).
+    if (patch.archived === true) {
+      await this.repo.cancelJob(scope, { threadId: thread.id, kind: 'review' });
+    }
     return toThreadDto(thread);
   }
 
@@ -309,14 +314,16 @@ export class AssistantFacadeImpl implements AssistantFacade {
       throw new AssistantNotFoundError('memory entry', entryId);
     }
     const memory = await this.repo.getMemory(scope);
-    const entries = memory.find((m) => m.store === store)?.entries ?? [];
-    if (!entries.some((e) => e.id === entryId)) {
-      throw new AssistantNotFoundError('memory entry', entryId);
-    }
+    const record = memory.find((m) => m.store === store);
+    const entries = record?.entries ?? [];
+    const gone = entries.find((e) => e.id === entryId);
+    if (!gone) throw new AssistantNotFoundError('memory entry', entryId);
+    // A tombstone keeps the review (or the chat) from saving it again (QA NB-4).
     const saved = await this.repo.saveMemoryStore(
       scope,
       store,
-      entries.filter((e) => e.id !== entryId),
+      entries.filter((e) => e !== gone),
+      withTombstone(record?.tombstones, gone.text),
     );
     return this.#memoryDto(scope, [...memory.filter((m) => m.store !== store), saved]);
   }
@@ -331,10 +338,14 @@ export class AssistantFacadeImpl implements AssistantFacade {
       throw new AssistantNotFoundError('memory entry', entryId);
     }
     const memory = await this.repo.getMemory(scope);
-    const entries = memory.find((m) => m.store === store)?.entries ?? [];
+    const record = memory.find((m) => m.store === store);
+    const entries = record?.entries ?? [];
     const next = undoReviewEntry(entries, entryId);
     if (!next) throw new AssistantNotFoundError('memory entry', entryId);
-    const saved = await this.repo.saveMemoryStore(scope, store, next);
+    // Undoing a learned text the owner did not want: it must not be learned again (QA NB-4).
+    const undone = entries.find((e) => e.id === entryId);
+    const tombstones = undone ? withTombstone(record?.tombstones, undone.text) : undefined;
+    const saved = await this.repo.saveMemoryStore(scope, store, next, tombstones);
     return this.#memoryDto(scope, [...memory.filter((m) => m.store !== store), saved]);
   }
 

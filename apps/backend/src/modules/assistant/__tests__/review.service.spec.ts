@@ -523,6 +523,16 @@ describe('ReviewService and the runner', () => {
     expect(skills.reviewScope).toBe('combined');
   });
 
+  it('never reviews an archived thread (QA NB-4)', async () => {
+    const s = setup();
+    const thread = await threadWithTalk(s);
+    const job = await enqueue(s, thread.id);
+    await s.repo.updateThread(s.scope, thread.id, { archived: true });
+    await s.runner.tick();
+    expect(await s.repo.getJob(s.scope, job.id)).toMatchObject({ status: 'cancelled' });
+    expect(s.generate).not.toHaveBeenCalled();
+  });
+
   it('cancels when review is off or the user is no longer an active owner', async () => {
     const s = setup();
     const thread = await threadWithTalk(s);

@@ -265,3 +265,65 @@ describe('memory undo of a review rewrite', () => {
     expect(entry).not.toHaveProperty('previousOrigin');
   });
 });
+
+describe('memory tombstones (QA NB-4)', () => {
+  const tomb = (norm: string, deletedAt = new Date().toISOString()) => ({ norm, deletedAt });
+
+  it('refuses a chat or review write that says what the owner deleted', async () => {
+    const { scope, repo, turn, entries } = setup();
+    await repo.saveMemoryStore(
+      scope,
+      'owner_profile',
+      [],
+      [tomb('anh chi muon bao gia villa duoc tach gia tung dem')],
+    );
+    const chat = await turn()({
+      action: 'add',
+      store: 'owner_profile',
+      text: 'Anh/chị muốn báo giá villa được tách giá từng đêm',
+    });
+    expect(chat).toMatchObject({ ok: false, errorCode: 'deleted_by_owner' });
+    // Another store does not escape the tombstone.
+    const review = memoryTool({ scope, repo, origin: 'review' });
+    const out = await review.run(
+      review.schema.parse({
+        action: 'add',
+        store: 'notes',
+        text: 'Anh/chị muốn báo giá villa được tách giá từng đêm.',
+        ownerAskedAgain: true,
+      }),
+    );
+    expect(JSON.parse(out.content)).toMatchObject({ errorCode: 'deleted_by_owner' });
+    expect(await entries('notes')).toEqual([]);
+    expect(await entries('owner_profile')).toEqual([]);
+  });
+
+  it('lets the chat save it again when the owner asks, and lifts the tombstone', async () => {
+    const { scope, repo, turn, entries } = setup();
+    await repo.saveMemoryStore(
+      scope,
+      'owner_profile',
+      [],
+      [tomb('nghi chu nhat'), tomb('ban len')],
+    );
+    const out = await turn()({
+      action: 'add',
+      store: 'owner_profile',
+      text: 'Nghỉ chủ nhật',
+      ownerAskedAgain: true,
+    });
+    expect(out).toMatchObject({ ok: true });
+    expect(await entries('owner_profile')).toEqual(['Nghỉ chủ nhật']);
+    const left = (await repo.getMemory(scope))[0]?.tombstones?.map((t) => t.norm);
+    expect(left).toEqual(['ban len']);
+  });
+
+  it('forgets tombstones older than 90 days', async () => {
+    const { scope, repo, turn } = setup();
+    const old = new Date(Date.now() - 91 * 86_400_000).toISOString();
+    await repo.saveMemoryStore(scope, 'notes', [], [tomb('nghi chu nhat', old)]);
+    expect(await turn()({ action: 'add', store: 'notes', text: 'Nghỉ chủ nhật' })).toMatchObject({
+      ok: true,
+    });
+  });
+});

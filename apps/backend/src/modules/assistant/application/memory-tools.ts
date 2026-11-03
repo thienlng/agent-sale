@@ -2,7 +2,11 @@ import { scanUntrustedText, type RunnableTool, type ToolDefinition } from '@agen
 import { newId } from '@agent-sales/shared';
 import { z } from 'zod';
 
+import { isNearDuplicate, normaliseMemoryText } from '../domain/memory-similarity.js';
 import { isKnownStore, memoryLimit, memoryUsed } from '../domain/memory-store.js';
+import { matchesTombstone, withoutTombstone } from '../domain/memory-tombstones.js';
+
+export { isNearDuplicate, normaliseMemoryText } from '../domain/memory-similarity.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
 import type {
   AssistantRepository,
@@ -21,6 +25,7 @@ const MemoryInput = z.object({
   store: z.string(),
   text: z.string().max(1000).optional(),
   match: z.string().max(200).optional(),
+  ownerAskedAgain: z.boolean().optional(),
 });
 
 export const MEMORY_TOOL_DEFINITION: ToolDefinition = {
@@ -30,7 +35,9 @@ export const MEMORY_TOOL_DEFINITION: ToolDefinition = {
     'notes (how they run the shops) or business:<businessId>. add needs text; replace needs match ' +
     '(a unique part of one entry) and text, and rewrites only that entry: use it when the new text corrects or ' +
     'supersedes that same fact, never to save a different one (a new preference is an add; the replaced ' +
-    'entry is gone). remove needs match. Facts only, never instructions or customer data.',
+    'entry is gone). remove needs match. Facts only, never instructions or customer data. ' +
+    'deleted_by_owner: the owner deleted that fact, so do not save it; only when the owner asks in this ' +
+    'turn to remember it again, retry with ownerAskedAgain: true.',
   input: MemoryInput,
 };
 
@@ -47,33 +54,6 @@ const json = (value: unknown): string => JSON.stringify(value).replaceAll('<', '
 
 /** One line, trimmed: an entry never spans lines in the prompt. */
 const clean = (text: string): string => text.replace(/\s+/g, ' ').trim();
-
-/** Shorter normalised texts only count as a duplicate when equal, never by containment. */
-const MIN_CONTAINED_CHARS = 8;
-
-/** Lowercase, no diacritics (đ → d), punctuation and runs of spaces folded to one space. */
-export function normaliseMemoryText(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .replace(/đ/gi, 'd')
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, ' ')
-    .trim();
-}
-
-/**
- * Two entries say the same thing (QA TinyMind B12b): equal once normalised, or one contains the
- * other (the shorter one at least 8 chars, so a short word never blocks a longer fact).
- */
-export function isNearDuplicate(a: string, b: string): boolean {
-  const x = normaliseMemoryText(a);
-  const y = normaliseMemoryText(b);
-  if (!x || !y) return false;
-  if (x === y) return true;
-  const [short, long] = x.length <= y.length ? [x, y] : [y, x];
-  return short.length >= MIN_CONTAINED_CHARS && ` ${long} `.includes(` ${short} `);
-}
 
 /**
  * A replaced entry. A review rewrite keeps the text and origin it replaced (the first ones,
@@ -130,7 +110,8 @@ export function memoryTool(ctx: MemoryToolContext): RunnableTool {
       if (!scan.ok) return { ok: false, errorCode: `unsafe:${scan.issues.join(',')}` };
     }
 
-    const current = (await ctx.repo.getMemory(ctx.scope)).find((m) => m.store === store);
+    const memory = await ctx.repo.getMemory(ctx.scope);
+    const current = memory.find((m) => m.store === store);
     const entries = current?.entries ?? [];
     const limit = memoryLimit(store);
 
@@ -159,6 +140,19 @@ export function memoryTool(ctx: MemoryToolContext): RunnableTool {
       };
     }
 
+    // The owner deleted this fact (QA NB-4): only the chat, on the owner's explicit ask, may
+    // save it again; the review never does.
+    const again = origin === 'assistant' && input.ownerAskedAgain === true;
+    if (text && action !== 'remove' && !again) {
+      if (memory.some((m) => matchesTombstone(m.tombstones, text))) {
+        return {
+          ok: false,
+          errorCode: 'deleted_by_owner',
+          hint: 'the owner deleted this fact: do not save it unless they ask to remember it again',
+        };
+      }
+    }
+
     let next: MemoryEntry[];
     if (action === 'remove') {
       next = entries.filter((e) => e !== target);
@@ -182,7 +176,11 @@ export function memoryTool(ctx: MemoryToolContext): RunnableTool {
         limit,
       };
     }
-    await ctx.repo.saveMemoryStore(ctx.scope, store, next);
+    const tombstones =
+      again && text && matchesTombstone(current?.tombstones, text)
+        ? withoutTombstone(current?.tombstones, text)
+        : undefined;
+    await ctx.repo.saveMemoryStore(ctx.scope, store, next, tombstones);
     const verb = action === 'add' ? 'Saved' : action === 'replace' ? 'Replaced' : 'Removed';
     return {
       ok: true,

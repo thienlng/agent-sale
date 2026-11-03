@@ -172,6 +172,23 @@ describe('AssistantFacade (contract)', () => {
     ]);
   });
 
+  it('cancels the queued review of a thread when it is archived (QA NB-4)', async () => {
+    const { facade, me, repo, accountId } = setup();
+    const t = await facade.createThread({ ...me, ownerName: null }, {});
+    const key = { accountId, ownerUserId: me.userId };
+    const job = await repo.enqueueJob(key, {
+      id: newId(),
+      threadId: t.id,
+      kind: 'review',
+      reviewScope: 'combined',
+      runAfter: new Date(Date.now() + 60_000),
+    });
+    await facade.updateThread(me, t.id, { pinned: true });
+    expect(await repo.getJob(key, job.id)).toMatchObject({ status: 'queued' });
+    await facade.updateThread(me, t.id, { archived: true });
+    expect(await repo.getJob(key, job.id)).toMatchObject({ status: 'cancelled' });
+  });
+
   it('hides tool rows from the visible messages', async () => {
     const { facade, me, repo, accountId } = setup();
     const t = await facade.createThread({ ...me, ownerName: null }, {});
@@ -351,6 +368,15 @@ describe('AssistantFacade (contract)', () => {
     await expect(facade.deleteMemoryEntry(me, 'notes', a)).rejects.toBeInstanceOf(
       AssistantNotFoundError,
     );
+    // The deleted text is tombstoned (QA NB-4), and the next delete keeps it.
+    const tombs = async () =>
+      (await repo.getMemory(scope))
+        .find((m) => m.store === 'notes')
+        ?.tombstones?.map((t) => t.norm);
+    expect(await tombs()).toEqual(['giao hang buoi chieu']);
+    expect((await facade.getMemory(me)).stores[1]?.used).toBe(7);
+    await repo.saveMemoryStore(scope, 'notes', [entry(b, 'Nghỉ CN')]);
+    expect(await tombs()).toEqual(['giao hang buoi chieu']);
     await expect(facade.deleteMemoryEntry(me, `business:${newId()}`, b)).rejects.toBeInstanceOf(
       AssistantNotFoundError,
     );

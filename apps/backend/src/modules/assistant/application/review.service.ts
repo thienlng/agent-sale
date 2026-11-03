@@ -333,7 +333,7 @@ export class ReviewService {
 
   /**
    * The thread and the owner's scope, or null when the job is no longer wanted: not a review,
-   * review turned off, thread gone or a schedule thread, or the owner is no longer an active
+   * review turned off, thread gone, archived or a schedule thread, or the owner is no longer an active
    * owner of the account. A newer message does not cancel it (see `#deferIdle`).
    */
   async #prepare(
@@ -344,7 +344,8 @@ export class ReviewService {
     const settings = await this.repo.getSettings(key);
     if (!settings.reviewEnabled) return null;
     const thread = await this.repo.getThread(key, job.threadId);
-    if (!thread || thread.origin === 'schedule') return null;
+    // An archived thread is done with: reviewing it could bring back what the owner cleaned up.
+    if (!thread || thread.origin === 'schedule' || thread.archived) return null;
     const scope = await this.#ownerScope(key, thread);
     return scope ? { scope, thread } : null;
   }

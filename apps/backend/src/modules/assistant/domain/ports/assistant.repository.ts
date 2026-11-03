@@ -140,10 +140,21 @@ export interface MemoryEntry {
   previousOrigin?: MemoryOrigin;
 }
 
+/**
+ * An entry the owner deleted (QA NB-4): its normalised text and when. Kept 90 days so the review
+ * (or the chat) does not save it again unless the owner asks. Never shown or counted.
+ */
+export interface MemoryTombstone {
+  norm: string;
+  deletedAt: string;
+}
+
 /** One bounded memory store: `owner_profile`, `notes` or `business:<uuid>`. */
 export interface MemoryStoreRecord {
   store: string;
   entries: MemoryEntry[];
+  /** Owner-deleted texts of this store; absent means none. */
+  tombstones?: MemoryTombstone[];
   updatedAt: Date;
 }
 
@@ -468,8 +479,16 @@ export interface AssistantRepository {
   // ─── Memory ───
   /** The owner's stores, by store name. */
   getMemory(s: OwnerScope): Promise<MemoryStoreRecord[]>;
-  /** Replaces the store's entries (upsert); limits and the safety scan are the caller's job. */
-  saveMemoryStore(s: OwnerScope, store: string, entries: MemoryEntry[]): Promise<MemoryStoreRecord>;
+  /**
+   * Replaces the store's entries (upsert); limits and the safety scan are the caller's job.
+   * With `tombstones`, they replace the store's tombstones; without, the stored ones are kept.
+   */
+  saveMemoryStore(
+    s: OwnerScope,
+    store: string,
+    entries: MemoryEntry[],
+    tombstones?: MemoryTombstone[],
+  ): Promise<MemoryStoreRecord>;
 
   // ─── Proposals ───
   /** Status `pending`; the thread must be the owner's. */
