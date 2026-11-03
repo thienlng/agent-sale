@@ -7,6 +7,11 @@ import { AiModule } from '../ai/ai.module.js';
 import { CommerceModule } from '../commerce/commerce.module.js';
 import { ConversationModule } from '../conversation/conversation.module.js';
 import { CrmModule } from '../crm/crm.module.js';
+import {
+  IDENTITY_DELEGATION_FACADE,
+  type IdentityDelegationFacade,
+} from '../identity/api/index.js';
+import { IdentityModule } from '../identity/identity.module.js';
 import { LodgingModule } from '../lodging/lodging.module.js';
 import { NotificationModule } from '../notification/notification.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
@@ -30,6 +35,7 @@ import { SuggestionsService } from './application/suggestions.service.js';
 import { ThreadPromptService } from './application/thread-prompt.service.js';
 import { ASSISTANT_REPOSITORY } from './domain/ports/assistant.repository.js';
 import { REPORT_DATA_SOURCE, REPORT_STRINGS } from './domain/ports/report-data-source.port.js';
+import { ACCESS_DELEGATION } from './domain/ports/access-delegation.port.js';
 import { ROUTE_INVOKER } from './domain/ports/route-invoker.port.js';
 import { ASSISTANT_SQL_RUNNER } from './domain/ports/sql-runner.port.js';
 import { FastifyRouteInvoker } from './infrastructure/http/fastify-route-invoker.js';
@@ -54,6 +60,8 @@ import { SchedulesController } from './interface/http/schedules.controller.js';
   imports: [
     AccountModule,
     WorkspaceModule,
+    // Route tools and approvals use a short-lived delegated token of the owner (QA N-3).
+    IdentityModule,
     AiModule,
     // Scheduled reports read figures through these facades (S3-R1) and deliver through notification.
     CommerceModule,
@@ -78,6 +86,11 @@ import { SchedulesController } from './interface/http/schedules.controller.js';
     { provide: SkillCatalog, useFactory: () => SkillCatalog.load() },
     // Route tools and approved proposals run in process through Fastify inject (spec §6).
     { provide: ROUTE_INVOKER, useClass: FastifyRouteInvoker },
+    {
+      provide: ACCESS_DELEGATION,
+      inject: [IDENTITY_DELEGATION_FACADE],
+      useFactory: (identity: IdentityDelegationFacade) => identity,
+    },
     SkillsService,
     // The read-only SQL lane (T-171); null without DATABASE_ASSISTANT_SQL_URL, and then the SQL
     // tools are not in the catalog.

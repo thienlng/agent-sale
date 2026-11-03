@@ -514,6 +514,17 @@ describe('AssistantFacade (contract)', () => {
       expect((await facade.listProposals(me, t.id)).items.map((x) => x.status)).toEqual(['done']);
     });
 
+    it('approves with a token minted for the approval when identity can delegate one', async () => {
+      const { repo, scope, p, invoke } = await withProposal();
+      const delegate = vi.fn(() => Promise.resolve('approval-token'));
+      const proposals = new ProposalService(repo, { invoke }, {} as SchedulesService, {
+        delegate,
+      });
+      expect(await proposals.approve(scope, p.id, AUTH)).toMatchObject({ status: 'done' });
+      expect(delegate).toHaveBeenCalledWith(AUTH, 600);
+      expect(invoke.mock.calls[0]?.[0]).toMatchObject({ authorization: 'Bearer approval-token' });
+    });
+
     it('marks a refused execution failed with the HTTP status', async () => {
       const { facade, me, p, t, invoke } = await withProposal();
       invoke.mockResolvedValueOnce({ status: 403, body: { error: { code: 'FORBIDDEN' } } });

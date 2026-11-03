@@ -12,6 +12,7 @@ import { WorkspaceModule } from '../workspace/workspace.module.js';
 import {
   IDENTITY_ADMIN_FACADE,
   IDENTITY_API_KEYS_FACADE,
+  IDENTITY_DELEGATION_FACADE,
   IDENTITY_FACADE,
 } from './api/identity.facade.js';
 import { ApiKeyService } from './application/api-key.service.js';
@@ -29,6 +30,7 @@ import {
   IDEMPOTENCY_STORE,
 } from './application/ports/api-keys.js';
 import { ACCESS_TOKENS, ATTEMPT_LIMITER, PASSWORD_HASHER } from './application/ports/security.js';
+import { DelegatedAccessService } from './application/delegated-access.js';
 import { MfaService } from './application/mfa.service.js';
 import { SessionService } from './application/sessions.js';
 import { MFA_REPOSITORY } from './domain/ports/mfa.repository.js';
@@ -145,7 +147,14 @@ import { IdempotencyInterceptor } from './interface/http/idempotency.interceptor
     { provide: IDENTITY_API_KEYS_FACADE, useExisting: ApiKeyService },
     { provide: IDENTITY_FACADE, useExisting: AccountQueries },
     { provide: IDENTITY_ADMIN_FACADE, useExisting: AccountQueries },
+    DelegatedAccessService,
+    { provide: IDENTITY_DELEGATION_FACADE, useExisting: DelegatedAccessService },
   ],
-  exports: [IDENTITY_FACADE, IDENTITY_ADMIN_FACADE, IDENTITY_API_KEYS_FACADE],
+  exports: [
+    IDENTITY_FACADE,
+    IDENTITY_ADMIN_FACADE,
+    IDENTITY_API_KEYS_FACADE,
+    IDENTITY_DELEGATION_FACADE,
+  ],
 })
 export class IdentityModule {}

@@ -1,6 +1,6 @@
 import type { AssistantProposalDto } from '@agent-sales/contracts';
 import { isUuid, newId } from '@agent-sales/shared';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import {
   AssistantNotFoundError,
@@ -12,7 +12,12 @@ import {
   type AssistantRepository,
   type ProposalRecord,
 } from '../domain/ports/assistant.repository.js';
+import {
+  ACCESS_DELEGATION,
+  type AccessDelegation,
+} from '../domain/ports/access-delegation.port.js';
 import { ROUTE_INVOKER, type RouteInvoker } from '../domain/ports/route-invoker.port.js';
+import { APPROVAL_DELEGATION_SECONDS, delegatedAuthorization } from './delegated-authorization.js';
 import { ImportExecutor, type ImportOutcome, ImportRunError } from './import-executor.js';
 import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
 import { type ScheduleProposalBody, SchedulesService } from './schedules.service.js';
@@ -98,7 +103,7 @@ type Outcome = ({ ok: true; body?: unknown } | { ok: false; errorCode: string })
 
 /**
  * Owner decisions on proposals (spec §6). A proposal runs only on approval, through the same
- * in-process route path as a read, with the approver's own bearer token and idempotency key
+ * in-process route path as a read, with a delegated token of the approver and idempotency key
  * `asst:<id>`. The outcome is appended to the thread as an `event` message, so the next turn sees
  * it. The pending → executing transition is the atomic guard: of two approvals, one wins.
  */
@@ -110,6 +115,9 @@ export class ProposalService {
     @Inject(ASSISTANT_REPOSITORY) private readonly repo: AssistantRepository,
     @Inject(ROUTE_INVOKER) private readonly invoker: RouteInvoker,
     @Inject(SchedulesService) private readonly schedules: SchedulesService,
+    @Inject(ACCESS_DELEGATION)
+    @Optional()
+    private readonly delegation: AccessDelegation | null = null,
   ) {
     this.importExecutor = new ImportExecutor(repo, invoker);
   }
@@ -129,9 +137,15 @@ export class ProposalService {
   async approve(
     scope: OwnerScope,
     id: string,
-    authorization: string,
+    ownAuthorization: string,
   ): Promise<AssistantProposalDto> {
     const proposal = await this.#decidable(scope, id);
+    // An import runs many writes and may outlive the approver's token: use one minted for it.
+    const authorization = await delegatedAuthorization(
+      this.delegation,
+      ownAuthorization,
+      APPROVAL_DELEGATION_SECONDS,
+    );
     const started = await this.repo.transitionProposal(scope, id, ['pending'], 'executing');
     if (!started) throw await this.#conflict(scope, id);
     // It may have expired between the sweep and the transition.

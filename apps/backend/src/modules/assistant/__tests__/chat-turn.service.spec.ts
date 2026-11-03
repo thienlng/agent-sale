@@ -24,6 +24,7 @@ import {
   AssistantRunIdTakenError,
 } from '../domain/assistant.errors.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
+import type { AccessDelegation } from '../domain/ports/access-delegation.port.js';
 import type { RouteInvocation, RouteInvocationResult } from '../domain/ports/route-invoker.port.js';
 import type { SqlRunner } from '../domain/ports/sql-runner.port.js';
 import { InMemoryAssistantRepository } from '../infrastructure/persistence/assistant.in-memory-repository.js';
@@ -60,6 +61,7 @@ async function setup(
   script: (GenerateResponse | Error)[] = [NAVIGATE, ANSWER],
   sqlRunner: SqlRunner | null = null,
   catalog = new SkillCatalog([]),
+  delegation: AccessDelegation | null = null,
 ) {
   const repo = new InMemoryAssistantRepository();
   const scope: OwnerScope = {
@@ -91,6 +93,7 @@ async function setup(
     compaction,
     {} as SchedulesService,
     sqlRunner,
+    delegation,
   );
   const thread = await repo.createThread(scope, {
     id: newId(),
@@ -598,6 +601,73 @@ describe('ChatTurnService', () => {
     const stored = await repo.listMessages(scope, thread.id);
     expect(JSON.stringify(stored)).not.toContain('owner-token');
     expect(JSON.stringify(out.run)).not.toContain('owner-token');
+  });
+
+  it('route tools use a token minted for the turn, so an owner token expiring mid-turn does not fail them', async () => {
+    // The owner's own token expires right after the turn starts (QA Villas N-3).
+    let now = 1_000_000;
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now);
+    const ownExpiresAt = now + 1_000;
+    let mintedExpiresAt = 0;
+    const delegate = vi.fn((authorization: string, ttlSeconds: number) => {
+      if (authorization !== AUTH || Date.now() >= ownExpiresAt) return Promise.resolve(null);
+      mintedExpiresAt = Date.now() + ttlSeconds * 1000;
+      return Promise.resolve('turn-token');
+    });
+    const read = (id: string) => call(id, 'tool_call', { key: 'GET /products' });
+    const { service, scope, thread, repo, invoke, generate } = await setup(
+      [read('r1'), read('r2'), reply({ text: 'Dạ xong ạ' })],
+      null,
+      new SkillCatalog([]),
+      { delegate },
+    );
+    // Every model call takes 20 s, so the tool calls run after the owner's token expired.
+    generate.mockImplementation(() => {
+      now += 20_000;
+      return Promise.resolve(
+        [read('r1'), read('r2'), reply({ text: 'Dạ xong ạ' })][generate.mock.calls.length - 1] ??
+          reply({ text: 'Dạ xong ạ' }),
+      );
+    });
+    invoke.mockImplementation((i: RouteInvocation) => {
+      const valid =
+        (i.authorization === AUTH && Date.now() < ownExpiresAt) ||
+        (i.authorization === 'Bearer turn-token' && Date.now() < mintedExpiresAt);
+      return Promise.resolve(
+        valid ? { status: 200, body: { data: [] } } : { status: 401, body: null },
+      );
+    });
+    try {
+      await service.send(scope, thread.id, { turnId: newId(), text: 'Xem sản phẩm' }, AUTH);
+    } finally {
+      clock.mockRestore();
+    }
+
+    expect(delegate).toHaveBeenCalledTimes(1);
+    // The turn budget (90 s) plus the 3-min margin.
+    expect(delegate.mock.calls[0]?.[1]).toBeGreaterThanOrEqual(90 + 180);
+    expect(invoke).toHaveBeenCalledTimes(2);
+    expect(invoke.mock.calls.map((c) => c[0].authorization)).toEqual([
+      'Bearer turn-token',
+      'Bearer turn-token',
+    ]);
+    const tools = (await repo.listMessages(scope, thread.id)).filter((m) => m.role === 'tool');
+    expect(tools.map((m) => m.content).join('\n')).not.toContain('401');
+    const stored = JSON.stringify(await repo.listMessages(scope, thread.id));
+    expect(stored).not.toContain('turn-token');
+  });
+
+  it('falls back to the owner’s own header when no token can be minted', async () => {
+    const delegate = vi.fn(() => Promise.reject(new Error('down')));
+    const { service, scope, thread, invoke } = await setup(
+      [call('c1', 'tool_call', { key: 'GET /products' }), reply({ text: 'Dạ' })],
+      null,
+      new SkillCatalog([]),
+      { delegate },
+    );
+    invoke.mockResolvedValue({ status: 200, body: { data: [] } });
+    await service.send(scope, thread.id, { turnId: newId(), text: 'Xem' }, AUTH);
+    expect(invoke.mock.calls[0]?.[0]).toMatchObject({ authorization: AUTH });
   });
 
   it('shares one 40 000-char tool output budget across route reads and every other tool', async () => {
