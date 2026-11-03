@@ -5,6 +5,7 @@ import {
   createRouter,
   Outlet,
   RouterProvider,
+  useRouterState,
 } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { act, screen, waitFor, within } from '@testing-library/react';
@@ -206,9 +207,12 @@ describe('AssistantPanel', () => {
     await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
     const box = await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' });
     await user.type(box, 'xin chào{Enter}');
+    const busy = 'Thỏ Rapiz đang trả lời câu trước, anh/chị đợi chút nhé.';
     await waitFor(() =>
-      expect(toast.error).toHaveBeenCalledWith('Thỏ Rapiz đang trả lời câu trước, đợi chút nhé.'),
+      expect(toast.error).toHaveBeenCalledWith(busy, expect.objectContaining({ duration: 8000 })),
     );
+    // A toast fades: the panel also says it above the composer until the next send.
+    expect(await screen.findByRole('status')).toHaveTextContent(busy);
     // The text comes back so the owner can send it again.
     expect(box).toHaveValue('xin chào');
 
@@ -400,6 +404,105 @@ describe('AssistantPanel', () => {
     });
     // Filled, never submitted.
     expect(calls.some((c) => c.key.startsWith('POST /products'))).toBe(false);
+  });
+
+  /**
+   * "Open the new-product page and fill it" (B11): the first turn only navigates, because the form
+   * was not on the page it was sent from. `ownerText` is what the owner typed.
+   */
+  function navigateThenFillTurns(ownerText: string) {
+    const send = `POST /assistant/threads/${ASSISTANT_IDS.thread}/messages`;
+    const routes: Parameters<typeof stubFetch>[0] = {
+      'POST /assistant/threads': { status: 201, body: threadFixture() },
+      [send]: {
+        status: 200,
+        body: turnFixture(ownerText, {
+          content: 'Em mở trang tạo sản phẩm rồi.',
+          uiActions: [{ type: 'navigate', to: '/app/products/new' }],
+        }),
+      },
+      [`GET /assistant/runs/${ASSISTANT_IDS.turn}`]: { status: 200, body: runFixture() },
+      [`GET /assistant/threads/${ASSISTANT_IDS.thread}/messages`]: {
+        status: 200,
+        body: { data: [] },
+      },
+      [`GET /assistant/threads/${ASSISTANT_IDS.thread}/proposals`]: {
+        status: 200,
+        body: { items: [] },
+      },
+      'GET /assistant/threads': { status: 200, body: { data: [] } },
+    };
+    const { fetchStub, calls } = stubFetch(routes);
+    const fetch = async (input: string, init: RequestInit = {}) => {
+      const res = await fetchStub(input, init);
+      // The follow-up turn sees the new page's form and fills it.
+      if (`${init.method ?? 'GET'} ${input.replace('/api/v1', '')}` === send) {
+        routes[send] = {
+          status: 200,
+          body: turnFixture('(trang đã mở; tiếp tục điền form)', {
+            content: 'Em điền rồi nhé.',
+            uiActions: [{ type: 'fill_form', formId: 'product', values: { name: 'Áo thun' } }],
+          }),
+        };
+      }
+      return res;
+    };
+    return { fetch, calls, send };
+  }
+
+  /** Any page; the product form only on /app/products/new (it registers when it mounts). */
+  function ProductRoutePage() {
+    const path = useRouterState({ select: (s) => s.location.pathname });
+    return path === '/app/products/new' ? <ProductFormPage /> : <p>page</p>;
+  }
+
+  it('continues once on the new page when a navigate still owes a fill (B11)', async () => {
+    const { fetch, calls, send } = navigateThenFillTurns('Mở trang tạo sản phẩm và điền giúp');
+    vi.stubGlobal('fetch', fetch);
+    const router = renderApp(ProductRoutePage, '/app/bots');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }),
+      'Mở trang tạo sản phẩm và điền giúp{Enter}',
+    );
+
+    await waitFor(
+      () => expect(screen.getByRole('textbox', { name: 'Tên' })).toHaveValue('Áo thun'),
+      { timeout: 3000 },
+    );
+    expect(router.state.location.pathname).toBe('/app/products/new');
+    const sends = calls.filter((c) => c.key === send);
+    expect(sends).toHaveLength(2);
+    // The follow-up carries the new page's form, and the conversation does not show its text.
+    expect(sends[1]?.body).toMatchObject({
+      text: '(trang đã mở; tiếp tục điền form)',
+      pageContext: { route: '/app/products/new', forms: [{ id: 'product' }] },
+    });
+    expect(screen.queryByText('(trang đã mở; tiếp tục điền form)')).not.toBeInTheDocument();
+    // Only once: the follow-up never chains another.
+    await new Promise((r) => setTimeout(r, 200));
+    expect(calls.filter((c) => c.key === send)).toHaveLength(2);
+  });
+
+  it('does not continue after a plain navigate (nothing to fill)', async () => {
+    const { fetch, calls, send } = navigateThenFillTurns('Mở trang tạo sản phẩm');
+    vi.stubGlobal('fetch', fetch);
+    const router = renderApp(ProductRoutePage, '/app/bots');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }),
+      'Mở trang tạo sản phẩm{Enter}',
+    );
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/app/products/new'));
+    await screen.findByRole('textbox', { name: 'Tên' });
+    await new Promise((r) => setTimeout(r, 300));
+    expect(calls.filter((c) => c.key === send)).toHaveLength(1);
+    expect(screen.getByRole('textbox', { name: 'Tên' })).toHaveValue('');
   });
 
   it('says so when the form to fill is not on the page', async () => {

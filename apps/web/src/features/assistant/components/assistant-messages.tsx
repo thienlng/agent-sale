@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 
 import { useAssistantRun } from '../api/assistant';
 import { useMessageFeedback } from '../api/assistant-settings';
+import { NAVIGATE_FOLLOW_UP_TEXT } from '../utils/navigate-follow-up';
 import { AssistantMarkdown } from './assistant-markdown';
 import { AssistantProposal } from './assistant-proposals';
 import { AssistantStepList, AssistantSteps } from './assistant-steps';
@@ -165,9 +166,12 @@ export function AssistantMessages({
           {messages.map((m) => (
             <Fragment key={m.id}>
               {m.role === 'user' ? (
-                <li className="max-w-[85%] self-end rounded-2xl rounded-br-sm bg-primary px-3 py-2 break-words whitespace-pre-line text-primary-foreground">
-                  {m.content}
-                </li>
+                // The panel's own "continue on the new page" turn is not the owner's words.
+                m.content === NAVIGATE_FOLLOW_UP_TEXT ? null : (
+                  <li className="max-w-[85%] self-end rounded-2xl rounded-br-sm bg-primary px-3 py-2 break-words whitespace-pre-line text-primary-foreground">
+                    {m.content}
+                  </li>
+                )
               ) : m.role === 'assistant' ? (
                 <AssistantAnswer message={m} />
               ) : (
