@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 
 import { useAssistantRun } from '../api/assistant';
 import { useMessageFeedback } from '../api/assistant-settings';
+import { AssistantMarkdown } from './assistant-markdown';
 import { AssistantProposal } from './assistant-proposals';
 import { AssistantStepList, AssistantSteps } from './assistant-steps';
 
@@ -57,8 +58,8 @@ function AssistantAnswer({ message }: { message: AssistantMessageDto }) {
   const charts = message.uiActions.flatMap((a) => (a.type === 'chart' ? [a.chart] : []));
   return (
     <li className="flex max-w-[85%] min-w-0 flex-col gap-1 self-start">
-      <div className="rounded-2xl rounded-bl-sm bg-muted px-3 py-2 break-words whitespace-pre-line">
-        {message.content}
+      <div className="min-w-0 rounded-2xl rounded-bl-sm bg-muted px-3 py-2 break-words">
+        <AssistantMarkdown content={message.content} />
       </div>
       {charts.map((chart, i) => (
         <Suspense key={i} fallback={<Skeleton className="h-[180px] w-full" />}>

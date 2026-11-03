@@ -56,6 +56,7 @@ export function TestChatComposer({
 
   return (
     <form
+      data-assistant-avoid
       onSubmit={submit}
       onDrop={onDrop}
       onDragOver={(e) => e.preventDefault()}

@@ -5,7 +5,8 @@
     "assistantAskSample": "Nhờ trợ lý điền mẫu",
     "notifications": "Thông báo",
     "notificationsUnread": "Thông báo, {{count}} chưa đọc",
-    "reportThreadError": "Không mở được báo cáo trong trợ lý. Thử lại."
+    "reportThreadError": "Không mở được báo cáo trong trợ lý. Thử lại.",
+    "reportScheduleDeleted": "Lịch này đã bị xoá"
   },
   "nav": {
     "bots": "Đào tạo Bot",
