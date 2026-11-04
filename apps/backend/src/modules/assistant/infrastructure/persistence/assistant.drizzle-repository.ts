@@ -777,6 +777,7 @@ export class DrizzleAssistantRepository implements AssistantRepository {
           ok: st.ok,
           ms: st.ms,
           errorCode: st.errorCode,
+          detail: st.detail,
         })
         .from(st)
         .where(and(eq(st.runId, runId), eq(st.accountId, s.accountId)))

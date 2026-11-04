@@ -324,8 +324,13 @@ describe('AssistantFacade (contract)', () => {
         ok: null,
         ms: expect.any(Number) as unknown,
         errorCode: null,
+        detail: { tokens: { input: 10, cached: 0, output: 5 }, requested: [] },
       },
     ]);
+    expect(out.run.debug).toMatchObject({
+      promptVersion: expect.any(String) as unknown,
+      inputTokens: 10,
+    });
     expect(await facade.sendMessage(me, t.id, { turnId, text: 'Chào em' }, AUTH)).toEqual(out);
     expect(generate).toHaveBeenCalledTimes(1);
     expect((await facade.getRun(me, turnId)).status).toBe('done');

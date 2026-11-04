@@ -182,6 +182,11 @@ export const AssistantStepDto = z.object({
   ok: z.boolean().nullable(),
   ms: z.number().int().nullable(),
   errorCode: z.string().nullable(),
+  /**
+   * Debug detail (T-189), null on older steps: a model call's `tokens` {input, cached, output}
+   * and `requested` tool names; a tool's redacted `args`, `resultChars` and result head `result`.
+   */
+  detail: z.record(z.string(), z.unknown()).nullable().default(null),
 });
 export type AssistantStepDto = z.infer<typeof AssistantStepDto>;
 
@@ -191,6 +196,21 @@ export const AssistantRunDto = z.object({
   outcome: z.string().nullable(),
   rounds: z.number().int(),
   latencyMs: z.number().int(),
+  /** Model, prompt and token totals of the run, for the owner's debug panel (T-189). */
+  debug: z
+    .object({
+      tier: z.string(),
+      provider: z.string().nullable(),
+      model: z.string().nullable(),
+      promptVersion: z.string(),
+      inputTokens: z.number().int(),
+      cachedTokens: z.number().int(),
+      outputTokens: z.number().int(),
+      guardrail: z.string().nullable(),
+      startedAt: z.string(),
+      finishedAt: z.string().nullable(),
+    })
+    .optional(),
   steps: z.array(AssistantStepDto),
 });
 export type AssistantRunDto = z.infer<typeof AssistantRunDto>;

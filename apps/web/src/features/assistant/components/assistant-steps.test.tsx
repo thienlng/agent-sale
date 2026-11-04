@@ -20,13 +20,24 @@ beforeAll(() => loadNamespace('assistant'));
 afterEach(() => vi.unstubAllGlobals());
 
 describe('assistant steps and threads', () => {
-  it('shows the steps of an answer (tool name and ms) from the run', async () => {
+  it('shows a technical trace of an answer: run totals, tokens, tool args and result', async () => {
     const { fetchStub, calls } = stubFetch({
       [`GET /assistant/runs/${ASSISTANT_IDS.turn}`]: {
         status: 200,
         body: runFixture({
           steps: [
-            { idx: 0, kind: 'model_call', toolName: null, ok: true, ms: 900, errorCode: null },
+            {
+              idx: 0,
+              kind: 'model_call',
+              toolName: null,
+              ok: true,
+              ms: 900,
+              errorCode: null,
+              detail: {
+                tokens: { input: 1200, cached: 800, output: 45 },
+                requested: ['session_search'],
+              },
+            },
             {
               idx: 1,
               kind: 'tool',
@@ -34,8 +45,21 @@ describe('assistant steps and threads', () => {
               ok: false,
               ms: 45,
               errorCode: 'TIMEOUT',
+              detail: { args: '{"query":"khoá học"}', resultChars: 32, result: '{"ok":false}' },
             },
           ],
+          debug: {
+            tier: 'pro',
+            provider: 'openai',
+            model: 'gpt-5',
+            promptVersion: 'owner-assistant@4',
+            inputTokens: 1200,
+            cachedTokens: 800,
+            outputTokens: 45,
+            guardrail: null,
+            startedAt: '2026-11-04T01:00:00.000Z',
+            finishedAt: '2026-11-04T01:00:02.000Z',
+          },
         }),
       },
     });
@@ -52,10 +76,14 @@ describe('assistant steps and threads', () => {
 
     await userEvent.setup().click(screen.getByRole('button', { name: 'Xem các bước' }));
 
-    expect(await screen.findByText('session_search · lỗi')).toBeInTheDocument();
-    expect(screen.getByText('45 ms')).toBeInTheDocument();
-    expect(screen.getByText('Suy nghĩ')).toBeInTheDocument();
-    expect(screen.getByText('900 ms')).toBeInTheDocument();
+    expect(await screen.findByText('session_search ✕ TIMEOUT')).toBeInTheDocument();
+    expect(screen.getByText('openai/gpt-5')).toBeInTheDocument();
+    expect(screen.getByText('owner-assistant@4')).toBeInTheDocument();
+    expect(screen.getByText('2,000 in (800 cached, 1,200 new) · 45 out')).toBeInTheDocument();
+    expect(screen.getByText('2,000(800c)→45')).toBeInTheDocument();
+    expect(screen.getByText('900ms')).toBeInTheDocument();
+    expect(screen.getByText('{"query":"khoá học"}')).toBeInTheDocument();
+    expect(screen.getByText('{"ok":false}')).toBeInTheDocument();
   });
 
   it('polls a live turn only after the send had time to create its run', async () => {
@@ -64,7 +92,15 @@ describe('assistant steps and threads', () => {
         status: 200,
         body: runFixture({
           steps: [
-            { idx: 0, kind: 'tool', toolName: 'tool_search', ok: true, ms: 12, errorCode: null },
+            {
+              idx: 0,
+              kind: 'tool',
+              toolName: 'tool_search',
+              ok: true,
+              ms: 12,
+              errorCode: null,
+              detail: null,
+            },
           ],
         }),
       },
