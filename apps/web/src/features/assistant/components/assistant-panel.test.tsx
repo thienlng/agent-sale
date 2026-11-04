@@ -704,7 +704,7 @@ describe('AssistantPanel', () => {
     expect(await screen.findByText('Đổi giá Áo thun thành 150.000đ')).toBeInTheDocument();
     expect(screen.getByText('Cho Shop An')).toBeInTheDocument();
     // What will run comes from the route, not the summary; a PATCH shows its preview at once.
-    expect(screen.getByTestId('proposal-action')).toHaveTextContent('Sửa/products/{productId}');
+    expect(screen.getByTestId('proposal-action')).toHaveTextContent('Cập nhật dữ liệu');
     expect(screen.getByRole('button', { name: 'Ẩn chi tiết' })).toHaveAttribute(
       'aria-expanded',
       'true',
@@ -778,7 +778,8 @@ describe('AssistantPanel', () => {
 
     // The innocent summary cannot hide that this deletes a warehouse.
     expect(await screen.findByText('Cập nhật ghi chú')).toBeInTheDocument();
-    expect(screen.getByTestId('proposal-action')).toHaveTextContent('Xoá/warehouses/{warehouseId}');
+    expect(screen.getByTestId('proposal-action')).toHaveTextContent('Xoá kho');
+    expect(screen.getByTestId('proposal-action')).not.toHaveTextContent('/warehouses');
     expect(screen.getByRole('listitem', { name: 'Đề xuất thay đổi' })).toHaveAttribute(
       'data-destructive',
       'true',
@@ -843,7 +844,7 @@ describe('AssistantPanel', () => {
     renderApp();
 
     expect(await screen.findByText('Thêm Áo len')).toBeInTheDocument();
-    expect(screen.getByTestId('proposal-action')).toHaveTextContent('Tạo/products');
+    expect(screen.getByTestId('proposal-action')).toHaveTextContent('Thêm mục vào danh mục');
     expect(screen.getByRole('button', { name: 'Xem chi tiết' })).toHaveAttribute(
       'aria-expanded',
       'false',
