@@ -44,7 +44,7 @@ export function createPoller(opts: PollerOptions): Poller {
     if (document.hidden) return; // resumed by visibilitychange
     if (inFlight) return;
     inFlight = true;
-    let ok = false;
+    let ok: boolean;
     try {
       ok = await opts.run();
     } catch {

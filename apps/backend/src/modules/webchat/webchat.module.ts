@@ -85,7 +85,7 @@ export class WebchatModule implements OnModuleInit {
       } catch {
         return reply.status(404).send();
       }
-      let allowed = false;
+      let allowed: boolean;
       try {
         allowed = await this.service.preflightAllowed(key, origin, req.ip);
       } catch (error) {
