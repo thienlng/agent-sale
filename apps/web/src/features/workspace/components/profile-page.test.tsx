@@ -1,7 +1,8 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { collectPageContext, fillAssistantForm } from '@/lib/assistant-context';
 import { renderWithRouter, stubFetch } from '@/testing/render';
 
 import { ProfilePage } from './profile-page';
@@ -133,5 +134,40 @@ describe('business information page', () => {
     setup();
     expect(await screen.findByLabelText('Tên business')).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Lưu thay đổi' })).not.toBeInTheDocument();
+  });
+
+  describe('owner assistant', () => {
+    const form = () =>
+      collectPageContext('/app/settings/profile').forms?.find((f) => f.id === 'business-settings');
+
+    it('fills the names, opens the company section and leaves saving to the owner', async () => {
+      const stub = setup();
+      await screen.findByLabelText('Tên business');
+      expect(form()?.fields.map((f) => [f.name, f.empty])).toEqual([
+        ['name', false],
+        ['companyName', true],
+      ]);
+      act(() => {
+        fillAssistantForm('business-settings', {
+          name: 'Ken Homestay',
+          companyName: 'Công ty TNHH Ken',
+          icon: 'hotel',
+        });
+      });
+      expect(screen.getByLabelText('Tên business')).toHaveValue('Ken Homestay');
+      expect(await screen.findByLabelText(/Tên công ty/)).toHaveValue('Công ty TNHH Ken');
+      expect(screen.getByRole('button', { name: 'Lưu thay đổi' })).toHaveAttribute(
+        'data-assistant-target',
+        'business-settings.save',
+      );
+      expect(stub.calls.some((c) => c.key.startsWith('PATCH'))).toBe(false);
+    });
+
+    it('registers nothing without the manage permission', async () => {
+      mocks.canEdit = false;
+      setup();
+      await screen.findByLabelText('Tên business');
+      expect(form()).toBeUndefined();
+    });
   });
 });

@@ -1,6 +1,12 @@
 {
   "app": {
-    "name": "Rapiz"
+    "name": "Rapiz",
+    "assistantLauncher": "Ask Thỏ Rapiz",
+    "assistantAskSample": "Ask the assistant to fill it in",
+    "notifications": "Notifications",
+    "notificationsUnread": "Notifications, {{count}} unread",
+    "reportThreadError": "Could not open the report in the assistant. Try again.",
+    "reportScheduleDeleted": "This schedule was deleted"
   },
   "nav": {
     "bots": "Bot training",
@@ -45,7 +51,8 @@
     "groupAccount": "Account",
     "groupBusinesses": "My businesses",
     "accountOverview": "All businesses",
-    "newBusiness": "New business"
+    "newBusiness": "New business",
+    "services": "Services"
   },
   "auth": {
     "login": "Log in",
@@ -894,6 +901,28 @@
       "imageNotUploaded": "This product still has a linked image. Remove it and upload the picture instead.",
       "imagesFull": "All image slots are used. Remove one to add another."
     },
+    "service": {
+      "add": "Add service",
+      "search": "Search by name, service code or SKU",
+      "colName": "Service name",
+      "empty": "No services found",
+      "emptyStart": "No services yet. Add services so the bot can advise on them and take bookings.",
+      "newTitle": "New service",
+      "editTitle": "Edit service",
+      "code": "Service code",
+      "name": "Service name",
+      "visibleToBot": "Let the bot recommend this service",
+      "archived": "Archive (no longer offered)",
+      "variants": "Service packages",
+      "variantsHint": "Each package has its own SKU and price, for example a single session or a 10-session treatment.",
+      "addVariant": "Add package",
+      "variantName": "Package (single session, treatment…)",
+      "price": "Service price",
+      "removeVariant": "Remove package",
+      "save": "Save service",
+      "saved": "Service saved",
+      "created": "Service created"
+    },
     "stock": {
       "title": "Stock",
       "hint": "Enter the counted quantity; the difference is logged.",
@@ -903,6 +932,36 @@
       "available": "Available",
       "update": "Update",
       "updated": "Stock updated"
+    }
+  },
+  "commerce": {
+    "offering": {
+      "title": "Service details",
+      "hint": "The bot uses these details to advise customers. Services have no stock.",
+      "retail": "This is a retail product",
+      "retailHint": "Turn on for goods with stock, such as cosmetics or textbooks. The bot then sells it as a regular product.",
+      "durationMinutes": "Length per session (minutes)",
+      "sessions": "Sessions",
+      "period": "Total length",
+      "periodPlaceholder": "3 months",
+      "format": "Format",
+      "formats": {
+        "none": "Not set",
+        "online": "Online",
+        "offline": "On site",
+        "hybrid": "Hybrid"
+      },
+      "level": "Level",
+      "schedule": "Schedule or hours",
+      "audience": "For",
+      "outcomes": "Expected results",
+      "outcomesHint": "One per line, at most 5.",
+      "priceNote": "Price note",
+      "priceNoteHint": "Shown next to the price and instead of a 0 price, e.g. reference price, from, ask us.",
+      "priceOnRequest": "Ask us",
+      "col": "Length",
+      "minutesCount": "{{count}} min",
+      "sessionsCount": "{{count}} sessions"
     }
   },
   "warehouses": {
@@ -965,6 +1024,7 @@
     "noName": "(no name)",
     "stale": "Someone else just edited this customer. The latest version is loaded; check it and save again.",
     "col": {
+      "lead": "Captured from",
       "name": "Customer",
       "phone": "Phone",
       "email": "Email",
@@ -1131,7 +1191,9 @@
         "note.edited": "Note edited",
         "tag.added": "Tag added",
         "tag.updated": "Tag details edited",
-        "tag.removed": "Tag removed"
+        "tag.removed": "Tag removed",
+        "contact.request_recorded": "New request",
+        "contact.request_updated": "Request updated"
       },
       "empty_value": "empty"
     },
@@ -1226,6 +1288,32 @@
         "instagram": "Instagram",
         "website": "Website"
       }
+    },
+    "requests": {
+      "title": "Requests",
+      "kind": {
+        "demo": "Demo request",
+        "trial": "Trial",
+        "consultation": "Consultation request",
+        "placement_test": "Placement test",
+        "appointment": "Appointment"
+      },
+      "strip": {
+        "label": "Customer requests",
+        "recorded7d": "Requests, last 7 days",
+        "open": "Waiting for staff",
+        "noOpen": "No requests are waiting.",
+        "statusHint": "Show customers at {{name}}"
+      },
+      "card": {
+        "empty": "This customer has no requests yet.",
+        "updated": "Updated",
+        "recordedAt": "Recorded {{time}}"
+      },
+      "unnamed": "Unnamed customer",
+      "loading": "Loading requests…",
+      "loadError": "Could not load the requests.",
+      "retry": "Retry"
     }
   },
   "team": {
@@ -1377,7 +1465,7 @@
     },
     "logo": {
       "title": "Logo",
-      "rules": "PNG or JPG, square, up to 1 MB. 720 × 720 px recommended (128 to 2048 px accepted).",
+      "rules": "Pick any image, then drag and zoom to crop it to a square.",
       "alt": "Shop logo",
       "none": "No logo yet",
       "upload": "Choose image",
@@ -1393,8 +1481,14 @@
         "not_square": "The image must be square (it is {{width}} × {{height}} px).",
         "too_small": "The image is too small (at least 128 × 128 px).",
         "too_big": "The image is too large (at most 2048 × 2048 px).",
-        "type": "Only PNG or JPG images are accepted."
-      }
+        "type": "This file is not an image.",
+        "unreadable": "The browser can't open this image. Pick another one (JPG, PNG, WebP…)."
+      },
+      "cropTitle": "Crop logo",
+      "cropHint": "Drag the image to position it; use the slider or mouse wheel to zoom.",
+      "cropArea": "Logo crop area",
+      "zoom": "Zoom",
+      "cropSave": "Save logo"
     },
     "security": {
       "title": "Two-step verification",

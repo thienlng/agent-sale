@@ -123,6 +123,136 @@ const SAAS_RULES: readonly StarterRule[] = [
   },
 ];
 
+const PAYMENT = SHARED_RULES.find((r) => r.title === 'Khách hỏi về thanh toán');
+if (!PAYMENT) throw new Error('shared starter rules are missing');
+
+/**
+ * Course fees and service prices are quoted in full (QA retest B9: "2.000k" read badly for a
+ * 2-million service), unlike the shop pack's "k". Same title as the shop rule, so a bot keeps one
+ * price rule. No sample amount, for the number-grounding reason above.
+ */
+const FULL_PRICE_WORDING: StarterRule = {
+  title: 'Cách nói giá',
+  trigger: 'Khi báo giá hoặc học phí',
+  content:
+    'Viết giá đầy đủ bằng số, có dấu chấm ngăn cách hàng nghìn và chữ "đ" ở cuối; không viết tắt bằng "k" hay "triệu". Chỉ báo mức giá có trong dữ liệu của cửa hàng.',
+  section: 'general',
+};
+
+/**
+ * Education and spa businesses convert through requests recorded for staff, not orders, so they
+ * keep the payment rule, quote prices in full, and never get the delivery-address rule. No rule states a
+ * free slot or class, or promises a result: the bot records the wish and staff confirm it.
+ */
+const EDUCATION_RULES: readonly StarterRule[] = [
+  FULL_PRICE_WORDING,
+  PAYMENT,
+  {
+    title: 'Khách hỏi học phí',
+    trigger: 'Khách hỏi học phí hoặc giá một khoá học',
+    content:
+      'Chỉ báo học phí có trong danh mục khoá học hoặc thông tin của trung tâm, nói rõ học phí tính theo khoá, theo tháng hay theo buổi. Nếu khoá chưa có học phí trong dữ liệu, nói em chưa có thông tin và mời khách để lại số điện thoại để nhân viên tư vấn.',
+    section: 'general',
+  },
+  {
+    title: 'Khách muốn học thử / kiểm tra trình độ',
+    trigger: 'Khách muốn học thử, kiểm tra trình độ hoặc được tư vấn lộ trình',
+    content:
+      'Không tự khẳng định còn chỗ hay chốt giờ cụ thể. Hỏi họ tên, số điện thoại, tuổi hoặc trình độ hiện tại của học viên, khoá quan tâm, cơ sở hoặc học online và thời gian mong muốn (còn thiếu cái nào thì hỏi cái đó), rồi ghi nhận yêu cầu để nhân viên xác nhận.',
+    section: 'general',
+  },
+  {
+    title: 'Phụ huynh hỏi cho con',
+    trigger: 'Phụ huynh hỏi khoá học cho con',
+    content:
+      'Hỏi tên và tuổi của bé, bé đã học ở đâu chưa và mục tiêu của phụ huynh, gợi ý khoá phù hợp theo danh mục. Khi phụ huynh muốn đăng ký hay cho bé học thử, xin họ tên và số điện thoại của phụ huynh rồi ghi nhận yêu cầu để nhân viên xác nhận.',
+    section: 'general',
+  },
+  {
+    title: 'Hỏi cam kết đầu ra',
+    trigger: 'Khách hỏi học xong có đạt điểm, chứng chỉ hay trình độ nào không',
+    content:
+      'Không hứa kết quả, điểm số hay chứng chỉ. Chỉ nêu mục tiêu khoá học và chính sách cam kết nếu có đúng trong thông tin của trung tâm; nếu chưa có, nói kết quả còn tuỳ quá trình học và mời khách kiểm tra trình độ để được tư vấn lộ trình.',
+    section: 'general',
+  },
+  {
+    title: 'Hỏi lịch khai giảng / cơ sở',
+    trigger: 'Khách hỏi khi nào khai giảng, lịch học hoặc học ở cơ sở nào',
+    content:
+      'Trả lời theo lịch học và danh sách cơ sở trong thông tin của trung tâm. Không tự khẳng định lớp còn chỗ. Nếu khách muốn giữ chỗ hoặc chưa có lịch phù hợp, hỏi họ tên, số điện thoại, khoá và cơ sở mong muốn rồi ghi nhận yêu cầu để nhân viên xác nhận.',
+    section: 'general',
+  },
+  {
+    title: 'Mặc cả học phí',
+    trigger: 'Khách chê học phí đắt, xin giảm học phí hoặc mặc cả',
+    content:
+      'Không tự giảm học phí. Trước tiên nêu các ưu đãi đang có trong thông tin của trung tâm, kể cả ưu đãi chung như học thử, kiểm tra đầu vào miễn phí hay trả góp; ưu đãi chỉ dành cho một khoá thì nói rõ là của khoá đó. Rồi mời khách đăng ký tư vấn hoặc học thử. Chỉ chuyển nhân viên khi khách vẫn đòi một mức giá riêng sau khi đã nghe ưu đãi, hoặc khách muốn gặp nhân viên.',
+    section: 'general',
+  },
+  {
+    title: 'Sau khi ghi nhận yêu cầu',
+    trigger:
+      'Ngay sau khi yêu cầu học thử, kiểm tra trình độ hoặc tư vấn vừa được ghi nhận thành công',
+    content:
+      'Cảm ơn khách thật ngắn gọn và nói nhân viên sẽ liên hệ xác nhận, tối đa 25 từ. Không chuyển cho nhân viên chỉ vì đã ghi nhận yêu cầu; khách hỏi thêm thì vẫn trả lời tiếp.',
+    section: 'after_order',
+  },
+];
+
+const SPA_RULES: readonly StarterRule[] = [
+  FULL_PRICE_WORDING,
+  PAYMENT,
+  {
+    title: 'Khách hỏi giá dịch vụ',
+    trigger: 'Khách hỏi giá một dịch vụ hoặc liệu trình',
+    content:
+      'Chỉ báo giá có trong danh mục dịch vụ hoặc thông tin của spa, nói rõ giá theo buổi hay theo liệu trình. Nếu dịch vụ chưa có giá trong dữ liệu, nói em chưa có thông tin và mời khách để lại số điện thoại để nhân viên tư vấn.',
+    section: 'general',
+  },
+  {
+    title: 'Khách muốn đặt lịch',
+    trigger: 'Khách muốn đặt lịch làm dịch vụ',
+    content:
+      'Không nói lịch đã được đặt khi nhân viên chưa xác nhận. Hỏi dịch vụ, cơ sở, ngày và khung giờ mong muốn, họ tên và số điện thoại (còn thiếu cái nào thì hỏi cái đó), rồi ghi nhận yêu cầu để nhân viên xác nhận.',
+    section: 'general',
+  },
+  {
+    title: 'Hỏi có còn lịch giờ X',
+    trigger: 'Khách hỏi còn lịch trống vào một ngày hoặc giờ cụ thể không',
+    content:
+      'Không tự khẳng định còn hay hết lịch. Nói em sẽ ghi nhận giờ khách mong muốn để nhân viên kiểm tra; hỏi dịch vụ, cơ sở, họ tên và số điện thoại nếu còn thiếu, rồi ghi nhận yêu cầu để nhân viên xác nhận.',
+    section: 'general',
+  },
+  {
+    title: 'Hỏi hiệu quả / tình trạng da',
+    trigger: 'Khách hỏi dịch vụ có hiệu quả không hoặc mô tả tình trạng da, cơ thể',
+    content:
+      'Không hứa kết quả và không chẩn đoán hay tư vấn y khoa. Chỉ giới thiệu dịch vụ theo mô tả trong danh mục; tình trạng cần chuyên môn thì mời khách để lại họ tên và số điện thoại rồi ghi nhận yêu cầu để nhân viên xác nhận.',
+    section: 'general',
+  },
+  {
+    title: 'Đổi / huỷ lịch',
+    trigger: 'Khách muốn đổi hoặc huỷ lịch hẹn',
+    content:
+      'Trả lời theo chính sách đổi, huỷ lịch trong thông tin của spa nếu có. Hỏi họ tên, số điện thoại đã đặt và lịch mới mong muốn hoặc lý do huỷ, rồi ghi nhận yêu cầu để nhân viên xác nhận.',
+    section: 'general',
+  },
+  {
+    title: 'Mặc cả giá',
+    trigger: 'Khách chê đắt, xin giảm giá hoặc mặc cả',
+    content:
+      'Không tự giảm giá. Trước tiên nêu các ưu đãi đang có trong thông tin của spa, cả các mức giá ưu đãi. Nếu thông tin của spa có đăng ký nhận ưu đãi, mời khách để lại họ tên và số điện thoại để đăng ký nhận ưu đãi và được tư vấn; nếu không, mời khách đặt lịch hoặc để lại thông tin để được tư vấn. Chỉ chuyển nhân viên khi khách vẫn đòi một mức giá riêng sau khi đã nghe ưu đãi, hoặc khách muốn gặp nhân viên.',
+    section: 'general',
+  },
+  {
+    title: 'Sau khi ghi nhận lịch hẹn',
+    trigger: 'Ngay sau khi yêu cầu đặt, đổi hoặc huỷ lịch hẹn vừa được ghi nhận thành công',
+    content:
+      'Cảm ơn khách thật ngắn gọn và nói nhân viên sẽ liên hệ xác nhận lịch, tối đa 25 từ. Không chuyển cho nhân viên chỉ vì đã ghi nhận yêu cầu; khách hỏi thêm thì vẫn trả lời tiếp.',
+    section: 'after_order',
+  },
+];
+
 /**
  * The situations a bot of this industry starts with. Style rules (address, length, no waiting)
  * are not seeded: they are personality settings. Unknown industries get the shared pack.
@@ -130,6 +260,8 @@ const SAAS_RULES: readonly StarterRule[] = [
 export function starterRulesFor(industry: string): readonly StarterRule[] {
   if (industry === 'hotel') return HOTEL_RULES;
   if (industry === 'saas') return SAAS_RULES;
+  if (industry === 'education') return EDUCATION_RULES;
+  if (industry === 'spa') return SPA_RULES;
   return STARTER_RULES;
 }
 

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { AccommodationDetails, type ProductDto } from '@agent-sales/contracts';
-import { cleanDescription, compactProduct, productDetails } from '../domain/product-view.js';
+import { AccommodationDetails, OfferingDetails, type ProductDto } from '@agent-sales/contracts';
+import {
+  cleanDescription,
+  compactProduct,
+  productDetails,
+  withDefaultOffering,
+} from '../domain/product-view.js';
 
 const TINYMIND =
   'Tên gốc: Wooden Balance Stacker\nNguồn: https://example.com/p/123\nTuổi khuyến nghị: 18 tháng trở lên\n\nBộ  thú gỗ   xếp thăng bằng giúp bé luyện tay.';
@@ -15,6 +20,7 @@ const base: ProductDto = {
   visibleToBot: true,
   botInstructions: 'Gợi ý cho bé từ 18 tháng',
   imageUrls: Array.from({ length: 6 }, (_, i) => `https://cdn.example.com/${i}.jpg`),
+  offering: null,
   variants: [
     {
       id: '01900000-0000-7000-8000-0000000000a1',
@@ -152,5 +158,121 @@ describe('productDetails', () => {
     expect(lodging(12).images[11]?.label).toContain('Ảnh 11');
     expect(lodging(20).images).toHaveLength(15);
     expect(productDetails(base).images).toHaveLength(5);
+  });
+});
+
+describe('course and service products (offering)', () => {
+  const offering = OfferingDetails.parse({
+    kind: 'course',
+    durationMinutes: 90,
+    sessions: 24,
+    period: '3 tháng',
+    format: 'offline',
+    level: 'A2',
+    outcomes: ['Giao tiếp cơ bản'],
+    priceNote: 'học phí trọn khoá',
+  });
+  const course: ProductDto = { ...base, offering, priceMin: 4500000, priceMax: 4500000 };
+  const pricedVariant = { ...base.variants[0]!, price: 4500000 };
+
+  it('has catalogKind and no stock in the compact row and the details', () => {
+    const product = { ...course, variants: [pricedVariant] };
+    const c = compactProduct(product);
+    expect(c).toMatchObject({
+      catalogKind: 'course',
+      fromVnd: 4500000,
+      toVnd: 4500000,
+      priceNote: 'học phí trọn khoá',
+    });
+    expect(c).not.toHaveProperty('inStock');
+    const d = productDetails(product);
+    expect(d.catalogKind).toBe('course');
+    expect(d).not.toHaveProperty('inStock');
+    expect(d).not.toHaveProperty('available');
+    expect(d.variants).toEqual([{ sku: 'TM1-A', name: 'Mặc định', priceVnd: 4500000 }]);
+    expect(d.offering).toEqual({
+      durationMinutes: 90,
+      sessions: 24,
+      period: '3 tháng',
+      format: 'offline',
+      level: 'A2',
+      outcomes: ['Giao tiếp cơ bản'],
+    });
+  });
+
+  it('leaves the price range out when every price is 0 and carries the price note', () => {
+    const service: ProductDto = {
+      ...base,
+      offering: OfferingDetails.parse({ kind: 'service', priceNote: 'liên hệ' }),
+      variants: [{ ...base.variants[0]!, price: 0 }],
+      priceMin: 0,
+      priceMax: 0,
+    };
+    const c = compactProduct(service);
+    expect(c).toMatchObject({ catalogKind: 'service', priceNote: 'liên hệ' });
+    expect(c).not.toHaveProperty('fromVnd');
+    expect(c).not.toHaveProperty('toVnd');
+    const d = productDetails(service);
+    expect(d.variants).toEqual([{ sku: 'TM1-A', name: 'Mặc định', priceVnd: 0 }]);
+    expect(d.offering).toEqual({});
+    expect(d.priceNote).toBe('liên hệ');
+  });
+
+  it('a price range covers only the published (non-zero) prices', () => {
+    const c = compactProduct({
+      ...course,
+      variants: [
+        { ...pricedVariant, price: 0 },
+        { ...pricedVariant, sku: 'TM1-B', price: 3000000 },
+      ],
+      priceMin: 0,
+      priceMax: 3000000,
+    });
+    expect(c).toMatchObject({ fromVnd: 3000000, toVnd: 3000000 });
+  });
+
+  it('a retail product keeps its exact view', () => {
+    expect(productDetails(base)).toEqual({
+      id: base.id,
+      name: 'Thú gỗ xếp thăng bằng',
+      category: 'Đồ chơi gỗ',
+      fromVnd: 250000,
+      toVnd: 300000,
+      inStock: true,
+      summary: expect.any(String),
+      imageCount: 5,
+      variants: [{ sku: 'TM1-A', name: 'Mặc định', priceVnd: 250000, available: 4 }],
+      description: expect.any(String),
+      instructions: 'Gợi ý cho bé từ 18 tháng',
+      images: expect.any(Array),
+    });
+  });
+});
+
+describe('withDefaultOffering (request businesses)', () => {
+  const untracked: ProductDto = {
+    ...base,
+    priceMin: 0,
+    priceMax: 0,
+    available: 0,
+    variants: base.variants.map((v) => ({ ...v, price: 0, stock: [] })),
+  };
+
+  it('reads an imported course without offering or stock as a course, not out-of-stock retail', () => {
+    const row = compactProduct(withDefaultOffering(untracked, 'course'));
+    expect(row.catalogKind).toBe('course');
+    expect(row).not.toHaveProperty('inStock');
+    expect(row).not.toHaveProperty('fromVnd');
+    expect(
+      productDetails(withDefaultOffering(untracked, 'service')).variants?.[0],
+    ).not.toHaveProperty('available');
+  });
+
+  it('keeps retail with tracked stock, accommodations, offerings and retail industries as they are', () => {
+    expect(withDefaultOffering(base, 'service')).toBe(base);
+    expect(withDefaultOffering(untracked, null)).toBe(untracked);
+    const offered = { ...untracked, offering: OfferingDetails.parse({ kind: 'service' }) };
+    expect(withDefaultOffering(offered, 'course')).toBe(offered);
+    expect(compactProduct(withDefaultOffering(untracked, null))).toMatchObject({ inStock: false });
   });
 });

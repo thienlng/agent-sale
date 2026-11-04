@@ -4,12 +4,15 @@ import {
   BotProductsDto,
   ChangeOrderStatusRequest,
   CreateOrderRequest,
+  MatchProductCodesRequest,
+  MatchProductCodesResponse,
   OrderDto,
   OrderListQuery,
   OrderListResponse,
   ProductDto,
   ProductListQuery,
   ProductListResponse,
+  ProductSummaryListResponse,
   SetBotProductsRequest,
   UpdateOrderRequest,
   UpdateProductBotSettingsRequest,
@@ -35,6 +38,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/products/images',
+    assistant: { use: 'never' },
     summary: 'Upload a product picture to Rapiz storage and get its public URL',
     tag: 'commerce',
     body: UploadProductImageRequest,
@@ -43,6 +47,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/warehouses',
+    assistant: { use: 'read', when: 'List the warehouses and which one is the default.' },
     apiKey: true,
     summary: 'Warehouses',
     tag: 'commerce',
@@ -51,6 +56,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/warehouses',
+    assistant: { use: 'write', when: 'The owner asks to add a warehouse.' },
     summary: 'Add a warehouse (the first one becomes the default)',
     tag: 'commerce',
     body: UpsertWarehouseRequest,
@@ -59,6 +65,10 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'patch',
     path: '/warehouses/{warehouseId}',
+    assistant: {
+      use: 'write',
+      when: 'The owner asks to rename or edit a warehouse, or make it the default.',
+    },
     summary: 'Edit a warehouse or make it the default',
     tag: 'commerce',
     body: UpsertWarehouseRequest,
@@ -67,6 +77,10 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'delete',
     path: '/warehouses/{warehouseId}',
+    assistant: {
+      use: 'write',
+      when: 'The owner asks to delete an empty warehouse that is not the default.',
+    },
     summary: 'Delete an empty, non-default warehouse',
     tag: 'commerce',
     responses: { 204: null },
@@ -75,15 +89,23 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/products',
+    assistant: {
+      use: 'read',
+      when: 'Search or list products in the catalog, for example by name or SKU.',
+    },
     apiKey: true,
     summary: 'Product catalog (search, pages)',
     tag: 'commerce',
     query: ProductListQuery,
-    responses: { 200: ProductListResponse },
+    responses: { 200: ProductListResponse.or(ProductSummaryListResponse) },
   }),
   route({
     method: 'post',
     path: '/products',
+    assistant: {
+      use: 'write',
+      when: 'The owner asks to add a product with its price and variants.',
+    },
     apiKey: true,
     summary: 'Create a product with its variants',
     tag: 'commerce',
@@ -91,8 +113,25 @@ export const commerceRoutes = defineRoutes([
     responses: { 201: ProductDto },
   }),
   route({
+    method: 'post',
+    path: '/products/match-codes',
+    assistant: {
+      use: 'read',
+      queryPost: true,
+      when: 'Check which product codes or SKUs already exist, for example before importing products.',
+    },
+    summary: 'Which of these product codes and SKUs already exist',
+    tag: 'commerce',
+    body: MatchProductCodesRequest,
+    responses: { 200: MatchProductCodesResponse },
+  }),
+  route({
     method: 'get',
     path: '/products/{productId}',
+    assistant: {
+      use: 'read',
+      when: 'One product with its variants, prices and stock per warehouse.',
+    },
     apiKey: true,
     summary: 'One product with variants and stock',
     tag: 'commerce',
@@ -101,6 +140,10 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'put',
     path: '/products/{productId}',
+    assistant: {
+      use: 'write',
+      when: "The owner asks to change a product's name, price, description or variants. Read the product first and send it whole.",
+    },
     apiKey: true,
     summary: 'Replace a product and its variants (missing variants are archived)',
     tag: 'commerce',
@@ -110,6 +153,10 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'patch',
     path: '/products/{productId}/bot-settings',
+    assistant: {
+      use: 'write',
+      when: 'The owner asks to show or hide a product from the bot, or to change what the bot should say about it.',
+    },
     summary: "Change only a product's bot fields (visibleToBot, botInstructions); any product",
     tag: 'commerce',
     body: UpdateProductBotSettingsRequest,
@@ -118,6 +165,10 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/products/{productId}/stock',
+    assistant: {
+      use: 'write',
+      when: 'The owner gives the counted stock of a product variant in a warehouse.',
+    },
     apiKey: true,
     summary: 'Set the counted stock of a variant in a warehouse',
     tag: 'commerce',
@@ -127,6 +178,10 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/bots/{botId}/products',
+    assistant: {
+      use: 'read',
+      when: 'Which products a bot sells when it is limited to selected products.',
+    },
     summary: "Products selected for a bot (used when the bot's catalogMode is 'selected')",
     tag: 'commerce',
     responses: { 200: BotProductsDto },
@@ -134,6 +189,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'put',
     path: '/bots/{botId}/products',
+    assistant: { use: 'write', when: 'The owner asks to change which products a bot sells.' },
     summary: 'Replace the products selected for a bot',
     tag: 'commerce',
     body: SetBotProductsRequest,
@@ -142,6 +198,10 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/product-variants',
+    assistant: {
+      use: 'read',
+      when: 'Find product variants by name or SKU, for example before creating an order.',
+    },
     apiKey: true,
     summary: 'Variant picker for the order form',
     tag: 'commerce',
@@ -152,6 +212,10 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/orders',
+    assistant: {
+      use: 'read',
+      when: 'List or search orders with status counts and totals, for example orders today or waiting for confirmation.',
+    },
     apiKey: true,
     summary: 'Orders with status counts and totals',
     tag: 'commerce',
@@ -161,6 +225,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/orders',
+    assistant: { use: 'write', when: 'The owner asks to create an order for a customer.' },
     apiKey: true,
     summary: 'Create an order (reserves stock)',
     tag: 'commerce',
@@ -170,6 +235,10 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/orders/overview',
+    assistant: {
+      use: 'read',
+      when: 'Sales overview for a date range: revenue, order counts and trends.',
+    },
     summary: 'Sales overview for a date range',
     tag: 'commerce',
     query: OrderOverviewQuery,
@@ -178,6 +247,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/orders/review-count',
+    assistant: { use: 'read', when: 'How many orders taken by the bot wait for review.' },
     summary: 'How many bot orders wait for review',
     tag: 'commerce',
     responses: { 200: OrderReviewCountResponse },
@@ -185,6 +255,10 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/orders/{orderId}',
+    assistant: {
+      use: 'read',
+      when: 'One order with its items, customer, shipping and status history.',
+    },
     apiKey: true,
     summary: 'One order with items and status history',
     tag: 'commerce',
@@ -193,6 +267,10 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'patch',
     path: '/orders/{orderId}',
+    assistant: {
+      use: 'write',
+      when: 'The owner asks to change the receiver, shipping details, payment received or notes of an order.',
+    },
     apiKey: true,
     summary: 'Edit people, shipping, payment received or notes',
     tag: 'commerce',
@@ -202,6 +280,10 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/orders/{orderId}/status',
+    assistant: {
+      use: 'write',
+      when: 'The owner asks to move an order to another status, for example confirmed, shipping, delivered or cancelled.',
+    },
     apiKey: true,
     summary: 'Change the status (moves stock as needed)',
     tag: 'commerce',
@@ -211,6 +293,10 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/orders/{orderId}/approve',
+    assistant: {
+      use: 'write',
+      when: 'The owner asks to approve an order taken by the bot, or to revert that approval.',
+    },
     summary: 'Approve a bot order, or revert the approval',
     tag: 'commerce',
     body: ApproveOrderRequest,
@@ -220,6 +306,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/order-settings',
+    assistant: { use: 'read', when: 'Order status settings of the business.' },
     summary: 'Order status settings',
     tag: 'commerce',
     responses: { 200: OrderSettingsDto },
@@ -227,6 +314,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'put',
     path: '/order-settings',
+    assistant: { use: 'write', when: 'The owner asks to change the order status settings.' },
     summary: 'Update order status settings',
     tag: 'commerce',
     body: OrderSettingsDto,

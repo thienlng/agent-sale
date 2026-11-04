@@ -29,6 +29,7 @@ A request is not a record of its own. When a customer asks the bot for a `demo`,
 1. the customer is found by phone, or created (one phone = one customer; a new customer has no built-in source and a `contact.created` entry with channel `bot`);
 2. the customer moves forward to `requested`;
 3. a note signed **Bot AI** records what was asked and what the customer said: company, team size, need, preferred time, plan of interest, email. A repeat of the customer's latest note is skipped, so a retried call leaves one note.
+4. a history entry `contact.request_recorded` keeps the kind and details (no phone or email). The same kind again within 24 h is `contact.request_updated` with a `Cập nhật: …` note (ADR-025).
 
 Staff follow up from the customer sheet (status, notes, owner) like any other lead.
 
@@ -81,10 +82,10 @@ Writes and their audit events (`saas.subscription.created|updated`, no PII in me
 
 ## Bot behavior
 
-A SaaS bot gets one built-in tool in its agent loop, `record_saas_request` (no confirmation turn; `apps/backend/src/modules/ai/application/saas-tools.ts`, added by `turnTools` next to the order and hold tools). It runs in-process through the `saas` facade: no `bot_actions` row, no HTTP call, no `action_runs` row. The call shows in the reply's `actions` list like an owner action.
+A SaaS bot gets one built-in tool in its agent loop, `record_request` (ADR-025; it was `record_saas_request` before, and old traces still show that name). It has no confirmation turn, lives in `apps/backend/src/modules/ai/application/request-tools.ts` and is added by `turnTools`; request-industry bots get no order tools. It runs in-process through the `crm` facade (`recordBotRequest`): no `bot_actions` row, no HTTP call, no `action_runs` row. Its kinds, fields and status move are the saas entry of `REQUEST_PROFILES` (`packages/contracts`). SaaS bots use `sales-agent@19`. The call shows in the reply's `actions` list like an owner action.
 
-- Arguments: `kind`, `name` and `phone` are required; email, company, team size, need, preferred time and plan of interest are optional. A phone or email the customer never wrote in the conversation (last 9 digits of the phone; the whole email address, not part of a longer one) is refused as `contact_not_from_customer`, so the model cannot invent contact details; arguments the facade rejects come back as `invalid_arguments` with the problems, and a failed write as `not_recorded_retry_later`.
-- The tool answers `recorded: true`; a call with a fuller set of details adds a newer note. The note starts with the name the customer gave. A website visitor who left a phone first is a customer named "Khách website ####" (`websiteLeadName`); the request renames that placeholder to the given name (history entry, `crm.contact.updated.v1`). A customer with any other name keeps it.
+- Arguments: `kind`, `name` and `phone` are required (the crm writer checks them; the model's schema marks every detail optional); email, company, team size, need, preferred time and plan of interest are optional. A phone or email the customer never wrote in the conversation (last 9 digits of the phone; the whole email address, not part of a longer one) is refused as `contact_not_from_customer`, so the model cannot invent contact details; arguments the facade rejects come back as `invalid_arguments` with the problems, and a failed write as `not_recorded_retry_later`.
+- The tool answers `recorded: true` with `updated`; a call within 24 h with a fuller set of details adds a `Cập nhật: …` note, and an exact retry writes nothing. The note starts with the name the customer gave. A website visitor who left a phone first is a customer named "Khách website ####" (`websiteLeadName`); the request renames that placeholder to the given name (history entry, `crm.contact.updated.v1`). A customer with any other name keeps it.
 - After recording, the bot thanks the customer and keeps answering (starter rule "Sau khi ghi nhận yêu cầu"); it hands off only when another rule asks for it.
 - Playground and test conversations get a preview result and never write.
 

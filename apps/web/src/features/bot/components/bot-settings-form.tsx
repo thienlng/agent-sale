@@ -64,12 +64,20 @@ export function BotSettingsForm({ bot }: { bot: BotDto }) {
           <BotSettingsBasic draft={draft} problems={problems} update={setDraft} />
         </TabsContent>
         <TabsContent value="advanced">
-          <BotSettingsAdvanced botId={bot.id} draft={draft} update={setDraft} />
+          <BotSettingsAdvanced
+            botId={bot.id}
+            industry={bot.industry}
+            draft={draft}
+            update={setDraft}
+          />
         </TabsContent>
       </Tabs>
 
       {dirty ? (
-        <div className="sticky bottom-4 z-10 flex items-center justify-between gap-4 rounded-xl border bg-background/95 px-4 py-3 shadow-lg backdrop-blur animate-in fade-in slide-in-from-bottom-2">
+        <div
+          data-assistant-avoid
+          className="sticky bottom-4 z-10 flex items-center justify-between gap-4 rounded-xl border bg-background/95 px-4 py-3 shadow-lg backdrop-blur animate-in fade-in slide-in-from-bottom-2"
+        >
           <span className="text-sm text-muted-foreground">{t('settings.unsaved')}</span>
           <div className="flex gap-2">
             <Button type="button" variant="ghost" onClick={() => setDraft(initial)}>

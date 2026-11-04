@@ -27,6 +27,10 @@
       "types": "./dist/integration.d.ts",
       "import": "./dist/integration.js"
     },
+    "./assistant": {
+      "types": "./dist/assistant.d.ts",
+      "import": "./dist/assistant.js"
+    },
     "./backoffice": {
       "types": "./dist/backoffice.d.ts",
       "import": "./dist/backoffice.js"
@@ -34,6 +38,10 @@
     "./developer": {
       "types": "./dist/developer.d.ts",
       "import": "./dist/developer.js"
+    },
+    "./notification": {
+      "types": "./dist/notification.d.ts",
+      "import": "./dist/notification.js"
     }
   },
   "files": [
@@ -45,6 +53,6 @@
     "lint": "eslint ."
   },
   "devDependencies": {
-    "typescript": "^5.8.3"
+    "typescript": "^7.0.2"
   }
 }

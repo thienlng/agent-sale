@@ -373,7 +373,8 @@
       "bulkDeleted": "Đã xoá {{count}} câu hỏi",
       "empty": "Không tìm thấy câu hỏi phù hợp",
       "emptyStart": "Chưa có câu hỏi nào. Thêm câu hỏi đầu tiên để Bot trả lời khách hàng.",
-      "total": "Tổng số {{count}} câu hỏi & trả lời"
+      "total": "Tổng số {{count}} câu hỏi & trả lời",
+      "askSample": "Điền mẫu câu hỏi thường gặp cho bot này: soạn vài câu từ dữ liệu của shop rồi tạo đề xuất để mình duyệt."
     },
     "quick": {
       "title": "Quản lý tin nhắn nhanh",
@@ -403,7 +404,8 @@
       "imageInvalid": "Liên kết ảnh phải bắt đầu bằng https://",
       "deleteConfirm": "Xoá tin nhắn nhanh “/{{shortcut}}”?",
       "saved": "Đã lưu tin nhắn nhanh",
-      "deleted": "Đã xoá tin nhắn nhanh"
+      "deleted": "Đã xoá tin nhắn nhanh",
+      "askSample": "Điền mẫu tin nhắn nhanh cho bot này: soạn vài tin từ dữ liệu của shop rồi tạo đề xuất để mình duyệt."
     },
     "media": {
       "title": "Thư viện ảnh",
@@ -500,7 +502,8 @@
     "then": "Bot sẽ {{content}}",
     "thenOnly": "Bot sẽ {{content}}",
     "showSystem": "Hiện các nguyên tắc hệ thống",
-    "hideSystem": "Ẩn các nguyên tắc hệ thống"
+    "hideSystem": "Ẩn các nguyên tắc hệ thống",
+    "askSample": "Điền mẫu tình huống cho bot này: soạn vài tình huống từ dữ liệu của shop rồi tạo đề xuất để mình duyệt."
   },
   "purpose": {
     "facts": {
@@ -577,7 +580,9 @@
       "onboarding": "Cài đặt & hướng dẫn",
       "support": "Hỗ trợ khách hàng",
       "dataSecurity": "Bảo mật dữ liệu",
-      "refundPolicy": "Hoàn tiền & huỷ gói"
+      "refundPolicy": "Hoàn tiền & huỷ gói",
+      "branches": "Các cơ sở / chi nhánh",
+      "reschedule": "Đổi / huỷ lịch hẹn"
     },
     "examples": {
       "displayName": "Ví dụ: Cửa hàng Hoa Nắng",
@@ -614,8 +619,11 @@
       "onboarding": "Ví dụ: Hướng dẫn cài đặt miễn phí 1 buổi; chuyển dữ liệu từ Excel",
       "support": "Ví dụ: Zalo và hotline 8:00-22:00 hằng ngày, phản hồi trong 15 phút",
       "dataSecurity": "Ví dụ: Máy chủ tại Việt Nam, sao lưu hằng ngày, không chia sẻ dữ liệu cho bên thứ ba",
-      "refundPolicy": "Ví dụ: Huỷ gói bất kỳ lúc nào; hoàn tiền trong 7 ngày đầu nếu chưa dùng"
-    }
+      "refundPolicy": "Ví dụ: Huỷ gói bất kỳ lúc nào; hoàn tiền trong 7 ngày đầu nếu chưa dùng",
+      "branches": "Ví dụ: Cơ sở Quận 1 — 12 Nguyễn Huệ, 8:00-21:00\nCơ sở Thủ Đức — 5 Võ Văn Ngân, 9:00-20:00\nHọc online qua Zoom",
+      "reschedule": "Ví dụ: Đổi hoặc huỷ lịch trước 2 tiếng; đến trễ quá 15 phút sẽ nhường lịch cho khách khác"
+    },
+    "askFill": "Điền mẫu thông tin doanh nghiệp: điền vào biểu mẫu các ô còn thiếu từ dữ liệu của shop để mình kiểm tra rồi lưu."
   },
   "personality": {
     "title": "Tính cách của Bot",
@@ -646,5 +654,10 @@
     "leave": "Rời trang sẽ mất các thay đổi chưa lưu.",
     "stay": "Ở lại",
     "leaveConfirm": "Rời trang"
+  },
+  "assistantPage": {
+    "knowledge": "Thông tin & FAQ",
+    "instructions": "Hướng dẫn trả lời",
+    "quickReplies": "Tin nhắn nhanh"
   }
 }

@@ -1,6 +1,6 @@
 import { Industry, type WorkspaceDto } from '@agent-sales/contracts';
 import { useNavigate } from '@tanstack/react-router';
-import { type FormEvent } from 'react';
+import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAssistantForm } from '@/lib/assistant-context';
 import { errorMessage } from '@/lib/errors';
 
 import { useCreateBot } from '../api/bots';
@@ -25,27 +26,52 @@ export interface BotBusinessContext {
   onRetry: () => void;
 }
 
+export const BOT_NAME_MAX = 80;
+
+/** The business's industry when a bot can be created for it, else null (unsupported or loading). */
+export function botIndustryOf(business: BotBusinessContext | undefined): Industry | null {
+  const parsed = Industry.safeParse(business?.workspace?.industry);
+  return business?.status === 'success' && parsed.success ? parsed.data : null;
+}
+
 export function CreateBotDialog({
   open,
   onOpenChange,
   business,
+  prefill,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   business?: BotBusinessContext | undefined;
+  /** The owner assistant's draft name, used when the dialog opens. */
+  prefill?: { name?: string } | null;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const create = useCreateBot();
-  const parsed = Industry.safeParse(business?.workspace?.industry);
-  const industry = business?.status === 'success' && parsed.success ? parsed.data : null;
+  const industry = botIndustryOf(business);
+  const [name, setName] = useState('');
+  // Each opening starts from the draft (or empty).
+  const [shownOpen, setShownOpen] = useState(false);
+  if (open !== shownOpen) {
+    setShownOpen(open);
+    if (open) setName(prefill?.name?.slice(0, BOT_NAME_MAX) ?? '');
+  }
+  useAssistantForm(
+    'bot',
+    () => [{ name: 'name', label: t('bots.name'), type: 'text', empty: !name.trim(), value: name }],
+    (values) => {
+      if (typeof values['name'] === 'string') setName(values['name'].slice(0, BOT_NAME_MAX));
+    },
+    { enabled: open && industry !== null },
+  );
 
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const name = String(new FormData(e.currentTarget).get('name')).trim();
-    if (!name || !industry) return;
+    const trimmed = name.trim();
+    if (!trimmed || !industry) return;
     create.mutate(
-      { name, industry },
+      { name: trimmed, industry },
       {
         onSuccess: (bot) => {
           toast.success(t('bots.created'));
@@ -71,7 +97,9 @@ export function CreateBotDialog({
               id="bot-name"
               name="name"
               required
-              maxLength={80}
+              maxLength={BOT_NAME_MAX}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               placeholder={t('bots.namePlaceholder')}
               autoFocus
               className="h-10"

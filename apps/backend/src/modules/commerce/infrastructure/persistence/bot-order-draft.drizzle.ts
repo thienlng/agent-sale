@@ -38,6 +38,7 @@ export function botOrdersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'bo
             productName: p.name,
             productStatus: p.status,
             productVisibleToBot: p.visibleToBot,
+            productOffering: sql<boolean>`${p.offering} is not null`,
           })
           .from(v)
           .innerJoin(p, eq(p.id, v.productId))
@@ -49,6 +50,7 @@ export function botOrdersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'bo
           productName: r.productName,
           productActive: r.productStatus === 'active',
           productVisibleToBot: r.productVisibleToBot,
+          productOffering: r.productOffering,
         }));
       },
       async findDraft(conversationId, opts) {

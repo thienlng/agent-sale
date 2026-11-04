@@ -42,6 +42,7 @@ export function fakeCrm(
         new Map(ids.flatMap((id) => (chips[id] ? [[id, chips[id]] as const] : []))),
     ),
     conversationIdsByTags: vi.fn(async () => match),
+    contactNames: vi.fn(async () => new Map<string, string | null>()),
     listConversationTags: vi.fn(async () => []),
     assignConversationTag: vi.fn(async () => ({ created: true, assignment: {} })),
     getContact: vi.fn(async (_ws: unknown, id: string) => ({ id })),

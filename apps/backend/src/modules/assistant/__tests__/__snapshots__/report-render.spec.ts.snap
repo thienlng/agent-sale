@@ -1,0 +1,61 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderReport > renders every template in Vietnamese 1`] = `
+[
+  {
+    "body": "Doanh số: 3.500.000 ₫
+Doanh thu: 1.250.000 ₫
+Đơn hoàn tất: 3
+Giá trị trung bình mỗi đơn: 416.667 ₫
+Lợi nhuận: -20.000 ₫",
+    "title": "Doanh thu hôm qua (01/11) · Shop Lan",
+  },
+  {
+    "body": "Số đơn: 2
+Tổng giá trị: 450.000 ₫
+
+Đơn mới nhất:
+• DH000012 — 250.000 ₫
+• DH000011 — 200.000 ₫",
+    "title": "Đơn hàng mới tuần trước (26/10 – 01/11) · Shop Lan",
+  },
+  {
+    "body": "2 sản phẩm còn từ 5 trở xuống.
+• Áo thun - Đỏ (AT-D): còn 0
+• Mũ: còn 3",
+    "title": "2 sản phẩm sắp hết hàng · Shop Lan",
+  },
+  {
+    "body": "3 cuộc trò chuyện chờ quá 30 phút.
+Lâu nhất: 95 phút.
+• Facebook: 2
+• Website: 1",
+    "title": "3 khách đang chờ trả lời · Shop Lan",
+  },
+  {
+    "body": "Số khách mới: 4
+• Facebook: 3
+• Chưa rõ nguồn: 1",
+    "title": "Khách hàng mới tháng này (01/11 – 02/11) · Shop Lan",
+  },
+  {
+    "body": "Số yêu cầu mới: 3
+
+Theo loại:
+• Đặt lịch: 2
+• Tư vấn: 1
+
+Khách theo trạng thái hiện tại:
+• Chờ xác nhận lịch: 2
+• Khách VIP: 1",
+    "title": "Yêu cầu mới tuần này (02/11 – 04/11) · Shop Lan",
+  },
+  {
+    "body": "Số yêu cầu mới: 1
+
+Theo loại:
+• Kiểm tra trình độ: 1",
+    "title": "1 yêu cầu mới · Shop Lan",
+  },
+]
+`;

@@ -1,4 +1,3 @@
-import { LOGO_RULES } from '@agent-sales/contracts';
 import type { TFunction } from 'i18next';
 import { ImagePlus, Trash2 } from 'lucide-react';
 import { useRef, useState } from 'react';
@@ -12,6 +11,8 @@ import { useCan } from '@/lib/permissions';
 
 import { useLogoUrl, useProfileMutations } from '../api/profile';
 
+import { LogoCropper } from './logo-cropper';
+
 /** The message for a rejected logo: the server names the rule, with the numbers it needs. */
 function logoError(t: TFunction, err: unknown): string {
   if (err instanceof ApiClientError && err.code === 'VALIDATION_FAILED') {
@@ -23,7 +24,7 @@ function logoError(t: TFunction, err: unknown): string {
   return errorMessage(t, err);
 }
 
-/** Logo preview with upload and remove; the file is checked here first, and again by the server. */
+/** Logo preview with upload and remove; any image is cropped to a square here, the server re-checks the bytes. */
 export function LogoField({ logoVersion }: { logoVersion: string | null }) {
   const { t } = useTranslation();
   const canEdit = useCan('settings.manage');
@@ -32,19 +33,22 @@ export function LogoField({ logoVersion }: { logoVersion: string | null }) {
   const input = useRef<HTMLInputElement>(null);
   const [problem, setProblem] = useState<string | null>(null);
 
+  const [cropping, setCropping] = useState<File | null>(null);
+
+  /** Any image the browser can open goes to the cropper; it exports a valid square logo. */
   const pick = (file: File | undefined) => {
     setProblem(null);
     if (!file) return;
-    // Early, friendly checks; the server decides from the bytes.
-    if (!(LOGO_RULES.mimes as readonly string[]).includes(file.type)) {
+    if (!file.type.startsWith('image/')) {
       setProblem(t('wsettings.logo.errors.type'));
       return;
     }
-    if (file.size > LOGO_RULES.maxBytes) {
-      setProblem(t('wsettings.logo.errors.too_large'));
-      return;
-    }
-    uploadLogo.mutate(file, {
+    setCropping(file);
+  };
+
+  const upload = (logo: File) => {
+    setCropping(null);
+    uploadLogo.mutate(logo, {
       onSuccess: () => toast.success(t('wsettings.logo.uploaded')),
       onError: (err) => setProblem(logoError(t, err)),
     });
@@ -70,7 +74,7 @@ export function LogoField({ logoVersion }: { logoVersion: string | null }) {
               <input
                 ref={input}
                 type="file"
-                accept="image/png,image/jpeg"
+                accept="image/*"
                 className="sr-only"
                 aria-label={t('wsettings.logo.upload')}
                 onChange={(e) => {
@@ -116,6 +120,15 @@ export function LogoField({ logoVersion }: { logoVersion: string | null }) {
           ) : null}
         </div>
       </div>
+      <LogoCropper
+        file={cropping}
+        onCancel={() => setCropping(null)}
+        onDone={upload}
+        onUnreadable={() => {
+          setCropping(null);
+          setProblem(t('wsettings.logo.errors.unreadable'));
+        }}
+      />
     </section>
   );
 }

@@ -1,8 +1,9 @@
 import { Link } from '@tanstack/react-router';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { collectPageContext, fillAssistantForm } from '@/lib/assistant-context';
 import { renderWithRouter, stubFetch } from '@/testing/render';
 
 import { PersonalityCard } from './personality-card';
@@ -126,5 +127,82 @@ describe('PersonalityCard', () => {
     await userEvent.type(screen.getByLabelText('Lời chào'), '!');
     await userEvent.click(screen.getByText('go-away'));
     expect(await screen.findByText('Rời trang sẽ mất các thay đổi chưa lưu.')).toBeInTheDocument();
+  });
+
+  describe('owner assistant', () => {
+    const form = () =>
+      collectPageContext('/app/bots/b/instructions').forms?.find((f) => f.id === 'bot-personality');
+
+    it('offers the reply guidance with its choices and the current text of filled fields', async () => {
+      await setup(bot({ greeting: '' }));
+      expect(form()?.fields).toEqual([
+        {
+          name: 'mission',
+          label: 'Nhiệm vụ của bot',
+          type: 'textarea',
+          empty: false,
+          value: 'Tư vấn bán hàng',
+        },
+        { name: 'greeting', label: 'Lời chào', type: 'textarea', empty: true },
+        { name: 'selfPronoun', label: 'Bot xưng là', type: 'text', empty: false, value: 'em' },
+        {
+          name: 'customerPronoun',
+          label: 'Gọi khách là',
+          type: 'text',
+          empty: false,
+          value: 'anh/chị',
+        },
+        {
+          name: 'replyLength',
+          label: 'Độ dài câu trả lời',
+          type: 'select',
+          options: ['veryShort', 'short', 'detailed'],
+          empty: false,
+        },
+        {
+          name: 'tone',
+          label: 'Giọng điệu',
+          type: 'select',
+          options: ['friendly', 'formal'],
+          empty: false,
+        },
+        {
+          name: 'allowEmoji',
+          label: 'Cho phép emoji',
+          type: 'select',
+          options: ['yes', 'no'],
+          empty: false,
+        },
+      ]);
+    });
+
+    it('fills the draft, turning "yes" into the emoji switch, and does not save', async () => {
+      const stub = await setup();
+      act(() => {
+        fillAssistantForm('bot-personality', {
+          greeting: 'Chào anh/chị, em có thể giúp gì ạ?',
+          selfPronoun: 'em bé quá dài để làm đại từ xưng hô',
+          tone: 'formal',
+          replyLength: 'novel',
+          allowEmoji: 'yes',
+        });
+      });
+      expect(screen.getByLabelText('Lời chào')).toHaveValue('Chào anh/chị, em có thể giúp gì ạ?');
+      expect(screen.getByLabelText('Bot xưng là')).toHaveValue('em bé quá dài để làm');
+      expect(screen.getByRole('radio', { name: 'Lịch sự trang trọng' })).toBeChecked();
+      expect(screen.getByRole('radio', { name: 'Ngắn gọn' })).toBeChecked();
+      expect(screen.getByRole('switch', { name: 'Cho phép emoji' })).toBeChecked();
+      expect(screen.getByRole('button', { name: 'Lưu thay đổi' })).toHaveAttribute(
+        'data-assistant-target',
+        'bot-personality.save',
+      );
+      expect(stub.calls.some((c) => c.key.startsWith('PATCH'))).toBe(false);
+    });
+
+    it('registers nothing for a read-only member', async () => {
+      can.value = false;
+      await setup();
+      expect(form()).toBeUndefined();
+    });
   });
 });

@@ -25,7 +25,11 @@ import {
 import { CRM_FACADE, type CrmFacade } from '../../crm/api/index.js';
 import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.js';
 import { TEAM_FACADE, type TeamFacade } from '../../team/api/index.js';
-import type { BotQuickReplies, ConversationFacade } from '../api/conversation.facade.js';
+import type {
+  AwaitingReply,
+  BotQuickReplies,
+  ConversationFacade,
+} from '../api/conversation.facade.js';
 import { ConversationError } from '../domain/conversation.errors.js';
 import { nextMessageId } from '../domain/message-id.js';
 import { toListFilter } from '../domain/conversation-filter.js';
@@ -75,6 +79,9 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
         if (!(error instanceof ConversationError && error.code === 'UNAVAILABLE')) throw error;
       }
     });
+  }
+  awaitingReply(ws: WorkspaceId, q: { olderThan: Date; limit: number }): Promise<AwaitingReply> {
+    return this.store.run(ws, (tx) => tx.awaitingReply(q));
   }
   async list(ws: WorkspaceId, q: ConversationListQuery, viewerId?: string) {
     const filter = {

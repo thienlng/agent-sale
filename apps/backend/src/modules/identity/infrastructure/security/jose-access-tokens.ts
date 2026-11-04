@@ -48,16 +48,22 @@ export class JoseAccessTokens implements AccessTokens {
     return new JoseAccessTokens(privateKey, publicKey, 'dev-ephemeral');
   }
 
-  async issue(claims: AccessClaims): Promise<{ token: string; expiresIn: number }> {
-    const token = await new SignJWT({ sid: claims.sessionId })
+  async issue(
+    claims: AccessClaims,
+    ttlSeconds: number = ACCESS_TTL_SECONDS,
+  ): Promise<{ token: string; expiresIn: number }> {
+    const token = await new SignJWT({
+      sid: claims.sessionId,
+      ...(claims.delegated ? { dlg: true } : {}),
+    })
       .setProtectedHeader({ alg: 'EdDSA', kid: this.kid })
       .setSubject(claims.userId)
       .setIssuer(ISSUER)
       .setAudience(AUDIENCE)
       .setIssuedAt()
-      .setExpirationTime(`${ACCESS_TTL_SECONDS}s`)
+      .setExpirationTime(`${ttlSeconds}s`)
       .sign(this.privateKey);
-    return { token, expiresIn: ACCESS_TTL_SECONDS };
+    return { token, expiresIn: ttlSeconds };
   }
 
   async verify(token: string): Promise<AccessClaims | null> {
@@ -68,7 +74,11 @@ export class JoseAccessTokens implements AccessTokens {
         algorithms: ['EdDSA'],
       });
       if (typeof payload.sub !== 'string' || typeof payload['sid'] !== 'string') return null;
-      return { userId: userId(payload.sub), sessionId: payload['sid'] };
+      return {
+        userId: userId(payload.sub),
+        sessionId: payload['sid'],
+        ...(payload['dlg'] === true ? { delegated: true } : {}),
+      };
     } catch {
       return null;
     }

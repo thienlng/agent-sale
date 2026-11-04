@@ -1,0 +1,109 @@
+{
+  "email": {
+    "footer": "Quản lý lịch báo cáo trong Rapiz",
+    "open": "Mở Rapiz"
+  },
+  "period": {
+    "day_previous": "hôm qua ({{from}})",
+    "day_to_date": "hôm nay ({{from}})",
+    "week_previous": "tuần trước ({{from}} – {{to}})",
+    "week_to_date": "tuần này ({{from}} – {{to}})",
+    "month_previous": "tháng trước ({{from}} – {{to}})",
+    "month_to_date": "tháng này ({{from}} – {{to}})"
+  },
+  "report": {
+    "revenue_summary": {
+      "title": "Doanh thu {{period}} · {{business}}",
+      "body": "Doanh số: {{sales}}\nDoanh thu: {{revenue}}\nĐơn hoàn tất: {{closedOrders}}\nGiá trị trung bình mỗi đơn: {{averageOrderValue}}\nLợi nhuận: {{profit}}",
+      "stays_title": "Doanh thu lưu trú {{period}} · {{business}}",
+      "stays_body": "Doanh thu lưu trú: {{revenue}}\nSố đêm đã bán: {{nights}}\nLượt đặt: {{bookings}}\nLợi nhuận: {{profit}}",
+      "requests_line": "Yêu cầu mới (đặt lịch, học thử, tư vấn): {{count}}"
+    },
+    "new_orders": {
+      "title": "Đơn hàng mới {{period}} · {{business}}",
+      "body": "Số đơn: {{count}}\nTổng giá trị: {{total}}",
+      "latest": "Đơn mới nhất:",
+      "item": "• {{code}} — {{total}}",
+      "none": "Không có đơn hàng mới."
+    },
+    "low_stock": {
+      "title": "Sản phẩm sắp hết hàng · {{business}}",
+      "body": "{{count}} sản phẩm còn từ {{threshold}} trở xuống.",
+      "item": "• {{product}}{{sku}}: còn {{available}}",
+      "sku": " ({{sku}})",
+      "more": "… và {{count}} sản phẩm khác",
+      "none": "Không có sản phẩm nào còn từ {{threshold}} trở xuống."
+    },
+    "unanswered_conversations": {
+      "title": "Khách đang chờ trả lời · {{business}}",
+      "body": "{{count}} cuộc trò chuyện chờ quá {{minutes}} phút.\nLâu nhất: {{oldest}} phút.",
+      "channel": "• {{channel}}: {{count}}",
+      "none": "Không có khách nào chờ quá {{minutes}} phút."
+    },
+    "new_customers": {
+      "title": "Khách hàng mới {{period}} · {{business}}",
+      "body": "Số khách mới: {{count}}",
+      "source": "• {{source}}: {{count}}",
+      "noSource": "Chưa rõ nguồn"
+    },
+    "new_requests": {
+      "title": "Yêu cầu mới {{period}} · {{business}}",
+      "body": "Số yêu cầu mới: {{count}}",
+      "byKind": "Theo loại:",
+      "byStatus": "Khách theo trạng thái hiện tại:",
+      "item": "• {{label}}: {{count}}",
+      "none": "Không có yêu cầu mới.",
+      "kind": {
+        "placement_test": "Kiểm tra trình độ",
+        "trial": "Học thử",
+        "consultation": "Tư vấn",
+        "appointment": "Đặt lịch",
+        "demo": "Demo",
+        "saas": {
+          "trial": "Dùng thử"
+        }
+      }
+    }
+  },
+  "alert": {
+    "new_orders": {
+      "title": "{{count}} đơn hàng mới · {{business}}",
+      "body": "Tổng giá trị: {{total}}"
+    },
+    "low_stock": {
+      "title": "{{count}} sản phẩm sắp hết hàng · {{business}}"
+    },
+    "unanswered_conversations": {
+      "title": "{{count}} khách đang chờ trả lời · {{business}}"
+    },
+    "new_requests": {
+      "title": "{{count}} yêu cầu mới · {{business}}"
+    }
+  },
+  "channel": {
+    "facebook": "Facebook",
+    "instagram": "Instagram",
+    "website": "Website",
+    "zalo": "Zalo",
+    "unknown": "Kênh khác"
+  },
+  "paused": {
+    "title": "Đã tạm dừng lịch \"{{name}}\"",
+    "failures": "Lịch không chạy được 3 lần liên tiếp nên đã tạm dừng. Kiểm tra rồi bật lại trong trợ lý.",
+    "business_unavailable": "Doanh nghiệp của lịch này không còn khả dụng nên lịch đã tạm dừng."
+  },
+  "commentary": "Nhận xét của trợ lý:",
+  "emailUnavailable": "Không gửi được email lần này: email chưa được cấu hình hoặc tài khoản chưa có địa chỉ email.",
+  "bell": {
+    "title": "Thông báo",
+    "markAll": "Đánh dấu tất cả đã đọc",
+    "empty": "Chưa có thông báo nào.",
+    "loading": "Đang tải thông báo",
+    "error": "Không tải được thông báo.",
+    "retry": "Thử lại",
+    "loadMore": "Xem thêm thông báo",
+    "more": "Xem thêm",
+    "less": "Thu gọn",
+    "unread": "chưa đọc"
+  }
+}

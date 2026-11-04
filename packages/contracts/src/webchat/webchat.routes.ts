@@ -58,6 +58,10 @@ export const webchatRoutes = defineRoutes([
     tag: 'webchat',
     method: 'get',
     path: '/webchat/conversations/{conversationId}/visitor',
+    assistant: {
+      use: 'read',
+      when: 'Visitor details of a website chat conversation: pages visited, referrer, phone left.',
+    },
     summary: 'Visitor details of a website conversation',
     responses: { 200: WebsiteVisitorDto },
   },

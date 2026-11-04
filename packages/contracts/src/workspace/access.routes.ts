@@ -20,6 +20,7 @@ export const accessRoutes = defineRoutes([
   {
     method: 'get',
     path: '/members',
+    assistant: { use: 'read', when: 'Who works in the business and with which role.' },
     summary: 'Members of the workspace',
     ...scoped,
     responses: { 200: MemberList },
@@ -27,6 +28,7 @@ export const accessRoutes = defineRoutes([
   {
     method: 'patch',
     path: '/members/{userId}',
+    assistant: { use: 'never' },
     summary: 'Change a member role',
     ...scoped,
     body: ChangeMemberRoleRequest,
@@ -35,6 +37,7 @@ export const accessRoutes = defineRoutes([
   {
     method: 'get',
     path: '/members/{userId}/removal-preview',
+    assistant: { use: 'never' },
     summary: 'What removing a member does to the customers they own',
     ...scoped,
     responses: { 200: RemovalPreview },
@@ -42,6 +45,7 @@ export const accessRoutes = defineRoutes([
   {
     method: 'post',
     path: '/members/{userId}/remove',
+    assistant: { use: 'never' },
     summary: 'Remove a member (their work stays; customers go where the request says)',
     ...scoped,
     body: RemoveMemberRequest,
@@ -50,6 +54,10 @@ export const accessRoutes = defineRoutes([
   {
     method: 'get',
     path: '/invitations',
+    assistant: {
+      use: 'read',
+      when: 'Invitations sent to join the business and whether they are pending, accepted or expired.',
+    },
     summary: 'Invitations of the workspace',
     ...scoped,
     responses: { 200: InvitationList },
@@ -57,6 +65,7 @@ export const accessRoutes = defineRoutes([
   {
     method: 'post',
     path: '/invitations',
+    assistant: { use: 'never' },
     summary: 'Invite someone by email (returns the link secret once)',
     ...scoped,
     body: CreateInvitationRequest,
@@ -65,6 +74,7 @@ export const accessRoutes = defineRoutes([
   {
     method: 'post',
     path: '/invitations/{invitationId}/resend',
+    assistant: { use: 'never' },
     summary: 'New link for the same email and role (the old one stops working)',
     ...scoped,
     responses: { 200: CreatedInvitation },
@@ -72,6 +82,7 @@ export const accessRoutes = defineRoutes([
   {
     method: 'post',
     path: '/invitations/{invitationId}/revoke',
+    assistant: { use: 'never' },
     summary: 'Revoke a pending invitation',
     ...scoped,
     responses: { 200: InvitationDto },

@@ -50,6 +50,8 @@ manifest = {
 
 ### Industry groups and initial packs
 
+Sign-up and business creation offer only the verticals with a verified product flow: `retail`, `hotel` (villa/homestay), `saas`, `education` (language and training centres) and `spa` (spa, salon, beauty clinic) (`SELECTABLE_INDUSTRIES` in `packages/contracts`). The other `Industry` values stay valid for existing businesses and for the seed packs.
+
 | Group | Packs (initial) | Primary object | Conversion event | Typical tools |
 |---|---|---|---|---|
 | Retail & returning customers | e-commerce, fashion, phone/electronics, restaurant (menu + table request) | `order` (+ `appointment` for tables) | order confirmed / delivered; repeat order | `search_products`, `show_product`, `create_order_draft`, `get_customer_orders` |
@@ -145,4 +147,13 @@ This is still a lodging-specific model, not the generic `resources` / `availabil
 
 ## Current SaaS slice (ADR-020)
 
-Industry `saas` has its own built-in customer statuses, a tier-2 module `saas` (customer subscriptions) and a per-vertical bot tool, the built-in agent-loop tool `record_saas_request` run in-process that records a demo / trial request on the customer. See [ADR-020](adr/ADR-020-saas-vertical-requests-subscriptions-builtin-tool.md) and [SaaS businesses](saas.md).
+Industry `saas` has its own built-in customer statuses, a tier-2 module `saas` (customer subscriptions) and the built-in agent-loop tool `record_request`, run in-process through `crm`, that records a demo / trial / consultation request on the customer. See [ADR-020](adr/ADR-020-saas-vertical-requests-subscriptions-builtin-tool.md), [ADR-025](adr/ADR-025-request-verticals-education-spa.md) and [SaaS businesses](saas.md).
+
+## Current education and spa slice (ADR-025)
+
+`education` and `spa` are request industries, like `saas` ([ADR-025](adr/ADR-025-request-verticals-education-spa.md), [education and spa operations](education-and-spa.md)). They do not use the generic `appointment` object of §4 yet: there is no slot or resource model, and staff confirm every request.
+
+- **Conversion.** The built-in tool `record_request` records a placement test, trial class or consultation (education) or an appointment or consultation (spa) on the CRM customer. The request is a `contact_history` entry (`contact.request_recorded`, or `contact.request_updated` within 24 h), a note signed "Bot AI" and a status move. Each industry has its own built-in statuses (`EDUCATION_STATUSES`, `SPA_STATUSES`). The tool's kinds, fields and status moves are `REQUEST_PROFILES` in `packages/contracts`.
+- **Catalog.** Courses and services are commerce products with a typed `offering` (migration 0064). They have no stock and no bot orders. The web calls the products page "Dịch vụ" for both and hides orders and PMS for these industries. UI wording is shared per dashboard group (shop, hotel, saas, service), never per industry; industry-specific content (bot rules, profile fields, default CRM statuses, assistant skills) stays as data.
+- **Bot.** `sales-agent@19` (shared with saas), industry starter rules (`EDUCATION_RULES`, `SPA_RULES`), and the profile fields `branches` and `reschedule`.
+- **Staff and assistant.** A request strip on the customer list, a requests card in the customer sheet and the inbox, the assistant's `service` industry group and skills, the SQL view `customer_requests`, and the `new_requests` report and alert.

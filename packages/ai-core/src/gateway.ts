@@ -35,7 +35,7 @@ export interface ToolCall {
   input: unknown;
 }
 
-/** A customer image for the last user message. Only the Hermes provider can take images. */
+/** An image for the last user message (Hermes and OpenAI-compatible providers take images). */
 export interface ImageInput {
   mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
   base64: string;
@@ -56,7 +56,7 @@ export interface GenerateRequest {
    * Providers enforce it where they can; callers still parse the text.
    */
   responseFormat?: z.ZodType;
-  /** Images attached to the last user message (max 3). Providers without vision must throw. */
+  /** Images attached to the last user message (max 3). Providers without vision (anthropic) throw `invalid_request`. */
   images?: ImageInput[];
   /** Stable key letting providers reuse a cached prompt prefix across calls. */
   promptCacheKey?: string;

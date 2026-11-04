@@ -11,29 +11,6 @@ const CalendarDate = z
     return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
   }, 'must be a real calendar date');
 
-const Email = z.string().trim().toLowerCase().max(200).pipe(z.email());
-
-// ─── Demo / trial / consultation requests taken by the bot (ADR-020) ──────────
-
-export const SaasRequestKind = z.enum(['demo', 'trial', 'consultation']);
-export type SaasRequestKind = z.infer<typeof SaasRequestKind>;
-
-/**
- * What a lead told the bot. The phone identifies the customer (one phone = one customer); the
- * rest goes to a note on the customer. Free text on purpose: "10-20 người", "chiều thứ 5".
- */
-export const SaasLeadDetails = z.object({
-  name: text(120).min(1),
-  phone: text(40).min(1),
-  email: Email.nullable().default(null),
-  company: text(200).default(''),
-  teamSize: text(60).default(''),
-  need: text(2000).default(''),
-  preferredTime: text(200).default(''),
-  planInterest: text(200).default(''),
-});
-export type SaasLeadDetails = z.infer<typeof SaasLeadDetails>;
-
 // ─── Customer subscriptions ───────────────────────────────────────────────────
 
 /** `free`: on a free plan (signed up, not paying; not churned either). */

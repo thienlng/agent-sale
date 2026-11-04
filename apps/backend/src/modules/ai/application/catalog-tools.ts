@@ -1,12 +1,16 @@
 import { z } from 'zod';
-import { INVALID_JSON_INPUT_KEY, type ToolCall, type ToolDefinition } from '@agent-sales/ai-core';
+import {
+  INVALID_JSON_INPUT_KEY,
+  type RunnableTool,
+  type ToolCall,
+  type ToolDefinition,
+} from '@agent-sales/ai-core';
 import type { ProductDto } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 
 import type { BotCatalogScope, CatalogFacade } from '../../commerce/api/catalog.facade.js';
-import { compactProduct, productDetails } from '../domain/product-view.js';
+import { compactProduct, productDetails, withDefaultOffering } from '../domain/product-view.js';
 import { safeJson } from './action-tools.js';
-import type { RunnableTool } from './tool-runner.js';
 
 export interface ToolResult {
   /** The JSON the model receives. */
@@ -23,6 +27,26 @@ export interface CatalogToolContext {
   catalog: CatalogFacade;
   /** Called with the products whose full details the model receives (their pictures become sendable). */
   onProducts?(products: readonly ProductDto[]): void;
+}
+
+/**
+ * The catalog with every product passed through `withDefaultOffering(kind)`: the tools, the focus
+ * products and the image allowlist then all see the same offering. Unchanged for a null kind.
+ */
+export function withDefaultOfferings<T extends CatalogFacade | undefined>(
+  catalog: T,
+  kind: 'course' | 'service' | null,
+): T {
+  if (!catalog || !kind) return catalog;
+  const base: CatalogFacade = catalog;
+  const map = (rows: ProductDto[]) => rows.map((p) => withDefaultOffering(p, kind));
+  return {
+    searchBotCatalog: async (ws, scope, input) =>
+      map(await base.searchBotCatalog(ws, scope, input)),
+    getBotProductsByIds: async (ws, scope, ids) =>
+      map(await base.getBotProductsByIds(ws, scope, ids)),
+    countBotCatalog: (ws, scope) => base.countBotCatalog(ws, scope),
+  } as T;
 }
 
 const SEARCH_ROWS = 8;

@@ -80,10 +80,13 @@ export function DataSearch({
 /** Primary "Thêm …" button opening a menu (add manually / import from file). */
 export function AddMenuButton({
   label,
+  target,
   onManual,
   onImport,
 }: {
   label: string;
+  /** `data-assistant-target` id, so the owner assistant can point at the button. */
+  target?: string;
   onManual: () => void;
   onImport?: () => void;
 }) {
@@ -91,7 +94,7 @@ export function AddMenuButton({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button className="h-9">
+        <Button className="h-9" data-assistant-target={target}>
           <Plus />
           {label}
           <ChevronDown aria-hidden />

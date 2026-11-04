@@ -57,9 +57,49 @@ export const SAAS_STATUSES = [
   { key: 'churned', name: 'Rời bỏ', color: '#ef4444' },
 ] as const;
 
+/**
+ * A language or training centre (ESV spec §5.1): the bot moves a lead to `test_requested` (placement
+ * test, trial class) or `consulting`; staff schedule, test and enrol.
+ */
+export const EDUCATION_STATUSES = [
+  { key: 'new_lead', name: 'Lead mới', color: '#64748b' },
+  { key: 'consulting', name: 'Đang tư vấn', color: '#0ea5e9' },
+  { key: 'test_requested', name: 'Đăng ký test / học thử', color: '#6366f1' },
+  { key: 'test_scheduled', name: 'Đã hẹn test / học thử', color: '#8b5cf6' },
+  { key: 'tested', name: 'Đã test / học thử', color: '#f59e0b' },
+  { key: 'enrolled', name: 'Đã đăng ký học', color: '#16a34a' },
+  { key: 'lost', name: 'Không theo học', color: '#ef4444' },
+] as const;
+
+/**
+ * A spa, salon or beauty clinic (ESV spec §5.1): the bot moves a customer to `booking_requested`
+ * or `consulting`; staff confirm the slot (`booked`) and record the visit.
+ */
+export const SPA_STATUSES = [
+  { key: 'new_lead', name: 'Khách mới', color: '#64748b' },
+  { key: 'consulting', name: 'Đang tư vấn', color: '#0ea5e9' },
+  { key: 'booking_requested', name: 'Yêu cầu đặt lịch', color: '#6366f1' },
+  { key: 'booked', name: 'Đã xác nhận lịch', color: '#8b5cf6' },
+  { key: 'visited', name: 'Đã đến', color: '#16a34a' },
+  { key: 'no_show', name: 'Không đến', color: '#f97316' },
+  { key: 'lost', name: 'Không quan tâm', color: '#ef4444' },
+] as const;
+
 /** Statuses a business starts with, by industry. */
-export const defaultStatusesFor = (industry: string) =>
-  industry === 'saas' ? SAAS_STATUSES : DEFAULT_STATUSES;
+export const defaultStatusesFor = (
+  industry: string,
+): ReadonlyArray<{ key: string; name: string; color: string }> => {
+  switch (industry) {
+    case 'saas':
+      return SAAS_STATUSES;
+    case 'education':
+      return EDUCATION_STATUSES;
+    case 'spa':
+      return SPA_STATUSES;
+    default:
+      return DEFAULT_STATUSES;
+  }
+};
 
 /** System tags (field schemas are our own; the reference only shows field counts). */
 export const DEFAULT_TAGS = [

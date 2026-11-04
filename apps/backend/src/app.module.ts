@@ -7,6 +7,7 @@ import { AccountModule } from './modules/account/account.module.js';
 import { ActionModule } from './modules/action/action.module.js';
 import { AiModule } from './modules/ai/ai.module.js';
 import { AnalyticsModule } from './modules/analytics/analytics.module.js';
+import { AssistantModule } from './modules/assistant/assistant.module.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { BackofficeModule } from './modules/backoffice/backoffice.module.js';
 import { BillingModule } from './modules/billing/billing.module.js';
@@ -20,6 +21,7 @@ import { HealthModule } from './modules/health/health.module.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
 import { IntegrationModule } from './modules/integration/integration.module.js';
 import { LodgingModule } from './modules/lodging/lodging.module.js';
+import { NotificationModule } from './modules/notification/notification.module.js';
 import { WebchatModule } from './modules/webchat/webchat.module.js';
 import { WorkspaceModule } from './modules/workspace/workspace.module.js';
 
@@ -48,6 +50,8 @@ import { WorkspaceModule } from './modules/workspace/workspace.module.js';
     TeamModule,
     BillingModule,
     AnalyticsModule,
+    AssistantModule,
+    NotificationModule,
     AuditModule,
     BackofficeModule,
     DeveloperModule,

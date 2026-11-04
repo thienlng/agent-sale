@@ -1,4 +1,4 @@
-import type { BotSettings } from '@agent-sales/contracts';
+import { type BotSettings, isRequestIndustry } from '@agent-sales/contracts';
 import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -52,10 +52,13 @@ function Field({
  */
 export function BotSettingsAdvanced({
   botId,
+  industry,
   draft,
   update,
 }: {
   botId: string;
+  /** The bot's industry: saas, education and spa bots record requests, never orders. */
+  industry: string;
   draft: SettingsDraft;
   update: Update;
 }) {
@@ -124,7 +127,7 @@ export function BotSettingsAdvanced({
         </Field>
       </section>
 
-      <BotSettingsOrders draft={draft} update={update} />
+      {isRequestIndustry(industry) ? null : <BotSettingsOrders draft={draft} update={update} />}
 
       <section className="flex flex-col gap-5">
         <h2 className="text-base font-semibold">{training('handoverTitle')}</h2>

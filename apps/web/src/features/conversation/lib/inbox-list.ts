@@ -290,6 +290,11 @@ const PROVIDER_LABEL: Record<ChannelProvider, string> = {
   website: 'Website',
 };
 
+/** The channel a conversation came from, as a name ("Facebook", "Instagram", "Website"). */
+export function providerLabel(provider: ChannelProvider): string {
+  return PROVIDER_LABEL[provider];
+}
+
 /** The raw channel id is not a name: show "Khách Facebook ·1234" until Meta tells us the name. */
 export function customerDisplayName(
   c: Pick<InboxConversation, 'customerName' | 'customerId' | 'provider'>,

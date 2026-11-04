@@ -38,7 +38,7 @@ const http = () => app.getHttpAdapter().getInstance();
 type Headers = Record<string, string>;
 let signups = 0;
 
-async function owner(email: string): Promise<Headers> {
+async function owner(email: string, industry = 'fashion'): Promise<Headers> {
   const signup = await signUpVerified(
     app,
     {
@@ -46,7 +46,7 @@ async function owner(email: string): Promise<Headers> {
       email,
       password: 'a long enough password',
       workspaceName: 'Shop đồ chơi',
-      industry: 'fashion',
+      industry,
     },
     { remoteAddress: `10.1.0.${++signups}` },
   );
@@ -200,5 +200,53 @@ describe('bot catalog search on Postgres', () => {
     expect(rows.map((p) => p.id)).toEqual([cactus.id, animal.id]);
     const scoped = await catalog().getBotProductsByIds(ws, selected, [animal.id, cactus.id]);
     expect(scoped.map((p) => p.id)).toEqual([cactus.id]);
+  });
+});
+
+describe('bot catalog search of courses (T-187)', () => {
+  let ws: WorkspaceId;
+  let all: { botId: string; catalogMode: 'all' };
+  let starters: ProductDto;
+  let movers: ProductDto;
+  let ielts: ProductDto;
+
+  beforeAll(async () => {
+    const h = await owner('courses@center.vn', 'education');
+    ws = workspaceId(h['x-workspace-id']!);
+    const bot = BotDto.parse(
+      (await post(h, '/bots', { name: 'Tư vấn', industry: 'education' })).json(),
+    );
+    all = { botId: bot.id, catalogMode: 'all' };
+    const course = (audience: string, level = '') => ({
+      offering: { kind: 'course', audience, level },
+    });
+    movers = await product(h, 'Tiếng Anh Movers', course('Bé 8–9 tuổi'), 0);
+    starters = await product(h, 'Tiếng Anh Starters', course('Bé 6–7 tuổi', 'Pre A1'), 0);
+    ielts = await product(
+      h,
+      'IELTS Foundation',
+      { description: 'Lộ trình luyện thi cho học sinh cấp ba và sinh viên', ...course('') },
+      0,
+    );
+  });
+
+  it('puts the course whose audience covers the age first, without diacritics', async () => {
+    const rows = await catalog().searchBotCatalog(ws, all, {
+      query: 'the con 7 tuoi thi hoc khoa nao',
+      limit: 8,
+    });
+    expect(rows[0]?.id).toBe(starters.id);
+    expect(rows.map((p) => p.id)).toContain(movers.id);
+    expect(rows.map((p) => p.id).indexOf(movers.id)).toBe(rows.length - 1);
+  });
+
+  it('matches the description and the level, accent-insensitively', async () => {
+    const rows = await catalog().searchBotCatalog(ws, all, {
+      query: 'luyen thi sinh vien',
+      limit: 8,
+    });
+    expect(rows[0]?.id).toBe(ielts.id);
+    const level = await catalog().searchBotCatalog(ws, all, { query: 'pre a1', limit: 8 });
+    expect(level[0]?.id).toBe(starters.id);
   });
 });

@@ -13,22 +13,44 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { useAssistantForm } from '@/lib/assistant-context';
 import { errorMessage } from '@/lib/errors';
 
 import { useBotProfile } from '../api/bot-profile';
 import { useSaveFaq } from '../api/faqs';
 import { profileFieldForQuestion, profileFieldInputId } from '../utils/faq-profile-topics';
 
-/** Add (faq = null) or edit a FAQ. */
+export interface FaqPrefill {
+  question?: string;
+  answer?: string;
+}
+
+const QUESTION_MAX = 500;
+const ANSWER_MAX = 4000;
+
+/** The owner assistant's `faq` form: the question and the answer of one new FAQ. */
+export function faqFormFields(label: (key: 'question' | 'answer') => string, empty = true) {
+  return [
+    { name: 'question', label: label('question'), type: 'textarea' as const, empty },
+    { name: 'answer', label: label('answer'), type: 'textarea' as const, empty },
+  ];
+}
+
+/**
+ * Add (faq = null) or edit a FAQ. A new FAQ starts from `prefill` (the owner assistant's draft).
+ * While open for a new FAQ, the dialog registers the assistant's `faq` form itself.
+ */
 export function FaqDialog({
   botId,
   open,
   faq,
+  prefill,
   onOpenChange,
 }: {
   botId: string;
   open: boolean;
   faq: FaqDto | null;
+  prefill?: FaqPrefill | null;
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useTranslation();
@@ -41,10 +63,27 @@ export function FaqDialog({
 
   useEffect(() => {
     if (open) {
-      setQuestion(faq?.question ?? '');
-      setAnswer(faq?.answer ?? '');
+      setQuestion(faq?.question ?? prefill?.question?.slice(0, QUESTION_MAX) ?? '');
+      setAnswer(faq?.answer ?? prefill?.answer?.slice(0, ANSWER_MAX) ?? '');
     }
-  }, [open, faq]);
+  }, [open, faq, prefill]);
+
+  // An edit is never filled (it is a proposal); only a new FAQ on screen is.
+  useAssistantForm(
+    'faq',
+    () =>
+      faqFormFields((key) => t(`faq.${key}`)).map((f) => ({
+        ...f,
+        empty: !(f.name === 'question' ? question : answer).trim(),
+        value: f.name === 'question' ? question : answer,
+      })),
+    (values) => {
+      if (typeof values['question'] === 'string')
+        setQuestion(values['question'].slice(0, QUESTION_MAX));
+      if (typeof values['answer'] === 'string') setAnswer(values['answer'].slice(0, ANSWER_MAX));
+    },
+    { enabled: open && !faq },
+  );
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -90,7 +129,7 @@ export function FaqDialog({
             <Textarea
               id="faq-question"
               rows={2}
-              maxLength={500}
+              maxLength={QUESTION_MAX}
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               autoFocus
@@ -113,7 +152,7 @@ export function FaqDialog({
             <Textarea
               id="faq-answer"
               rows={5}
-              maxLength={4000}
+              maxLength={ANSWER_MAX}
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
               aria-describedby="faq-answer-hint"

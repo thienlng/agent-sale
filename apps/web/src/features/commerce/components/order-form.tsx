@@ -347,6 +347,7 @@ export function OrderForm({
       </div>
 
       <div
+        data-assistant-avoid
         className={cn(
           'sticky z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-background/95 px-4 py-3 shadow-lg backdrop-blur',
           context ? 'bottom-0' : 'bottom-4',

@@ -3,6 +3,28 @@ import { z } from 'zod';
 import { ErrorResponse } from './errors.js';
 
 /**
+ * How the owner assistant may use a route (T-170, spec §6). `read`: a GET the assistant may call
+ * as a tool, or a side-effect-free query sent as POST (`queryPost: true`, ruling 1b-R7).
+ * `write`: a change the assistant may only propose; it runs when the owner approves. `never`:
+ * not a tool (auth, members, channel connections, secrets, uploads, deletions, …). `when`
+ * (English, at most 160 chars) tells the model when to use the route; required for `read` and
+ * `write`.
+ */
+export interface RouteAssistantUse {
+  use: 'read' | 'write' | 'never';
+  when?: string;
+  /** A POST that only reads (search, statistics, quotes); only with `use: 'read'`. */
+  queryPost?: true;
+  /**
+   * A narrower body the assistant must use instead of the route's own `body` (T-174): it validates
+   * `tool_call`, is what `tool_describe` shows, and is re-checked on approval. The route itself
+   * still validates its full body when the proposal runs. Required on a `write` route whose body
+   * can carry a secret (guard in `routes.assistant.test.ts`).
+   */
+  body?: z.ZodType;
+}
+
+/**
  * Route contracts: the single source for the OpenAPI document and for the
  * backend-vs-contract consistency test. Every HTTP route under /api/v1 must be
  * declared here (per module file) — the backend test fails otherwise.
@@ -25,6 +47,13 @@ export interface RouteContract {
   query?: z.ZodObject;
   /** Success responses by status code. */
   responses: Record<number, z.ZodType | null>;
+  /** Required on every workspace-scoped route (architecture test `routes.assistant.test.ts`). */
+  assistant?: RouteAssistantUse;
+}
+
+/** Stable key of a route, e.g. `PATCH /products/{productId}`. */
+export function routeKey(r: Pick<RouteContract, 'method' | 'path'>): string {
+  return `${r.method.toUpperCase()} ${r.path}`;
 }
 
 export function defineRoutes<const T extends readonly RouteContract[]>(routes: T): T {

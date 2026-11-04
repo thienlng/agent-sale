@@ -33,14 +33,19 @@ test('edit the profile, upload and remove a logo, see it in the audit trail', as
   await page.reload();
   await expect(page.getByLabel(/^Tên công ty/)).toHaveValue('Công ty TNHH Lan');
 
-  // A rule-breaking file is explained, a good one is shown.
+  // A non-image is refused; any image (here a wide one) is cropped to a square, then saved.
+  await page
+    .getByLabel('Chọn ảnh')
+    .setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
+  await expect(page.getByText('Tệp này không phải ảnh.')).toBeVisible();
   await page
     .getByLabel('Chọn ảnh')
     .setInputFiles({ name: 'wide.png', mimeType: 'image/png', buffer: makePng(300, 200) });
-  await expect(page.getByText(/Ảnh phải là hình vuông/)).toBeVisible();
-  await page
-    .getByLabel('Chọn ảnh')
-    .setInputFiles({ name: 'logo.png', mimeType: 'image/png', buffer: makePng(256) });
+  const cropper = page.getByRole('dialog', { name: 'Cắt logo' });
+  await expect(cropper).toBeVisible();
+  await cropper.getByRole('slider', { name: 'Phóng to' }).fill('1.5');
+  await cropper.getByRole('button', { name: 'Lưu logo' }).click();
+  await expect(page.getByText('Đã cập nhật logo')).toBeVisible();
   await expect(page.getByAltText('Logo của shop')).toBeVisible();
   await page.reload();
   await expect(page.getByAltText('Logo của shop')).toBeVisible();

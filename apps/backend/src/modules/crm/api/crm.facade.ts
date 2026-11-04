@@ -2,6 +2,8 @@ import type {
   ContactDto,
   ConversationTagAssignmentDto,
   ConversationTagChip,
+  CustomerRequestKind,
+  RequestFieldKey,
 } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 
@@ -20,6 +22,31 @@ export interface ConversationTagFilter {
 export interface ConversationTagMatch {
   include: string[] | null;
   exclude: string[];
+}
+
+/**
+ * Outcome of a bot-recorded customer request (ESV spec §5.1). `missing`: the recommended fields
+ * still empty. `dateLabel`: the server's "Thứ Bảy 08/11/2026" for a given `preferredDate`.
+ * `invalid` problems: zod issues, 'phone: not a phone number', 'missing:<field>', 'past_date',
+ * 'kind_not_offered'.
+ */
+export type BotRequestResult =
+  | {
+      outcome: 'recorded' | 'updated';
+      contactId: string;
+      created: boolean;
+      missing: RequestFieldKey[];
+      dateLabel: string | null;
+    }
+  | { outcome: 'preview'; missing: RequestFieldKey[]; dateLabel: string | null }
+  | { outcome: 'invalid'; problems: string[] };
+
+/** New requests (`contact.request_recorded`, updates left out) of a period: counts only. */
+export interface RequestsRecorded {
+  count: number;
+  byKind: { kind: CustomerRequestKind; count: number }[];
+  /** By the requesting customer's current status (`key` null: a custom status). */
+  byStatus: { key: string | null; name: string; count: number }[];
 }
 
 /** PUBLIC CONTRACT of the crm module (inbox, orders and analytics use it later). */
@@ -119,6 +146,39 @@ export interface CrmFacade {
     input: unknown,
     actorUserId: string,
   ): Promise<{ created: boolean; assignment: ConversationTagAssignmentDto }>;
+  /**
+   * Customers created in `[since, until)` (owner reports, T-172), archived ones left out, split
+   * by the name of their first source (`null` = no source). Counts only, no customer data.
+   */
+  contactsCreated(
+    workspaceId: WorkspaceId,
+    q: { since: Date; until: Date },
+  ): Promise<{ count: number; bySource: { source: string | null; count: number }[] }>;
+
+  /**
+   * The bot's `record_request` (saas, education, spa; ADR-020 generalised): finds or creates the
+   * customer by phone, moves its status per the industry's `REQUEST_PROFILES` entry, and leaves a
+   * history entry and a note signed "Bot AI". `preview` validates and writes nothing. Never
+   * throws for bad input: it answers `invalid`.
+   */
+  recordBotRequest(
+    workspaceId: WorkspaceId,
+    input: {
+      kind: CustomerRequestKind;
+      details: unknown;
+      preview: boolean;
+      /**
+       * Names of the catalog products the bot saw in the conversation: an empty course or service
+       * is filled from one of them when the goal or note names it (T-187).
+       */
+      catalogNames?: readonly string[];
+    },
+  ): Promise<BotRequestResult>;
+  /** Requests recorded in `[since, until)` (owner reports `new_requests`); `kinds` limits them. */
+  requestsRecorded(
+    workspaceId: WorkspaceId,
+    q: { since: Date; until: Date; kinds?: readonly CustomerRequestKind[] },
+  ): Promise<RequestsRecorded>;
 }
 
 export const CRM_FACADE = Symbol('CRM_FACADE');

@@ -49,6 +49,9 @@ function linkRace(e: unknown): void {
     throw new ExternalLinkConflictError(constraint);
 }
 
+/** A stated age in folded text: "7 tuoi", "6-7 tuoi", "16+ tuoi", "5t" (T-187). */
+const STATED_AGE = '[0-9][[:space:]]*([+][[:space:]]*)?(tuoi|t)([^[:alnum:]]|$)';
+
 /** Drops below this best single-term word_similarity (spec §5). */
 const SIMILARITY_FLOOR = 0.3;
 
@@ -62,6 +65,17 @@ function foldedSql(expr: SQL): SQL {
 }
 
 /** Warehouses, products/variants and inventory inside one tenant transaction. */
+/** The values whose lowercase form is in `found`, as the caller spelled them, without repeats. */
+function asSent(values: string[], found: Set<string>): string[] {
+  const seen = new Set<string>();
+  return values.filter((x) => {
+    const key = x.toLowerCase();
+    if (!found.has(key) || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export function catalogTx(
   ws: WorkspaceId,
   tx: TenantTx,
@@ -151,6 +165,28 @@ export function catalogTx(
     },
 
     products: {
+      async matchCodes(codes, skus) {
+        const lowerCodes = [...new Set(codes.map((c) => c.toLowerCase()))];
+        const lowerSkus = [...new Set(skus.map((x) => x.toLowerCase()))];
+        const [codeRows, skuRows] = await Promise.all([
+          lowerCodes.length
+            ? tx
+                .selectDistinct({ k: sql<string>`lower(${p.code})` })
+                .from(p)
+                .where(inArray(sql`lower(${p.code})`, lowerCodes))
+            : [],
+          lowerSkus.length
+            ? tx
+                .selectDistinct({ k: sql<string>`lower(${v.sku})` })
+                .from(v)
+                .where(and(isNull(v.archivedAt), inArray(sql`lower(${v.sku})`, lowerSkus)))
+            : [],
+        ]);
+        return {
+          codes: asSent(codes, new Set(codeRows.map((r) => r.k))),
+          skus: asSent(skus, new Set(skuRows.map((r) => r.k))),
+        };
+      },
       async list({ q, status, selectedFor, source, offset, limit }) {
         const where = and(
           eq(p.status, status),
@@ -176,7 +212,7 @@ export function catalogTx(
         ]);
         return { rows: rows.map(toProduct), total: n(count?.c) };
       },
-      async searchForBot({ terms, query, selectedFor, limit }) {
+      async searchForBot({ terms, query, selectedFor, withStatedAges, limit }) {
         const base = botVisible(selectedFor);
         if (!terms.length) {
           const rows = await tx
@@ -190,6 +226,11 @@ export function catalogTx(
         const category = foldedSql(sql`coalesce(${p.category}, '')`);
         const name = foldedSql(sql`${p.name}`);
         const text = sql`${p.searchText}`;
+        // The description and a course's or service's audience and level are searched too, at the
+        // category's weight (T-187): "khoá cho bé 6-7 tuổi" lives there more often than in a name.
+        const details = foldedSql(
+          sql`coalesce(${p.description}, '') || ' ' || coalesce(${p.offering}->>'audience', '') || ' ' || coalesce(${p.offering}->>'level', '')`,
+        );
         // A 1–2 letter term ("so" of "sơ mi") is too short for trigrams: as a fuzzy prefix it would
         // match every word starting with "s". It counts only as a whole word.
         const termScore = (t: string, against: SQL) =>
@@ -198,13 +239,23 @@ export function catalogTx(
             : sql`word_similarity(${t}, ${against})`;
         const sims = terms.map((t) => termScore(t, text));
         const catSims = terms.map((t) => termScore(t, category));
+        const detailSims = terms.map((t) => termScore(t, details));
         const sum = (parts: SQL[]) => sql.join(parts, sql` + `);
-        const score = sql`(${sum(sims)}) + 0.5 * (${sum(catSims)}) + (case when strpos(${name}, ${query}) > 0 then 1.0 else 0 end)`;
-        const best = sql`greatest(${sql.join([...sims, ...catSims], sql`, `)})`;
+        const score = sql`(${sum(sims)}) + 0.5 * (${sum(catSims)}) + 0.5 * (${sum(detailSims)}) + (case when strpos(${name}, ${query}) > 0 then 1.0 else 0 end)`;
+        const best = sql`greatest(${sql.join([...sims, ...catSims, ...detailSims], sql`, `)})`;
+        // The caller ranks these by the age the query names (the age itself is no trigram term).
+        const statesAge = withStatedAges
+          ? sql` or (${name} || ' ' || ${details}) ~ ${STATED_AGE}`
+          : sql``;
         const rows = await tx
           .select()
           .from(p)
-          .where(and(base, sql`(${best} >= ${SIMILARITY_FLOOR} or strpos(${name}, ${query}) > 0)`))
+          .where(
+            and(
+              base,
+              sql`(${best} >= ${SIMILARITY_FLOOR} or strpos(${name}, ${query}) > 0${statesAge})`,
+            ),
+          )
           .orderBy(desc(score), asc(p.name), asc(p.id))
           .limit(limit);
         return rows.map(toProduct);
@@ -231,19 +282,22 @@ export function catalogTx(
       },
       async save(rec) {
         // Undefined keeps the stored link; source and id are always written together.
-        const { external, ...fields } = rec;
+        const { external, offering: kind, ...fields } = rec;
         const link =
           external === undefined
             ? {}
             : { externalSource: external?.source ?? null, externalId: external?.id ?? null };
+        // Undefined keeps the stored course or service details (a PMS sync never sends them).
+        const offering = kind === undefined ? {} : { offering: kind };
         try {
           await tx
             .insert(p)
-            .values({ ...fields, ...link, workspaceId: ws })
+            .values({ ...fields, ...link, ...offering, workspaceId: ws })
             .onConflictDoUpdate({
               target: p.id,
               set: {
                 ...link,
+                ...offering,
                 code: rec.code,
                 name: rec.name,
                 description: rec.description,
@@ -414,6 +468,44 @@ export function catalogTx(
           onHand: r.onHand,
           reserved: r.reserved,
         }));
+      },
+      async lowStock({ threshold, limit }) {
+        // RLS (withTenant) limits every table to the workspace; the filter is explicit too.
+        const rows = await tx.execute<{
+          product_id: string;
+          variant_id: string;
+          product_name: string;
+          variant_name: string;
+          sku: string;
+          available: number;
+          total: number;
+        }>(sql`
+          with low as (
+            select p.id as product_id, v.id as variant_id, p.name as product_name,
+                   v.name as variant_name, v.sku,
+                   sum(i.on_hand - i.reserved)::int as available
+            from ${v} v
+            join ${p} p on p.id = v.product_id
+            join ${inv} i on i.variant_id = v.id
+            where v.workspace_id = ${ws} and p.status = 'active' and v.archived_at is null
+              -- A course or a service has no stock to run low (T-187).
+              and p.offering is null
+            group by p.id, v.id
+            having sum(i.on_hand - i.reserved) <= ${threshold})
+          select low.*, count(*) over ()::int as total from low
+          order by available, product_name, variant_name, variant_id
+          limit ${Math.max(1, limit)}`);
+        const list = [...rows];
+        return {
+          count: limit > 0 ? Number(list[0]?.total ?? 0) : 0,
+          items: (limit > 0 ? list : []).map((r) => ({
+            productId: r.product_id,
+            variantId: r.variant_id,
+            name: r.variant_name ? `${r.product_name} - ${r.variant_name}` : r.product_name,
+            sku: r.sku || null,
+            available: Number(r.available),
+          })),
+        };
       },
       async ensureRow(workspaceId, variantId, warehouseId) {
         await tx

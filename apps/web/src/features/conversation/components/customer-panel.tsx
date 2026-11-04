@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { useInboxChannels } from '../api/inbox';
-import { customerDisplayName } from '../lib/inbox-list';
+import { customerDisplayName, providerLabel } from '../lib/inbox-list';
 import type { InboxConversation } from '../lib/inbox-v2-types';
 import { CustomerAvatar } from './customer-avatar';
 import { FollowUpEditor } from './follow-up-editor';
@@ -26,8 +26,7 @@ export function CustomerSummary({
   const channels = useInboxChannels();
   const page = channels.data?.data.find((channel) => channel.id === c.channelId)?.name;
   const name = customerDisplayName(c, (provider, last4) => tr('v2.row.guest', { provider, last4 }));
-  const provider =
-    c.provider === 'facebook' ? 'Facebook' : c.provider === 'website' ? 'Website' : 'Instagram';
+  const provider = providerLabel(c.provider);
   async function copy(text: string) {
     try {
       await navigator.clipboard.writeText(text);

@@ -233,7 +233,11 @@ function ScopedComposer({
     }
   }
   return (
-    <div data-inbox-composer className="shrink-0 bg-background px-3 pt-1 pb-3 sm:px-4">
+    <div
+      data-inbox-composer
+      data-assistant-avoid
+      className="shrink-0 bg-background px-3 pt-1 pb-3 sm:px-4"
+    >
       <>
         {saved.conflict ? (
           <div role="status" className="mb-2 space-y-2 rounded-lg border p-2 text-sm">
@@ -387,7 +391,7 @@ function ScopedComposer({
                 void send();
               }
             }}
-            className="max-h-48 min-h-14 resize-none border-0 bg-transparent px-1 text-[15px] shadow-none focus-visible:ring-0"
+            className="max-h-48 min-h-14 resize-none border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0"
           />
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="pl-1 text-[10px] text-muted-foreground tabular-nums">

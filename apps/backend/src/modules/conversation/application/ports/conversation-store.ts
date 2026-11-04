@@ -29,6 +29,16 @@ export interface ConversationTx {
   audit(id: string, type: string, payload: Record<string, unknown>): Promise<void>;
   /** Detaches every conversation from a deleted bot (soft deletes never fire the FK's SET NULL). */
   releaseBot(botId: string): Promise<void>;
+  /**
+   * Open conversations with `awaiting_since <= olderThan` (the waiting partial index): the count,
+   * the oldest wait, the count per provider and up to `limit` ids, oldest first.
+   */
+  awaitingReply(q: { olderThan: Date; limit: number }): Promise<{
+    count: number;
+    oldestSince: string | null;
+    byChannel: { channel: string; count: number }[];
+    ids: string[];
+  }>;
 }
 export interface ConversationStore {
   run<T>(ws: WorkspaceId, fn: (tx: ConversationTx) => Promise<T>): Promise<T>;

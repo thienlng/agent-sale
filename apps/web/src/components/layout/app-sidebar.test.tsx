@@ -33,7 +33,7 @@ beforeEach(() => {
 
 function renderAt(
   path: string,
-  industry: 'hotel' | 'saas' | 'retail' | 'loading' = 'retail',
+  industry: 'hotel' | 'saas' | 'retail' | 'education' | 'spa' | 'loading' = 'retail',
   navCounts?: Record<string, { count: number; label: string }>,
 ) {
   const root = createRootRoute({
@@ -129,6 +129,25 @@ describe('AppSidebar', () => {
     expect(within(nav).queryByRole('link', { name: 'Sản phẩm' })).toBeNull();
     expect(within(nav).queryByRole('button', { name: 'Đơn hàng' })).toBeNull();
   });
+
+  it.each([
+    ['education', 'Dịch vụ'],
+    ['spa', 'Dịch vụ'],
+  ] as const)(
+    'names the catalog for a %s business, without orders or PMS',
+    async (industry, label) => {
+      renderAt('/app/bots', industry);
+      const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });
+      expect(within(nav).getByRole('link', { name: label })).toHaveAttribute(
+        'href',
+        '/app/products',
+      );
+      expect(within(nav).queryByRole('link', { name: 'Sản phẩm' })).toBeNull();
+      expect(within(nav).queryByRole('button', { name: 'Đơn hàng' })).toBeNull();
+      expect(within(nav).queryByRole('link', { name: 'Tích hợp PMS' })).toBeNull();
+      expect(within(nav).queryByTestId('industry-nav-loading')).toBeNull();
+    },
+  );
 
   it('shows no coming-soon badge on built pages such as products', async () => {
     renderAt('/app/orders');

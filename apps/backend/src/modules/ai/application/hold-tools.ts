@@ -1,4 +1,4 @@
-import type { ToolDefinition } from '@agent-sales/ai-core';
+import type { RunnableTool, ToolDefinition } from '@agent-sales/ai-core';
 import { DomainError, foldVietnamese, type WorkspaceId } from '@agent-sales/shared';
 import { z } from 'zod';
 
@@ -13,7 +13,6 @@ import { safeJson } from './action-tools.js';
 import { confirmableDraft } from './order-tools.js';
 import type { OutputState } from './output-tools.js';
 import { SHOP_TIME_ZONE } from './reply-context.js';
-import type { RunnableTool } from './tool-runner.js';
 
 /**
  * Lodging availability and holds for hotel bots (T-161, spec 2026-11-01-bot-lodging-holds §4), the

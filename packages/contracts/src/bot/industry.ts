@@ -14,3 +14,15 @@ export const Industry = z.enum([
   'other',
 ]);
 export type Industry = z.infer<typeof Industry>;
+
+/**
+ * Industries a new business can pick at sign-up or creation: the verticals with a verified
+ * product flow. The other values stay valid for existing businesses.
+ */
+export const SELECTABLE_INDUSTRIES = [
+  'retail',
+  'hotel',
+  'saas',
+  'education',
+  'spa',
+] as const satisfies readonly Industry[];

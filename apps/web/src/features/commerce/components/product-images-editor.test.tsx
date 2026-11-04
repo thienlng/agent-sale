@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiClientError } from '@/lib/api-client';
 import { renderWithProviders as render } from '@/testing/render';
 
-import type * as ResizeModule from '../lib/resize-image';
+import type * as ResizeModule from '@/lib/resize-image';
 import type * as CommerceApi from '../api/commerce';
 
 const mocks = vi.hoisted(() => ({
@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('sonner', () => ({ toast: { error: mocks.toastError, warning: mocks.toastWarning } }));
-vi.mock('../lib/resize-image', async (orig) => ({
+vi.mock('@/lib/resize-image', async (orig) => ({
   ...(await orig<typeof ResizeModule>()),
   resizeImage: mocks.resize,
 }));
@@ -25,7 +25,7 @@ vi.mock('../api/commerce', async (orig) => ({
   useUploadProductImage: () => ({ mutateAsync: mocks.mutateAsync }),
 }));
 
-import { ImageUnreadableError } from '../lib/resize-image';
+import { ImageUnreadableError } from '@/lib/resize-image';
 import { moveItem, ProductImagesEditor } from './product-images-editor';
 
 function Harness({ initial = [] as string[] }) {

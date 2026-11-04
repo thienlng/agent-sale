@@ -13,6 +13,11 @@ export const EnvSchema = z
     DATABASE_SYSTEM_URL: z.string().url().optional(),
     /** Direct (non-PgBouncer) connection for LISTEN; defaults to DATABASE_SYSTEM_URL. */
     DATABASE_LISTEN_URL: z.string().url().optional(),
+    /**
+     * The owner assistant's read-only SQL lane (T-171): its own login, a member of
+     * `app_assistant_sql` only. Unset = no SQL tools in the assistant's catalog.
+     */
+    DATABASE_ASSISTANT_SQL_URL: z.string().url().optional(),
     REDIS_URL: z.string().url().optional(),
     META_APP_ID: z.string().optional(),
     META_APP_SECRET: z.string().optional(),
@@ -96,7 +101,8 @@ export const EnvSchema = z
     RAPIZ_HQ_WORKSPACE_ID: z.uuid().optional(),
     /**
      * Resend API key for transactional email (sign-up and password-reset codes, ADR-023). Unset,
-     * no email leaves: development prints it to the log, production logs a warning.
+     * no email leaves: development prints it to the log, production logs a warning. Notification
+     * emails (T-172) use the same key: unset, they are skipped and the UI says email is unavailable.
      */
     RESEND_API_KEY: z.string().min(1).optional(),
     /** Sender of transactional email; its domain must be verified in Resend. */
@@ -106,6 +112,8 @@ export const EnvSchema = z
      * directory, so the live-backend e2e suite can read signup codes. Refused in production.
      */
     MAIL_OUTBOX_DIR: z.string().min(1).optional(),
+    /** Public HTTPS origin of the dashboard, for links in emails; unset leaves links out. */
+    APP_PUBLIC_URL: z.url({ protocol: /^https$/ }).optional(),
   })
   .refine((env) => env.NODE_ENV !== 'production' || !!env.SECRETS_ENCRYPTION_KEY, {
     message: 'SECRETS_ENCRYPTION_KEY is required in production',

@@ -1,0 +1,38 @@
+id: spa-price-written-in-full
+group: requests
+tags: []
+bot:
+  industry: spa
+  name: Hoa Sen Beauty
+  profile:
+    fields:
+      displayName: Hoa Sen Beauty
+      address: '18 Nguyễn Trãi, Quận 5, TP.HCM'
+      hotline: '028 3923 4567'
+      hours: '8h00 - 20h00 mỗi ngày'
+      servicePrices: 'Phun môi collagen 2.000.000đ; trị nám 800.000đ/lần.'
+      booking: 'Khách đặt lịch trước, nhân viên gọi xác nhận lịch.'
+      branches: 'Cơ sở Quận 5: 18 Nguyễn Trãi, Quận 5, TP.HCM, 8h-20h'
+    notes: ''
+situations:
+  - title: 'Cách nói giá'
+    trigger: 'Khi báo giá hoặc học phí'
+    content: 'Viết giá đầy đủ bằng số, có dấu chấm ngăn cách hàng nghìn và chữ "đ" ở cuối; không viết tắt bằng "k" hay "triệu". Chỉ báo mức giá có trong dữ liệu của cửa hàng.'
+products:
+  - name: 'Phun môi collagen'
+    code: PM
+    description: 'Phun môi tạo màu tự nhiên.'
+    variants:
+      - { name: 'Trọn gói', sku: PM-1, price: 2000000 }
+    offering: { kind: service, durationMinutes: 90 }
+conversation:
+  - customer: 'phun môi giá bao nhiêu em'
+expect:
+  outcome: answered
+  contains_any: ['2.000.000']
+  not_matches: ['\d\s*k(?!\p{L})', '\d\s*tr(iệu)?(?!\p{L})']
+  numbers_only_from_sources: true
+fake_turns:
+  - tool_calls:
+      - { name: search_products, input: { query: 'phun môi' } }
+  - text: 'Dạ phun môi collagen bên em giá 2.000.000đ, làm khoảng 90 phút ạ.'

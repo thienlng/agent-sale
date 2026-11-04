@@ -1,9 +1,15 @@
 import type { InboxConversation, InboxMessage } from '../lib/inbox-v2-types';
 import { CustomerAvatar } from './customer-avatar';
-import { ArrowDown, Bot, CircleAlert, Loader2 } from 'lucide-react';
+import { ArrowDown, Bot, CircleAlert, Ellipsis, Loader2, Stethoscope } from 'lucide-react';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { MessageAttachments } from './message-attachments';
 
@@ -13,8 +19,11 @@ export function MessageThread({
   newAfter = null,
   newUnread = 0,
   customer,
+  onAskWhy,
 }: {
   messages: readonly InboxMessage[];
+  /** Set when the owner assistant is available: a bot message's menu asks it why the bot answered. */
+  onAskWhy?: ((message: InboxMessage) => void) | undefined;
   /** The customer's avatar beside their last bubble of a run, as in Messenger. */
   customer?: { conversation: InboxConversation; name: string } | undefined;
   /** Read time when the conversation was opened; the first later customer message starts "Tin mới". */
@@ -133,16 +142,38 @@ export function MessageThread({
                     {t('channelInbox.v2.thread.bot')}
                   </span>
                 ) : null}
-                <div
-                  title={stamp(m.createdAt)}
-                  className={cn(
-                    'rounded-[18px] px-3.5 py-2 text-[15px] leading-snug whitespace-pre-wrap break-words',
-                    inbound ? 'bg-muted text-foreground' : 'bg-primary text-primary-foreground',
-                    m.status === 'failed' && 'opacity-70',
-                  )}
-                >
-                  <MessageAttachments items={m.attachments} />
-                  {m.text || (m.attachments.length ? null : tr('noMessage'))}
+                <div className="group/message flex max-w-full items-center gap-1">
+                  {onAskWhy && m.sender === 'bot' ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          aria-label={t('channelInbox.v2.thread.messageMenu')}
+                          className="shrink-0 text-muted-foreground opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 sm:opacity-0 sm:group-hover/message:opacity-100"
+                        >
+                          <Ellipsis />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => onAskWhy(m)}>
+                          <Stethoscope />
+                          {t('channelInbox.v2.thread.askWhy')}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : null}
+                  <div
+                    title={stamp(m.createdAt)}
+                    className={cn(
+                      'min-w-0 rounded-[18px] px-3.5 py-2 text-sm leading-normal whitespace-pre-wrap break-words',
+                      inbound ? 'bg-muted text-foreground' : 'bg-primary text-primary-foreground',
+                      m.status === 'failed' && 'opacity-70',
+                    )}
+                  >
+                    <MessageAttachments items={m.attachments} />
+                    {m.text || (m.attachments.length ? null : tr('noMessage'))}
+                  </div>
                 </div>
                 {!inbound && (lastOfRun || m.status !== 'sent') ? (
                   <span className="mt-0.5 text-[10px] text-muted-foreground">

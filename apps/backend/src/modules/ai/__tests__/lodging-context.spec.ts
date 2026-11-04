@@ -37,6 +37,7 @@ const product: ProductDto = {
   createdAt: new Date(0).toISOString(),
   updatedAt: new Date(0).toISOString(),
   accommodation: details,
+  offering: null,
 };
 describe('lodging catalog grounding', () => {
   it('lists the whole gallery (up to 15) with captions', () => {

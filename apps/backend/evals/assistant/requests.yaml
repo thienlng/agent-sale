@@ -1,0 +1,47 @@
+# Owner assistant evals for the request verticals (T-187, spec §8): an education or spa owner asks
+# for a new-requests alert, and for the requests by status (the SQL lane over customers). Same
+# format and runner as schedules.yaml.
+cases:
+  - id: schedule-new-requests-alert
+    tags: [critical]
+    industry: spa
+    message: 'báo em mỗi khi có khách đặt lịch mới'
+    expect:
+      proposal:
+        routeKey: SCHEDULE create
+        draft:
+          template: new_requests
+          mode: alert
+          params: { minCount: 1 }
+          cadence: { kind: every, minutes: 15 }
+          channels: [in_app]
+    fake_turns:
+      - tool_calls:
+          - name: schedule
+            input:
+              action: create
+              summary: 'Báo ngay trong ứng dụng khi có khách đặt lịch mới (kiểm tra mỗi 15 phút)'
+              draft:
+                name: Khách đặt lịch mới
+                template: new_requests
+                mode: alert
+                params: { minCount: 1 }
+                cadence: { kind: every, minutes: 15 }
+                channels: [in_app]
+                commentary: false
+      - text: 'Dạ em đã soạn cảnh báo khi có khách đặt lịch mới, kiểm tra mỗi 15 phút trong ứng dụng; anh/chị bấm Duyệt giúp em nhé.'
+
+  - id: data-requests-by-status
+    industry: education
+    message: 'các khách đăng ký học thử đang ở trạng thái nào, mỗi trạng thái bao nhiêu người?'
+    expect:
+      sql:
+        contains: ['from customers', 'group by status_name']
+    fake_turns:
+      - tool_calls:
+          - name: tool_call
+            input:
+              key: sql_query
+              body:
+                sql: "select status_name, count(*) as customers from customers where not archived and status_key in ('consulting', 'test_requested', 'test_scheduled', 'tested', 'enrolled') group by status_name order by customers desc"
+      - text: 'Dạ hiện có 2 khách ở trạng thái Đăng ký kiểm tra ạ.'

@@ -42,6 +42,26 @@ export function tenantPolicies(table: string) {
   ];
 }
 
+/** Account-scoped predicate (ADR-024): the owner assistant tables carry `account_id`, not `workspace_id`. */
+export const accountPredicate = sql`account_id = (select nullif(current_setting('app.account_id', true), '')::uuid)`;
+
+export function accountPolicies(table: string) {
+  return [
+    pgPolicy(`${table}_account`, {
+      for: 'all',
+      to: 'app_tenant',
+      using: accountPredicate,
+      withCheck: accountPredicate,
+    }),
+    pgPolicy(`${table}_system`, {
+      for: 'all',
+      to: 'app_system',
+      using: sql`true`,
+      withCheck: sql`true`,
+    }),
+  ];
+}
+
 export const workspaces = pgTable(
   'workspaces',
   {

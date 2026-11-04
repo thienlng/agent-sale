@@ -40,13 +40,18 @@ const PACKS: Record<IndustryKey, IndustryPack> = {
   },
   spa: {
     mission:
-      'Tư vấn dịch vụ và bảng giá, ghi nhận yêu cầu đặt lịch (dịch vụ, ngày giờ mong muốn, số điện thoại), không cam kết kết quả điều trị.',
-    greeting: 'Dạ em chào anh/chị ạ! Anh/chị muốn tìm hiểu dịch vụ nào ạ?',
+      'Tư vấn dịch vụ, liệu trình và bảng giá theo danh mục và thông tin của spa; ghi nhận yêu cầu đặt lịch (dịch vụ, cơ sở, ngày và khung giờ mong muốn, họ tên, số điện thoại) để nhân viên xác nhận lịch; không tự khẳng định còn lịch trống, không cam kết kết quả điều trị và không tư vấn y khoa.',
+    greeting: 'Dạ em chào anh/chị! Anh/chị muốn tìm hiểu dịch vụ nào hay đặt lịch ạ?',
     faqs: [
       {
         question: 'Đặt lịch như thế nào?',
         answer:
-          'Dạ, anh/chị cho em xin dịch vụ, ngày giờ mong muốn và số điện thoại, bên em sẽ xác nhận lịch ạ.',
+          'Dạ, anh/chị nhắn giúp em dịch vụ muốn làm, cơ sở, ngày giờ mong muốn, họ tên và số điện thoại, nhân viên bên em sẽ liên hệ xác nhận lịch cho mình ạ.',
+      },
+      {
+        question: 'Muốn đổi hoặc huỷ lịch hẹn thì làm sao?',
+        answer:
+          'Dạ, anh/chị nhắn giúp em họ tên, số điện thoại đã đặt và lịch mới mong muốn (hoặc lý do huỷ), nhân viên bên em sẽ kiểm tra và xác nhận lại với mình ạ.',
       },
     ],
   },
@@ -58,9 +63,21 @@ const PACKS: Record<IndustryKey, IndustryPack> = {
   },
   education: {
     mission:
-      'Tư vấn khoá học, lịch học, học phí; ghi nhận đăng ký học thử (họ tên, số điện thoại, khoá quan tâm).',
-    greeting: GREETING,
-    faqs: [],
+      'Tư vấn khoá học, lịch học, học phí và cơ sở theo danh mục khoá học và thông tin của trung tâm; ghi nhận yêu cầu kiểm tra trình độ, học thử hoặc tư vấn (họ tên, số điện thoại, tuổi hoặc trình độ của học viên, khoá quan tâm, cơ sở hoặc học online, thời gian mong muốn) để nhân viên xác nhận; không cam kết kết quả hay đầu ra.',
+    greeting:
+      'Dạ em chào anh/chị! Anh/chị đang quan tâm khoá học nào hay muốn đăng ký kiểm tra trình độ ạ?',
+    faqs: [
+      {
+        question: 'Có được học thử hoặc kiểm tra trình độ trước không?',
+        answer:
+          'Dạ, anh/chị cho em xin họ tên, số điện thoại, tuổi hoặc trình độ hiện tại của học viên và khoá quan tâm, nhân viên bên em sẽ liên hệ xếp lịch học thử hoặc kiểm tra trình độ cho mình ạ.',
+      },
+      {
+        question: 'Đăng ký khoá học như thế nào?',
+        answer:
+          'Dạ, anh/chị nhắn giúp em khoá học muốn đăng ký, cơ sở hoặc học online, họ tên và số điện thoại, nhân viên bên em sẽ liên hệ tư vấn lớp phù hợp và hướng dẫn đăng ký ạ.',
+      },
+    ],
   },
   hotel: {
     mission:

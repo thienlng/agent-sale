@@ -12,6 +12,12 @@ export class OwnershipService {
     return this.store.run(ws, (tx) => tx.contacts.countOwnedBy(userId));
   }
 
+  /** Customers created in a period, by first source (owner reports; counts only). */
+  async contactsCreated(ws: WorkspaceId, q: { since: Date; until: Date }) {
+    const bySource = await this.store.run(ws, (tx) => tx.contacts.createdBySource(q));
+    return { count: bySource.reduce((n, x) => n + x.count, 0), bySource };
+  }
+
   /** Moves a member's customers to someone else (or nobody), leaving a trail per customer. */
   /** Names for customers the caller already may see (statistics drilldown). */
   namesOf(ws: WorkspaceId, ids: readonly string[]) {

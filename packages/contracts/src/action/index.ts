@@ -64,7 +64,6 @@ const RESERVED_HEADERS = new Set([
 const RESERVED_HEADER_PREFIXES = ['proxy-', 'sec-'];
 
 /** Rules that need several fields at once; the facade re-applies them to the merged result of a patch. */
-/** Rules that need several fields at once; the facade re-applies them to the merged result of a patch. */
 function checkAction(
   a: { url: string; method: string; params: ActionParam[]; auth: ActionAuth },
   ctx: z.RefinementCtx,
@@ -135,6 +134,74 @@ const ActionBase = z.object({
 
 export const ActionInput = ActionBase.superRefine(checkAction);
 export type ActionInput = z.infer<typeof ActionInput>;
+
+/** The issue message of a draft whose URL query or header param names look like a secret. */
+export const SECRET_IN_DRAFT = 'secret_in_draft';
+
+/** One word of a name (`X-Api-Key` → x, api, key; `accessToken` → access, token) that marks a secret. */
+const SECRET_WORD =
+  /^(?:api)?key$|^token$|^secret$|^password$|^passwd$|^signature$|^sig$|^auth(?:orization|entication|n|z)?$/;
+
+/** Whether a URL query key or header name looks like it carries a secret. */
+export function looksLikeSecretName(name: string): boolean {
+  const words = name
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  return (
+    words.some((w) => SECRET_WORD.test(w)) ||
+    /token|secret|password|signature|apikey/.test(words.join(''))
+  );
+}
+
+/** The draft refuses secret-looking URL query keys and header params: secrets go in the form. */
+function checkNoSecretNames(a: { url: string; params: ActionParam[] }, ctx: z.RefinementCtx): void {
+  let keys: string[] = [];
+  try {
+    keys = [...new URL(a.url).searchParams.keys()];
+  } catch {
+    // The URL rule already reports it.
+  }
+  if (keys.some(looksLikeSecretName))
+    ctx.addIssue({ code: 'custom', path: ['url'], message: SECRET_IN_DRAFT });
+  for (const [i, p] of a.params.entries())
+    if (p.location === 'header' && looksLikeSecretName(p.name))
+      ctx.addIssue({ code: 'custom', path: ['params', i, 'name'], message: SECRET_IN_DRAFT });
+}
+
+const StrictActionAuth = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('none') }).strict(),
+  z
+    .object({
+      kind: z.literal('api_key'),
+      headerName: z.string().regex(/^[A-Za-z][A-Za-z0-9-]{0,39}$/),
+    })
+    .strict(),
+  z.object({ kind: z.literal('bearer') }).strict(),
+]);
+
+/**
+ * What the owner assistant may draft: disabled, no secret (T-174, spec C5 §7.1). Strict all the
+ * way down, so an `authSecret` key or a nested `auth.token` is rejected instead of stripped, and
+ * secret-looking URL query keys or header params are refused (`secret_in_draft`). The owner types
+ * the secret in the form, tests the action and turns it on.
+ */
+export const ActionAssistantDraft = ActionBase.omit({ authSecret: true })
+  .extend({
+    enabled: z.literal(false),
+    params: z.array(ActionParam.strict()).max(20),
+    responses: z
+      .array(
+        ActionResponse.extend({ fields: z.array(ActionResponseField.strict()).max(30) }).strict(),
+      )
+      .max(10),
+    auth: StrictActionAuth,
+  })
+  .strict()
+  .superRefine(checkAction)
+  .superRefine(checkNoSecretNames);
+export type ActionAssistantDraft = z.infer<typeof ActionAssistantDraft>;
 
 /** Shape of a patch; the facade validates the merged result with `ActionInput`. */
 export const UpdateActionRequest = ActionBase.partial();

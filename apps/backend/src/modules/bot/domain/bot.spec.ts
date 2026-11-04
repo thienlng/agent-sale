@@ -127,4 +127,25 @@ describe('Bot aggregate', () => {
     }
     expect(packFor('spa').faqs.map((f) => f.question)).toContain('Đặt lịch như thế nào?');
   });
+
+  it('gives education and spa their own placeholder-free missions, greetings and FAQs', () => {
+    const generic = packFor('other');
+    for (const industry of ['education', 'spa'] as const) {
+      const pack = packFor(industry);
+      expect(pack.mission, industry).not.toContain('{{');
+      expect(pack.greeting, industry).not.toContain('{{');
+      expect(pack.mission).not.toBe(generic.mission);
+      expect(pack.greeting).not.toBe(generic.greeting);
+      expect(pack.faqs, industry).toHaveLength(2);
+      for (const f of pack.faqs) expect(f.answer).not.toContain('{{');
+    }
+    expect(packFor('education').mission).toMatch(/kiểm tra trình độ/);
+    expect(packFor('education').mission).toMatch(/không cam kết kết quả/);
+    expect(packFor('spa').mission).toMatch(/đặt lịch/);
+    expect(packFor('spa').mission).toMatch(/không cam kết kết quả điều trị/);
+    expect(packFor('spa').mission).toMatch(/không tư vấn y khoa/);
+    expect(packFor('spa').faqs.map((f) => f.question)).toContain(
+      'Muốn đổi hoặc huỷ lịch hẹn thì làm sao?',
+    );
+  });
 });

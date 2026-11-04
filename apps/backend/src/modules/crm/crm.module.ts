@@ -10,6 +10,7 @@ import { ConversationTagsService } from './application/conversation-tags.service
 import { ContactService } from './application/contact.service.js';
 import { ContactSyncService } from './application/contact-sync.service.js';
 import { CrmFacadeImpl } from './application/crm.facade.impl.js';
+import { CustomerRequestService } from './application/customer-request.service.js';
 import { OwnershipService } from './application/ownership.service.js';
 import { CrmSettingsService } from './application/crm-settings.service.js';
 import { DistributionService } from './application/distribution.service.js';
@@ -20,11 +21,12 @@ import { DrizzleCrmStore } from './infrastructure/persistence/crm.drizzle-store.
 import { UnavailableCrmStore } from './infrastructure/persistence/unavailable-store.js';
 import { ContactsController } from './interface/http/contacts.controller.js';
 import { CrmSettingsController } from './interface/http/crm-settings.controller.js';
+import { CustomerRequestsController } from './interface/http/customer-requests.controller.js';
 
 /** Customers, sources, statuses, tags and saved views (docs/02 CRM-*). Needs a database. */
 @Module({
   imports: [IdentityModule, WorkspaceModule],
-  controllers: [ContactsController, CrmSettingsController],
+  controllers: [ContactsController, CrmSettingsController, CustomerRequestsController],
   providers: [
     {
       provide: CRM_STORE,
@@ -33,6 +35,7 @@ import { CrmSettingsController } from './interface/http/crm-settings.controller.
         db ? new DrizzleCrmStore(db) : new UnavailableCrmStore(),
     },
     ContactService,
+    CustomerRequestService,
     CrmSettingsService,
     DistributionService,
     TagAssignmentService,

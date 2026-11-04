@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { type AssistantFormField, useAssistantForm } from '@/lib/assistant-context';
 import { errorMessage } from '@/lib/errors';
 import { productSaveErrorMessage } from '../hooks/lodging-errors';
 import { cn } from '@/lib/utils';
@@ -18,6 +19,16 @@ import { cn } from '@/lib/utils';
 import { useSaveProduct, useSaveProductBotSettings } from '../api/commerce';
 import { FieldLabel, LOCKED_FIELD, LockedHint } from './locked-field';
 import { ProductImagesEditor } from './product-images-editor';
+import {
+  catalogKey,
+  FORMATS,
+  type OfferingDraft,
+  type OfferingKind,
+  offeringDraft,
+  offeringLabelKey,
+  ProductOfferingEditor,
+  toOffering,
+} from './product-offering-editor';
 import { StockEditor } from './product-stock-editor';
 import type { PmsLink } from './products-list';
 
@@ -48,15 +59,20 @@ const blankVariant = (code = ''): VariantDraft => ({
  * A product synced from KiotViet (`product.external`) is read-only except for its bot settings,
  * which save on their own; `pmsLink` (from the route) gives the store for the "edit in KiotViet"
  * link.
+ *
+ * `offeringKind` (an education or spa business, from the route) adds the course or service
+ * details; such a product has no stock unless it is marked as retail goods.
  */
 export function ProductForm({
   product,
   botId,
   pmsLink,
+  offeringKind,
 }: {
   product?: ProductDto;
   botId?: string;
   pmsLink?: PmsLink | null | undefined;
+  offeringKind?: OfferingKind | null | undefined;
 }) {
   const { t } = useTranslation();
   const { t: training } = useTranslation('training');
@@ -77,6 +93,16 @@ export function ProductForm({
   const [visibleToBot, setVisibleToBot] = useState(product?.visibleToBot ?? true);
   const [imageUrls, setImageUrls] = useState<string[]>(product?.imageUrls ?? []);
   const [archived, setArchived] = useState(product?.status === 'archived');
+  // A new course or service starts as an offering; an existing product keeps what it is.
+  const [retail, setRetail] = useState(product ? !product.offering : false);
+  const [offering, setOffering] = useState(() => offeringDraft(product?.offering));
+  /** The offering edited here; a KiotViet product keeps its stored one (bot settings save alone). */
+  const editKind = !locked && offeringKind ? (product?.offering?.kind ?? offeringKind) : null;
+  /** Courses and services have no stock: the stock editor stays hidden while one is set. */
+  const isOffering = editKind ? !retail : Boolean(product?.offering);
+  /** A course or service is named for what it is ("Khoá học mới"); retail goods stay products. */
+  const nounKind = offeringKind && isOffering ? (product?.offering?.kind ?? offeringKind) : null;
+  const word = (key: string) => t(catalogKey(nounKind, key, `products.form.${key}`));
   const [variants, setVariants] = useState<VariantDraft[]>(
     product?.variants.map((v) => ({
       key: v.id,
@@ -91,13 +117,174 @@ export function ProductForm({
   const setVariant = (i: number, patch: Partial<VariantDraft>) =>
     setVariants((vs) => vs.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
 
+  // The owner assistant may fill a new product's main fields (the first variant's SKU, price,
+  // cost and weight; the SKU is required to save), and the details of a course or service
+  // (length, sessions, format, level, period, schedule, audience, price note);
+  // the owner reviews them and saves. Editing an existing product is a proposal, not a fill.
+  const first = variants[0];
+  const offeringKey = editKind && !retail ? editKind : null;
+  const offeringLabel = (key: string) => t(offeringLabelKey(offeringKey ?? 'course', key));
+  useAssistantForm(
+    'product',
+    () => [
+      {
+        name: 'code',
+        label: word('code'),
+        type: 'text',
+        empty: !code.trim(),
+        value: code,
+      },
+      {
+        name: 'name',
+        label: word('name'),
+        type: 'text',
+        empty: !name.trim(),
+        value: name,
+      },
+      {
+        name: 'category',
+        label: t('products.form.category'),
+        type: 'text',
+        empty: !category.trim(),
+        value: category,
+      },
+      {
+        name: 'description',
+        label: t('products.form.description'),
+        type: 'textarea',
+        empty: !description.trim(),
+        value: description,
+      },
+      {
+        name: 'sku',
+        label: t('products.form.sku'),
+        type: 'text',
+        empty: !first?.sku.trim(),
+        required: true,
+        value: first?.sku ?? '',
+      },
+      { name: 'price', label: word('price'), type: 'number', empty: !first?.price },
+      { name: 'cost', label: t('products.form.cost'), type: 'number', empty: !first?.cost },
+      // A course or service has no weight.
+      ...(offeringKey
+        ? []
+        : ([
+            {
+              name: 'weightGram',
+              label: t('products.form.weight'),
+              type: 'number',
+              empty: !first?.weightGram,
+            },
+          ] satisfies AssistantFormField[])),
+      ...(offeringKey
+        ? ([
+            {
+              name: 'durationMinutes',
+              label: offeringLabel('durationMinutes'),
+              type: 'number',
+              empty: !offering.durationMinutes,
+            },
+            {
+              name: 'sessions',
+              label: offeringLabel('sessions'),
+              type: 'number',
+              empty: !offering.sessions,
+            },
+            {
+              name: 'format',
+              label: offeringLabel('format'),
+              type: 'select',
+              options: [...FORMATS],
+              empty: !offering.format,
+            },
+            ...(offeringKey === 'course'
+              ? [
+                  {
+                    name: 'level',
+                    label: offeringLabel('level'),
+                    type: 'text' as const,
+                    empty: !offering.level.trim(),
+                    value: offering.level,
+                  },
+                ]
+              : []),
+            {
+              name: 'period',
+              label: offeringLabel('period'),
+              type: 'text',
+              empty: !offering.period.trim(),
+              value: offering.period,
+            },
+            {
+              name: 'schedule',
+              label: offeringLabel('schedule'),
+              type: 'textarea',
+              empty: !offering.schedule.trim(),
+              value: offering.schedule,
+            },
+            {
+              name: 'audience',
+              label: offeringLabel('audience'),
+              type: 'text',
+              empty: !offering.audience.trim(),
+              value: offering.audience,
+            },
+            {
+              name: 'priceNote',
+              label: offeringLabel('priceNote'),
+              type: 'text',
+              empty: !offering.priceNote.trim(),
+              value: offering.priceNote,
+            },
+          ] satisfies AssistantFormField[])
+        : []),
+    ],
+    (values) => {
+      if (typeof values['code'] === 'string') setCode(values['code'].slice(0, 64));
+      if (typeof values['name'] === 'string') setName(values['name'].slice(0, 200));
+      if (typeof values['category'] === 'string') setCategory(values['category'].slice(0, 120));
+      if (typeof values['description'] === 'string')
+        setDescription(values['description'].slice(0, 5000));
+      const patch: Partial<VariantDraft> = {};
+      if (typeof values['sku'] === 'string') patch.sku = values['sku'].slice(0, 64);
+      if (typeof values['price'] === 'number' && values['price'] >= 0)
+        patch.price = Math.round(values['price']);
+      if (typeof values['cost'] === 'number' && values['cost'] >= 0)
+        patch.cost = Math.round(values['cost']);
+      if (!offeringKey && typeof values['weightGram'] === 'number' && values['weightGram'] >= 0)
+        patch.weightGram = Math.round(values['weightGram']);
+      if (Object.keys(patch).length) setVariant(0, patch);
+      if (!offeringKey) return;
+      const details: Partial<OfferingDraft> = {};
+      const whole = (v: unknown, min: number, max: number) =>
+        typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max ? String(v) : null;
+      const minutes = whole(values['durationMinutes'], 5, 1440);
+      if (minutes) details.durationMinutes = minutes;
+      const sessions = whole(values['sessions'], 1, 1000);
+      if (sessions) details.sessions = sessions;
+      const format = FORMATS.find((f) => f === values['format']);
+      if (format) details.format = format;
+      if (offeringKey === 'course' && typeof values['level'] === 'string')
+        details.level = values['level'].slice(0, 120);
+      if (typeof values['period'] === 'string') details.period = values['period'].slice(0, 60);
+      if (typeof values['schedule'] === 'string')
+        details.schedule = values['schedule'].slice(0, 500);
+      if (typeof values['audience'] === 'string')
+        details.audience = values['audience'].slice(0, 300);
+      if (typeof values['priceNote'] === 'string')
+        details.priceNote = values['priceNote'].slice(0, 120);
+      if (Object.keys(details).length) setOffering((o) => ({ ...o, ...details }));
+    },
+    { submitTarget: 'products.save', enabled: !product },
+  );
+
   function submit(e: FormEvent) {
     e.preventDefault();
     if (product && locked) {
       saveBot.mutate(
         { visibleToBot, botInstructions },
         {
-          onSuccess: () => toast.success(t('products.form.saved')),
+          onSuccess: () => toast.success(word('saved')),
           onError: (err) => toast.error(errorMessage(t, err)),
         },
       );
@@ -113,6 +300,7 @@ export function ProductForm({
       imageUrls,
       status: archived ? 'archived' : 'active',
       ...(!product && botId ? { botId } : {}),
+      ...(editKind ? { offering: retail ? null : toOffering(offering, editKind) } : {}),
       variants: variants.map((v) => ({
         ...(v.id ? { id: v.id } : {}),
         sku: v.sku.trim(),
@@ -126,7 +314,7 @@ export function ProductForm({
       { ...(product ? { id: product.id } : {}), body },
       {
         onSuccess: (p) => {
-          toast.success(product ? t('products.form.saved') : t('products.form.created'));
+          toast.success(product ? word('saved') : word('created'));
           if (!product && botId)
             void navigate({ to: '/app/bots/$botId/products', params: { botId } });
           else if (!product)
@@ -145,10 +333,10 @@ export function ProductForm({
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ChevronLeft className="size-4" aria-hidden />
-          {t('products.title')}
+          {t(offeringKind ? 'nav.services' : 'products.title')}
         </Link>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-          {product ? t('products.form.editTitle') : t('products.form.newTitle')}
+          {product ? word('editTitle') : word('newTitle')}
         </h1>
       </header>
 
@@ -161,7 +349,7 @@ export function ProductForm({
           ) : null}
           <div className="flex flex-col gap-1.5">
             <FieldLabel htmlFor="pf-code" locked={locked}>
-              {t('products.form.code')}
+              {word('code')}
             </FieldLabel>
             <Input
               id="pf-code"
@@ -174,7 +362,7 @@ export function ProductForm({
           </div>
           <div className="flex flex-col gap-1.5">
             <FieldLabel htmlFor="pf-name" locked={locked}>
-              {t('products.form.name')}
+              {word('name')}
             </FieldLabel>
             <Input
               id="pf-name"
@@ -203,7 +391,7 @@ export function ProductForm({
                 checked={visibleToBot}
                 onCheckedChange={(c) => setVisibleToBot(c === true)}
               />
-              {t('products.form.visibleToBot')}
+              {word('visibleToBot')}
             </label>
             {product && locked ? (
               <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -213,7 +401,7 @@ export function ProductForm({
             ) : product ? (
               <label className="flex items-center gap-2 text-sm">
                 <Checkbox checked={archived} onCheckedChange={(c) => setArchived(c === true)} />
-                {t('products.form.archived')}
+                {word('archived')}
               </label>
             ) : null}
           </div>
@@ -243,6 +431,16 @@ export function ProductForm({
           </div>
         </section>
 
+        {editKind ? (
+          <ProductOfferingEditor
+            kind={editKind}
+            retail={retail}
+            onRetailChange={setRetail}
+            value={offering}
+            onChange={setOffering}
+          />
+        ) : null}
+
         <ProductImagesEditor
           value={imageUrls}
           onChange={setImageUrls}
@@ -253,15 +451,13 @@ export function ProductForm({
         <section className="rounded-xl border bg-card p-4 md:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="font-semibold">{t('products.form.variants')}</h2>
+              <h2 className="font-semibold">{word('variants')}</h2>
               {locked ? (
                 <div className="mt-1">
                   <LockedHint id="pv-locked-hint" retailer={retailer} />
                 </div>
               ) : (
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {t('products.form.variantsHint')}
-                </p>
+                <p className="mt-1 text-sm text-muted-foreground">{word('variantsHint')}</p>
               )}
             </div>
             {locked ? null : (
@@ -273,7 +469,7 @@ export function ProductForm({
                 }
               >
                 <Plus />
-                {t('products.form.addVariant')}
+                {word('addVariant')}
               </Button>
             )}
           </div>
@@ -281,7 +477,12 @@ export function ProductForm({
             {variants.map((v, i) => (
               <li
                 key={v.key}
-                className="grid gap-3 rounded-lg border p-3 sm:grid-cols-2 lg:grid-cols-[1fr_1.4fr_1fr_1fr_0.7fr_auto] lg:items-end"
+                className={cn(
+                  'grid gap-3 rounded-lg border p-3 sm:grid-cols-2 lg:items-end',
+                  isOffering
+                    ? 'lg:grid-cols-[1fr_1.4fr_1fr_1fr_auto]'
+                    : 'lg:grid-cols-[1fr_1.4fr_1fr_1fr_0.7fr_auto]',
+                )}
               >
                 <div className="flex flex-col gap-1.5">
                   <FieldLabel htmlFor={`pv-sku-${v.key}`} locked={locked}>
@@ -298,7 +499,7 @@ export function ProductForm({
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <FieldLabel htmlFor={`pv-name-${v.key}`} locked={locked}>
-                    {t('products.form.variantName')}
+                    {word('variantName')}
                   </FieldLabel>
                   <Input
                     id={`pv-name-${v.key}`}
@@ -310,7 +511,7 @@ export function ProductForm({
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <FieldLabel htmlFor={`pv-price-${v.key}`} locked={locked}>
-                    {t('products.form.price')}
+                    {word('price')}
                   </FieldLabel>
                   <MoneyInput
                     id={`pv-price-${v.key}`}
@@ -330,30 +531,32 @@ export function ProductForm({
                     onValueChange={(cost) => setVariant(i, { cost })}
                   />
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  <FieldLabel htmlFor={`pv-weight-${v.key}`} locked={locked}>
-                    {t('products.form.weight')}
-                  </FieldLabel>
-                  <Input
-                    id={`pv-weight-${v.key}`}
-                    {...lockedField('pv-locked-hint')}
-                    inputMode="numeric"
-                    className={cn('text-right tabular-nums', locked && LOCKED_FIELD)}
-                    value={v.weightGram || ''}
-                    onChange={(e) =>
-                      setVariant(i, {
-                        weightGram: Number(e.target.value.replace(/\D/g, '').slice(0, 7)) || 0,
-                      })
-                    }
-                  />
-                </div>
+                {isOffering ? null : (
+                  <div className="flex flex-col gap-1.5">
+                    <FieldLabel htmlFor={`pv-weight-${v.key}`} locked={locked}>
+                      {t('products.form.weight')}
+                    </FieldLabel>
+                    <Input
+                      id={`pv-weight-${v.key}`}
+                      {...lockedField('pv-locked-hint')}
+                      inputMode="numeric"
+                      className={cn('text-right tabular-nums', locked && LOCKED_FIELD)}
+                      value={v.weightGram || ''}
+                      onChange={(e) =>
+                        setVariant(i, {
+                          weightGram: Number(e.target.value.replace(/\D/g, '').slice(0, 7)) || 0,
+                        })
+                      }
+                    />
+                  </div>
+                )}
                 {locked ? null : (
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
                     disabled={variants.length === 1}
-                    aria-label={t('products.form.removeVariant')}
+                    aria-label={word('removeVariant')}
                     onClick={() => setVariants((vs) => vs.filter((_, idx) => idx !== i))}
                   >
                     <Trash2 />
@@ -365,13 +568,13 @@ export function ProductForm({
         </section>
 
         <div className="flex justify-end">
-          <Button type="submit" size="lg" disabled={saving}>
-            {saving ? t('products.form.saving') : t('products.form.save')}
+          <Button type="submit" size="lg" disabled={saving} data-assistant-target="products.save">
+            {saving ? t('products.form.saving') : word('save')}
           </Button>
         </div>
       </form>
 
-      {product ? (
+      {product && !isOffering ? (
         <StockEditor
           product={product}
           lockedHint={locked ? <LockedHint id="ps-locked-hint" retailer={retailer} /> : undefined}

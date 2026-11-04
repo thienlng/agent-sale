@@ -9,11 +9,15 @@ import { EvalCase } from './case.js';
 /** apps/backend/evals, the same path from src/ (tests, tsx) and dist/. */
 export const EVALS_DIR = fileURLToPath(new URL('../../../../evals/', import.meta.url));
 
+/** Owner assistant evals live in `evals/assistant/` with their own format and runner. */
+const OTHER_FORMATS = new Set([join(EVALS_DIR, 'assistant')]);
+
 function yamlFiles(dir: string): string[] {
   return readdirSync(dir)
     .sort()
     .flatMap((name) => {
       const path = join(dir, name);
+      if (OTHER_FORMATS.has(path)) return [];
       if (statSync(path).isDirectory()) return yamlFiles(path);
       return name.endsWith('.yaml') ? [path] : [];
     });
@@ -25,7 +29,9 @@ export function parseCase(source: string, file = 'case'): EvalCase {
   try {
     raw = parse(source);
   } catch (error) {
-    throw new Error(`${file}: invalid YAML (${error instanceof Error ? error.message : error})`);
+    throw new Error(`${file}: invalid YAML (${error instanceof Error ? error.message : error})`, {
+      cause: error,
+    });
   }
   const result = EvalCase.safeParse(raw);
   if (!result.success) {

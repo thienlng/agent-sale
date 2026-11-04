@@ -13,5 +13,6 @@ export {
   type LodgingFacade,
   type PrepareBotHoldInput,
   type PrepareBotHoldResult,
+  type StayRevenue,
 } from './lodging.facade.js';
 export * from './lodging.events.js';

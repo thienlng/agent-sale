@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ApiClientError } from '@/lib/api-client';
+import { useAssistantContext, useAssistantForm } from '@/lib/assistant-context';
 import { errorMessage } from '@/lib/errors';
 import { businessIcon } from '@/lib/business-icons';
 import { useCan } from '@/lib/permissions';
@@ -30,6 +31,7 @@ import { LogoField } from './logo-field';
 
 // businessServices and productDescription are deprecated (T-144): neither edited here nor read by the AI.
 type Draft = Pick<WorkspaceProfileDto, 'name' | 'companyName' | 'icon'>;
+const MAX = { name: 120, companyName: 200 } as const;
 const draftOf = (p: WorkspaceProfileDto): Draft => ({
   name: p.name,
   companyName: p.companyName,
@@ -58,6 +60,41 @@ function ProfileForm({ profile }: { profile: WorkspaceProfileDto }) {
   }, [profile]);
 
   const set = (patch: Partial<Draft>) => setDraft({ ...draft, ...patch });
+  const [companyOpen, setCompanyOpen] = useState(draft.companyName !== '');
+
+  // The owner assistant may draft the names, never the icon or logo (T175-R6); it never saves.
+  useAssistantForm(
+    'business-settings',
+    () => [
+      {
+        name: 'name',
+        label: t('wsettings.profile.name'),
+        type: 'text',
+        empty: !draft.name.trim(),
+        value: draft.name,
+      },
+      {
+        name: 'companyName',
+        label: t('wsettings.profile.companyName'),
+        type: 'text',
+        empty: !draft.companyName.trim(),
+        value: draft.companyName,
+      },
+    ],
+    (values) => {
+      const { name, companyName } = values;
+      setDraft((d) => ({
+        ...d,
+        ...(typeof name === 'string' ? { name: name.slice(0, MAX.name) } : {}),
+        ...(typeof companyName === 'string'
+          ? { companyName: companyName.slice(0, MAX.companyName) }
+          : {}),
+      }));
+      // Show the filled company name, which sits in a collapsed section.
+      if (typeof companyName === 'string' && companyName) setCompanyOpen(true);
+    },
+    { enabled: canEdit, submitTarget: 'business-settings.save' },
+  );
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!dirty || !canEdit) return;
@@ -96,7 +133,7 @@ function ProfileForm({ profile }: { profile: WorkspaceProfileDto }) {
           {t('wsettings.profile.readOnly')}
         </p>
       ) : null}
-      {field('name', t('wsettings.profile.name'), 120)}
+      {field('name', t('wsettings.profile.name'), MAX.name)}
       <fieldset className="flex flex-col gap-2" disabled={!canEdit}>
         <legend className="text-sm font-medium">{t('wsettings.icon.title')}</legend>
         <p className="text-sm text-muted-foreground">
@@ -128,7 +165,7 @@ function ProfileForm({ profile }: { profile: WorkspaceProfileDto }) {
         </div>
       </fieldset>
       <BusinessIndustry />
-      <Collapsible defaultOpen={draft.companyName !== ''} className="group/company">
+      <Collapsible open={companyOpen} onOpenChange={setCompanyOpen} className="group/company">
         <CollapsibleTrigger className="flex items-center gap-1.5 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">
           <ChevronRight
             aria-hidden
@@ -137,7 +174,7 @@ function ProfileForm({ profile }: { profile: WorkspaceProfileDto }) {
           {t('wsettings.profile.companyToggle')}
         </CollapsibleTrigger>
         <CollapsibleContent className="mt-3 flex flex-col gap-1.5">
-          {field('companyName', t('wsettings.profile.companyName'), 200)}
+          {field('companyName', t('wsettings.profile.companyName'), MAX.companyName)}
           <p className="text-sm text-muted-foreground">{t('wsettings.profile.companyHint')}</p>
         </CollapsibleContent>
       </Collapsible>
@@ -157,7 +194,11 @@ function ProfileForm({ profile }: { profile: WorkspaceProfileDto }) {
           <Button type="button" variant="ghost" disabled={!dirty} onClick={() => setDraft(base)}>
             {t('wsettings.profile.reset')}
           </Button>
-          <Button type="submit" disabled={!dirty || update.isPending || !draft.name.trim()}>
+          <Button
+            type="submit"
+            data-assistant-target="business-settings.save"
+            disabled={!dirty || update.isPending || !draft.name.trim()}
+          >
             {t('wsettings.profile.save')}
           </Button>
         </div>
@@ -186,6 +227,7 @@ function ProfileForm({ profile }: { profile: WorkspaceProfileDto }) {
 export function ProfilePage() {
   const { t } = useTranslation();
   const profile = useProfile();
+  useAssistantContext({ title: t('wsettings.profile.title') });
   if (!profile.data) return <Skeleton className="h-96 max-w-2xl rounded-xl" />;
   return (
     <div className="flex max-w-2xl flex-col gap-4">

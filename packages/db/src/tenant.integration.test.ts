@@ -27,7 +27,11 @@ beforeAll(async () => {
   expect(first.applied.length).toBeGreaterThan(0);
   const second = await migrate(pg.ownerUrl);
   expect(second.applied).toEqual([]);
-  await ensureLoginRoles(pg.ownerUrl, { tenant: pg.tenantLogin, system: pg.systemLogin });
+  await ensureLoginRoles(pg.ownerUrl, {
+    tenant: pg.tenantLogin,
+    system: pg.systemLogin,
+    assistantSql: pg.assistantSqlLogin,
+  });
 
   tenantDb = createDb({
     url: withCredentials(pg.ownerUrl, pg.tenantLogin.user, pg.tenantLogin.password),

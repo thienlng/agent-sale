@@ -36,6 +36,9 @@ const SECTION: Record<string, string> = {
   businesses: 'nav.groupBusinesses',
 };
 
+/** Every service business (education, spa) names its catalog "Dịch vụ", like the sidebar. */
+const CATALOG_SECTION: Record<string, string> = { education: 'nav.services', spa: 'nav.services' };
+
 /**
  * Dashboard shell (Studio Admin layout on shadcn's Sidebar): the sidebar's
  * variant and collapse mode, the content width and the header behaviour all
@@ -48,6 +51,7 @@ export function AppShell({
   planDialog,
   industry,
   navCounts,
+  headerActions,
 }: {
   children: ReactNode;
   /** Plan and billing popup for the account menu, composed by the route from `features/billing`. */
@@ -56,6 +60,8 @@ export function AppShell({
   industry?: string | undefined;
   /** Waiting counts next to sidebar entries, composed by the route (e.g. bot holds to review). */
   navCounts?: NavCounts | undefined;
+  /** Header controls before the account menu (e.g. the notification bell), composed by the route. */
+  headerActions?: ReactNode;
 }) {
   const { t } = useTranslation();
   const session = useSession();
@@ -69,7 +75,8 @@ export function AppShell({
     ? ADMIN_NAV.find((item) => pathname.startsWith(item.to))?.key
     : pathname === '/app/businesses/new'
       ? 'nav.newBusiness'
-      : SECTION[segment];
+      : ((segment === 'products' ? CATALOG_SECTION[industry ?? ''] : undefined) ??
+        SECTION[segment]);
   const accountLayer = ACCOUNT_PATHS.test(pathname);
 
   return (
@@ -96,7 +103,8 @@ export function AppShell({
             <SidebarTrigger className="-ml-1" aria-label={t('nav.toggleSidebar')} />
             <Separator orientation="vertical" className="mx-1 data-[orientation=vertical]:h-4" />
             {section ? <span className="truncate text-base font-medium">{t(section)}</span> : null}
-            <div className="ml-auto flex items-center">
+            <div className="ml-auto flex items-center gap-1">
+              {headerActions}
               <AccountMenu planDialog={planDialog} />
             </div>
           </header>

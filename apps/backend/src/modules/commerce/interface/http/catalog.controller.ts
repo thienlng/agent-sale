@@ -1,9 +1,12 @@
 import {
   AdjustStockRequest,
   type BotProductsDto,
+  MatchProductCodesRequest,
+  type MatchProductCodesResponse,
   type ProductDto,
   ProductListQuery,
   type ProductListResponse,
+  type ProductSummaryListResponse,
   SetBotProductsRequest,
   UpdateProductBotSettingsRequest,
   UploadProductImageRequest,
@@ -109,7 +112,7 @@ export class CatalogController {
   products(
     @CurrentWorkspace() ws: WorkspaceId,
     @Query(new ZodValidationPipe(ProductListQuery)) query: z.infer<typeof ProductListQuery>,
-  ): Promise<ProductListResponse> {
+  ): Promise<ProductListResponse | ProductSummaryListResponse> {
     return this.catalog.listProducts(ws, query);
   }
 
@@ -122,6 +125,18 @@ export class CatalogController {
   ): Promise<ProductDto> {
     if (body.accommodation) await this.lodging.assertHotel(ws);
     return this.catalog.createProduct(ws, body);
+  }
+
+  /** A read sent as POST (the lists are long); same capability as listing the products. */
+  @RequireCapability('orders.view')
+  @Post('products/match-codes')
+  @HttpCode(200)
+  matchCodes(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Body(new ZodValidationPipe(MatchProductCodesRequest))
+    body: z.infer<typeof MatchProductCodesRequest>,
+  ): Promise<MatchProductCodesResponse> {
+    return this.catalog.matchCodes(ws, body);
   }
 
   @RequireCapability('catalog.manage')

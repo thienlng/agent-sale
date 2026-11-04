@@ -1,11 +1,14 @@
 import { and, asc, desc, eq, inArray, schema, sql, type TenantTx } from '@agent-sales/db';
 import type { WorkspaceId } from '@agent-sales/shared';
 
+import { REQUEST_HISTORY_TYPES } from '@agent-sales/contracts';
+
 import type {
   ContactRecord,
   CrmTx,
   HistoryRecord,
   NoteRecord,
+  OpenRequestRecord,
 } from '../../application/ports/crm-store.js';
 import { ContactExternalLinkConflictError } from '../../api/contact-sync.facade.js';
 import { DuplicateContactRequestError } from '../../domain/crm.errors.js';
@@ -14,6 +17,8 @@ import { compileContactOrder, compileContactWhere } from './contact-filter.sql.j
 const c = schema.contacts;
 const notes = schema.contactNotes;
 const h = schema.contactHistory;
+const st = schema.crmStatuses;
+const REQUEST_TYPES = [...REQUEST_HISTORY_TYPES];
 
 type ContactRow = typeof c.$inferSelect;
 
@@ -112,6 +117,39 @@ export function contactsTx(
           .values({ workspaceId: ws, contactId, botId, firstSeenAt: at })
           .onConflictDoNothing();
       },
+      async countByStatus() {
+        const rows = await tx
+          .select({ statusId: c.statusId, count: sql<number>`count(*)::int` })
+          .from(c)
+          .where(and(eq(c.workspaceId, ws), sql`${c.archivedAt} is null`))
+          .groupBy(c.statusId);
+        return rows.map((r) => ({ statusId: r.statusId, count: Number(r.count) }));
+      },
+      async createdBySource({ since, until }) {
+        const src = schema.crmSources;
+        const rows = await tx
+          .select({ source: src.name, count: sql<number>`count(*)::int` })
+          .from(c)
+          .leftJoin(
+            src,
+            and(
+              eq(src.id, sql`coalesce(${c.firstSourceId}, ${c.sourceId})`),
+              eq(src.workspaceId, ws),
+            ),
+          )
+          .where(
+            and(
+              eq(c.workspaceId, ws),
+              sql`${c.archivedAt} is null`,
+              sql`${c.createdAt} >= ${since.toISOString()}::timestamptz`,
+              sql`${c.createdAt} < ${until.toISOString()}::timestamptz`,
+            ),
+          )
+          .groupBy(src.name);
+        return rows
+          .map((r) => ({ source: r.source ?? null, count: Number(r.count) }))
+          .sort((a, b) => b.count - a.count || (a.source ?? '').localeCompare(b.source ?? ''));
+      },
       async countOwnedBy(userId) {
         const [r] = await tx
           .select({
@@ -189,6 +227,107 @@ export function contactsTx(
     history: {
       async add(entry) {
         await tx.insert(h).values({ ...entry, workspaceId: ws });
+      },
+      async latestRequestEntry(contactId, kind, since) {
+        const [r] = await tx
+          .select()
+          .from(h)
+          .where(
+            and(
+              eq(h.contactId, contactId),
+              inArray(h.type, REQUEST_TYPES),
+              sql`${h.data}->>'kind' = ${kind}`,
+              sql`${h.createdAt} >= ${since.toISOString()}::timestamptz`,
+            ),
+          )
+          .orderBy(desc(h.createdAt), desc(h.id))
+          .limit(1);
+        return r ? { ...r } : null;
+      },
+      async requestEntries(contactId, limit) {
+        const rows = await tx
+          .select()
+          .from(h)
+          .where(and(eq(h.contactId, contactId), inArray(h.type, REQUEST_TYPES)))
+          .orderBy(desc(h.createdAt), desc(h.id))
+          .limit(limit);
+        return rows.map((r): HistoryRecord => ({ ...r }));
+      },
+      async requestCounts(since, until) {
+        const kind = sql<string>`${h.data}->>'kind'`;
+        const rows = await tx
+          .select({
+            kind,
+            statusKey: st.key,
+            statusName: st.name,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(h)
+          .innerJoin(c, and(eq(c.id, h.contactId), eq(c.workspaceId, ws)))
+          .leftJoin(st, and(eq(st.id, c.statusId), eq(st.workspaceId, ws)))
+          .where(
+            and(
+              eq(h.workspaceId, ws),
+              eq(h.type, 'contact.request_recorded'),
+              sql`${c.archivedAt} is null`,
+              sql`${h.createdAt} >= ${since.toISOString()}::timestamptz`,
+              sql`${h.createdAt} < ${until.toISOString()}::timestamptz`,
+            ),
+          )
+          .groupBy(kind, st.key, st.name);
+        return rows.map((r) => ({
+          kind: r.kind,
+          statusKey: r.statusKey ?? null,
+          statusName: r.statusName ?? null,
+          count: Number(r.count),
+        }));
+      },
+      async openRequests({ since, targets, limit }) {
+        if (!targets.length) return [];
+        const pairs = sql.join(
+          targets.map((t) => sql`(${t.kind}, ${t.statusKey})`),
+          sql`, `,
+        );
+        const rows = await tx.execute<{
+          id: string;
+          contact_id: string;
+          type: string;
+          changes: Record<string, { from: unknown; to: unknown }>;
+          data: Record<string, unknown>;
+          actor_user_id: string | null;
+          actor_name: string | null;
+          created_at: string | Date;
+          contact_name: string | null;
+          status_key: string | null;
+        }>(sql`
+          select latest.*, ct.name as contact_name, s.key as status_key
+          from (
+            select distinct on (ch.contact_id) ch.id, ch.contact_id, ch.type, ch.changes, ch.data,
+              ch.actor_user_id, ch.actor_name, ch.created_at
+            from contact_history ch
+            where ch.workspace_id = ${ws}
+              and ch.type in ('contact.request_recorded', 'contact.request_updated')
+              and ch.created_at >= ${since.toISOString()}::timestamptz
+            order by ch.contact_id, ch.created_at desc, ch.id desc
+          ) latest
+          join contacts ct on ct.id = latest.contact_id and ct.workspace_id = ${ws}
+            and ct.archived_at is null
+          join crm_statuses s on s.id = ct.status_id and s.workspace_id = ${ws}
+          where (latest.data->>'kind', s.key) in (${pairs})
+          order by latest.created_at desc, latest.id desc
+          limit ${limit}`);
+        return [...rows].map((r): OpenRequestRecord => ({
+          id: r.id,
+          contactId: r.contact_id,
+          type: r.type,
+          changes: r.changes,
+          data: r.data,
+          actorUserId: r.actor_user_id,
+          actorName: r.actor_name,
+          createdAt: new Date(r.created_at),
+          contactName: r.contact_name,
+          statusKey: r.status_key,
+        }));
       },
       async addMany(entries) {
         for (let i = 0; i < entries.length; i += 500) {

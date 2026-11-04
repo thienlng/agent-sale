@@ -1,4 +1,8 @@
-import { AccommodationDetails, CLOSED_ORDER_STATUSES } from '@agent-sales/contracts';
+import {
+  AccommodationDetails,
+  CLOSED_ORDER_STATUSES,
+  OfferingDetails,
+} from '@agent-sales/contracts';
 import { schema, sql } from '@agent-sales/db';
 
 import type {
@@ -60,6 +64,7 @@ export function toProduct(r: typeof p.$inferSelect): ProductRecord {
     botInstructions: r.botInstructions,
     imageUrls: r.imageUrls,
     accommodation: r.accommodation ? AccommodationDetails.parse(r.accommodation) : null,
+    offering: r.offering ? OfferingDetails.parse(r.offering) : null,
     external:
       r.externalSource === 'kiotviet' && r.externalId
         ? { source: r.externalSource, id: r.externalId }

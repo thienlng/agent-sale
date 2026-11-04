@@ -1,10 +1,16 @@
-import type { ContactDto } from '@agent-sales/contracts';
+import type { ContactDto, CustomerRequestKind } from '@agent-sales/contracts';
 import { Inject, Injectable } from '@nestjs/common';
 import type { WorkspaceId } from '@agent-sales/shared';
 
-import type { CrmFacade, ConversationTagFilter } from '../api/crm.facade.js';
+import type {
+  BotRequestResult,
+  CrmFacade,
+  ConversationTagFilter,
+  RequestsRecorded,
+} from '../api/crm.facade.js';
 import { ConversationTagsService } from './conversation-tags.service.js';
 import { ContactService } from './contact.service.js';
+import { CustomerRequestService } from './customer-request.service.js';
 import { OwnershipService } from './ownership.service.js';
 
 /** Delegates to the use-case services; no logic of its own. */
@@ -15,6 +21,7 @@ export class CrmFacadeImpl implements CrmFacade {
     @Inject(OwnershipService) private readonly ownership: OwnershipService,
     @Inject(ConversationTagsService)
     private readonly conversationTagsService: ConversationTagsService,
+    @Inject(CustomerRequestService) private readonly requests: CustomerRequestService,
   ) {}
 
   getContact(ws: WorkspaceId, id: string): Promise<ContactDto> {
@@ -23,6 +30,10 @@ export class CrmFacadeImpl implements CrmFacade {
 
   ownedContactCounts(ws: WorkspaceId, userId: string) {
     return this.ownership.ownedContactCounts(ws, userId);
+  }
+
+  contactsCreated(ws: WorkspaceId, q: { since: Date; until: Date }) {
+    return this.ownership.contactsCreated(ws, q);
   }
 
   contactNames(ws: WorkspaceId, ids: readonly string[]) {
@@ -41,7 +52,7 @@ export class CrmFacadeImpl implements CrmFacade {
     ws: WorkspaceId,
     contactId: string,
     statusKey: string,
-    opts: { forwardOnly: boolean },
+    opts: { forwardOnly: boolean; keep?: readonly string[] },
   ) {
     return this.contacts.moveStatusByKey(ws, contactId, statusKey, opts);
   }
@@ -68,5 +79,24 @@ export class CrmFacadeImpl implements CrmFacade {
 
   assignConversationTag(ws: WorkspaceId, conversationId: string, input: unknown, actor: string) {
     return this.conversationTagsService.assign(ws, conversationId, input, actor);
+  }
+
+  recordBotRequest(
+    ws: WorkspaceId,
+    input: {
+      kind: CustomerRequestKind;
+      details: unknown;
+      preview: boolean;
+      catalogNames?: readonly string[];
+    },
+  ): Promise<BotRequestResult> {
+    return this.requests.recordFromBot(ws, input);
+  }
+
+  requestsRecorded(
+    ws: WorkspaceId,
+    q: { since: Date; until: Date; kinds?: readonly CustomerRequestKind[] },
+  ): Promise<RequestsRecorded> {
+    return this.requests.recorded(ws, q);
   }
 }

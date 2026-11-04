@@ -106,6 +106,20 @@ export interface ConversationFacade {
     id: string,
     input: { urls: readonly string[]; idempotencyKey: string },
   ): Promise<InboxMessageDto | null>;
+  /**
+   * Open conversations waiting for a reply since `olderThan` or earlier (owner reports, T-172):
+   * how many, the oldest wait, the split by channel kind (`facebook`, `instagram`, `website`…)
+   * and up to `limit` (≤ 200) ids, oldest first, for an alert fingerprint. No customer data.
+   */
+  awaitingReply(ws: WorkspaceId, q: { olderThan: Date; limit: number }): Promise<AwaitingReply>;
+}
+/** What `awaitingReply` returns: counts and ids only (S3-R9). */
+export interface AwaitingReply {
+  count: number;
+  /** ISO time of the longest wait; null when nothing waits. */
+  oldestSince: string | null;
+  byChannel: { channel: string; count: number }[];
+  ids: string[];
 }
 export interface BotQuickReplies {
   quickReplies?: readonly { title: string; payload: string }[] | undefined;

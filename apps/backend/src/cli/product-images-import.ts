@@ -45,7 +45,7 @@ const storage = new S3PublicObjectStorage({
   secretKey: env['S3_SECRET_KEY'],
 });
 const { db, close } = createDb({ url, max: 1 });
-let failed = 0;
+let failed: number;
 try {
   const report = await importProductImages(db, storage, {
     dryRun,

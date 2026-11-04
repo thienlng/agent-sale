@@ -30,6 +30,13 @@ export const aiRuns = new Counter({
   registers: [metricsRegistry],
 });
 
+/** Shop-bot turn traces that could not be written (the reply went out regardless, T-174). */
+export const aiTraceWriteFailures = new Counter({
+  name: 'ai_trace_write_failures_total',
+  help: 'Shop-bot turn traces not recorded because the write failed',
+  registers: [metricsRegistry],
+});
+
 export const aiLatency = new Histogram({
   name: 'ai_run_duration_seconds',
   help: 'LLM call latency by provider',

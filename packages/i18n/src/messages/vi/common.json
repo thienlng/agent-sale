@@ -1,6 +1,12 @@
 {
   "app": {
-    "name": "Rapiz"
+    "name": "Rapiz",
+    "assistantLauncher": "Hỏi Thỏ Rapiz",
+    "assistantAskSample": "Nhờ trợ lý điền mẫu",
+    "notifications": "Thông báo",
+    "notificationsUnread": "Thông báo, {{count}} chưa đọc",
+    "reportThreadError": "Không mở được báo cáo trong trợ lý. Thử lại.",
+    "reportScheduleDeleted": "Lịch này đã bị xoá"
   },
   "nav": {
     "bots": "Đào tạo Bot",
@@ -45,7 +51,8 @@
     "groupAccount": "Tài khoản",
     "groupBusinesses": "Business của tôi",
     "accountOverview": "Tổng quan các business",
-    "newBusiness": "Tạo business mới"
+    "newBusiness": "Tạo business mới",
+    "services": "Dịch vụ"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -890,6 +897,28 @@
       "imageNotUploaded": "Sản phẩm còn ảnh dạng link cũ. Xoá ảnh đó rồi tải ảnh lên lại.",
       "imagesFull": "Đã đủ số ảnh. Hãy bỏ bớt ảnh để thêm ảnh mới."
     },
+    "service": {
+      "add": "Thêm dịch vụ",
+      "search": "Tìm theo tên, mã dịch vụ hoặc SKU",
+      "colName": "Tên dịch vụ",
+      "empty": "Không tìm thấy dịch vụ",
+      "emptyStart": "Chưa có dịch vụ nào. Thêm dịch vụ để bot tư vấn và nhận yêu cầu của khách.",
+      "newTitle": "Dịch vụ mới",
+      "editTitle": "Sửa dịch vụ",
+      "code": "Mã dịch vụ",
+      "name": "Tên dịch vụ",
+      "visibleToBot": "Cho bot tư vấn dịch vụ này",
+      "archived": "Lưu trữ (ngừng cung cấp)",
+      "variants": "Gói dịch vụ",
+      "variantsHint": "Mỗi gói có SKU và giá riêng, ví dụ buổi lẻ, lớp tối hoặc gói 10 buổi.",
+      "addVariant": "Thêm gói",
+      "variantName": "Tên gói (buổi lẻ, lớp, liệu trình…)",
+      "price": "Giá dịch vụ",
+      "removeVariant": "Bỏ gói này",
+      "save": "Lưu dịch vụ",
+      "saved": "Đã lưu dịch vụ",
+      "created": "Đã tạo dịch vụ"
+    },
     "stock": {
       "title": "Tồn kho",
       "hint": "Nhập số lượng đếm được thực tế; hệ thống ghi lại chênh lệch.",
@@ -899,6 +928,36 @@
       "available": "Có thể bán",
       "update": "Cập nhật",
       "updated": "Đã cập nhật tồn kho"
+    }
+  },
+  "commerce": {
+    "offering": {
+      "title": "Chi tiết dịch vụ",
+      "hint": "Bot dùng các thông tin này để tư vấn. Dịch vụ không có tồn kho.",
+      "retail": "Đây là sản phẩm bán lẻ",
+      "retailHint": "Bật cho hàng có tồn kho, như mỹ phẩm hay giáo trình. Bot sẽ tư vấn như một sản phẩm thường.",
+      "durationMinutes": "Thời lượng mỗi buổi (phút)",
+      "sessions": "Số buổi",
+      "period": "Tổng thời gian",
+      "periodPlaceholder": "3 tháng",
+      "format": "Hình thức",
+      "formats": {
+        "none": "Chưa chọn",
+        "online": "Online",
+        "offline": "Tại cơ sở",
+        "hybrid": "Kết hợp"
+      },
+      "level": "Trình độ",
+      "schedule": "Lịch hoặc khung giờ",
+      "audience": "Dành cho",
+      "outcomes": "Kết quả mong đợi",
+      "outcomesHint": "Mỗi dòng một ý, tối đa 5 ý.",
+      "priceNote": "Ghi chú giá",
+      "priceNoteHint": "Hiện cạnh giá và thay cho giá 0, ví dụ: giá tham khảo, từ, liên hệ.",
+      "priceOnRequest": "Liên hệ",
+      "col": "Thời lượng",
+      "minutesCount": "{{count}} phút",
+      "sessionsCount": "{{count}} buổi"
     }
   },
   "warehouses": {
@@ -961,6 +1020,7 @@
     "noName": "(chưa có tên)",
     "stale": "Khách hàng này vừa được người khác sửa. Đã tải bản mới nhất, hãy kiểm tra rồi lưu lại.",
     "col": {
+      "lead": "Ghi nhận từ",
       "name": "Khách hàng",
       "phone": "Số điện thoại",
       "email": "Email",
@@ -1127,7 +1187,9 @@
         "note.edited": "Sửa ghi chú",
         "tag.added": "Gắn tag",
         "tag.updated": "Sửa thông tin tag",
-        "tag.removed": "Gỡ tag"
+        "tag.removed": "Gỡ tag",
+        "contact.request_recorded": "Yêu cầu mới",
+        "contact.request_updated": "Cập nhật yêu cầu"
       },
       "empty_value": "trống"
     },
@@ -1222,6 +1284,32 @@
         "instagram": "Instagram",
         "website": "Website"
       }
+    },
+    "requests": {
+      "title": "Yêu cầu",
+      "kind": {
+        "demo": "Xin demo",
+        "trial": "Đăng ký thử",
+        "consultation": "Xin tư vấn",
+        "placement_test": "Đăng ký kiểm tra trình độ",
+        "appointment": "Đặt lịch"
+      },
+      "strip": {
+        "label": "Yêu cầu của khách hàng",
+        "recorded7d": "Yêu cầu 7 ngày qua",
+        "open": "Đang chờ xử lý",
+        "noOpen": "Không có yêu cầu nào đang chờ.",
+        "statusHint": "Lọc khách hàng ở trạng thái {{name}}"
+      },
+      "card": {
+        "empty": "Khách chưa có yêu cầu nào.",
+        "updated": "Cập nhật",
+        "recordedAt": "Ghi nhận {{time}}"
+      },
+      "unnamed": "Khách chưa có tên",
+      "loading": "Đang tải yêu cầu…",
+      "loadError": "Không tải được yêu cầu.",
+      "retry": "Thử lại"
     }
   },
   "team": {
@@ -1373,7 +1461,7 @@
     },
     "logo": {
       "title": "Logo",
-      "rules": "PNG hoặc JPG, hình vuông, tối đa 1 MB. Khuyến nghị 720 × 720 px (cho phép từ 128 đến 2048 px).",
+      "rules": "Chọn ảnh bất kỳ, rồi kéo và phóng to để cắt thành hình vuông.",
       "alt": "Logo của shop",
       "none": "Chưa có logo",
       "upload": "Chọn ảnh",
@@ -1389,8 +1477,14 @@
         "not_square": "Ảnh phải là hình vuông (hiện là {{width}} × {{height}} px).",
         "too_small": "Ảnh quá nhỏ (từ 128 × 128 px trở lên).",
         "too_big": "Ảnh quá lớn (tối đa 2048 × 2048 px).",
-        "type": "Chỉ nhận ảnh PNG hoặc JPG."
-      }
+        "type": "Tệp này không phải ảnh.",
+        "unreadable": "Trình duyệt không mở được ảnh này. Hãy chọn ảnh khác (JPG, PNG, WebP…)."
+      },
+      "cropTitle": "Cắt logo",
+      "cropHint": "Kéo ảnh để căn chỉnh, dùng thanh trượt hoặc con lăn chuột để phóng to, thu nhỏ.",
+      "cropArea": "Vùng cắt logo",
+      "zoom": "Phóng to",
+      "cropSave": "Lưu logo"
     },
     "security": {
       "title": "Xác minh 2 bước",
