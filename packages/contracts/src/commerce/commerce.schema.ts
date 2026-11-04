@@ -260,6 +260,12 @@ export const ProductListQuery = z.object({
   source: z.enum(['kiotviet', 'rapiz']).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  /**
+   * `summary`: a compact read for scanning a whole catalog (the owner assistant reads tool results
+   * up to 8 000 chars): description cut to 160 chars with "…", no bot instructions, pictures,
+   * per-warehouse stock or gallery. Prices, offering, totals and `available` stay (T-187).
+   */
+  fields: z.enum(['summary']).optional(),
 });
 
 /** Page-number pagination: the catalog and order screens show totals and page jumps (ORD-04). */

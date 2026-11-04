@@ -72,6 +72,15 @@ describe('shop autofill skills (T-175)', () => {
     expect(sample).not.toContain('its training items');
   });
 
+  it('reads the whole catalog compactly and the sibling bots before filling (QA Mailisa B4)', () => {
+    const fill = skills.get('fill-shop-info')!;
+    expect(fill.version).toBe(3);
+    expect(fill.body).toContain('GET /products with fields=summary and pageSize=5');
+    expect(fill.body).toContain('every next page until you have read `total` products');
+    expect(fill.body).toContain('GET /bots');
+    expect(fill.body).toContain('business-level Rapiz data (address, hotline, hours, branches');
+  });
+
   it('moves set-up-bot to version 3, pointing at the new skills', () => {
     const setUp = skills.get('set-up-bot')!;
     expect(setUp.version).toBe(3);

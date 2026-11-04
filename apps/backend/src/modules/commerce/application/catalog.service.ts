@@ -120,6 +120,24 @@ function toProductDto(
   };
 }
 
+const SUMMARY_DESCRIPTION_CHARS = 160;
+
+/** The compact read of `GET /products?fields=summary` (T-187): same shape, fewer bytes. */
+export function productSummary(d: ProductDto): ProductDto {
+  const description =
+    d.description.length > SUMMARY_DESCRIPTION_CHARS
+      ? `${d.description.slice(0, SUMMARY_DESCRIPTION_CHARS).trimEnd()}…`
+      : d.description;
+  return {
+    ...d,
+    description,
+    botInstructions: '',
+    imageUrls: [],
+    ...(d.accommodation ? { accommodation: { ...d.accommodation, gallery: [] } } : {}),
+    variants: d.variants.map((v) => ({ ...v, stock: [] })),
+  };
+}
+
 /** Text the catalog search (and the order form picker) matches against. */
 function productSearchText(
   p: { code: string; name: string },
@@ -346,6 +364,8 @@ export class CatalogService {
       selectedFor?: string | undefined;
       /** `kiotviet`: synced from KiotViet; `rapiz`: managed in Rapiz. */
       source?: 'kiotviet' | 'rapiz' | undefined;
+      /** `summary`: the compact projection of `ProductListQuery.fields`. */
+      fields?: 'summary' | undefined;
     },
   ): Promise<ProductListResponse> {
     return this.store.run(ws, async (tx) => {
@@ -359,14 +379,15 @@ export class CatalogService {
       });
       const variants = await tx.products.variantsOf(rows.map((r) => r.id));
       const stock = await tx.inventory.stockOf(variants.map((v) => v.id));
-      return {
-        data: rows.map((p) =>
-          toProductDto(
-            p,
-            variants.filter((v) => v.productId === p.id),
-            stock,
-          ),
+      const dtos = rows.map((p) =>
+        toProductDto(
+          p,
+          variants.filter((v) => v.productId === p.id),
+          stock,
         ),
+      );
+      return {
+        data: query.fields === 'summary' ? dtos.map(productSummary) : dtos,
         total,
         page: query.page,
         pageSize: query.pageSize,
