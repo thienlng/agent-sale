@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { CustomerRequestKind } from '../crm/customer-request.js';
+
 /**
  * Owner assistant schedules (T-172): code-computed reports and alerts. Every time is local time
  * in Asia/Ho_Chi_Minh (UTC+7, no DST); the backend computes the run times.
@@ -13,6 +15,8 @@ export const ScheduleTemplate = z.enum([
   'low_stock',
   'unanswered_conversations',
   'new_customers',
+  /** Requests the bot recorded (education, spa, saas; T-187). */
+  'new_requests',
 ]);
 export type ScheduleTemplate = z.infer<typeof ScheduleTemplate>;
 
@@ -27,6 +31,7 @@ export const ALERT_TEMPLATES: readonly ScheduleTemplate[] = [
   'new_orders',
   'low_stock',
   'unanswered_conversations',
+  'new_requests',
 ];
 
 /** Intervals an alert may be checked at, in minutes. */
@@ -71,7 +76,7 @@ export type Cadence = z.infer<typeof Cadence>;
 export const SchedulePeriod = z.enum(['day', 'week', 'month']);
 export const ScheduleWindow = z.enum(['previous', 'to_date']);
 
-/** `revenue_summary`, `new_customers` and `new_orders` reports. */
+/** `revenue_summary`, `new_customers`, `new_orders` and `new_requests` reports. */
 export const PeriodParams = z.object({
   period: SchedulePeriod.default('day'),
   window: ScheduleWindow.default('previous'),
@@ -79,6 +84,17 @@ export const PeriodParams = z.object({
 export const NewOrdersAlertParams = z.object({
   minCount: z.number().int().min(1).max(1000).default(1),
 });
+/**
+ * Only these request kinds (`appointment` for "khách đặt lịch mới"); empty or missing = every kind
+ * (T-187, QA Mailisa B7).
+ */
+const RequestKinds = z.array(CustomerRequestKind).max(8).default([]);
+/** A `new_requests` alert fires when at least `minCount` requests arrived since the last one. */
+export const NewRequestsAlertParams = z.object({
+  minCount: z.number().int().min(1).max(1000).default(1),
+  kinds: RequestKinds,
+});
+export const NewRequestsReportParams = PeriodParams.extend({ kinds: RequestKinds });
 export const LowStockParams = z.object({
   threshold: z.number().int().min(0).max(100_000).default(5),
 });
@@ -99,6 +115,8 @@ export function scheduleParamsSchema(template: ScheduleTemplate, mode: ScheduleM
       return LowStockParams;
     case 'unanswered_conversations':
       return UnansweredParams;
+    case 'new_requests':
+      return mode === 'alert' ? NewRequestsAlertParams : NewRequestsReportParams;
   }
 }
 

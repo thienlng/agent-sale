@@ -1,5 +1,7 @@
 import { Logger } from '@nestjs/common';
 
+import { defaultOfferingKind } from '@agent-sales/contracts';
+
 import type { OwnerScope } from '../domain/owner-scope.js';
 import type {
   AssistantRepository,
@@ -8,6 +10,7 @@ import type {
 } from '../domain/ports/assistant.repository.js';
 import type { RouteInvoker } from '../domain/ports/route-invoker.port.js';
 import { hasErrors, toUpsertProductRequest, type ImportDraft } from '../domain/product-import.js';
+import { industryOfBusiness } from './owner-access.js';
 
 /** An approved import stops starting products after this long; the rest are `not_run`. */
 export const IMPORT_RUN_DEADLINE_MS = 60_000;
@@ -129,6 +132,9 @@ export class ImportExecutor {
       ? await this.#defaultWarehouse(batch.businessId, authorization)
       : null;
 
+    const industry = industryOfBusiness(scope, batch.businessId);
+    const offeringKind = industry ? defaultOfferingKind(industry) : null;
+
     let created = 0;
     let notRun = 0;
     const failures: string[] = [];
@@ -144,6 +150,7 @@ export class ImportExecutor {
           result = await this.#create(proposal, batch.businessId, key, drafts.get(key), {
             authorization,
             warehouseId,
+            offeringKind,
           });
           if (result.status === 'failed' && result.errorCode === 'forbidden') forbidden = true;
         }
@@ -197,13 +204,17 @@ export class ImportExecutor {
     businessId: string,
     key: string,
     draft: ImportDraft | undefined,
-    opts: { authorization: string; warehouseId: string | null },
+    opts: {
+      authorization: string;
+      warehouseId: string | null;
+      offeringKind: 'course' | 'service' | null;
+    },
   ): Promise<ImportRowResult> {
     if (!draft || draft.excluded || hasErrors(draft))
       return { status: 'failed', errorCode: 'invalid' };
     let body: ReturnType<typeof toUpsertProductRequest>;
     try {
-      body = toUpsertProductRequest(draft);
+      body = toUpsertProductRequest(draft, { offeringKind: opts.offeringKind });
     } catch {
       return { status: 'failed', errorCode: 'invalid' };
     }

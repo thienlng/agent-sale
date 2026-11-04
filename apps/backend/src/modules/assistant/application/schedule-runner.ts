@@ -43,6 +43,7 @@ export const ALERT_PATHS: Partial<Record<ScheduleTemplate, string>> = {
   new_orders: '/app/orders',
   low_stock: '/app/products',
   unanswered_conversations: '/app/inbox',
+  new_requests: '/app/contacts',
 };
 
 const DAY_MS = 86_400_000;
@@ -258,7 +259,7 @@ export class ScheduleRunner implements AssistantScheduleRunner {
   }
 
   /**
-   * Updates the alert state of a check and says whether it fires: `new_orders` moves its cursor
+   * Updates the alert state of a check and says whether it fires: `new_orders` and `new_requests` move their cursor
    * when it fires; the others fire on a changed fingerprint or a 24 h old one.
    */
   #alertState(
@@ -268,7 +269,7 @@ export class ScheduleRunner implements AssistantScheduleRunner {
     state: ScheduleStatePatch,
   ): boolean {
     state.lastCheckedAt = now;
-    if (s.template === 'new_orders') {
+    if (s.template === 'new_orders' || s.template === 'new_requests') {
       if (computed.hit) Object.assign(state, { alertCursor: now, lastAlertedAt: now });
       return computed.hit;
     }

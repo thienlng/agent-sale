@@ -1,3 +1,4 @@
+import { CustomerRequestKind } from '@agent-sales/contracts';
 import { workspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
@@ -11,6 +12,7 @@ import type {
   ContactFigures,
   OrderFigures,
   ReportDataSource,
+  RequestFigures,
   RevenueFigures,
   StayFigures,
   StockFigures,
@@ -87,5 +89,18 @@ export class FacadeReportDataSource implements ReportDataSource {
 
   newContacts(ws: string, since: Date, until: Date): Promise<ContactFigures> {
     return this.crm.contactsCreated(workspaceId(ws), { since, until });
+  }
+
+  requests(
+    ws: string,
+    since: Date,
+    until: Date,
+    kinds: readonly string[] = [],
+  ): Promise<RequestFigures> {
+    const known = kinds.flatMap((k) => {
+      const kind = CustomerRequestKind.safeParse(k);
+      return kind.success ? [kind.data] : [];
+    });
+    return this.crm.requestsRecorded(workspaceId(ws), { since, until, kinds: known });
   }
 }

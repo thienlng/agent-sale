@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { TagAssignmentDto } from './crm-settings.schema.js';
+import { REQUEST_HISTORY_TYPES } from './customer-request.js';
 
 // ─── Contacts (docs/02 CRM-01..03) ────────────────────────────────────────────
 
@@ -132,6 +133,7 @@ export const CONTACT_HISTORY_TYPES = [
   'tag.added',
   'tag.updated',
   'tag.removed',
+  ...REQUEST_HISTORY_TYPES,
 ] as const;
 export const ContactHistoryType = z.enum(CONTACT_HISTORY_TYPES);
 export type ContactHistoryType = z.infer<typeof ContactHistoryType>;

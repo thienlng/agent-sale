@@ -47,6 +47,8 @@ describe('CreateBusinessDialog', () => {
       'business-template-retail',
       'business-template-hotel',
       'business-template-saas',
+      'business-template-education',
+      'business-template-spa',
     ]);
     expect(radios.some((r) => r.getAttribute('aria-checked') === 'true')).toBe(false);
     expect(
@@ -57,6 +59,12 @@ describe('CreateBusinessDialog', () => {
     ).toBeInTheDocument();
     expect(
       within(dialog).getByText('Phần mềm, SaaS: gói cước, dùng thử, demo, khách thuê bao'),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('Trung tâm, lớp học: khóa học, học phí, lịch khai giảng'),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('Spa, thẩm mỹ: dịch vụ, liệu trình, đặt lịch hẹn'),
     ).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Tạo business' })).toBeDisabled();
   });

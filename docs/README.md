@@ -41,6 +41,7 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 
 - [Lodging](lodging.md) — T-160 properties, rooms, nightly rates, the calendar, holds and bookings for hotel businesses (T-155 stay requests deprecated).
 - [SaaS businesses](saas.md) — ADR-020 SaaS customer statuses, demo/trial requests recorded by the bot on the customer, subscriptions and MRR on the customer list.
+- [Education and spa businesses](education-and-spa.md) — ADR-025 placement-test, trial, consultation and appointment requests recorded by the bot on the customer, the industry statuses, courses and services as products with an `offering`.
 
 ## Inbox redesign business specification
 

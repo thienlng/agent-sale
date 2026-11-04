@@ -19,6 +19,7 @@ import { formatDateTime } from '@/lib/format';
 
 import { useHistory } from '../api/crm';
 import type { CrmLookups } from '../hooks/use-crm-lookups';
+import { requestDetailsLine, requestKindLabel } from '../utils/request-labels';
 
 const ALL = '__all';
 
@@ -33,12 +34,49 @@ function shown(field: string, v: unknown, lookups: CrmLookups, t: TFunction): st
   return s;
 }
 
-const fieldName = (field: string, t: TFunction) =>
-  field === 'body'
-    ? t('crm.detail.notes')
-    : t(`crm.col.${field.replace(/UserId$/, '').replace(/Id$/, '')}`);
+/** A changed field's name; one without a label shows as itself, never as a raw i18n key. */
+function fieldName(field: string, t: TFunction): string {
+  if (field === 'body') return t('crm.detail.notes');
+  const key = field.replace(/UserId$/, '').replace(/Id$/, '');
+  return t(`crm.col.${key}`, { defaultValue: key });
+}
 
-function Entry({ e, lookups }: { e: ContactHistoryEntry; lookups: CrmLookups }) {
+const isRequest = (type: ContactHistoryType) =>
+  type === 'contact.request_recorded' || type === 'contact.request_updated';
+
+/** A recorded request: its kind, then what, where and when (data written by the crm writer). */
+function RequestBody({
+  data,
+  industry,
+}: {
+  data: Record<string, unknown>;
+  industry: string | undefined;
+}) {
+  const { t } = useTranslation();
+  const kind = typeof data['kind'] === 'string' ? data['kind'] : null;
+  const details =
+    data['details'] && typeof data['details'] === 'object'
+      ? (data['details'] as Record<string, unknown>)
+      : {};
+  const dateLabel = typeof data['dateLabel'] === 'string' ? data['dateLabel'] : null;
+  const line = requestDetailsLine(details, dateLabel);
+  if (!kind && !line) return null;
+  return (
+    <p className="mt-1 text-xs text-muted-foreground">
+      {[kind ? requestKindLabel(t, kind, industry) : '', line].filter(Boolean).join(' · ')}
+    </p>
+  );
+}
+
+function Entry({
+  e,
+  lookups,
+  industry,
+}: {
+  e: ContactHistoryEntry;
+  lookups: CrmLookups;
+  industry?: string | undefined;
+}) {
   const { t } = useTranslation();
   const tagName = typeof e.data['tagName'] === 'string' ? e.data['tagName'] : null;
   return (
@@ -67,6 +105,8 @@ function Entry({ e, lookups }: { e: ContactHistoryEntry; lookups: CrmLookups }) 
             </div>
           ))}
         </dl>
+      ) : isRequest(e.type) ? (
+        <RequestBody data={e.data} industry={industry} />
       ) : e.type === 'note.added' && typeof e.data['body'] === 'string' ? (
         <p className="mt-1 line-clamp-3 text-xs whitespace-pre-line text-muted-foreground">
           {e.data['body']}
@@ -80,9 +120,11 @@ function Entry({ e, lookups }: { e: ContactHistoryEntry; lookups: CrmLookups }) 
 export function ContactHistoryTab({
   contactId,
   lookups,
+  industry,
 }: {
   contactId: string;
   lookups: CrmLookups;
+  industry?: string | undefined;
 }) {
   const { t } = useTranslation();
   const [type, setType] = useState<ContactHistoryType | undefined>(undefined);
@@ -122,7 +164,7 @@ export function ContactHistoryTab({
       ) : history.data?.length ? (
         <ol className="relative ml-2 flex flex-col gap-4 border-l pl-5">
           {history.data.map((e) => (
-            <Entry key={e.id} e={e} lookups={lookups} />
+            <Entry key={e.id} e={e} lookups={lookups} industry={industry} />
           ))}
         </ol>
       ) : (

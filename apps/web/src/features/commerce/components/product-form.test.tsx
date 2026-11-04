@@ -1,5 +1,5 @@
 import type { ProductDto } from '@agent-sales/contracts';
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -24,6 +24,7 @@ const product = (linked: boolean): ProductDto => ({
   visibleToBot: true,
   botInstructions: '',
   imageUrls: ['https://cdn.example.com/a.jpg'],
+  offering: null,
   variants: [
     {
       id: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9b01',
@@ -189,5 +190,277 @@ describe('ProductForm and the owner assistant', () => {
       ok: false,
       reason: 'form_not_found',
     });
+  });
+});
+
+describe('ProductForm of a spa or education business', () => {
+  function renderNew(kind: 'service' | 'course') {
+    const { fetchStub, calls } = stubFetch({
+      'POST /products': { status: 201, body: { ...product(false), offering: null } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <ProductForm offeringKind={kind} />);
+    return calls;
+  }
+  const type = (label: string | RegExp, value: string) =>
+    fireEvent.change(screen.getByLabelText(label), { target: { value } });
+  const CODE = /^Mã (sản phẩm|khoá học|dịch vụ)/;
+  const NAME = /^Tên (sản phẩm|khoá học|dịch vụ)$/;
+  async function fillBasics() {
+    await screen.findByLabelText(CODE);
+    type(CODE, 'DV01');
+    type(NAME, 'Chăm sóc da');
+    type(/^SKU/, 'DV01-60');
+  }
+
+  it('sends the service details of a new spa service', async () => {
+    const calls = renderNew('service');
+    expect(await screen.findByRole('heading', { name: 'Chi tiết dịch vụ' })).toBeVisible();
+    await fillBasics();
+    type('Thời lượng (phút)', '60');
+    type('Số buổi/liệu trình', '10');
+    await userEvent.click(screen.getByRole('radio', { name: 'Tại cơ sở' }));
+    type('Hiệu quả', 'Da sáng\n\nGiảm mụn\n');
+    type('Ghi chú giá', 'giá tham khảo');
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu dịch vụ' }));
+    await waitFor(() => expect(calls.find((c) => c.key === 'POST /products')).toBeDefined());
+    expect(calls.find((c) => c.key === 'POST /products')?.body).toMatchObject({
+      code: 'DV01',
+      offering: {
+        kind: 'service',
+        durationMinutes: 60,
+        sessions: 10,
+        format: 'offline',
+        outcomes: ['Da sáng', 'Giảm mụn'],
+        priceNote: 'giá tham khảo',
+        period: '',
+      },
+    });
+  });
+
+  it('words a spa service as a service and a course as a course', async () => {
+    const { fetchStub } = stubFetch({});
+    vi.stubGlobal('fetch', fetchStub);
+    const view = renderWithRouter(() => <ProductForm offeringKind="service" />);
+    await screen.findByRole('heading', { name: 'Chi tiết dịch vụ' });
+    for (const label of [
+      'Thời lượng (phút)',
+      'Số buổi/liệu trình',
+      'Thời gian liệu trình',
+      'Khung giờ phục vụ',
+      'Phù hợp với',
+      'Hiệu quả',
+    ])
+      expect(screen.getByLabelText(label)).toBeVisible();
+    for (const course of ['Trình độ', 'Lịch học hoặc khung giờ', 'Thời gian khoá học', 'Số buổi'])
+      expect(screen.queryByLabelText(course)).toBeNull();
+    view.unmount();
+
+    renderWithRouter(() => <ProductForm offeringKind="course" />);
+    await screen.findByRole('heading', { name: 'Chi tiết khoá học' });
+    for (const label of [
+      'Thời lượng mỗi buổi (phút)',
+      'Số buổi',
+      'Thời gian khoá học',
+      'Trình độ',
+      'Lịch học hoặc khung giờ',
+      'Kết quả đạt được',
+    ])
+      expect(screen.getByLabelText(label)).toBeVisible();
+  });
+
+  it('lets the assistant fill the course details, in the words of the business', async () => {
+    const calls = renderNew('course');
+    await screen.findByRole('heading', { name: 'Chi tiết khoá học' });
+    const fields = () => collectPageContext('/app/products/new').forms?.[0]?.fields ?? [];
+    expect(fields()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'durationMinutes',
+          label: 'Thời lượng mỗi buổi (phút)',
+          type: 'number',
+          empty: true,
+        }),
+        expect.objectContaining({
+          name: 'sessions',
+          label: 'Số buổi',
+          type: 'number',
+          empty: true,
+        }),
+        expect.objectContaining({
+          name: 'format',
+          type: 'select',
+          options: ['online', 'offline', 'hybrid'],
+          empty: true,
+        }),
+        expect.objectContaining({ name: 'level', label: 'Trình độ', type: 'text', empty: true }),
+        expect.objectContaining({
+          name: 'schedule',
+          label: 'Lịch học hoặc khung giờ',
+          type: 'textarea',
+          empty: true,
+        }),
+        expect.objectContaining({ name: 'period', label: 'Thời gian khoá học', empty: true }),
+        expect.objectContaining({ name: 'audience', type: 'text', empty: true }),
+        expect.objectContaining({
+          name: 'priceNote',
+          label: 'Ghi chú giá',
+          type: 'text',
+          empty: true,
+        }),
+      ]),
+    );
+    act(() => {
+      fillAssistantForm('product', {
+        code: 'KH01',
+        name: 'Starters',
+        sku: 'KH01',
+        durationMinutes: '90',
+        sessions: 24,
+        format: 'offline',
+        level: 'Mất gốc',
+        period: '3 tháng',
+        schedule: 'sáng thứ 7',
+        audience: 'Bé 6-7 tuổi',
+        priceNote: 'liên hệ',
+      });
+    });
+    expect(screen.getByLabelText('Thời gian khoá học')).toHaveValue('3 tháng');
+    expect(screen.getByLabelText('Lịch học hoặc khung giờ')).toHaveValue('sáng thứ 7');
+    expect(screen.getByLabelText(/^Mô tả/)).toHaveValue('');
+    expect(screen.getByLabelText('Thời lượng mỗi buổi (phút)')).toHaveValue(90);
+    expect(screen.getByLabelText('Số buổi')).toHaveValue(24);
+    expect(screen.getByRole('radio', { name: 'Tại cơ sở' })).toBeChecked();
+    expect(screen.getByLabelText('Trình độ')).toHaveValue('Mất gốc');
+    expect(screen.getByLabelText('Ghi chú giá')).toHaveValue('liên hệ');
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu khoá học' }));
+    await waitFor(() => expect(calls.find((c) => c.key === 'POST /products')).toBeDefined());
+    expect(calls.find((c) => c.key === 'POST /products')?.body).toMatchObject({
+      offering: {
+        kind: 'course',
+        durationMinutes: 90,
+        sessions: 24,
+        format: 'offline',
+        level: 'Mất gốc',
+        period: '3 tháng',
+        schedule: 'sáng thứ 7',
+        audience: 'Bé 6-7 tuổi',
+        priceNote: 'liên hệ',
+      },
+    });
+  });
+
+  it('offers a spa service its details without a level, and none once it is retail', async () => {
+    renderNew('service');
+    await screen.findByRole('heading', { name: 'Chi tiết dịch vụ' });
+    const names = () =>
+      (collectPageContext('/app/products/new').forms?.[0]?.fields ?? []).map((f) => f.name);
+    expect(names()).toEqual(
+      expect.arrayContaining(['durationMinutes', 'sessions', 'format', 'priceNote']),
+    );
+    expect(names()).not.toContain('level');
+    expect(
+      collectPageContext('/app/products/new').forms?.[0]?.fields.find((f) => f.name === 'sessions')
+        ?.label,
+    ).toBe('Số buổi/liệu trình');
+    act(() => {
+      fillAssistantForm('product', { level: 'Cao cấp', format: 'tại nhà', durationMinutes: 2 });
+    });
+    expect(screen.getByLabelText('Thời lượng (phút)')).toHaveValue(null);
+    expect(screen.getByRole('radio', { name: 'Chưa chọn' })).toBeChecked();
+    await userEvent.click(screen.getByRole('switch', { name: 'Đây là sản phẩm bán lẻ' }));
+    expect(names()).not.toContain('durationMinutes');
+  });
+
+  it('names a course or service page for what it is, and retail goods as a product', async () => {
+    const { fetchStub } = stubFetch({});
+    vi.stubGlobal('fetch', fetchStub);
+    const view = renderWithRouter(() => <ProductForm offeringKind="course" />);
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Khoá học mới');
+    expect(screen.getByRole('link', { name: 'Khoá học' })).toBeVisible();
+    expect(screen.getByLabelText(/^Mã khoá học/)).toBeVisible();
+    expect(screen.getByLabelText('Tên khoá học')).toBeVisible();
+    expect(screen.getByLabelText('Tên gói (lớp, số buổi…)')).toBeVisible();
+    expect(screen.queryByLabelText(/^Cân nặng/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Lưu khoá học' })).toBeVisible();
+    await userEvent.click(screen.getByRole('switch', { name: 'Đây là sản phẩm bán lẻ' }));
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Sản phẩm mới');
+    expect(screen.getByLabelText(/^Cân nặng/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Lưu sản phẩm' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Khoá học' })).toBeVisible();
+    view.unmount();
+
+    const service = {
+      ...product(false),
+      offering: {
+        kind: 'service' as const,
+        durationMinutes: 60,
+        sessions: null,
+        period: '',
+        format: null,
+        level: '',
+        schedule: '',
+        audience: '',
+        outcomes: [],
+        priceNote: '',
+      },
+    };
+    renderWithRouter(() => <ProductForm product={service} offeringKind="service" />);
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Sửa dịch vụ');
+    expect(screen.getByRole('link', { name: 'Dịch vụ' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Lưu dịch vụ' })).toBeVisible();
+  });
+
+  it('sends offering null once marked as retail goods', async () => {
+    const calls = renderNew('course');
+    expect(await screen.findByRole('heading', { name: 'Chi tiết khoá học' })).toBeVisible();
+    await fillBasics();
+    const retail = screen.getByRole('switch', { name: 'Đây là sản phẩm bán lẻ' });
+    expect(retail).not.toBeChecked();
+    await userEvent.click(retail);
+    expect(screen.queryByLabelText('Số buổi')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu sản phẩm' }));
+    await waitFor(() => expect(calls.find((c) => c.key === 'POST /products')).toBeDefined());
+    expect(calls.find((c) => c.key === 'POST /products')?.body).toMatchObject({ offering: null });
+  });
+
+  it('hides the stock editor of a service, and shows it once it is retail', async () => {
+    const service = {
+      ...product(false),
+      offering: {
+        kind: 'service' as const,
+        durationMinutes: 60,
+        sessions: null,
+        period: '',
+        format: null,
+        level: '',
+        schedule: '',
+        audience: '',
+        outcomes: [],
+        priceNote: '',
+      },
+    };
+    const { fetchStub, calls } = stubFetch({
+      'GET /warehouses': { status: 200, body: { data: [] } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <ProductForm product={service} offeringKind="service" />);
+    expect(await screen.findByLabelText('Thời lượng (phút)')).toHaveValue(60);
+    expect(calls.some((c) => c.key === 'GET /warehouses')).toBe(false);
+    await userEvent.click(screen.getByRole('switch', { name: 'Đây là sản phẩm bán lẻ' }));
+    await waitFor(() => expect(calls.some((c) => c.key === 'GET /warehouses')).toBe(true));
+  });
+
+  it('keeps a shop product free of offering details', async () => {
+    const { fetchStub, calls } = stubFetch({
+      'POST /products': { status: 201, body: { ...product(false), offering: null } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <ProductForm />);
+    await fillBasics();
+    expect(screen.queryByRole('switch', { name: 'Đây là sản phẩm bán lẻ' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu sản phẩm' }));
+    await waitFor(() => expect(calls.find((c) => c.key === 'POST /products')).toBeDefined());
+    expect(calls.find((c) => c.key === 'POST /products')?.body).not.toHaveProperty('offering');
   });
 });

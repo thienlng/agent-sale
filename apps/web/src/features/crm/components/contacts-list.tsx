@@ -47,6 +47,7 @@ export function ContactsList({
   summary,
   extraColumns = [],
   onRowsChange,
+  industry,
 }: {
   search: ContactsSearch;
   onSearch: (next: ContactsSearch) => void;
@@ -59,6 +60,8 @@ export function ContactsList({
   extraColumns?: readonly ExtraContactColumn[];
   /** The customer ids on the current page, whenever they change (to load `extraColumns`). */
   onRowsChange?: ((contactIds: string[]) => void) | undefined;
+  /** The business's industry, for industry words in the customer sheet. */
+  industry?: string | undefined;
 }) {
   const { t } = useTranslation();
   const lookups = useCrmLookups();
@@ -249,6 +252,7 @@ export function ContactsList({
         lookups={lookups}
         renderConversations={renderConversations}
         renderOverviewExtra={renderOverviewExtra}
+        industry={industry}
       />
     </section>
   );

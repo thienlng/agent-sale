@@ -38,6 +38,14 @@ export interface ContactFigures {
   bySource: { source: string | null; count: number }[];
 }
 
+/** New requests the bot recorded in a period (T-187, via the `crm` facade); updates left out. */
+export interface RequestFigures {
+  count: number;
+  byKind: { kind: string; count: number }[];
+  /** By the requesting customer's current status: the business's own status names. */
+  byStatus: { key: string | null; name: string; count: number }[];
+}
+
 /** A hotel's stays checking in during the period (S3-R1 via the `lodging` facade). */
 export interface StayFigures {
   bookings: number;
@@ -57,6 +65,13 @@ export interface ReportDataSource {
   lowStock(ws: string, threshold: number): Promise<StockFigures>;
   awaiting(ws: string, olderThan: Date): Promise<AwaitingFigures>;
   newContacts(ws: string, since: Date, until: Date): Promise<ContactFigures>;
+  /** Requests recorded at or after `since` and before `until`; `kinds` limits them (empty: all). */
+  requests(
+    ws: string,
+    since: Date,
+    until: Date,
+    kinds?: readonly string[],
+  ): Promise<RequestFigures>;
 }
 
 export const REPORT_DATA_SOURCE = Symbol('REPORT_DATA_SOURCE');

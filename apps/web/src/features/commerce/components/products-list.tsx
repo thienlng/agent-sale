@@ -1,4 +1,6 @@
+import type { OfferingDetails } from '@agent-sales/contracts';
 import { Link, useNavigate } from '@tanstack/react-router';
+import type { TFunction } from 'i18next';
 import { ChevronLeft, ChevronRight, Package, Plus, RefreshCw, Search, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -15,12 +17,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { formatNumber, formatRelativeTime, formatVnd } from '@/lib/format';
+import { formatNumber, formatRelativeTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useCan } from '@/lib/permissions';
 
 import { useProducts } from '../api/commerce';
 import { usePmsHintDismissed } from '../hooks/pms-hint';
+import { catalogKey } from './product-offering-editor';
+import { priceLabel } from './product-price';
 
 /** The workspace's live KiotViet connection, as the route reads it from the integration feature. */
 export interface PmsLink {
@@ -64,6 +68,16 @@ function Segmented<T extends string>({
   );
 }
 
+/** A course or service has no stock: its length and sessions take the stock cell ("60 phút · 10 buổi"). */
+function offeringLength(o: OfferingDetails, t: TFunction): string {
+  const parts = [
+    o.durationMinutes ? t('commerce.offering.minutesCount', { count: o.durationMinutes }) : '',
+    o.sessions ? t('commerce.offering.sessionsCount', { count: o.sessions }) : '',
+    o.durationMinutes || o.sessions ? '' : o.period,
+  ].filter(Boolean);
+  return parts.length ? parts.join(' · ') : '—';
+}
+
 /** Not connected: a dismissible card that points to the PMS integrations hub. */
 function PmsHint({ onDismiss }: { onDismiss: () => void }) {
   const { t } = useTranslation();
@@ -93,10 +107,25 @@ function PmsHint({ onDismiss }: { onDismiss: () => void }) {
 /**
  * Product catalog (ORD-01): search, on-sale/archived, price range, stock available. With
  * `pmsLink` (KiotViet connected) it shows the sync bar and a source filter; with `null` (not
- * connected) it offers the integration; `undefined` (unknown yet) shows neither.
+ * connected) it offers the integration; `undefined` (unknown yet) shows neither. `offeringKind`
+ * (an education or spa business) names the page for what it sells, like the sidebar.
  */
-export function ProductsList({ pmsLink }: { pmsLink?: PmsLink | null | undefined }) {
+export function ProductsList({
+  pmsLink,
+  offeringKind,
+}: {
+  pmsLink?: PmsLink | null | undefined;
+  offeringKind?: 'course' | 'service' | null | undefined;
+}) {
   const { t } = useTranslation();
+  const title =
+    offeringKind === 'course'
+      ? t('nav.courses')
+      : offeringKind === 'service'
+        ? t('nav.services')
+        : t('products.title');
+  /** A catalog word, named for the courses or services of an education or spa business. */
+  const word = (key: string, fallback: string) => t(catalogKey(offeringKind, key, fallback));
   const navigate = useNavigate();
   const canAdd = useCan('catalog.manage');
   const [hintDismissed, dismissHint] = usePmsHintDismissed();
@@ -120,16 +149,17 @@ export function ProductsList({ pmsLink }: { pmsLink?: PmsLink | null | undefined
   });
   const data = products.data;
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+  const anyOffering = data?.data.some((p) => p.offering) ?? false;
 
   return (
     <section className="flex flex-col gap-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">{t('products.title')}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         {canAdd ? (
           <Button size="lg" asChild data-assistant-target="products.new">
             <Link to="/app/products/new">
               <Plus />
-              {t('products.add')}
+              {word('add', 'products.add')}
             </Link>
           </Button>
         ) : null}
@@ -156,8 +186,8 @@ export function ProductsList({ pmsLink }: { pmsLink?: PmsLink | null | undefined
             type="search"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={t('products.search')}
-            aria-label={t('products.search')}
+            placeholder={word('search', 'products.search')}
+            aria-label={word('search', 'products.search')}
             className="h-9 pl-9"
           />
         </div>
@@ -195,10 +225,14 @@ export function ProductsList({ pmsLink }: { pmsLink?: PmsLink | null | undefined
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
                 <TableHead>{t('products.col.code')}</TableHead>
-                <TableHead>{t('products.col.name')}</TableHead>
+                <TableHead>{word('colName', 'products.col.name')}</TableHead>
                 <TableHead>{t('products.col.variants')}</TableHead>
                 <TableHead className="text-right">{t('products.col.price')}</TableHead>
-                <TableHead className="text-right">{t('products.col.available')}</TableHead>
+                <TableHead className="text-right">
+                  {anyOffering
+                    ? `${t('products.col.available')} / ${t('commerce.offering.col')}`
+                    : t('products.col.available')}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -243,18 +277,22 @@ export function ProductsList({ pmsLink }: { pmsLink?: PmsLink | null | undefined
                         {t('products.variantsCount', { count: p.variants.length })}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {p.priceMin === p.priceMax
-                          ? formatVnd(p.priceMin)
-                          : `${formatVnd(p.priceMin)} – ${formatVnd(p.priceMax)}`}
+                        {priceLabel(p, Boolean(offeringKind), t)}
                       </TableCell>
-                      <TableCell
-                        className={cn(
-                          'text-right tabular-nums',
-                          p.available <= 0 && 'text-destructive',
-                        )}
-                      >
-                        {formatNumber(p.available)}
-                      </TableCell>
+                      {p.offering || offeringKind ? (
+                        <TableCell className="text-right text-muted-foreground tabular-nums">
+                          {p.offering ? offeringLength(p.offering, t) : '—'}
+                        </TableCell>
+                      ) : (
+                        <TableCell
+                          className={cn(
+                            'text-right tabular-nums',
+                            p.available <= 0 && 'text-destructive',
+                          )}
+                        >
+                          {formatNumber(p.available)}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
               {data && !data.data.length ? (
@@ -262,8 +300,8 @@ export function ProductsList({ pmsLink }: { pmsLink?: PmsLink | null | undefined
                   <TableCell colSpan={5} className="py-14 text-center text-muted-foreground">
                     <Package className="mx-auto mb-3 size-8 text-primary" aria-hidden />
                     {q || status === 'archived' || (pmsLink && source !== 'all')
-                      ? t('products.empty')
-                      : t('products.emptyStart')}
+                      ? word('empty', 'products.empty')
+                      : word('emptyStart', 'products.emptyStart')}
                   </TableCell>
                 </TableRow>
               ) : null}

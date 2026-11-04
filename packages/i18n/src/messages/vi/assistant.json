@@ -316,6 +316,7 @@
     "used": "Đã dùng {{used}}/{{limit}} lịch",
     "add": "Thêm lịch",
     "empty": "Chưa có lịch nào. Bấm Thêm lịch, hoặc nhắn Thỏ Rapiz: \"mỗi sáng 8h gửi doanh thu hôm qua\".",
+    "emptyRequests": "Chưa có lịch nào. Bấm Thêm lịch, hoặc nhắn Thỏ Rapiz: \"mỗi sáng 8h báo các yêu cầu mới của khách\".",
     "loading": "Đang tải lịch",
     "loadError": "Không tải được lịch. Thử lại sau.",
     "newTitle": "Lịch mới",
@@ -325,7 +326,8 @@
       "new_orders": "Đơn hàng mới",
       "low_stock": "Sắp hết hàng",
       "unanswered_conversations": "Khách chờ trả lời",
-      "new_customers": "Khách hàng mới"
+      "new_customers": "Khách hàng mới",
+      "new_requests": "Yêu cầu mới"
     },
     "modes": {
       "report": "Báo cáo định kỳ",

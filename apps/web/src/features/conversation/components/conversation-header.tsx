@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { customerDisplayName, formatRowTime } from '../lib/inbox-list';
+import { customerDisplayName, formatRowTime, providerLabel } from '../lib/inbox-list';
 import type { InboxConversation, InboxUpdateBody } from '../lib/inbox-v2-types';
 import { AssigneeMenu } from './assignee-menu';
 import { CustomerAvatar } from './customer-avatar';
@@ -125,7 +125,7 @@ export function ConversationHeader({
   const v2 = (key: string, options?: Record<string, unknown>) => tr(`v2.header.${key}`, options);
   const meta = (key: string) => tr(`meta.header.${key}`);
   const name = customerDisplayName(c, (provider, last4) => tr('v2.row.guest', { provider, last4 }));
-  const provider = { facebook: 'Facebook', instagram: 'Instagram', website: 'Website' }[c.provider];
+  const provider = providerLabel(c.provider);
   const resolved = c.status === 'resolved';
   const spam = c.status === 'spam';
   const link = externalInboxUrl(c.provider, channel);

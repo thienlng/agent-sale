@@ -4,7 +4,7 @@
  * owner's rows, or to the photo drafts, and reports each draft's problems. No regex, formula or
  * expression from the model is ever evaluated. Pure: no Nest, no DB, no clock, no randomness.
  */
-import { UpsertProductRequest } from '@agent-sales/contracts';
+import { OfferingDetails, UpsertProductRequest } from '@agent-sales/contracts';
 
 import {
   cell,
@@ -387,10 +387,18 @@ export function buildDrafts(input: BuildDraftsInput): ImportDraft[] {
   });
 }
 
-function upsertOf(d: ImportDraft): UpsertProductRequest {
+/** Import options: the business's default offering kind (education, spa, saas), or none. */
+export interface ImportUpsertOptions {
+  offeringKind?: 'course' | 'service' | null;
+}
+
+function upsertOf(d: ImportDraft, opts: ImportUpsertOptions = {}): UpsertProductRequest {
   const p = d.product;
   if (!p) throw new Error(`import draft ${d.key} has no product`);
+  // A row with counted stock is retail (a spa's cosmetics); the others are courses or services.
+  const offered = opts.offeringKind && !p.variants.some((v) => v.stock !== null);
   return {
+    ...(offered ? { offering: OfferingDetails.parse({ kind: opts.offeringKind }) } : {}),
     code: p.code,
     name: p.name,
     description: p.description,
@@ -407,8 +415,14 @@ function upsertOf(d: ImportDraft): UpsertProductRequest {
   };
 }
 
-/** The product API body for a ready draft (stock is set separately). Throws when it has errors. */
-export function toUpsertProductRequest(d: ImportDraft): UpsertProductRequest {
+/**
+ * The product API body for a ready draft (stock is set separately). In a request business a row
+ * without stock becomes an offering of `offeringKind` (other fields empty). Throws on errors.
+ */
+export function toUpsertProductRequest(
+  d: ImportDraft,
+  opts: ImportUpsertOptions = {},
+): UpsertProductRequest {
   if (hasErrors(d)) throw new Error(`import draft ${d.key} has errors`);
-  return upsertOf(d);
+  return upsertOf(d, opts);
 }

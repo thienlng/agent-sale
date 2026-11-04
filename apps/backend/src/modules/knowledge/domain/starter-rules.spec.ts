@@ -95,4 +95,103 @@ describe('starter rules', () => {
   it('puts no sample price in rule text, because rule text vouches for figures in replies', () => {
     expect(STARTER_RULES.map((r) => r.content).join('\n')).not.toMatch(/\d+\s*(k\b|[.,]\d{3})/i);
   });
+
+  describe('education and spa', () => {
+    const PACKS = {
+      education: [
+        'Cách nói giá',
+        'Khách hỏi về thanh toán',
+        'Khách hỏi học phí',
+        'Khách muốn học thử / kiểm tra trình độ',
+        'Phụ huynh hỏi cho con',
+        'Hỏi cam kết đầu ra',
+        'Hỏi lịch khai giảng / cơ sở',
+        'Mặc cả học phí',
+        'Sau khi ghi nhận yêu cầu',
+      ],
+      spa: [
+        'Cách nói giá',
+        'Khách hỏi về thanh toán',
+        'Khách hỏi giá dịch vụ',
+        'Khách muốn đặt lịch',
+        'Hỏi có còn lịch giờ X',
+        'Hỏi hiệu quả / tình trạng da',
+        'Đổi / huỷ lịch',
+        'Mặc cả giá',
+        'Sau khi ghi nhận lịch hẹn',
+      ],
+    } as const;
+    const industries = Object.keys(PACKS) as (keyof typeof PACKS)[];
+    const fullText = (industry: string) =>
+      starterRulesFor(industry)
+        .map((r) => `${r.title} ${r.trigger} ${r.content}`)
+        .join('\n');
+
+    it('gives each its own pack, not the shared one', () => {
+      for (const industry of industries) {
+        expect(starterRulesFor(industry).map((r) => r.title)).toEqual(PACKS[industry]);
+        expect(starterRulesFor(industry)).not.toBe(STARTER_RULES);
+        for (const request of starterRuleRequests(industry))
+          expect(CreateTrainingItemRequest.safeParse(request).success).toBe(true);
+      }
+    });
+
+    it('has unique titles per pack', () => {
+      for (const industry of industries) {
+        const titles = starterRulesFor(industry).map((r) => r.title);
+        expect(new Set(titles).size, industry).toBe(titles.length);
+      }
+    });
+
+    it('never asks for a delivery address', () => {
+      for (const industry of industries)
+        expect(fullText(industry), industry).not.toMatch(/địa chỉ nhận hàng|giao hàng/i);
+    });
+
+    it('puts no sample amount in the rules', () => {
+      for (const industry of industries)
+        expect(fullText(industry), industry).not.toMatch(/\d\s*(k\b|đ)|\d[.,]\d{3}/i);
+    });
+
+    it('never claims a free slot or promises a result', () => {
+      for (const industry of industries) {
+        const text = fullText(industry).toLowerCase();
+        expect(text, industry).not.toMatch(
+          /(vẫn|đang) còn (lịch|chỗ|suất)|chắc chắn|đảm bảo|cam kết đạt/,
+        );
+      }
+      expect(
+        starterRulesFor('spa').find((r) => r.title === 'Hỏi có còn lịch giờ X')?.content,
+      ).toMatch(/không tự khẳng định còn hay hết lịch/i);
+      expect(
+        starterRulesFor('education').find((r) => r.title === 'Hỏi cam kết đầu ra')?.content,
+      ).toMatch(/không hứa kết quả/i);
+      expect(
+        starterRulesFor('spa').find((r) => r.title === 'Hỏi hiệu quả / tình trạng da')?.content,
+      ).toMatch(/không hứa kết quả/i);
+    });
+
+    it('ends every rule that records a request with the staff-confirmation phrase', () => {
+      for (const industry of industries) {
+        const asking = starterRulesFor(industry).filter(
+          (r) => r.section === 'general' && r.content.includes('ghi nhận yêu cầu'),
+        );
+        expect(asking.length, industry).toBeGreaterThanOrEqual(3);
+        for (const rule of asking)
+          expect(rule.content, rule.title).toMatch(/rồi ghi nhận yêu cầu để nhân viên xác nhận\.$/);
+      }
+    });
+
+    it('has exactly one short after-order rule that keeps the bot talking', () => {
+      for (const industry of industries) {
+        const after = starterRulesFor(industry).filter((r) => r.section === 'after_order');
+        expect(after, industry).toHaveLength(1);
+        expect(after[0]?.content).toContain('tối đa 25 từ');
+        expect(after[0]?.content).toContain('nhân viên sẽ liên hệ xác nhận');
+        expect(after[0]?.content).toContain(
+          'Không chuyển cho nhân viên chỉ vì đã ghi nhận yêu cầu',
+        );
+      }
+    });
+  });
 });

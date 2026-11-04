@@ -1,0 +1,45 @@
+id: education-discount-general-offers
+group: requests
+tags: []
+bot:
+  industry: education
+  name: Sao Mai English
+  profile:
+    fields:
+      displayName: Sao Mai English
+      address: '25 Trần Thái Tông, Cầu Giấy, Hà Nội'
+      hotline: '024 3333 8888'
+      hours: '8h00 - 21h00 từ thứ Hai đến Chủ Nhật'
+      courseFees: 'Học phí theo từng khoá, xem trong danh sách khoá học.'
+      courseTrial: 'Kiểm tra trình độ đầu vào miễn phí.'
+      branches: 'Cơ sở Cầu Giấy: 25 Trần Thái Tông, Cầu Giấy, Hà Nội, 8h-21h'
+      promotion: 'Khai giảng lớp IELTS mới: giảm đến 18% học phí toàn khoá IELTS; miễn phí test đầu vào; hỗ trợ trả góp 0%.'
+    notes: ''
+situations:
+  - title: 'Mặc cả học phí'
+    trigger: 'Khách chê học phí đắt, xin giảm học phí hoặc mặc cả'
+    content: 'Không tự giảm học phí. Trước tiên nêu các ưu đãi đang có trong thông tin của trung tâm, kể cả ưu đãi chung như học thử, kiểm tra đầu vào miễn phí hay trả góp; ưu đãi chỉ dành cho một khoá thì nói rõ là của khoá đó. Rồi mời khách đăng ký tư vấn hoặc học thử. Chỉ chuyển nhân viên khi khách vẫn đòi một mức giá riêng sau khi đã nghe ưu đãi, hoặc khách muốn gặp nhân viên.'
+products:
+  - name: 'Tiếng Anh giao tiếp nhóm'
+    code: GT
+    description: 'Lớp giao tiếp nhóm nhỏ cho người đi làm.'
+    variants:
+      - { name: 'Trọn khoá', sku: GT-FULL, price: 5000000 }
+    offering: { kind: course, durationMinutes: 90, sessions: 24, format: offline }
+  - name: 'IELTS 6.5'
+    code: IELTS
+    description: 'Khoá IELTS 4 kỹ năng.'
+    variants:
+      - { name: 'Trọn khoá', sku: IELTS-FULL, price: 9000000 }
+    offering: { kind: course, durationMinutes: 120, sessions: 36, format: hybrid }
+conversation:
+  - customer: 'khoá giao tiếp nhóm mắc quá, có ưu đãi gì không em'
+expect:
+  outcome: answered
+  outcome_not: handoff
+  contains_any: ['trả góp', 'miễn phí']
+  # A course-specific "no offer of its own" is fine after the general offers; leading with it is not.
+  not_matches: ['^\s*(Dạ\s+)?(hiện\s+)?(bên\s+)?em\s+chưa có (thông tin\s+)?ưu đãi']
+  numbers_only_from_sources: true
+fake_turns:
+  - text: "Dạ hiện trung tâm có miễn phí test đầu vào và hỗ trợ trả góp 0% ạ.\nƯu đãi giảm đến 18% là dành cho khoá IELTS.\nMình muốn đăng ký tư vấn hoặc kiểm tra trình độ không ạ?"

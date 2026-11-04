@@ -39,7 +39,9 @@ export type ProfileFieldKey =
   | 'onboarding'
   | 'support'
   | 'dataSecurity'
-  | 'refundPolicy';
+  | 'refundPolicy'
+  | 'branches'
+  | 'reschedule';
 
 export interface ProfileFieldDef {
   key: ProfileFieldKey;
@@ -75,11 +77,11 @@ export const PROFILE_FIELDS: readonly ProfileFieldDef[] = [
   basic('mapsUrl', 500),
   basic('hotline', 60),
   basic('hours', 200),
-  industry('payment', 500, [...SHOPS, 'spa', 'dental', 'saas']),
+  industry('payment', 500, [...SHOPS, 'spa', 'dental', 'education', 'saas']),
   industry('shipping', 1000, SHOPS),
   industry('returns', 1000, SHOPS),
   industry('warranty', 500, [...SHOPS, 'solar']),
-  industry('promotion', 500, SHOPS),
+  industry('promotion', 500, [...SHOPS, 'education', 'spa']),
   industry('sizeGuide', 1000, ['fashion']),
   industry('authenticity', 500, ['cosmetics']),
   industry('unitTypes', 1000, ['hotel']),
@@ -92,6 +94,7 @@ export const PROFILE_FIELDS: readonly ProfileFieldDef[] = [
   industry('directions', 1000, ['hotel']),
   industry('servicePrices', 1000, ['spa', 'dental']),
   industry('booking', 500, ['spa', 'dental']),
+  industry('reschedule', 500, ['spa']),
   industry('courseFees', 1000, ['education']),
   industry('courseSchedule', 1000, ['education']),
   industry('courseTrial', 500, ['education']),
@@ -104,7 +107,9 @@ export const PROFILE_FIELDS: readonly ProfileFieldDef[] = [
   industry('onboarding', 500, ['saas']),
   industry('support', 500, ['saas']),
   industry('dataSecurity', 1000, ['saas']),
-  industry('refundPolicy', 500, ['saas']),
+  industry('refundPolicy', 500, ['saas', 'education']),
+  /** One branch per line: name, address, hours, and "online" when it applies. */
+  industry('branches', 2000, ['education', 'spa']),
 ];
 
 /** Fields shown for an industry: the basic group first, then its own. Unknown industry: basic only. */

@@ -1,0 +1,77 @@
+id: education-discount-quotes-promotion
+group: requests
+tags: []
+bot:
+  industry: education
+  name: Sao Mai English
+  profile:
+    fields:
+      displayName: Sao Mai English
+      address: '25 Trần Thái Tông, Cầu Giấy, Hà Nội'
+      hotline: '024 3333 8888'
+      hours: '8h00 - 21h00 từ thứ Hai đến Chủ Nhật'
+      payment: 'Chuyển khoản hoặc thanh toán tại quầy; có thể đóng học phí 2 đợt.'
+      courseFees: 'Học phí theo từng khoá, xem trong danh sách khoá học.'
+      courseSchedule: 'Lớp người lớn học tối thứ 2-4-6 hoặc 3-5; lớp thiếu nhi học cuối tuần.'
+      courseTrial: 'Kiểm tra trình độ đầu vào miễn phí; mỗi học viên được học thử 1 buổi miễn phí.'
+      refundPolicy: 'Hoàn học phí trong 7 ngày đầu nếu học viên chưa học quá 2 buổi; được bảo lưu tối đa 3 tháng.'
+      branches: "Cơ sở Cầu Giấy: 25 Trần Thái Tông, Cầu Giấy, Hà Nội, 8h-21h\nCơ sở Hai Bà Trưng: 102 Bạch Mai, Hai Bà Trưng, Hà Nội, 8h-21h\nOnline: lớp qua Zoom cho các khoá IELTS"
+      promotion: 'Giảm 10% học phí khi đăng ký trước ngày 30/11; giảm thêm 5% khi đăng ký nhóm từ 3 người.'
+    notes: ''
+situations:
+  - title: 'Mặc cả học phí'
+    trigger: 'Khách xin giảm học phí hoặc mặc cả'
+    content: 'Không tự giảm học phí. Trước tiên nêu các ưu đãi đang có trong thông tin của trung tâm và mời khách đăng ký tư vấn hoặc học thử. Chỉ chuyển nhân viên khi khách vẫn muốn một mức giá riêng sau khi đã nghe ưu đãi, hoặc khách muốn gặp nhân viên.'
+products:
+  - name: 'Tiếng Anh giao tiếp A2'
+    code: GT-A2
+    description: 'Khoá giao tiếp cho người đi làm, luyện phản xạ nói theo tình huống.'
+    variants:
+      - { name: 'Trọn khoá', sku: GT-A2-FULL, price: 4500000 }
+    offering:
+      kind: course
+      durationMinutes: 90
+      sessions: 24
+      period: '3 tháng'
+      format: offline
+      level: 'A2'
+      schedule: 'Tối thứ 3-5, 18h30-20h00'
+      audience: 'Người đi làm'
+      outcomes: ['Tự tin giao tiếp các tình huống hằng ngày']
+  - name: 'IELTS Foundation 5.5'
+    code: IELTS-55
+    description: 'Khoá nền tảng IELTS 4 kỹ năng.'
+    variants:
+      - { name: 'Trọn khoá', sku: IELTS-55-FULL, price: 7800000 }
+    offering:
+      kind: course
+      durationMinutes: 120
+      sessions: 36
+      period: '4 tháng'
+      format: hybrid
+      level: 'Đầu vào IELTS 4.0'
+      schedule: 'Tối thứ 2-4-6, 19h00-21h00'
+      audience: 'Học sinh, sinh viên, người đi làm'
+      outcomes: ['Mục tiêu đầu ra IELTS 5.5']
+  - name: 'Tiếng Anh thiếu nhi Kids 6-10'
+    code: KIDS
+    description: 'Lớp tiếng Anh qua trò chơi cho trẻ tiểu học.'
+    variants:
+      - { name: 'Trọn khoá', sku: KIDS-FULL, price: 6200000 }
+    offering:
+      kind: course
+      durationMinutes: 90
+      sessions: 48
+      period: '6 tháng'
+      format: offline
+      schedule: 'Sáng thứ Bảy và Chủ Nhật'
+      audience: 'Trẻ 6-10 tuổi'
+conversation:
+  - customer: 'khoá IELTS Foundation đắt quá, có giảm giá không em'
+expect:
+  outcome: answered
+  outcome_not: handoff
+  contains_any: ['10%', '5%']
+  numbers_only_from_sources: true
+fake_turns:
+  - text: 'Dạ hiện trung tâm giảm 10% học phí khi đăng ký trước ngày 30/11, và giảm thêm 5% khi đăng ký nhóm từ 3 người ạ.'

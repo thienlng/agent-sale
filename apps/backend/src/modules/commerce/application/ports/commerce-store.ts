@@ -1,6 +1,7 @@
 import type { WorkspaceId } from '@agent-sales/shared';
 import type {
   AccommodationDetails,
+  OfferingDetails,
   ORDER_MONEY_COLUMNS,
   OrderCreatedByKind,
   OrderReviewState,
@@ -50,6 +51,11 @@ export interface ProductRecord {
   botInstructions: string;
   imageUrls: string[];
   accommodation?: AccommodationDetails | null;
+  /**
+   * A course or a service (T-187); never set together with `accommodation`. Undefined on a write
+   * keeps the stored value; null clears it.
+   */
+  offering?: OfferingDetails | null | undefined;
   /**
    * The PMS record this product is synced from (ADR-017). Undefined on a write keeps the stored
    * link; null clears it. Source and id are always set together.
@@ -321,6 +327,8 @@ export type SkuVariantRecord = VariantRecord & {
   productName: string;
   productActive: boolean;
   productVisibleToBot: boolean;
+  /** The product is a course or a service (T-187): the bot takes no order for it. */
+  productOffering: boolean;
 };
 
 /** An integration event for the outbox (aggregate `order`), written in the same transaction. */
@@ -369,6 +377,8 @@ export interface CommerceTx {
       query: string;
       /** Only the products selected for this bot. */
       selectedFor?: string | undefined;
+      /** Also return the rows whose name, description or offering audience state an age (T-187). */
+      withStatedAges?: boolean;
       limit: number;
     }): Promise<ProductRecord[]>;
     /** Active, bot-visible products with these ids (any order). */

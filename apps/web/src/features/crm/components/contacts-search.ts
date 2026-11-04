@@ -35,3 +35,13 @@ export function fromSort(sort: ContactSort): SortKey {
   const key = `${first?.field ?? 'createdAt'}_${first?.dir ?? 'desc'}`;
   return (SORT_KEYS as readonly string[]).includes(key) ? (key as SortKey) : 'createdAt_desc';
 }
+
+/** The list filter "status is one of `statusIds`" (summary strips link to it). */
+export function statusFilter(statusIds: readonly string[]): ContactFilter {
+  return {
+    v: 1,
+    match: 'all',
+    rules: [{ field: 'statusId', op: 'in', value: [...statusIds] }],
+    duplicatesOnly: false,
+  };
+}

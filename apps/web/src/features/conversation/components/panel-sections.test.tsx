@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { InboxMessage } from '../lib/inbox-v2-types';
-import { sharedImages, SharedImagesBlock } from './panel-sections';
+import { providerLabel } from '../lib/inbox-list';
+import { InboxConversationDto, InboxMessage } from '../lib/inbox-v2-types';
+import { PanelProfileHeader, sharedImages, SharedImagesBlock } from './panel-sections';
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 
@@ -45,5 +46,31 @@ describe('shared images', () => {
   it('shows an empty state without pictures', () => {
     render(<SharedImagesBlock messages={[]} />);
     expect(screen.getAllByText('channelInbox.meta.panel.noImages').length).toBeGreaterThan(0);
+  });
+});
+
+describe('PanelProfileHeader', () => {
+  it('names a website chat as Website, not Instagram', () => {
+    expect(providerLabel('website')).toBe('Website');
+    expect(providerLabel('instagram')).toBe('Instagram');
+    expect(providerLabel('facebook')).toBe('Facebook');
+    const conversation = InboxConversationDto.parse({
+      id: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d00',
+      channelId: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d01',
+      provider: 'website',
+      customerId: 'visitor-1bf1',
+      customerName: 'Lan',
+      mode: 'bot',
+      status: 'open',
+      assigneeId: null,
+      note: '',
+      revision: 1,
+      lastMessage: 'Chào bạn',
+      lastInboundAt: '2026-10-25T10:00:00.000Z',
+      updatedAt: '2026-10-25T10:00:00.000Z',
+    });
+    render(<PanelProfileHeader conversation={conversation} onCollapse={() => {}} />);
+    expect(screen.getByText('Website')).toBeVisible();
+    expect(screen.queryByText(/Instagram/)).toBeNull();
   });
 });

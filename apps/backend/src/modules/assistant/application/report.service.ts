@@ -18,7 +18,7 @@ export interface ReportSpec {
   mode: ScheduleMode;
   /** Validated for the template (defaults filled). */
   params: Record<string, unknown>;
-  /** `new_orders` alerts: orders placed at or after it are new. */
+  /** `new_orders` and `new_requests` alerts: what arrived at or after it is new. */
   alertCursor?: Date | null;
 }
 
@@ -31,6 +31,8 @@ export interface ComputedReport {
 }
 
 const num = (v: unknown, fallback: number) => (typeof v === 'number' ? v : fallback);
+/** Industries that convert through requests rather than orders (the assistant's `service` group). */
+const SERVICE_INDUSTRIES: ReadonlySet<string> = new Set(['education', 'spa']);
 
 /**
  * Computes a schedule's report in code through `ReportDataSource` (S3-R1, S3-R2) and renders it
@@ -64,8 +66,12 @@ export class ReportService {
           this.data.revenue(ws, p.from, p.to),
           this.data.industry(ws),
         ]);
-        // A hotel's revenue is its stays (QA Villas #6).
+        // A hotel's revenue is its stays (QA Villas #6); an education or spa business converts
+        // through requests, so their count follows the order figures (T-187).
         const stays = industry === 'hotel' ? await this.data.stays(ws, p.from, p.to) : undefined;
+        const requests = SERVICE_INDUSTRIES.has(industry)
+          ? { count: (await this.data.requests(ws, p.since, p.until)).count }
+          : undefined;
         return {
           result: {
             template: 'revenue_summary',
@@ -73,6 +79,7 @@ export class ReportService {
             period: ref(p),
             figures,
             ...(stays ? { stays } : {}),
+            ...(requests ? { requests } : {}),
           },
           hit: true,
           hitIds: [],
@@ -111,6 +118,34 @@ export class ReportService {
             },
           },
           hit: true,
+          hitIds: [],
+        };
+      }
+      case 'new_requests': {
+        const alert = s.mode === 'alert';
+        const p = alert ? null : period();
+        const [r, industry] = await Promise.all([
+          this.data.requests(
+            ws,
+            p ? p.since : (s.alertCursor ?? now),
+            p ? p.until : now,
+            Array.isArray(s.params['kinds']) ? s.params['kinds'].map(String) : [],
+          ),
+          this.data.industry(ws),
+        ]);
+        return {
+          result: {
+            template: 'new_requests',
+            mode: alert ? 'alert' : 'report',
+            period: p ? ref(p) : null,
+            industry,
+            figures: {
+              count: r.count,
+              byKind: r.byKind,
+              byStatus: r.byStatus.map(({ key, name, count }) => ({ key, label: name, count })),
+            },
+          },
+          hit: !alert || r.count >= num(s.params['minCount'], 1),
           hitIds: [],
         };
       }

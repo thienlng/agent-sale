@@ -1,7 +1,8 @@
 # Prompt evals
 
 Cases that drive real customer questions through the production reply pipeline
-(`PlaygroundService.playground()`: prompts `sales-agent@15` (retail) / `@18` (lodging), business
+(`PlaygroundService.playground()`: prompts `sales-agent@15` (retail) / `@18` (lodging) / `@19`
+(saas, education, spa), business
 profile block, FAQs, situations, history compression, the agent loop with catalog, `calculate`,
 `send_message`, `handoff`, order and action tools, reply post-processing) and check what the
 customer received and which tools ran.
@@ -13,7 +14,11 @@ Design: `docs/13-testing-and-quality.md` §2, task T-145; agent harness v2: ADR-
 pnpm --filter @agent-sales/backend eval                      # fake mode, no network
 pnpm --filter @agent-sales/backend eval --live               # the LLM configured in the database
 pnpm --filter @agent-sales/backend eval --group safety --id retail-injection-discount --out ./reports
+pnpm --filter @agent-sales/backend eval --live --id saas-demo-recorded-no-handoff --prompt-version 15
 ```
+
+`--prompt-version n` forces `sales-agent@n` for every case. Without it each case runs on its
+industry's prompt (`PROMPT_BY_INDUSTRY`: hotel `@18`; saas, education and spa `@19`; others `@15`).
 
 - **Fake mode** (default): the scripted model replays the case's `fake_turns`, one per model call
   of the agent loop. A turn with `tool_calls` makes the loop run those tools (catalog lookups,
@@ -33,7 +38,7 @@ pnpm --filter @agent-sales/backend eval --group safety --id retail-injection-dis
   them before changing a prompt or a model, not in CI.
 - The fakes return every FAQ of the case regardless of the customer's query. The in-memory catalog
   ranks `search_products` queries by accent-folded term overlap with the product name (weight 3),
-  category and description (weight 1), so a live model that searches for a product by name finds it;
+  category, description and an offering's audience and level (weight 1), so a live model that searches for a product by name finds it;
   it is not the SQL ranking (that has its own integration test).
 - **Lodging holds.** A hotel bot gets `check_availability` and, with `orderTaking: true`,
   `prepare_hold` / `confirm_hold` / `cancel_hold_draft` on an in-memory lodging bot facade
@@ -53,6 +58,18 @@ pnpm --filter @agent-sales/backend eval --group safety --id retail-injection-dis
   mode does not use the real commerce module: its database access is only for the LLM routes, and
   the case's catalog is in memory, so a real facade would not find the case's SKUs. The storage,
   locking, expiry and review rules have their own commerce unit and integration tests.
+- **Requests.** A bot of a request industry (`saas`, `education`, `spa`) gets `record_request` on an
+  in-memory crm request writer (`src/modules/ai/evals/requests.ts`), in both modes, and never the
+  order tools. It applies the contracts rules of the real writer: the industry's kinds
+  (`kind_not_offered` otherwise), `requestDetailsSchema`, the required groups (`missing:<field>`),
+  the phone (`phone: not a phone number`), a `preferredDate` before today in Asia/Ho_Chi_Minh
+  (`past_date`, real clock: cases name 2027 dates), the server's `dateLabel` ("Thứ Bảy 13/11/2027"),
+  `missing` = the unmet recommended groups, and the 24 h update rule for the same kind. It records
+  even in the playground's preview mode (the checks read what it recorded); `requests_before` seeds
+  kinds recorded an hour before the turn, so a new call of that kind is an update. Products with
+  `offering` are courses or services: no stock in the bot's view, a price of 0 = see `priceNote`.
+  Group `requests`. The contact upsert, the status moves, the notes and the history entries are the
+  crm module's own tests.
 - Live mode warns when `SECRETS_ENCRYPTION_KEY` is missing: the insecure development key is used,
   which cannot decrypt provider keys sealed with a real key.
 - `--out dir` writes `report.json` and `report.md` (default: a new directory under the OS temp
@@ -76,7 +93,9 @@ bot: # BotView fields; defaults: industry retail, em / anh/chị, vi, short, fri
     notes: ''
 faqs: [] # optional [{question, answer}], all returned as retrieved knowledge
 situations: [] # optional [{title, trigger, content, section}]
-products: [] # optional catalog: [{name, code, description, instructions, images: [https URLs], variants: [{name, sku, price, stock}], accommodation}]
+products: [] # optional catalog: [{name, code, description, instructions, images: [https URLs], variants: [{name, sku, price, stock}], accommodation | offering}]
+# offering: { kind: course | service, durationMinutes, sessions, period, format, level, schedule, audience, outcomes, priceNote }
+requests_before: [appointment] # optional, request industries: kinds recorded an hour before this turn
 order_draft: # optional, needs bot.orderTaking: a summary stored before this turn (it can be confirmed now)
   items: [{ sku: TM-001-STD, qty: 2 }]
   recipient: { name: 'Nguyễn Thị Lan', phone: '0903 111 222', address: '12 Lê Lợi, quận 1' }
@@ -109,6 +128,9 @@ expect: # every check reads the messages the customer received this turn
   steps_not_succeeded: [prepare_order] # none returned an ok result (a refused order)
   quick_replies: ['✅ Đặt hàng', '✏️ Sửa thông tin'] # a delivered message carries exactly these buttons
   order_created: true # the turn created an order (confirm_order succeeded)
+  request_recorded: true # record_request recorded a request this turn (request industries)
+  request_kind: appointment # the kind of the last request recorded this turn
+  request_updated: false # the last request recorded this turn was an update (same kind within 24 h)
 fake_turns: # fake mode only (required there, ignored by --live): the scripted model responses
   - tool_calls: [{ name: search_products, input: { query: 'giày' } }]
   - tool_calls: # several calls in one turn run in order (send_message is a write tool)
@@ -143,7 +165,7 @@ the injection case uses `not_contains`.
 ## Add a case
 
 1. Pick the group folder (`profile-facts`, `unknown`, `safety`, `handoff`, `catalog`, `multi-turn`,
-   `calculator`, `orders`, or a new one).
+   `calculator`, `orders`, `requests`, or a new one).
 2. Copy a similar file, change `id`, the fixtures, the conversation and `expect`. Use synthetic data only.
 3. Write realistic `fake_turns` (the tool calls a good model would make, then its answer); run `pnpm --filter @agent-sales/backend test -- evals` (fake mode must pass).
 4. Tag it `critical` when a failure would be a trust problem: invented facts for an empty profile

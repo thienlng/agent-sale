@@ -38,6 +38,7 @@ import {
   UpdateTagAssignmentRequest,
   UpdateTagRequest,
 } from './crm-settings.schema.js';
+import { CustomerRequestList, RequestSummaryDto } from './customer-request.js';
 
 const route = <T extends Omit<RouteContract, 'auth' | 'workspaceScoped' | 'tag'>>(r: T) =>
   ({
@@ -172,6 +173,29 @@ export const crmRoutes = defineRoutes([
     summary: 'Audit timeline',
     query: ContactHistoryQuery,
     responses: { 200: ContactHistoryList },
+  }),
+  route({
+    method: 'get',
+    path: '/contacts/{contactId}/requests',
+    assistant: {
+      use: 'read',
+      when: "One customer's latest requests the bot recorded (demo, trial, placement test, appointment, consultation).",
+    },
+    apiKey: true,
+    summary: 'The latest 10 requests the bot recorded on the customer, newest first',
+    responses: { 200: CustomerRequestList },
+  }),
+  route({
+    method: 'get',
+    path: '/crm/requests/summary',
+    assistant: {
+      use: 'read',
+      when: 'Customer requests (demo, trial, placement test, appointment) recorded by the bot: counts per customer status and the latest open ones.',
+    },
+    apiKey: true,
+    summary:
+      'Customers per status, open requests and requests of the last 7 days (needs contacts.view_all; 404 outside saas, education and spa)',
+    responses: { 200: RequestSummaryDto },
   }),
   route({
     method: 'get',

@@ -17,6 +17,7 @@ const product = (n: number, over: Partial<ProductDto> = {}): ProductDto => ({
   visibleToBot: true,
   botInstructions: '',
   imageUrls: [`https://cdn.example.com/${n}.jpg`],
+  offering: null,
   variants: [
     {
       id: `01900000-0000-7000-8000-0000000a${String(n).padStart(4, '0')}`,

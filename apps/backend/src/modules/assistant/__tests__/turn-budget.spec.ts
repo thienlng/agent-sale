@@ -50,6 +50,19 @@ describe('withTurnOutputBudget', () => {
     });
   });
 
+  it('never counts or refuses the UI tools (QA N1)', async () => {
+    const big = tool('route_read', 50_000);
+    const fill = tool('ui_fill_form', 300, false);
+    const tools = withTurnOutputBudget([big, fill], 1_000);
+    expect(tools[1]).toBe(fill);
+    await runToolBatch([call('route_read')], tools, { maxResultChars: 100_000 });
+    const after = await runToolBatch([call('ui_fill_form'), call('route_read')], tools);
+    expect(after.results.map((r) => r.content)).toEqual([
+      'x'.repeat(300),
+      TURN_BUDGET_EXHAUSTED_CONTENT,
+    ]);
+  });
+
   it('counts validation errors, and refuses calls with bad arguments once the budget is gone', async () => {
     // The loop's own text for these bad arguments, measured on the bare tool.
     const plain = await runToolBatch([call('small', { n: 'nope' })], [tool('small', 10)]);

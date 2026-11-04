@@ -68,6 +68,7 @@ function setup(opts: { email?: boolean } = {}) {
     })),
     awaiting: vi.fn(async () => ({ count: 0, oldestSince: null, byChannel: [], ids: [] })),
     newContacts: vi.fn(async () => ({ count: 0, bySource: [] })),
+    requests: vi.fn(async () => ({ count: 0, byKind: [], byStatus: [] })),
     industry: vi.fn(async () => 'retail'),
     stays: vi.fn(async () => ({ bookings: 0, nights: 0, revenue: 0, profit: 0 })),
   } satisfies ReportDataSource;

@@ -1,0 +1,34 @@
+id: saas-demo-recorded-no-handoff
+group: requests
+tags: [critical]
+bot:
+  industry: saas
+  name: FlowDesk
+  profile:
+    fields:
+      displayName: FlowDesk
+      hotline: '1900 6000'
+      plans: 'Gói Starter cho 5 người dùng; gói Business cho 50 người dùng.'
+      freeTrial: 'Dùng thử miễn phí 14 ngày.'
+      demo: 'Nhân viên hẹn lịch demo online 30 phút.'
+    notes: ''
+conversation:
+  - customer: 'Mình là Quân, công ty 20 người, muốn xem demo phần mềm, sđt 0903 456 789'
+expect:
+  outcome: answered
+  outcome_not: handoff
+  contains_any: ['ghi nhận']
+  steps_succeeded: [record_request]
+  steps_exclude: [handoff]
+  request_recorded: true
+  request_kind: demo
+fake_turns:
+  - tool_calls:
+      - name: record_request
+        input:
+          kind: demo
+          name: 'Quân'
+          phone: '0903456789'
+          teamSize: '20 người'
+          need: 'xem demo phần mềm'
+  - text: 'Dạ yêu cầu xem demo đã được ghi nhận ạ. Nhân viên FlowDesk sẽ liên hệ số 0903 456 789 để hẹn lịch demo online ạ.'

@@ -23,4 +23,6 @@ export const SELECTABLE_INDUSTRIES = [
   'retail',
   'hotel',
   'saas',
+  'education',
+  'spa',
 ] as const satisfies readonly Industry[];

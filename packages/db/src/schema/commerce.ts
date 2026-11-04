@@ -61,6 +61,8 @@ export const products = pgTable(
     botInstructions: text('bot_instructions').notNull().default(''),
     imageUrls: jsonb('image_urls').$type<string[]>().notNull().default([]),
     accommodation: jsonb('accommodation').$type<Record<string, unknown> | null>(),
+    /** A course or a service (0064, contracts `OfferingDetails`); null for a retail product. */
+    offering: jsonb('offering').$type<Record<string, unknown> | null>(),
     /** PMS link (0040, ADR-017): the provider and its product id; null for products made here. */
     externalSource: text('external_source'),
     externalId: text('external_id'),
@@ -77,6 +79,10 @@ export const products = pgTable(
     check(
       'products_external_pair_check',
       sql`(${t.externalId} is null) = (${t.externalSource} is null)`,
+    ),
+    check(
+      'products_offering_or_accommodation',
+      sql`${t.offering} is null or ${t.accommodation} is null`,
     ),
     ...tenantPolicies('products'),
   ],

@@ -3,6 +3,7 @@
 - Status: Proposed
 - Date: 2026-10-30
 - Decision makers: thienlng
+- Superseded in part by [ADR-025](ADR-025-request-verticals-education-spa.md) (§4: the writer moved to crm, the tool became `record_request`)
 - Note: drafted as ADR-014; renumbered to 020 when merged after ADR-014 (tool calling) to ADR-019 landed on main, with the tool moved onto the agent loop of ADR-015.
 
 ## Context

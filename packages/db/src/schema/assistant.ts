@@ -545,7 +545,7 @@ export const assistantSchedules = pgTable(
     check('assistant_schedules_name_check', sql`char_length(${t.name}) <= 80`),
     check(
       'assistant_schedules_template_check',
-      sql`${t.template} in ('revenue_summary','new_orders','low_stock','unanswered_conversations','new_customers')`,
+      sql`${t.template} in ('revenue_summary','new_orders','low_stock','unanswered_conversations','new_customers','new_requests')`,
     ),
     check('assistant_schedules_mode_check', sql`${t.mode} in ('report','alert')`),
     check('assistant_schedules_status_check', sql`${t.status} in ('active','paused')`),
@@ -563,7 +563,7 @@ export const assistantSchedules = pgTable(
     ),
     check(
       'assistant_schedules_mode_template_check',
-      sql`${t.mode} = 'report' or ${t.template} in ('new_orders','low_stock','unanswered_conversations')`,
+      sql`${t.mode} = 'report' or ${t.template} in ('new_orders','low_stock','unanswered_conversations','new_requests')`,
     ),
     index('assistant_schedules_due_idx').on(t.status, t.nextRunAt),
     index('assistant_schedules_requested_idx')

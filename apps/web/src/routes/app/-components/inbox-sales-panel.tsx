@@ -24,12 +24,14 @@ import type { InboxConversation } from '@/features/conversation/lib/inbox-v2-typ
 import { useSetConversationContact } from '@/features/conversation/api/inbox';
 import { useContact, useContacts } from '@/features/crm/api/crm';
 import { ContactSheet } from '@/features/crm/components/contact-sheet';
+import { CustomerRequestsCard } from '@/features/crm/components/customer-requests-card';
 import { useCrmLookups } from '@/features/crm/hooks/use-crm-lookups';
 import { formatVnd } from '@/lib/format';
 import { useCan } from '@/lib/permissions';
 import { ContactConversations } from './contact-conversations';
 import { InboxContactControls } from './inbox-contact-controls';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
+import { industryGroup } from '@/features/workspace/utils/industry-group';
 import { ConversationBookings } from '@/features/lodging/components/conversation-bookings';
 import { SubscriptionCard } from '@/features/saas/components/subscription-card';
 
@@ -69,6 +71,8 @@ export function InboxSalesPanel({
   const selectedContact = useContact(linked);
   const workspace = useCurrentWorkspace();
   const industry = workspace.data?.industry;
+  // Education and spa take requests, not orders: the customer's requests replace the orders.
+  const service = industryGroup(industry) === 'service' ? industry : undefined;
   const contact = selectedContact.data;
   const canLink = useCan('contacts.edit');
   const [changing, setChanging] = useState(false);
@@ -203,6 +207,10 @@ export function InboxSalesPanel({
         contact ? (
           <SubscriptionCard contactId={contact.id} />
         ) : null
+      ) : service ? (
+        contact ? (
+          <CustomerRequestsCard contactId={contact.id} industry={service} />
+        ) : null
       ) : (
         <PanelBlock
           title={t('channelInbox.v2.panel.orders')}
@@ -300,8 +308,11 @@ export function InboxSalesPanel({
         renderOverviewExtra={
           industry === 'saas'
             ? (contactId) => <SubscriptionCard contactId={contactId} />
-            : undefined
+            : service
+              ? (contactId) => <CustomerRequestsCard contactId={contactId} industry={service} />
+              : undefined
         }
+        industry={industry}
       />
     </div>
   );

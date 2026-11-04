@@ -1,3 +1,4 @@
+import { scheduleParamsSchema } from '@agent-sales/contracts';
 import { notificationStrings } from '@agent-sales/i18n/notification';
 import { describe, expect, it, vi as mock } from 'vitest';
 
@@ -72,6 +73,30 @@ export const REPORT_FIXTURES: ReportResult[] = [
       ],
     },
   },
+  {
+    template: 'new_requests',
+    mode: 'report',
+    period: { period: 'week', window: 'to_date', from: '2026-11-02', to: '2026-11-04' },
+    industry: 'spa',
+    figures: {
+      count: 3,
+      byKind: [
+        { kind: 'appointment', count: 2 },
+        { kind: 'consultation', count: 1 },
+      ],
+      byStatus: [
+        { key: 'booking_requested', label: 'Chờ xác nhận lịch', count: 2 },
+        { key: null, label: 'Khách VIP', count: 1 },
+      ],
+    },
+  },
+  {
+    template: 'new_requests',
+    mode: 'alert',
+    period: null,
+    industry: 'education',
+    figures: { count: 1, byKind: [{ kind: 'placement_test', count: 1 }], byStatus: [] },
+  },
 ];
 
 describe('formatVnd', () => {
@@ -134,6 +159,138 @@ describe('renderReport', () => {
   });
 });
 
+describe('new_requests report and alert (T-187)', () => {
+  const report = REPORT_FIXTURES.find((r) => r.template === 'new_requests' && r.mode === 'report')!;
+  const alert = REPORT_FIXTURES.find((r) => r.template === 'new_requests' && r.mode === 'alert')!;
+
+  it('renders a report in Vietnamese and English', () => {
+    expect(renderReport(report, vi, 'Spa Hoa')).toEqual({
+      title: 'Yêu cầu mới tuần này (02/11 – 04/11) · Spa Hoa',
+      body: [
+        'Số yêu cầu mới: 3',
+        '',
+        'Theo loại:',
+        '• Đặt lịch: 2',
+        '• Tư vấn: 1',
+        '',
+        'Khách theo trạng thái hiện tại:',
+        '• Chờ xác nhận lịch: 2',
+        '• Khách VIP: 1',
+      ].join('\n'),
+    });
+    const english = renderReport(report, en, 'Spa Hoa');
+    expect(english.title).toBe('New requests this week (02/11 – 04/11) · Spa Hoa');
+    expect(english.body).toContain('• Appointment: 2');
+  });
+
+  it('renders an alert, the industry’s own kind labels and the empty case', () => {
+    expect(renderReport(alert, vi, 'Anh ngữ Sao')).toEqual({
+      title: '1 yêu cầu mới · Anh ngữ Sao',
+      body: 'Số yêu cầu mới: 1\n\nTheo loại:\n• Kiểm tra trình độ: 1',
+    });
+    expect(renderReport(alert, en, 'Anh ngữ Sao').title).toBe('1 new requests · Anh ngữ Sao');
+    const trial = (industry: string) =>
+      renderReport(
+        {
+          template: 'new_requests',
+          mode: 'alert',
+          period: null,
+          industry,
+          figures: { count: 1, byKind: [{ kind: 'trial', count: 1 }], byStatus: [] },
+        },
+        vi,
+        'X',
+      ).body;
+    expect(trial('education')).toContain('• Học thử: 1');
+    expect(trial('saas')).toContain('• Dùng thử: 1');
+    const none = renderReport(
+      { ...report, figures: { count: 0, byKind: [], byStatus: [] } } as ReportResult,
+      vi,
+      'Spa Hoa',
+    );
+    expect(none.body).toBe('Không có yêu cầu mới.');
+  });
+});
+
+describe('new_requests computed through the data source (T-187)', () => {
+  const NOW = new Date('2026-11-04T03:00:00.000Z');
+  const CURSOR = new Date('2026-11-04T02:30:00.000Z');
+  const source = (count: number): ReportDataSource => ({
+    revenue: mock.fn(),
+    orders: mock.fn(),
+    lowStock: mock.fn(),
+    awaiting: mock.fn(),
+    newContacts: mock.fn(),
+    industry: mock.fn(async () => 'spa'),
+    stays: mock.fn(),
+    requests: mock.fn(async () => ({
+      count,
+      byKind: count ? [{ kind: 'appointment', count }] : [],
+      byStatus: count ? [{ key: 'booking_requested', name: 'Chờ xác nhận lịch', count }] : [],
+    })),
+  });
+  const alertSpec = (minCount: number) => ({
+    businessId: 'b1',
+    template: 'new_requests' as const,
+    mode: 'alert' as const,
+    params: { minCount },
+    alertCursor: CURSOR,
+  });
+
+  it('counts an alert from its cursor and hits only at minCount', async () => {
+    const data = source(2);
+    const reports = new ReportService(data, () => vi);
+    const hit = await reports.compute(alertSpec(2), NOW);
+    expect(data.requests).toHaveBeenCalledWith('b1', CURSOR, NOW, []);
+    expect(hit.hit).toBe(true);
+    expect(hit.result).toMatchObject({
+      template: 'new_requests',
+      mode: 'alert',
+      period: null,
+      industry: 'spa',
+      figures: { count: 2, byStatus: [{ key: 'booking_requested', label: 'Chờ xác nhận lịch' }] },
+    });
+    expect((await reports.compute(alertSpec(3), NOW)).hit).toBe(false);
+    expect((await new ReportService(source(0), () => vi).compute(alertSpec(1), NOW)).hit).toBe(
+      false,
+    );
+  });
+
+  it('reads a report over its period and always hits', async () => {
+    const data = source(0);
+    const out = await new ReportService(data, () => vi).compute(
+      {
+        businessId: 'b1',
+        template: 'new_requests',
+        mode: 'report',
+        params: { period: 'day', window: 'previous' },
+      },
+      NOW,
+    );
+    expect(out.hit).toBe(true);
+    expect(data.requests).toHaveBeenCalledWith(
+      'b1',
+      new Date('2026-11-02T17:00:00.000Z'),
+      new Date('2026-11-03T17:00:00.000Z'),
+      [],
+    );
+    expect(out.result).toMatchObject({ period: { from: '2026-11-03', to: '2026-11-03' } });
+  });
+
+  it('passes the kinds of a bookings-only alert to the data source (QA Mailisa B7)', async () => {
+    const data = source(1);
+    await new ReportService(data, () => vi).compute(
+      { ...alertSpec(1), params: { minCount: 1, kinds: ['appointment'] } },
+      NOW,
+    );
+    expect(data.requests).toHaveBeenCalledWith('b1', CURSOR, NOW, ['appointment']);
+    expect(scheduleParamsSchema('new_requests', 'alert').parse({ kinds: ['appointment'] })).toEqual(
+      { minCount: 1, kinds: ['appointment'] },
+    );
+    expect(scheduleParamsSchema('new_requests', 'report').parse({})).toMatchObject({ kinds: [] });
+  });
+});
+
 describe('revenue report of a hotel (QA Villas #6)', () => {
   const orders = {
     sales: 0,
@@ -148,6 +305,7 @@ describe('revenue report of a hotel (QA Villas #6)', () => {
     lowStock: mock.fn(async () => ({ count: 0, items: [], ids: [] })),
     awaiting: mock.fn(async () => ({ count: 0, oldestSince: null, byChannel: [], ids: [] })),
     newContacts: mock.fn(async () => ({ count: 0, bySource: [] })),
+    requests: mock.fn(async () => ({ count: 0, byKind: [], byStatus: [] })),
     industry: mock.fn(async () => industry),
     stays: mock.fn(async () => ({
       bookings: 2,
@@ -185,6 +343,23 @@ describe('revenue report of a hotel (QA Villas #6)', () => {
     const source = data('retail');
     const { result } = await new ReportService(source, () => vi).compute(spec, NOW);
     expect(source.stays).not.toHaveBeenCalled();
+    expect(source.requests).not.toHaveBeenCalled();
     expect(result).not.toHaveProperty('stays');
+    expect(result).not.toHaveProperty('requests');
   });
+
+  it.each(['education', 'spa'])(
+    'appends the requests of the period for %s (T-187)',
+    async (industry) => {
+      const source = data(industry);
+      source.requests = mock.fn(async () => ({ count: 4, byKind: [], byStatus: [] }));
+      const reports = new ReportService(source, () => vi);
+      const { result } = await reports.compute(spec, NOW);
+      expect(source.stays).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ requests: { count: 4 } });
+      const { body } = reports.render(result, 'vi', 'Spa Hoa');
+      expect(body.startsWith('Doanh số: 0 ₫')).toBe(true);
+      expect(body.endsWith('\n\nYêu cầu mới (đặt lịch, học thử, tư vấn): 4')).toBe(true);
+    },
+  );
 });

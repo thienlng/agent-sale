@@ -10,7 +10,7 @@ import {
 } from './hold-tools.js';
 import { CANCEL_ORDER_DRAFT_TOOL, CONFIRM_ORDER_TOOL, PREPARE_ORDER_TOOL } from './order-tools.js';
 import { HANDOFF_TOOL, SEND_MESSAGE_TOOL } from './output-tools.js';
-import { SAAS_REQUEST_TOOL } from './saas-tools.js';
+import { LEGACY_SAAS_REQUEST_TOOL, REQUEST_TOOL } from './request-tools.js';
 
 /**
  * Per-tool step details of a shop-bot turn trace (spec 2026-11-02-owner-assistant-5-design §4.2).
@@ -88,12 +88,21 @@ type MissingField = 'price' | 'stock' | 'description' | 'images' | 'variants';
 export function missingFields(p: Partial<ProductDetails>): MissingField[] {
   const out: MissingField[] = [];
   const variants = Array.isArray(p.variants) ? p.variants : null;
+  const offering = p.catalogKind === 'course' || p.catalogKind === 'service';
   if (p.catalogKind !== 'accommodation') {
-    const priced = (p.fromVnd ?? 0) > 0 || (variants ?? []).some((v) => (v.priceVnd ?? 0) > 0);
+    // A course or a service may publish no price on purpose: its priceNote ("liên hệ") stands in.
+    const priced =
+      (p.fromVnd ?? 0) > 0 ||
+      (variants ?? []).some((v) => (v.priceVnd ?? 0) > 0) ||
+      (offering && !!str(p.priceNote)?.trim());
     if (!priced) out.push('price');
+    // Courses and services have no stock.
     const soldOut =
-      p.inStock === false ||
-      (variants !== null && variants.length > 0 && variants.every((v) => (v.available ?? 0) === 0));
+      !offering &&
+      (p.inStock === false ||
+        (variants !== null &&
+          variants.length > 0 &&
+          variants.every((v) => (v.available ?? 0) === 0)));
     if (soldOut) out.push('stock');
   }
   if (!str(p.description)?.trim()) out.push('description');
@@ -184,7 +193,16 @@ export function toolDetail(
       detail = withError({ ...stay, ...(options !== null ? { resultCount: options } : {}) });
       break;
     }
-    case SAAS_REQUEST_TOOL:
+    case REQUEST_TOOL: {
+      const kind = str(args.kind);
+      detail = withError({
+        ...(kind && /^[a-z_]{1,30}$/.test(kind) ? { kind } : {}),
+        ...(typeof result?.updated === 'boolean' ? { updated: result.updated } : {}),
+      });
+      break;
+    }
+    // Traces written before the saas tool became record_request (30-day retention).
+    case LEGACY_SAAS_REQUEST_TOOL:
       detail = withError({});
       break;
     default:

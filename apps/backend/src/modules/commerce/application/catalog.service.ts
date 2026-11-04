@@ -5,6 +5,8 @@ import type {
   BotProductsDto,
   ProductDto,
   ProductListResponse,
+  ProductSummaryListResponse,
+  ProductSummaryRow,
   UpdateProductBotSettingsRequest,
   UpsertProductRequest,
   UpsertWarehouseRequest,
@@ -12,6 +14,7 @@ import type {
   WarehouseDto,
 } from '@agent-sales/contracts';
 import {
+  PRODUCT_SUMMARY_PAGE_MAX,
   SetBotProductsRequest,
   UpdateProductBotSettingsRequest as UpdateProductBotSettingsSchema,
   UpsertProductRequest as UpsertProductSchema,
@@ -25,7 +28,7 @@ import type { PublicObjectStorage } from '../../../common/storage/public-object-
 import { PRODUCT_IMAGE_STORAGE } from './ports/product-image-storage.js';
 
 import type { BotCatalogScope } from '../api/catalog.facade.js';
-import { catalogTerms } from '../domain/bot-catalog-query.js';
+import { catalogTerms, coversAge, queryAge } from '../domain/bot-catalog-query.js';
 import { LodgingError } from '../domain/lodging.js';
 import {
   BotNotFoundError,
@@ -109,6 +112,7 @@ function toProductDto(
       imageUrls: p.imageUrls,
       ...(p.accommodation ? { accommodation: p.accommodation } : {}),
     }),
+    offering: p.offering ?? null,
     variants: dtoVariants,
     priceMin: prices.length ? Math.min(...prices) : 0,
     priceMax: prices.length ? Math.max(...prices) : 0,
@@ -119,12 +123,67 @@ function toProductDto(
   };
 }
 
+const SUMMARY_OFFERING_CHARS = 160;
+
+/** One line for an offering: kind, duration, sessions, period, format, level, schedule. */
+function offeringLine(o: NonNullable<ProductDto['offering']>): string {
+  const parts = [
+    o.kind,
+    o.durationMinutes ? `${o.durationMinutes} min` : '',
+    o.sessions ? `${o.sessions} sessions` : '',
+    o.period,
+    o.format ?? '',
+    o.level ? `level ${o.level}` : '',
+    o.schedule ? `schedule ${o.schedule}` : '',
+  ].filter(Boolean);
+  const line = parts.join(', ').replace(/\s+/g, ' ');
+  return line.length > SUMMARY_OFFERING_CHARS
+    ? `${line.slice(0, SUMMARY_OFFERING_CHARS - 1).trimEnd()}…`
+    : line;
+}
+
+/**
+ * The compact row of `GET /products?fields=summary` (T-187, QA retest N1): no description,
+ * variants, pictures or stock, so a 20-product page stays far under the turn's read budget.
+ */
+export function productSummary(d: ProductDto): ProductSummaryRow {
+  return {
+    id: d.id,
+    code: d.code,
+    name: d.name,
+    category: d.category,
+    priceMin: d.priceMin,
+    priceMax: d.priceMax,
+    priceNote: d.offering?.priceNote ?? '',
+    offering: d.offering ? offeringLine(d.offering) : '',
+  };
+}
+
 /** Text the catalog search (and the order form picker) matches against. */
 function productSearchText(
   p: { code: string; name: string },
   variants: Array<{ sku: string; name: string }>,
 ): string {
   return foldVietnamese([p.code, p.name, ...variants.flatMap((v) => [v.sku, v.name])].join(' '));
+}
+
+/**
+ * Search rows with the products whose stated ages cover `age` first, then those that state no
+ * age, then those for other ages; each group keeps the search order. Null `age` keeps the rows.
+ */
+function byAge(rows: ProductDto[], age: number | null): ProductDto[] {
+  if (age === null) return rows;
+  const group = (d: ProductDto) => {
+    const covers = coversAge(
+      [d.name, d.description, d.offering?.audience ?? '', d.offering?.level ?? ''].join(' \n '),
+      age,
+    );
+    return covers === true ? 0 : covers === null ? 1 : 2;
+  };
+  return rows
+    .map((d, i) => ({ d, i, g: group(d) }))
+    .sort((a, b) => a.g - b.g || a.i - b.i)
+    .map((x) => x.d);
 }
 
 /** Most rows a bot catalog search or browse returns (spec §5). */
@@ -168,27 +227,39 @@ export class CatalogService {
           .replace(/[^\p{L}\p{N}]+/gu, ' ')
           .trim()
       : '';
+    // A course for "con 7 tuổi": the products whose stated ages cover it come first (T-187).
+    const age = terms.length ? queryAge(input.query ?? '') : null;
     // Price and stock are computed from variants and stock rows, so they filter after the query.
-    const filtered = input.maxPriceVnd !== undefined || input.inStockOnly === true;
+    const filtered = input.maxPriceVnd !== undefined || input.inStockOnly === true || age !== null;
     try {
       return await this.store.run(ws, async (tx) => {
         const rows = await tx.products.searchForBot({
           terms,
           query,
           selectedFor: selection(bot),
+          withStatedAges: age !== null,
           limit: filtered ? BOT_CATALOG_CAP : limit,
         });
-        const dtos = await this.#dtos(tx, rows);
+        const dtos = byAge(await this.#dtos(tx, rows), age);
         // An accommodation has no stock and a rate reference rather than a price: neither filter applies.
-        return dtos
-          .filter(
-            (d) =>
-              d.accommodation !== undefined ||
-              input.maxPriceVnd === undefined ||
-              d.priceMin <= input.maxPriceVnd,
-          )
-          .filter((d) => d.accommodation !== undefined || !input.inStockOnly || d.available > 0)
-          .slice(0, limit);
+        return (
+          dtos
+            .filter(
+              (d) =>
+                d.accommodation !== undefined ||
+                input.maxPriceVnd === undefined ||
+                d.priceMin <= input.maxPriceVnd,
+            )
+            // A course or a service has no stock either (T-187).
+            .filter(
+              (d) =>
+                d.accommodation !== undefined ||
+                d.offering !== null ||
+                !input.inStockOnly ||
+                d.available > 0,
+            )
+            .slice(0, limit)
+        );
       });
     } catch (error) {
       if (error instanceof CommerceUnavailableError) return [];
@@ -314,31 +385,32 @@ export class CatalogService {
       selectedFor?: string | undefined;
       /** `kiotviet`: synced from KiotViet; `rapiz`: managed in Rapiz. */
       source?: 'kiotviet' | 'rapiz' | undefined;
+      /** `summary`: the compact projection of `ProductListQuery.fields`. */
+      fields?: 'summary' | undefined;
     },
-  ): Promise<ProductListResponse> {
+  ): Promise<ProductListResponse | ProductSummaryListResponse> {
+    const summary = query.fields === 'summary';
+    const pageSize = summary ? Math.min(query.pageSize, PRODUCT_SUMMARY_PAGE_MAX) : query.pageSize;
     return this.store.run(ws, async (tx) => {
       const { rows, total } = await tx.products.list({
         q: query.q ? foldVietnamese(query.q) : undefined,
         status: query.status,
         selectedFor: query.selectedFor,
         source: query.source,
-        offset: (query.page - 1) * query.pageSize,
-        limit: query.pageSize,
+        offset: (query.page - 1) * pageSize,
+        limit: pageSize,
       });
       const variants = await tx.products.variantsOf(rows.map((r) => r.id));
       const stock = await tx.inventory.stockOf(variants.map((v) => v.id));
-      return {
-        data: rows.map((p) =>
-          toProductDto(
-            p,
-            variants.filter((v) => v.productId === p.id),
-            stock,
-          ),
+      const dtos = rows.map((p) =>
+        toProductDto(
+          p,
+          variants.filter((v) => v.productId === p.id),
+          stock,
         ),
-        total,
-        page: query.page,
-        pageSize: query.pageSize,
-      };
+      );
+      if (summary) return { data: dtos.map(productSummary), total, page: query.page, pageSize };
+      return { data: dtos, total, page: query.page, pageSize };
     });
   }
 
@@ -367,6 +439,7 @@ export class CatalogService {
         botInstructions: input.botInstructions,
         imageUrls: input.imageUrls,
         accommodation: input.accommodation ?? null,
+        offering: input.offering ?? null,
         external: null,
         searchText: productSearchText(input, input.variants),
         createdAt: now,
@@ -432,6 +505,15 @@ export class CatalogService {
         );
       if (current.accommodation && input.variants.length !== 1)
         throw new LodgingError('VALIDATION_FAILED', 'An entire property has one catalog unit');
+      // Omitted keeps the stored course or service details; null turns the product into retail.
+      const offering = input.offering === undefined ? (current.offering ?? null) : input.offering;
+      const accommodation =
+        input.accommodation === undefined ? (current.accommodation ?? null) : input.accommodation;
+      if (offering && accommodation)
+        throw new LodgingError(
+          'VALIDATION_FAILED',
+          'A product is a course or service, or an accommodation, never both',
+        );
       const existing = (await tx.products.variantsOf([id])).filter((v) => !v.archived);
       // A PMS-synced product: only the Rapiz-owned fields may change (ADR-017).
       if (current.external) {
@@ -470,8 +552,8 @@ export class CatalogService {
         visibleToBot: input.visibleToBot,
         botInstructions: input.botInstructions,
         imageUrls: input.imageUrls,
-        accommodation:
-          input.accommodation === undefined ? (current.accommodation ?? null) : input.accommodation,
+        accommodation,
+        offering,
         searchText: productSearchText(input, input.variants),
         updatedAt: new Date(),
       });
@@ -519,6 +601,8 @@ export class CatalogService {
         (v) => v.id === input.variantId && !v.archived,
       );
       if (!variant) throw new ProductNotFoundError(input.variantId);
+      if (product.offering)
+        throw new LodgingError('VALIDATION_FAILED', 'A course or a service has no stock');
       // The PMS owns the stock of a synced product.
       if (product.external) throw new ExternalSourceLockedError('stock');
       await this.#warehouse(tx, input.warehouseId);

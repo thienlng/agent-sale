@@ -6,6 +6,7 @@ import {
   type ProductDto,
   ProductListQuery,
   type ProductListResponse,
+  type ProductSummaryListResponse,
   SetBotProductsRequest,
   UpdateProductBotSettingsRequest,
   UploadProductImageRequest,
@@ -111,7 +112,7 @@ export class CatalogController {
   products(
     @CurrentWorkspace() ws: WorkspaceId,
     @Query(new ZodValidationPipe(ProductListQuery)) query: z.infer<typeof ProductListQuery>,
-  ): Promise<ProductListResponse> {
+  ): Promise<ProductListResponse | ProductSummaryListResponse> {
     return this.catalog.listProducts(ws, query);
   }
 

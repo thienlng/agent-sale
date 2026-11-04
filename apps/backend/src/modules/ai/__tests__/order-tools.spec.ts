@@ -28,6 +28,7 @@ import {
   ORDER_QUICK_REPLIES,
   type OrderToolContext,
   orderTools,
+  NOT_SOLD_HINT,
   PREPARE_ORDER_TOOL,
 } from '../application/order-tools.js';
 import { newOutputState } from '../application/output-tools.js';
@@ -168,6 +169,17 @@ describe('order tools (spec §4.1)', () => {
     expect(sink.sent).toEqual([]);
     expect(ctx.output.sent).toEqual([]);
     expect(ctx.state.stored).toBe(false);
+  });
+
+  it('adds guidance when an item is a course or service (not_sold)', async () => {
+    const problems = [{ code: 'not_sold', sku: 'GOI-STD' }] as unknown as Extract<
+      PrepareBotOrderResult,
+      { ok: false }
+    >['problems'];
+    const ctx = context(fakeCommerce({ prepare: { ok: false, problems } }));
+    const out = await runnable(ctx, PREPARE_ORDER_TOOL).run(ORDER_INPUT);
+    expect(JSON.parse(out.content)).toEqual({ ok: false, problems, hint: NOT_SOLD_HINT });
+    expect(NOT_SOLD_HINT).toContain('record_request');
   });
 
   it('drops the draft when the summary was not delivered', async () => {

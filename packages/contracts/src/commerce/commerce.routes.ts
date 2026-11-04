@@ -12,6 +12,7 @@ import {
   ProductDto,
   ProductListQuery,
   ProductListResponse,
+  ProductSummaryListResponse,
   SetBotProductsRequest,
   UpdateOrderRequest,
   UpdateProductBotSettingsRequest,
@@ -96,7 +97,7 @@ export const commerceRoutes = defineRoutes([
     summary: 'Product catalog (search, pages)',
     tag: 'commerce',
     query: ProductListQuery,
-    responses: { 200: ProductListResponse },
+    responses: { 200: ProductListResponse.or(ProductSummaryListResponse) },
   }),
   route({
     method: 'post',

@@ -179,7 +179,13 @@ export const contactHistory = pgTable(
     actorName: text('actor_name'),
     createdAt: ts('created_at').notNull().defaultNow(),
   },
-  () => [...tenantPolicies('contact_history')],
+  (t) => [
+    // Bot-recorded customer requests per business and time (0064, T-187).
+    index('contact_history_requests_idx')
+      .on(t.workspaceId, t.createdAt)
+      .where(sql`${t.type} = 'contact.request_recorded'`),
+    ...tenantPolicies('contact_history'),
+  ],
 );
 
 export const crmTags = pgTable(

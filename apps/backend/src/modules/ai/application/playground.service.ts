@@ -6,7 +6,13 @@ import {
   PromptRegistry,
   runAgentLoop,
 } from '@agent-sales/ai-core';
-import type { PlaygroundRequest, PlaygroundResponse } from '@agent-sales/contracts';
+import {
+  defaultOfferingKind,
+  isRequestIndustry,
+  type PlaygroundRequest,
+  type PlaygroundResponse,
+  requestProfileFor,
+} from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
@@ -19,6 +25,7 @@ import {
   COMMERCE_FACADE,
   type CommerceFacade,
 } from '../../commerce/api/index.js';
+import { CRM_FACADE, type CrmFacade } from '../../crm/api/index.js';
 import {
   KNOWLEDGE_FACADE,
   type KnowledgeFacade,
@@ -33,7 +40,6 @@ import {
   type LodgingCatalogFacade,
   type LodgingFacade,
 } from '../../lodging/api/index.js';
-import { SAAS_FACADE, type SaasFacade } from '../../saas/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import type { AiFacade } from '../api/ai.facade.js';
 import type { ReplyOptions, ReplyResult } from '../api/reply-options.js';
@@ -91,6 +97,7 @@ import {
   PLAYGROUND_ORDER_CHANNEL,
 } from './order-tools.js';
 import { HANDOFF_TOOL, ImageAllowlist, newOutputState } from './output-tools.js';
+import { withDefaultOfferings } from './catalog-tools.js';
 import {
   carriedProductIds,
   compactHistory,
@@ -112,7 +119,7 @@ import {
   turnMessages,
   turnTools,
 } from './reply-pipeline.js';
-import type { SaasToolContext } from './saas-tools.js';
+import type { RequestToolContext } from './request-tools.js';
 import { sha256, TraceRecorder, traceExcerpt } from './trace-recorder.js';
 
 export { PHONE_KNOWN_LINE };
@@ -128,11 +135,25 @@ export { PHONE_KNOWN_LINE };
 // 6. Playground (conversationId null) cannot store the history summary, so long test chats
 //    re-summarise on every turn.
 // Steps 2 and 5 change bot behaviour: run the ai evals before/after. Measure first (prompt viewer).
-const PROMPT_RETAIL = { name: 'sales-agent', version: 15 } as const;
-const PROMPT_LODGING = { name: 'sales-agent', version: 18 } as const;
+/** The sales-agent prompt version of a bot's industry; an industry not listed gets @15 (retail). */
+export const PROMPT_BY_INDUSTRY: Readonly<Record<string, SalesPromptVersion>> = {
+  hotel: 18,
+  // The request industries: @15 plus "Recording a request" and the course / service facts.
+  saas: 19,
+  education: 19,
+  spa: 19,
+};
+const DEFAULT_PROMPT_VERSION: SalesPromptVersion = 15;
+/** The sales-agent prompt of a bot of `industry` (without the forcing option). */
+export function salesPromptFor(industry: string): {
+  name: 'sales-agent';
+  version: SalesPromptVersion;
+} {
+  return { name: 'sales-agent', version: PROMPT_BY_INDUSTRY[industry] ?? DEFAULT_PROMPT_VERSION };
+}
 /** The sales-agent prompt versions the option may force (13/14: before the order tools). */
-export type SalesPromptVersion = 13 | 14 | 15 | 16 | 17 | 18;
-/** Optional DI token: forces the sales-agent prompt for every bot (default: 18 for hotel bots, 15 otherwise). */
+export type SalesPromptVersion = 13 | 14 | 15 | 16 | 17 | 18 | 19;
+/** Optional DI token: forces the sales-agent prompt for every bot (default: `PROMPT_BY_INDUSTRY`). */
 export const PROMPT_VERSION_OPTION = Symbol('PROMPT_VERSION_OPTION');
 /** The current public base of Rapiz storage (`S3_PUBLIC_URL`); pictures are sent on it. */
 export const MEDIA_PUBLIC_BASE = Symbol('MEDIA_PUBLIC_BASE');
@@ -175,7 +196,7 @@ export class PlaygroundService implements AiFacade {
     @Inject(LODGING_BOT_FACADE) @Optional() private readonly lodgingBot?: LodgingBotFacade,
     @Inject(LODGING_FACADE) @Optional() private readonly lodging?: LodgingFacade,
     @Inject(MEDIA_PUBLIC_BASE) @Optional() private readonly mediaBase?: string,
-    @Inject(SAAS_FACADE) @Optional() private readonly saas?: SaasFacade,
+    @Inject(CRM_FACADE) @Optional() private readonly crm?: CrmFacade,
     @Inject(TURN_TRACE_REPOSITORY) @Optional() private readonly traces?: TurnTraceRepository,
   ) {
     this.#forcedPrompt = promptVersion
@@ -199,8 +220,7 @@ export class PlaygroundService implements AiFacade {
   ): Promise<ReplyResult> {
     const startedAt = new Date();
     const bot = await this.bots.getBot(ws, botId);
-    const prompt =
-      this.#forcedPrompt ?? (bot.industry === 'hotel' ? PROMPT_LODGING : PROMPT_RETAIL);
+    const prompt = this.#forcedPrompt ?? salesPromptFor(bot.industry);
     const workspace = await this.workspaces.getById(ws);
     const customerTexts = input.messages.filter((m) => m.role === 'customer').map((m) => m.content);
 
@@ -218,8 +238,11 @@ export class PlaygroundService implements AiFacade {
     const scope = { botId, catalogMode: bot.catalogMode };
     // Hotel bots sell lodging properties instead of commerce products (T-160): their selection
     // lives in lodging and catalogMode is ignored.
+    // In a request business a product without an offering reads as one of the industry's kind.
     const catalog: CatalogFacade | undefined =
-      bot.industry === 'hotel' ? this.lodgingCatalog : this.catalog;
+      bot.industry === 'hotel'
+        ? this.lodgingCatalog
+        : withDefaultOfferings(this.catalog, defaultOfferingKind(bot.industry));
 
     // Products already discussed (the last runs of this conversation) need no new search.
     // A comment reply has no conversation to remember, so it never shares one across customers.
@@ -305,9 +328,14 @@ export class PlaygroundService implements AiFacade {
       : null;
     const output = newOutputState();
     // Orders need a private conversation: never for a public comment reply. Hotel bots sell
-    // lodging properties, which commerce orders cannot hold (T-160).
+    // lodging properties, which commerce orders cannot hold (T-160). A request industry converts
+    // through record_request, never an order, even with order taking on (ESV-R7).
     const orders: OrderToolContext | null =
-      this.commerce && bot.orderTaking && !isCommentReply && bot.industry !== 'hotel'
+      this.commerce &&
+      bot.orderTaking &&
+      !isCommentReply &&
+      bot.industry !== 'hotel' &&
+      !isRequestIndustry(bot.industry)
         ? {
             facade: this.commerce,
             ws,
@@ -346,30 +374,39 @@ export class PlaygroundService implements AiFacade {
             warn: (message) => this.#logger.warn(message),
           })
         : null;
-    // A SaaS bot records demo / trial requests on the customer itself (ADR-020).
-    const saasTool: SaasToolContext | null =
-      this.saas && bot.industry === 'saas'
+    // A bot of a request industry records its requests on the CRM customer itself (ADR-020).
+    const requestProfile = requestProfileFor(bot.industry);
+    // The products the turn knows by name: an empty course or service is filled from them.
+    const seenNames = new Map(focus.map((p) => [p.id, p.name]));
+    const requestTool: RequestToolContext | null =
+      this.crm && requestProfile
         ? {
-            facade: this.saas,
+            facade: this.crm,
             ws,
+            profile: requestProfile,
             isTest: options.isTest,
             customerTexts,
             calls: actionState.calls,
-            onError: (error) => this.#logger.warn(`SaaS request tool failed: ${errorClass(error)}`),
+            catalogNames: () => [...seenNames.values()],
+            onError: (error) => this.#logger.warn(`Request tool failed: ${errorClass(error)}`),
           }
         : null;
     const seenProducts = new Set<string>();
     const tools = turnTools({
       ...(catalog ? { catalog: { ws, scope, catalog } } : {}),
       allowlist,
-      onProducts: (products) => products.forEach((p) => seenProducts.add(p.id)),
+      onProducts: (products) =>
+        products.forEach((p) => {
+          seenProducts.add(p.id);
+          seenNames.set(p.id, p.name);
+        }),
       output,
       ...(options.sink ? { sink: options.sink } : {}),
       sendMessage: !isCommentReply,
       actions: actionContext ? { definitions: actionDefinitions, context: actionContext } : null,
       orders,
       holds,
-      saas: saasTool,
+      requests: requestTool,
     });
 
     const postRules = post ? await this.#prompts.load(POST_PROMPT) : '';

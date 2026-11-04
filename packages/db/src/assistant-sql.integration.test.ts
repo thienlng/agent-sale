@@ -110,6 +110,20 @@ const VIEWS: Record<string, string[]> = {
     'has_phone',
     'archived',
     'created_at',
+    'status_key',
+  ],
+  customer_requests: [
+    'request_id',
+    'business_id',
+    'customer_id',
+    'kind',
+    'is_update',
+    'item',
+    'branch',
+    'preferred_date',
+    'created_at',
+    'current_status_key',
+    'current_status_name',
   ],
   conversations: [
     'conversation_id',
@@ -174,6 +188,7 @@ const NEVER_GRANTED: Record<string, string[]> = {
   channel_connections: ['token_sealed', 'external_id', 'settings'],
   bots: ['settings'],
   lodging_bookings: ['guest_phone', 'note', 'quote'],
+  contact_history: ['changes', 'actor_user_id', 'actor_name'],
 };
 
 async function seedBusiness(ws: string, account: string, ownerUser: string, deleted = false) {
@@ -654,6 +669,90 @@ describe('assistant SQL lane: visibility', () => {
       'select property_name, check_in, nights, adults, children, total_sell, counts_as_revenue from lodging_bookings',
     );
     expect(stays.rows).toEqual([['Villa A1', '2026-11-01', 3, 2, 2, 3000000, true]]);
+  });
+});
+
+describe('assistant SQL lane: service verticals (0064)', () => {
+  it('customer_requests shows the kind, item, branch and day, never the phone or free text', async () => {
+    const status = newId();
+    const contact = newId();
+    await owner`insert into crm_statuses (id, workspace_id, key, name, color, position)
+      values (${status}, ${A2}, 'booking_requested', 'Yêu cầu đặt lịch', '#f97316', 1)`;
+    await owner`insert into contacts (id, workspace_id, name, phone, status_id, search_text)
+      values (${contact}, ${A2}, 'Chị Hoa', '0912000111', ${status}, '')`;
+    const details = {
+      service: 'Gội đầu dưỡng sinh',
+      branch: 'Quận 1',
+      preferredDate: '2026-11-08',
+      note: 'secret note',
+    };
+    for (const [type, data] of [
+      [
+        'contact.request_recorded',
+        { kind: 'appointment', details, dateLabel: 'Thứ Bảy 08/11/2026' },
+      ],
+      [
+        'contact.request_updated',
+        { kind: 'appointment', details: { ...details, preferredDate: 'bad' } },
+      ],
+      ['contact.updated', { phone: '0912000111' }],
+    ] as const)
+      await owner`insert into contact_history (id, workspace_id, contact_id, type, data, actor_name)
+        values (${newId()}, ${A2}, ${contact}, ${type}, ${owner.json(data)}, 'Bot AI')`;
+
+    const r = await run(
+      [A2],
+      `select kind, is_update, item, branch, preferred_date, current_status_key, current_status_name
+       from customer_requests order by is_update`,
+    );
+    expect(r.rows).toEqual([
+      [
+        'appointment',
+        false,
+        'Gội đầu dưỡng sinh',
+        'Quận 1',
+        '2026-11-08',
+        'booking_requested',
+        'Yêu cầu đặt lịch',
+      ],
+      [
+        'appointment',
+        true,
+        'Gội đầu dưỡng sinh',
+        'Quận 1',
+        null,
+        'booking_requested',
+        'Yêu cầu đặt lịch',
+      ],
+    ]);
+    expect((await run([A1], 'select count(*) from customer_requests')).rows).toEqual([[0]]);
+    expect(await sqlstate(run([A2], 'select data from customer_requests'))).toBe('42703');
+    expect(await sqlstate(run([A2], 'select * from public.contact_history'))).toBe('42501');
+    const keys = await run([A2], "select status_key from customers where name = 'Chị Hoa'");
+    expect(keys.rows).toEqual([['booking_requested']]);
+  });
+
+  it('a course or service variant keeps its price and reports no stock', async () => {
+    const product = newId();
+    await owner`insert into products (id, workspace_id, code, name, search_text, offering)
+      values (${product}, ${A2}, 'IELTS-1', 'IELTS 6.5', '', ${owner.json({ kind: 'course' })})`;
+    await owner`insert into product_variants (id, workspace_id, product_id, sku, price, cost)
+      values (${newId()}, ${A2}, ${product}, 'IELTS-1', 9000000, 0)`;
+    const r = await run(
+      [A2],
+      "select price, stock_on_hand, stock_reserved from product_variants where sku = 'IELTS-1'",
+    );
+    expect(r.rows).toEqual([[9000000, null, null]]);
+  });
+
+  it('refuses a product with both an offering and an accommodation', async () => {
+    const state =
+      await owner`insert into products (id, workspace_id, code, name, search_text, offering, accommodation)
+      values (${newId()}, ${A2}, 'BOTH', 'Both', '', ${owner.json({ kind: 'service' })}, ${owner.json({ rentalType: 'rooms' })})`.then(
+        () => 'ok',
+        (e: { code: string }) => e.code,
+      );
+    expect(state).toBe('23514');
   });
 });
 

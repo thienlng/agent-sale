@@ -1,0 +1,83 @@
+id: education-age-without-diacritics
+group: requests
+tags: []
+bot:
+  industry: education
+  name: Sao Mai English
+  profile:
+    fields:
+      displayName: Sao Mai English
+      address: '25 Trần Thái Tông, Cầu Giấy, Hà Nội'
+      hotline: '024 3333 8888'
+      hours: '8h00 - 21h00 từ thứ Hai đến Chủ Nhật'
+      payment: 'Chuyển khoản hoặc thanh toán tại quầy; có thể đóng học phí 2 đợt.'
+      courseFees: 'Học phí theo từng khoá, xem trong danh sách khoá học.'
+      courseSchedule: 'Lớp người lớn học tối thứ 2-4-6 hoặc 3-5; lớp thiếu nhi học cuối tuần.'
+      courseTrial: 'Kiểm tra trình độ đầu vào miễn phí; mỗi học viên được học thử 1 buổi miễn phí.'
+      refundPolicy: 'Hoàn học phí trong 7 ngày đầu nếu học viên chưa học quá 2 buổi; được bảo lưu tối đa 3 tháng.'
+      branches: "Cơ sở Cầu Giấy: 25 Trần Thái Tông, Cầu Giấy, Hà Nội, 8h-21h\nCơ sở Hai Bà Trưng: 102 Bạch Mai, Hai Bà Trưng, Hà Nội, 8h-21h\nOnline: lớp qua Zoom cho các khoá IELTS"
+      promotion: ''
+    notes: ''
+products:
+  - name: 'Tiếng Anh giao tiếp A2'
+    code: GT-A2
+    description: 'Khoá giao tiếp cho người đi làm, luyện phản xạ nói theo tình huống.'
+    variants:
+      - { name: 'Trọn khoá', sku: GT-A2-FULL, price: 4500000 }
+    offering:
+      { kind: course, durationMinutes: 90, sessions: 24, audience: 'Người đi làm', level: 'A2' }
+  - name: 'IELTS Foundation 5.5'
+    code: IELTS-55
+    description: 'Khoá nền tảng IELTS 4 kỹ năng.'
+    variants:
+      - { name: 'Trọn khoá', sku: IELTS-55-FULL, price: 7800000 }
+    offering:
+      {
+        kind: course,
+        durationMinutes: 120,
+        sessions: 36,
+        audience: 'Học sinh, sinh viên, người đi làm',
+        level: 'Đầu vào IELTS 4.0',
+      }
+  - name: 'Khóa học Starters'
+    code: STARTERS
+    description: 'Tiếng Anh Cambridge Starters qua trò chơi và bài hát.'
+    variants:
+      - { name: 'Trọn khoá', sku: STARTERS-FULL, price: 0 }
+    offering:
+      {
+        kind: course,
+        durationMinutes: 90,
+        sessions: 48,
+        audience: 'Bé 6–7 tuổi',
+        level: 'Pre A1',
+        priceNote: 'liên hệ',
+      }
+  - name: 'Khóa học Movers'
+    code: MOVERS
+    description: 'Tiếng Anh Cambridge Movers cho học sinh tiểu học.'
+    variants:
+      - { name: 'Trọn khoá', sku: MOVERS-FULL, price: 0 }
+    offering:
+      {
+        kind: course,
+        durationMinutes: 90,
+        sessions: 48,
+        audience: 'Bé 8–9 tuổi',
+        level: 'A1',
+        priceNote: 'liên hệ',
+      }
+conversation:
+  - customer: 'the con 7 tuoi thi hoc khoa nao'
+expect:
+  outcome: answered
+  # Starters is for 6–7 year olds: a no-diacritics question with an age inside a range finds it.
+  contains_any: ['Starters']
+  not_contains:
+    ['chưa có thông tin', 'không có khoá', 'không có khóa', 'chưa có khoá', 'chưa có khóa']
+  numbers_only_from_sources: true
+  steps_include: [search_products]
+fake_turns:
+  - tool_calls:
+      - { name: search_products, input: { query: 'khoá học trẻ em 7 tuổi' } }
+  - text: "Dạ bé 7 tuổi phù hợp với khóa học Starters dành cho bé 6–7 tuổi ạ.\nHọc phí khoá này bên em xin phép liên hệ để tư vấn cụ thể ạ."

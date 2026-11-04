@@ -1,6 +1,7 @@
 import { allRoutes, routeKey, type RouteContract } from '@agent-sales/contracts';
 import type { ZodObject, ZodType } from 'zod';
 
+import { industryGroup, type IndustryGroup } from '../domain/dashboard-map.js';
 import { foldText } from '../domain/search-text.js';
 
 /** One route the assistant may use (spec §6): `read` runs, `write` becomes a proposal. */
@@ -60,10 +61,11 @@ function onPage(entry: CatalogEntry, section: string | null): boolean {
  * "căn nào có bể bơi") in its own domain first: a hotel's villas and bookings, not the retail
  * catalog (QA Villas #2).
  */
-const INDUSTRY_SECTIONS: Readonly<Record<'hotel' | 'saas' | 'shop', readonly string[]>> = {
+const INDUSTRY_SECTIONS: Readonly<Record<IndustryGroup, readonly string[]>> = {
   hotel: ['/lodging', '/stay-requests'],
   saas: ['/saas-subscriptions', '/saas-plans'],
   shop: ['/products', '/product-variants', '/orders', '/order-settings', '/warehouses'],
+  service: ['/crm/requests', '/products'],
 };
 /** Added to the score of a route of the business's own industry. */
 const INDUSTRY_BOOST = 1;
@@ -87,10 +89,49 @@ const HOTEL_ITEM_WORDS = new Set([
   'phong',
 ]);
 const CODE_LIKE = /^(?=.*\d)(?=.*[a-z])[a-z0-9]{2,12}$/;
+/**
+ * On an education or spa business (T-187), words for what it sells ("khoá học", "lớp",
+ * "dịch vụ", "liệu trình") also search the catalog routes, and words for a booking ("đặt lịch",
+ * "lịch hẹn", "học thử", "kiểm tra trình độ") also search the request routes.
+ */
+const SERVICE_ITEM_WORDS = new Set([
+  'khoa',
+  'lop',
+  'dich',
+  'lieu',
+  'course',
+  'clas',
+  'service',
+  'treatment',
+]);
+const SERVICE_REQUEST_WORDS = new Set([
+  'dat',
+  'lich',
+  'hen',
+  'thu',
+  'kiem',
+  'appointment',
+  'booking',
+  'request',
+  'trial',
+  'placement',
+]);
 
-function industryGroupOf(industry: string | undefined): 'hotel' | 'saas' | 'shop' | null {
-  if (!industry) return null;
-  return industry === 'hotel' ? 'hotel' : industry === 'saas' ? 'saas' : 'shop';
+function industryGroupOf(industry: string | undefined): IndustryGroup | null {
+  return industry ? industryGroup(industry) : null;
+}
+
+/** The query's words, widened for the business's group (hotel and service item words). */
+function widen(asked: readonly string[], group: IndustryGroup | null): string[] {
+  const extra: string[] = [];
+  if (group === 'hotel' && asked.some((w) => HOTEL_ITEM_WORDS.has(w) || CODE_LIKE.test(w))) {
+    extra.push('property', 'propertie');
+  }
+  if (group === 'service') {
+    if (asked.some((w) => SERVICE_ITEM_WORDS.has(w))) extra.push('product');
+    if (asked.some((w) => SERVICE_REQUEST_WORDS.has(w))) extra.push('request', 'appointment');
+  }
+  return extra.length ? [...new Set([...asked, ...extra])] : [...asked];
 }
 
 const inSections = (entry: { path: string }, sections: readonly string[]): boolean =>
@@ -180,7 +221,8 @@ export type SearchHit = CatalogEntry | (ExtraSearchEntry & { use: 'read' });
  * entry's key, summary and `when`, plus a boost when the route's first path segment is the
  * section of the page the owner is on (`/app/<section>/…`), or a path that section maps to
  * (`SECTION_ROUTES`), plus a boost for a route of the business's own industry (`INDUSTRY_SECTIONS`;
- * on a hotel an item word or a code-like word also searches the villas). `extra` entries (native
+ * on a hotel an item word or a code-like word also searches the villas; on an education or spa
+ * business a course or booking word also searches the products or the requests). `extra` entries (native
  * tools) are scored with the same words and get no boost. Entries with no matching word are left out;
  * ties keep the key order, so the result is stable.
  */
@@ -192,12 +234,9 @@ export function searchCatalog(
   industry?: string,
 ): SearchHit[] {
   const group = industryGroupOf(industry);
-  const asked = [...new Set(tokens(query))];
-  // On a hotel, an item word or a bare code also looks for the villas (`/lodging/properties`).
-  const words =
-    group === 'hotel' && asked.some((w) => HOTEL_ITEM_WORDS.has(w) || CODE_LIKE.test(w))
-      ? [...new Set([...asked, 'property', 'propertie'])]
-      : asked;
+  // On a hotel, an item word or a bare code also looks for the villas (`/lodging/properties`);
+  // on an education or spa business, course and booking words look for products and requests.
+  const words = widen([...new Set(tokens(query))], group);
   if (words.length === 0) return [];
   const section = pageSection(pageRoute);
   const own = group ? INDUSTRY_SECTIONS[group] : [];

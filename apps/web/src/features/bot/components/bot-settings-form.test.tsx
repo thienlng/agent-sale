@@ -143,3 +143,27 @@ describe('BotSettingsForm order taking', () => {
     expect(calls[0]?.body).toEqual({ settings: { orderShippingFeeVnd: 30000 } });
   });
 });
+
+describe('BotSettingsForm order switch per industry', () => {
+  async function openAdvanced(industry: string) {
+    vi.stubGlobal('fetch', stubFetch({}).fetchStub);
+    renderWithRouter(() => <BotSettingsForm bot={{ ...bot, industry } as BotDto} />);
+    await userEvent.click(
+      await screen.findByRole('tab', { name: /nâng cao/i }, { timeout: 10_000 }),
+    );
+    await screen.findByLabelText('Khi bot chưa có thông tin');
+  }
+
+  it('offers the order switch to a shop bot', async () => {
+    await openAdvanced('retail');
+    expect(screen.getByRole('switch', { name: 'Bot chốt đơn' })).toBeInTheDocument();
+  });
+
+  it.each(['education', 'spa', 'saas'])(
+    'hides it from a %s bot, which records requests',
+    async (industry) => {
+      await openAdvanced(industry);
+      expect(screen.queryByRole('switch', { name: 'Bot chốt đơn' })).toBeNull();
+    },
+  );
+});

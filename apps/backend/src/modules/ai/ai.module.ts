@@ -7,9 +7,9 @@ import { SECRET_BOX, SecretBox } from '../../common/security/secret-box.js';
 import { ActionModule } from '../action/action.module.js';
 import { BotModule } from '../bot/bot.module.js';
 import { CommerceModule } from '../commerce/commerce.module.js';
+import { CrmModule } from '../crm/crm.module.js';
 import { KnowledgeModule } from '../knowledge/knowledge.module.js';
 import { LodgingModule } from '../lodging/lodging.module.js';
-import { SaasModule } from '../saas/saas.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { AI_FACADE } from './api/ai.facade.js';
 import { AI_TRACE_RUNNER } from './api/ai-trace-runner.js';
@@ -52,7 +52,7 @@ import { TurnTraceController } from './interface/http/turn-trace.controller.js';
     WorkspaceModule,
     CommerceModule,
     LodgingModule,
-    SaasModule,
+    CrmModule,
   ],
   controllers: [AiController, LlmAdminController, TurnTraceController],
   providers: [

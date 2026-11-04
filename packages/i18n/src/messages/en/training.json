@@ -580,7 +580,9 @@
       "onboarding": "Setup and onboarding",
       "support": "Customer support",
       "dataSecurity": "Data security",
-      "refundPolicy": "Refunds and cancellation"
+      "refundPolicy": "Refunds and cancellation",
+      "branches": "Branches",
+      "reschedule": "Rescheduling and cancellation"
     },
     "examples": {
       "displayName": "e.g. Sunny Flowers",
@@ -617,7 +619,9 @@
       "onboarding": "e.g. One free setup session; import data from Excel",
       "support": "e.g. Zalo and hotline 8:00-22:00 every day, answer within 15 minutes",
       "dataSecurity": "e.g. Servers in Vietnam, daily backups, no data shared with third parties",
-      "refundPolicy": "e.g. Cancel any time; refund within the first 7 days if unused"
+      "refundPolicy": "e.g. Cancel any time; refund within the first 7 days if unused",
+      "branches": "e.g. District 1 — 12 Nguyen Hue, 8:00-21:00\nThu Duc — 5 Vo Van Ngan, 9:00-20:00\nOnline via Zoom",
+      "reschedule": "e.g. Reschedule or cancel 2 hours ahead; after 15 minutes late the slot is released"
     },
     "askFill": "Fill sample business information: fill the missing fields of the form from my shop's data for me to check and save."
   },

@@ -53,7 +53,9 @@
     "groupAccount": "Account",
     "groupBusinesses": "My businesses",
     "accountOverview": "All businesses",
-    "newBusiness": "New business"
+    "newBusiness": "New business",
+    "courses": "Courses",
+    "services": "Services"
   },
   "auth": {
     "login": "Log in",
@@ -902,6 +904,50 @@
       "imageNotUploaded": "This product still has a linked image. Remove it and upload the picture instead.",
       "imagesFull": "All image slots are used. Remove one to add another."
     },
+    "course": {
+      "add": "Add course",
+      "search": "Search by name, course code or SKU",
+      "colName": "Course name",
+      "empty": "No courses found",
+      "emptyStart": "No courses yet. Add courses so the bot can advise on them and take sign-ups.",
+      "newTitle": "New course",
+      "editTitle": "Edit course",
+      "code": "Course code",
+      "name": "Course name",
+      "visibleToBot": "Let the bot recommend this course",
+      "archived": "Archive (no longer enrolling)",
+      "variants": "Fee packages",
+      "variantsHint": "Each package has its own SKU and fee, for example an evening class or a 24-session package.",
+      "addVariant": "Add package",
+      "variantName": "Package (class, sessions…)",
+      "price": "Fee",
+      "removeVariant": "Remove package",
+      "save": "Save course",
+      "saved": "Course saved",
+      "created": "Course created"
+    },
+    "service": {
+      "add": "Add service",
+      "search": "Search by name, service code or SKU",
+      "colName": "Service name",
+      "empty": "No services found",
+      "emptyStart": "No services yet. Add services so the bot can advise on them and take bookings.",
+      "newTitle": "New service",
+      "editTitle": "Edit service",
+      "code": "Service code",
+      "name": "Service name",
+      "visibleToBot": "Let the bot recommend this service",
+      "archived": "Archive (no longer offered)",
+      "variants": "Service packages",
+      "variantsHint": "Each package has its own SKU and price, for example a single session or a 10-session treatment.",
+      "addVariant": "Add package",
+      "variantName": "Package (single session, treatment…)",
+      "price": "Service price",
+      "removeVariant": "Remove package",
+      "save": "Save service",
+      "saved": "Service saved",
+      "created": "Service created"
+    },
     "stock": {
       "title": "Stock",
       "hint": "Enter the counted quantity; the difference is logged.",
@@ -911,6 +957,45 @@
       "available": "Available",
       "update": "Update",
       "updated": "Stock updated"
+    }
+  },
+  "commerce": {
+    "offering": {
+      "titleCourse": "Course details",
+      "titleService": "Service details",
+      "hintCourse": "The bot uses these details to advise on the course. Courses have no stock.",
+      "hintService": "The bot uses these details to advise on the service. Services have no stock.",
+      "retail": "This is a retail product",
+      "retailHint": "Turn on for goods with stock, such as cosmetics or textbooks. The bot then sells it as a regular product.",
+      "durationMinutes": "Length of one session (minutes)",
+      "sessions": "Sessions",
+      "period": "Course length",
+      "periodPlaceholder": "3 months",
+      "format": "Format",
+      "formats": {
+        "none": "Not set",
+        "online": "Online",
+        "offline": "On site",
+        "hybrid": "Hybrid"
+      },
+      "level": "Level",
+      "schedule": "Schedule or opening slots",
+      "audience": "For",
+      "outcomes": "Outcomes",
+      "outcomesHint": "One per line, at most 5.",
+      "priceNote": "Price note",
+      "priceNoteHint": "Shown next to the price and instead of a 0 price, e.g. reference price, from, ask us.",
+      "priceOnRequest": "Ask us",
+      "durationMinutesService": "Length (minutes)",
+      "sessionsService": "Sessions per package",
+      "periodService": "Package length",
+      "periodPlaceholderService": "1 month",
+      "scheduleService": "Opening slots",
+      "audienceService": "Suits",
+      "outcomesService": "Results",
+      "col": "Length",
+      "minutesCount": "{{count}} min",
+      "sessionsCount": "{{count}} sessions"
     }
   },
   "warehouses": {
@@ -973,6 +1058,7 @@
     "noName": "(no name)",
     "stale": "Someone else just edited this customer. The latest version is loaded; check it and save again.",
     "col": {
+      "lead": "Captured from",
       "name": "Customer",
       "phone": "Phone",
       "email": "Email",
@@ -1139,7 +1225,9 @@
         "note.edited": "Note edited",
         "tag.added": "Tag added",
         "tag.updated": "Tag details edited",
-        "tag.removed": "Tag removed"
+        "tag.removed": "Tag removed",
+        "contact.request_recorded": "New request",
+        "contact.request_updated": "Request updated"
       },
       "empty_value": "empty"
     },
@@ -1234,6 +1322,36 @@
         "instagram": "Instagram",
         "website": "Website"
       }
+    },
+    "requests": {
+      "title": "Requests",
+      "kind": {
+        "demo": "Demo request",
+        "trial": "Free trial request",
+        "consultation": "Consultation request",
+        "placement_test": "Placement test",
+        "appointment": "Appointment"
+      },
+      "kindEducation": {
+        "trial": "Trial class",
+        "consultation": "Learning path consultation"
+      },
+      "strip": {
+        "label": "Customer requests",
+        "recorded7d": "Requests, last 7 days",
+        "open": "Waiting for staff",
+        "noOpen": "No requests are waiting.",
+        "statusHint": "Show customers at {{name}}"
+      },
+      "card": {
+        "empty": "This customer has no requests yet.",
+        "updated": "Updated",
+        "recordedAt": "Recorded {{time}}"
+      },
+      "unnamed": "Unnamed customer",
+      "loading": "Loading requests…",
+      "loadError": "Could not load the requests.",
+      "retry": "Retry"
     }
   },
   "team": {

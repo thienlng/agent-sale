@@ -64,7 +64,12 @@ export function BotSettingsForm({ bot }: { bot: BotDto }) {
           <BotSettingsBasic draft={draft} problems={problems} update={setDraft} />
         </TabsContent>
         <TabsContent value="advanced">
-          <BotSettingsAdvanced botId={bot.id} draft={draft} update={setDraft} />
+          <BotSettingsAdvanced
+            botId={bot.id}
+            industry={bot.industry}
+            draft={draft}
+            update={setDraft}
+          />
         </TabsContent>
       </Tabs>
 

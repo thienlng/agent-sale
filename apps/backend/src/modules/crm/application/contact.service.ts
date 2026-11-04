@@ -4,9 +4,13 @@ import {
   ContactHistoryQuery,
   type ContactListResponse,
   type ContactNoteDto,
+  type CustomerRequestKind,
+  type RequestProfile,
+  type RequestStatusMove,
   ContactQueryRequest,
   CreateContactNoteRequest,
   CreateContactRequest,
+  isRequestIndustry,
   memberRoleOf,
   UpdateContactNoteRequest,
   UpdateContactRequest,
@@ -26,6 +30,16 @@ import {
 } from '../domain/crm.errors.js';
 import { lockedFields } from '../domain/external-contact.js';
 import { DEFAULT_SOURCES, defaultStatusesFor } from '../domain/crm-defaults.js';
+import {
+  BOT_AUTHOR,
+  dateLabel,
+  decideStatusMove,
+  historyDetails,
+  mergeRequestDetails,
+  sameRequest,
+  requestNote,
+  UPDATE_WINDOW_MS,
+} from '../domain/customer-request.js';
 import { toContactDto, toHistoryDto, toNoteDto } from './crm.mappers.js';
 import { applyFields } from './contact-fields.js';
 import { DistributionService } from './distribution.service.js';
@@ -43,6 +57,8 @@ import { CRM_STORE, type ContactRecord, type CrmStore, type CrmTx } from './port
 
 /** Fields whose change is reported as its own history type and event. */
 const STATUS_FIELDS = ['statusId'] as const;
+/** The first status of every request industry's pipeline (saas, education, spa). */
+const NEW_LEAD_STATUS = 'new_lead';
 const ASSIGNMENT_FIELDS = ['salesUserId', 'careUserId'] as const;
 
 /** Customers: profile, notes and the audit history (CRM-01). */
@@ -169,29 +185,6 @@ export class ContactService {
       const found = await tx.contacts.findByPhone(input.phoneE164);
       if (found) {
         const name = input.displayName.trim();
-        if (input.renameFrom !== undefined && found.name === input.renameFrom && name) {
-          // A placeholder an earlier capture generated gives way to the name the customer gave.
-          const next = { ...found, name, version: found.version + 1, updatedAt: now };
-          if (!(await tx.contacts.update(next, found.version))) {
-            throw new StaleVersionError('contact', next.version);
-          }
-          await this.#record(
-            tx,
-            ws,
-            next,
-            'contact.updated',
-            { name: { from: found.name, to: name } },
-            null,
-            null,
-            now,
-            { channel: input.sourceKey },
-          );
-          await tx.outbox(ws, {
-            type: 'crm.contact.updated.v1',
-            aggregateId: found.id,
-            payload: event(ws, found.id, null, now, { fields: ['name'], phoneCaptured: false }),
-          });
-        }
         // Repeated or racing captures from the same page leave one entry.
         const marker = input.firstUrl ?? input.sourceKey;
         const earlier = await tx.history.list(found.id, {
@@ -199,23 +192,33 @@ export class ContactService {
           order: 'desc',
           limit: 100,
         });
-        const recorded = earlier.some(
+        const leadKnown = earlier.some(
           (h) =>
             (h.changes['lead'] as { to?: unknown } | undefined)?.to === marker &&
             h.data['channel'] === input.sourceKey,
         );
-        if (!recorded)
-          await this.#record(
-            tx,
-            ws,
-            found,
-            'contact.updated',
-            { lead: { from: null, to: marker } },
-            null,
-            null,
-            now,
-            { channel: input.sourceKey },
-          );
+        const changes: Record<string, { from: unknown; to: unknown }> = leadKnown
+          ? {}
+          : { lead: { from: null, to: marker } };
+        let current = found;
+        if (input.renameFrom !== undefined && found.name === input.renameFrom && name) {
+          // A placeholder an earlier capture generated gives way to the name the customer gave.
+          current = { ...found, name, version: found.version + 1, updatedAt: now };
+          if (!(await tx.contacts.update(current, found.version))) {
+            throw new StaleVersionError('contact', current.version);
+          }
+          changes['name'] = { from: found.name, to: name };
+          await tx.outbox(ws, {
+            type: 'crm.contact.updated.v1',
+            aggregateId: found.id,
+            payload: event(ws, found.id, null, now, { fields: ['name'], phoneCaptured: false }),
+          });
+        }
+        // The rename and the lead marker of one capture are one history entry (QA Mailisa B8).
+        if (Object.keys(changes).length)
+          await this.#record(tx, ws, current, 'contact.updated', changes, null, null, now, {
+            channel: input.sourceKey,
+          });
         return { contactId: found.id, created: false };
       }
       await tx.options.ensureDefaults(ws, 'source', DEFAULT_SOURCES);
@@ -227,6 +230,15 @@ export class ContactService {
       };
       const autoSales = source ? await this.distribution.pick(tx, ws, source.id) : null;
       if (autoSales) fields.salesUserId = autoSales;
+      // A request business's new lead starts at its "new" status, so the status strip counts it.
+      const industry = (await this.workspaces.getById(ws)).industry;
+      if (isRequestIndustry(industry)) {
+        await tx.options.ensureDefaults(ws, 'status', defaultStatusesFor(industry));
+        const fresh = (await tx.options.list('status')).find(
+          (o) => o.key === NEW_LEAD_STATUS && !o.archivedAt,
+        );
+        if (fresh) fields.statusId = fresh.id;
+      }
       const empty = emptyContact(null, now);
       const contact = applyFields(empty, fields, now);
       await tx.contacts.insert(contact);
@@ -259,7 +271,7 @@ export class ContactService {
           sourceId: contact.sourceId,
           origin: 'channel',
           phoneCaptured: true,
-          statusId: null,
+          statusId: contact.statusId,
         }),
       });
       return { contactId: contact.id, created: true };
@@ -406,48 +418,86 @@ export class ContactService {
   /**
    * Moves a customer to the built-in status `key` on behalf of the system (no staff actor), with
    * the same history entry and event as a staff change. `forwardOnly` keeps a customer already at
-   * or past that status in the pipeline order. An unknown or archived status changes nothing.
-   * Returns whether the status changed. Throws NOT_FOUND for an unknown customer.
+   * or past that status in the pipeline order; `keep` keeps a customer at one of these keys. An
+   * unknown or archived status changes nothing. Returns whether the status changed. Throws
+   * NOT_FOUND for an unknown customer.
    */
   async moveStatusByKey(
     ws: WorkspaceId,
     contactId: string,
     key: string,
-    opts: { forwardOnly: boolean },
+    opts: { forwardOnly: boolean; keep?: readonly string[] },
   ): Promise<boolean> {
     const defaults = defaultStatusesFor((await this.workspaces.getById(ws)).industry);
+    const move: RequestStatusMove = opts.forwardOnly
+      ? { key, move: 'forward_only' }
+      : { key, move: 'unless', keep: opts.keep ?? [] };
     return this.store.run(ws, async (tx) => {
       const before = await this.#contact(tx, contactId, { forUpdate: true });
-      await tx.options.ensureDefaults(ws, 'status', defaults);
-      const statuses = await tx.options.list('status');
-      const target = statuses.find((s) => s.key === key && !s.archivedAt);
-      if (!target || target.id === before.statusId) return false;
-      const current = statuses.find((s) => s.id === before.statusId);
-      if (opts.forwardOnly && current && current.position >= target.position) return false;
+      return (await this.#moveStatus(tx, ws, before, move, defaults, new Date())) !== null;
+    });
+  }
+
+  /**
+   * The write half of a bot-recorded request (ESV spec §5.1 step 9), in one transaction: locks the
+   * customer; the same kind recorded within `UPDATE_WINDOW_MS` makes this an update; moves the
+   * status per the profile; appends the `contact.request_recorded` / `contact.request_updated`
+   * entry; adds the note signed `BOT_AUTHOR` (a repeat of the latest note is skipped). An exact
+   * repeat of a request still in its window (a retried call) writes nothing.
+   */
+  async applyBotRequest(
+    ws: WorkspaceId,
+    contactId: string,
+    input: {
+      industry: string;
+      profile: RequestProfile;
+      kind: CustomerRequestKind;
+      details: Readonly<Record<string, unknown>>;
+      dateLabel: string | null;
+    },
+  ): Promise<{
+    updated: boolean;
+    details: Readonly<Record<string, unknown>>;
+    dateLabel: string | null;
+  }> {
+    const defaults = defaultStatusesFor(input.industry);
+    return this.store.run(ws, async (tx) => {
+      const contact = await this.#contact(tx, contactId, { forUpdate: true });
       const now = new Date();
-      const next = { ...before, statusId: target.id, version: before.version + 1, updatedAt: now };
-      if (!(await tx.contacts.update(next, before.version))) {
-        throw new StaleVersionError('contact', next.version);
-      }
+      const earlier = await tx.history.latestRequestEntry(
+        contactId,
+        input.kind,
+        new Date(now.getTime() - UPDATE_WINDOW_MS),
+      );
+      const updated = earlier !== null;
+      // An update keeps what the earlier request said and the new call left out (QA retest M5).
+      const merged = earlier ? mergeRequestDetails(earlier.data, input.details) : input.details;
+      const date = typeof merged['preferredDate'] === 'string' ? merged['preferredDate'] : '';
+      const label =
+        date === input.details['preferredDate'] ? input.dateLabel : date ? dateLabel(date) : null;
+      const out = { updated, details: merged, dateLabel: label };
+      const body = requestNote(input.profile, input.kind, merged, updated);
+      const details = historyDetails(input.profile, merged);
+      // A retried call (or the same call twice in one turn): the latest request entry of this kind
+      // already holds exactly these details. Notes are not compared: staff may add one in between.
+      if (earlier && sameRequest(earlier.data, details, label)) return out;
+      const [latestNote] = await tx.notes.list(contactId);
+      const move = input.profile.status[input.kind];
+      const moved = move ? await this.#moveStatus(tx, ws, contact, move, defaults, now) : null;
       await this.#record(
         tx,
         ws,
-        next,
-        'contact.status_changed',
-        { statusId: { from: before.statusId, to: target.id } },
+        moved ?? contact,
+        updated ? 'contact.request_updated' : 'contact.request_recorded',
+        {},
         null,
-        null,
+        BOT_AUTHOR,
         now,
+        { kind: input.kind, details, dateLabel: label },
       );
-      await tx.outbox(ws, {
-        type: 'crm.contact.status_changed.v1',
-        aggregateId: contactId,
-        payload: event(ws, contactId, null, now, {
-          fromStatusId: before.statusId,
-          toStatusId: target.id,
-        }),
-      });
-      return true;
+      if (latestNote?.body !== body)
+        await this.#systemNote(tx, ws, contactId, body, BOT_AUTHOR, now);
+      return out;
     });
   }
 
@@ -463,25 +513,10 @@ export class ContactService {
   ): Promise<boolean> {
     const { body } = CreateContactNoteRequest.parse(raw);
     return this.store.run(ws, async (tx) => {
-      const contact = await this.#contact(tx, contactId, { forUpdate: true });
+      await this.#contact(tx, contactId, { forUpdate: true });
       const [latest] = await tx.notes.list(contactId);
       if (latest?.body === body) return false;
-      const now = new Date();
-      const note = {
-        id: newId(),
-        contactId,
-        body,
-        authorUserId: null,
-        authorName,
-        version: 1,
-        createdAt: now,
-        editedAt: null,
-      };
-      await tx.notes.insert(note);
-      await this.#record(tx, ws, contact, 'note.added', {}, null, authorName, now, {
-        noteId: note.id,
-        body,
-      });
+      await this.#systemNote(tx, ws, contactId, body, authorName, new Date());
       return true;
     });
   }
@@ -581,6 +616,80 @@ export class ContactService {
     const c = isUuid(id) ? await tx.contacts.find(id, opts) : null;
     if (!c || !canSee(c, viewer)) throw new ContactNotFoundError(id);
     return c;
+  }
+
+  /**
+   * Applies a system status move (built-in key) to a locked customer: history entry and event, no
+   * staff actor. Returns the updated record, or null when the status stays.
+   */
+  async #moveStatus(
+    tx: CrmTx,
+    ws: WorkspaceId,
+    before: ContactRecord,
+    move: RequestStatusMove,
+    defaults: ReadonlyArray<{ key: string; name: string; color: string }>,
+    now: Date,
+  ): Promise<ContactRecord | null> {
+    await tx.options.ensureDefaults(ws, 'status', defaults);
+    const statuses = await tx.options.list('status');
+    const target = statuses.find((s) => s.key === move.key && !s.archivedAt);
+    if (!target || target.id === before.statusId) return null;
+    const current = statuses.find((s) => s.id === before.statusId) ?? null;
+    if (
+      !decideStatusMove(move, current?.key ?? null, {
+        current: current?.position ?? null,
+        target: target.position,
+      })
+    )
+      return null;
+    const next = { ...before, statusId: target.id, version: before.version + 1, updatedAt: now };
+    if (!(await tx.contacts.update(next, before.version))) {
+      throw new StaleVersionError('contact', next.version);
+    }
+    await this.#record(
+      tx,
+      ws,
+      next,
+      'contact.status_changed',
+      { statusId: { from: before.statusId, to: target.id } },
+      null,
+      null,
+      now,
+    );
+    await tx.outbox(ws, {
+      type: 'crm.contact.status_changed.v1',
+      aggregateId: before.id,
+      payload: event(ws, before.id, null, now, {
+        fromStatusId: before.statusId,
+        toStatusId: target.id,
+      }),
+    });
+    return next;
+  }
+
+  async #systemNote(
+    tx: CrmTx,
+    ws: WorkspaceId,
+    contactId: string,
+    body: string,
+    authorName: string,
+    now: Date,
+  ): Promise<void> {
+    const note = {
+      id: newId(),
+      contactId,
+      body,
+      authorUserId: null,
+      authorName,
+      version: 1,
+      createdAt: now,
+      editedAt: null,
+    };
+    await tx.notes.insert(note);
+    await this.#record(tx, ws, { id: contactId }, 'note.added', {}, null, authorName, now, {
+      noteId: note.id,
+      body,
+    });
   }
 
   async #dto(tx: CrmTx, c: ContactRecord): Promise<ContactDto> {
