@@ -752,8 +752,8 @@ describe('ChatTurnService', () => {
       reply({
         stopReason: 'tool_use',
         toolCalls: [
-          { id: 'n1', name: 'ui_navigate', input: { to: '/app/products' } },
-          { id: 'n2', name: 'ui_navigate', input: { to: 42 } },
+          { id: 'n1', name: 'session_search', input: { query: 'áo' } },
+          { id: 'n2', name: 'session_search', input: { query: 42 } },
         ],
       }),
       reply({ text: 'Dạ em tóm tắt rồi ạ' }),
@@ -782,6 +782,52 @@ describe('ChatTurnService', () => {
       { ok: false, errorCode: 'turn_budget_exhausted' },
       { ok: false, errorCode: 'turn_budget_exhausted' },
     ]);
+  });
+  it('fills the form after reading a big catalog: UI tools are never charged or refused (QA N1)', async () => {
+    const read = (id: string) => call(id, 'tool_call', { key: 'GET /products' });
+    const page = {
+      route: '/app/bots/b1/knowledge',
+      forms: [
+        {
+          id: 'bot-profile',
+          fields: [{ name: 'hotline', label: 'Hotline', type: 'text' as const, empty: true }],
+        },
+      ],
+    };
+    const { service, scope, thread, invoke } = await setup([
+      ...['r1', 'r2', 'r3', 'r4', 'r5', 'r6'].map(read),
+      reply({
+        stopReason: 'tool_use',
+        toolCalls: [
+          {
+            id: 'f1',
+            name: 'ui_fill_form',
+            input: { formId: 'bot-profile', values: { hotline: '1900 1234' } },
+          },
+          { id: 'f2', name: 'ui_spotlight', input: { target: 'bot.save', hint: 'Bấm Lưu' } },
+        ],
+      }),
+      reply({ text: 'Dạ em điền rồi ạ' }),
+    ]);
+    invoke.mockResolvedValue({ status: 200, body: { data: 'z'.repeat(20_000) } });
+    const out = await service.send(
+      scope,
+      thread.id,
+      { turnId: newId(), text: 'Điền giúp thông tin', pageContext: page },
+      AUTH,
+    );
+    const toolSteps = out.run.steps.filter((st) => st.kind === 'tool');
+    // Five reads use the budget, the sixth is refused; the fill still runs.
+    expect(toolSteps.map((st) => st.errorCode)).toEqual([
+      ...Array.from({ length: 5 }, () => null),
+      'turn_budget_exhausted',
+      null,
+      expect.anything(),
+    ]);
+    expect(toolSteps[6]).toMatchObject({ ok: true });
+    expect(out.messages.at(-1)?.uiActions).toContainEqual(
+      expect.objectContaining({ type: 'fill_form', formId: 'bot-profile' }),
+    );
   });
   it('patches an owner skill only after load_skill in the same turn (read-before-write)', async () => {
     const save = {
