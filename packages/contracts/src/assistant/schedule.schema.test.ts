@@ -39,7 +39,13 @@ describe('ScheduleDraft', () => {
       cadence: { kind: 'every', minutes: 30 },
     });
     expect(alert.params).toEqual({});
-    expect(scheduleParamsSchema('new_requests', 'alert').parse({})).toEqual({ minCount: 1 });
+    expect(scheduleParamsSchema('new_requests', 'alert').parse({})).toEqual({
+      minCount: 1,
+      kinds: [],
+    });
+    expect(
+      scheduleParamsSchema('new_requests', 'alert').safeParse({ kinds: ['meeting'] }).success,
+    ).toBe(false);
     expect(scheduleParamsSchema('new_requests', 'alert').safeParse({ minCount: 0 }).success).toBe(
       false,
     );
@@ -49,6 +55,7 @@ describe('ScheduleDraft', () => {
     expect(scheduleParamsSchema('new_requests', 'report').parse({})).toEqual({
       period: 'day',
       window: 'previous',
+      kinds: [],
     });
     expect(
       ScheduleDraft.safeParse({ ...draft, template: 'new_requests', params: { period: 'year' } })
