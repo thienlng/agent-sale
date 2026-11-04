@@ -3,7 +3,9 @@ import {
   BootstrapResponse,
   BotDto,
   ProductDto,
+  PRODUCT_SUMMARY_PAGE_MAX,
   ProductListResponse,
+  ProductSummaryListResponse,
   WarehouseDto,
 } from '@agent-sales/contracts';
 import { ensureLoginRoles, migrate, withCredentials } from '@agent-sales/db';
@@ -223,6 +225,17 @@ describe('product offerings on Postgres', () => {
     const byCode = new Map(list.data.map((p) => [p.code, p.offering]));
     expect(byCode.get('SRM')).toBeNull();
     expect(byCode.get('CS-MAT')).toMatchObject({ kind: 'service', durationMinutes: 60 });
+  });
+
+  it('lists compact summary rows, at most PRODUCT_SUMMARY_PAGE_MAX a page (QA retest N1)', async () => {
+    const res = await call(h, 'GET', '/products?fields=summary&pageSize=100');
+    expect(res.statusCode).toBe(200);
+    const page = ProductSummaryListResponse.strict().parse(res.json());
+    expect(page.pageSize).toBe(PRODUCT_SUMMARY_PAGE_MAX);
+    const row = page.data.find((p) => p.code === 'CS-MAT');
+    expect(row?.offering).toMatch(/^service, 60 min/);
+    expect(Object.keys(row ?? {})).not.toContain('description');
+    expect(page.data.find((p) => p.code === 'SRM')).toMatchObject({ offering: '', priceNote: '' });
   });
 
   it('leaves offering products out of the low-stock figures and refuses their stock', async () => {

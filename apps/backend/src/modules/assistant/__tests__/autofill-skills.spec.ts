@@ -72,12 +72,13 @@ describe('shop autofill skills (T-175)', () => {
     expect(sample).not.toContain('its training items');
   });
 
-  it('reads the whole catalog compactly and the sibling bots before filling (QA Mailisa B4)', () => {
+  it('reads one compact catalog page and at most 2 sibling bots before filling (QA retest N1)', () => {
     const fill = skills.get('fill-shop-info')!;
-    expect(fill.version).toBe(3);
-    expect(fill.body).toContain('GET /products with fields=summary and pageSize=5');
-    expect(fill.body).toContain('every next page until you have read `total` products');
-    expect(fill.body).toContain('GET /bots');
+    expect(fill.version).toBe(4);
+    expect(fill.body).toContain('GET /products with fields=summary and pageSize=20');
+    expect(fill.body).toContain('Read no further page and no product detail');
+    expect(fill.body).not.toContain('every next page');
+    expect(fill.body).toContain('read at most 2 of them (GET /bots/{botId})');
     expect(fill.body).toContain('business-level Rapiz data (address, hotline, hours, branches');
   });
 
@@ -126,6 +127,8 @@ describe('shop autofill skills (T-175)', () => {
       expect(body('industry-spa')).toContain(`- ${s}: `);
     }
     expect(body('add-products')).toContain('priceNote');
+    // The product form's offering fields, so a schedule never lands in the description (N3).
+    expect(body('add-products')).toContain('"lịch học sáng thứ 7" in schedule');
     expect(body('import-products')).toContain('a course or service gets no stock');
     expect(body('answer-data-questions')).toContain('customer_requests where not is_update');
     expect(body('read-revenue')).toContain('Never present requests as revenue');

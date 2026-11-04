@@ -261,12 +261,39 @@ export const ProductListQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   /**
-   * `summary`: a compact read for scanning a whole catalog (the owner assistant reads tool results
-   * up to 8 000 chars): description cut to 160 chars with "…", no bot instructions, pictures,
-   * per-warehouse stock or gallery. Prices, offering, totals and `available` stay (T-187).
+   * `summary`: a compact read for scanning a catalog (the owner assistant reads at most 40 000
+   * chars of tool output per turn): rows are `ProductSummaryRow` (name, category, prices, price
+   * note, a one-line offering summary; no description), and a page holds at most
+   * `PRODUCT_SUMMARY_PAGE_MAX` rows, whatever `pageSize` asks (T-187).
    */
   fields: z.enum(['summary']).optional(),
 });
+
+/** Most rows one `GET /products?fields=summary` page returns; a larger `pageSize` is cut. */
+export const PRODUCT_SUMMARY_PAGE_MAX = 25;
+
+/** One row of `GET /products?fields=summary`: about 200 chars instead of 1 000+ (QA retest N1). */
+export const ProductSummaryRow = z.object({
+  id: z.uuid(),
+  code: z.string(),
+  name: z.string(),
+  category: z.string().nullable(),
+  priceMin: Money,
+  priceMax: Money,
+  /** The offering's price note ("liên hệ", "theo phác đồ"); '' when none. */
+  priceNote: z.string(),
+  /** One line, at most 160 chars: kind, duration, sessions, period, format, level, schedule; '' for retail. */
+  offering: z.string(),
+});
+export type ProductSummaryRow = z.infer<typeof ProductSummaryRow>;
+
+export const ProductSummaryListResponse = z.object({
+  data: z.array(ProductSummaryRow),
+  total: z.number().int(),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+export type ProductSummaryListResponse = z.infer<typeof ProductSummaryListResponse>;
 
 /** Page-number pagination: the catalog and order screens show totals and page jumps (ORD-04). */
 export const ProductListResponse = z.object({

@@ -5,6 +5,8 @@ import type {
   BotProductsDto,
   ProductDto,
   ProductListResponse,
+  ProductSummaryListResponse,
+  ProductSummaryRow,
   UpdateProductBotSettingsRequest,
   UpsertProductRequest,
   UpsertWarehouseRequest,
@@ -12,6 +14,7 @@ import type {
   WarehouseDto,
 } from '@agent-sales/contracts';
 import {
+  PRODUCT_SUMMARY_PAGE_MAX,
   SetBotProductsRequest,
   UpdateProductBotSettingsRequest as UpdateProductBotSettingsSchema,
   UpsertProductRequest as UpsertProductSchema,
@@ -120,21 +123,39 @@ function toProductDto(
   };
 }
 
-const SUMMARY_DESCRIPTION_CHARS = 160;
+const SUMMARY_OFFERING_CHARS = 160;
 
-/** The compact read of `GET /products?fields=summary` (T-187): same shape, fewer bytes. */
-export function productSummary(d: ProductDto): ProductDto {
-  const description =
-    d.description.length > SUMMARY_DESCRIPTION_CHARS
-      ? `${d.description.slice(0, SUMMARY_DESCRIPTION_CHARS).trimEnd()}…`
-      : d.description;
+/** One line for an offering: kind, duration, sessions, period, format, level, schedule. */
+function offeringLine(o: NonNullable<ProductDto['offering']>): string {
+  const parts = [
+    o.kind,
+    o.durationMinutes ? `${o.durationMinutes} min` : '',
+    o.sessions ? `${o.sessions} sessions` : '',
+    o.period,
+    o.format ?? '',
+    o.level ? `level ${o.level}` : '',
+    o.schedule ? `schedule ${o.schedule}` : '',
+  ].filter(Boolean);
+  const line = parts.join(', ').replace(/\s+/g, ' ');
+  return line.length > SUMMARY_OFFERING_CHARS
+    ? `${line.slice(0, SUMMARY_OFFERING_CHARS - 1).trimEnd()}…`
+    : line;
+}
+
+/**
+ * The compact row of `GET /products?fields=summary` (T-187, QA retest N1): no description,
+ * variants, pictures or stock, so a 20-product page stays far under the turn's read budget.
+ */
+export function productSummary(d: ProductDto): ProductSummaryRow {
   return {
-    ...d,
-    description,
-    botInstructions: '',
-    imageUrls: [],
-    ...(d.accommodation ? { accommodation: { ...d.accommodation, gallery: [] } } : {}),
-    variants: d.variants.map((v) => ({ ...v, stock: [] })),
+    id: d.id,
+    code: d.code,
+    name: d.name,
+    category: d.category,
+    priceMin: d.priceMin,
+    priceMax: d.priceMax,
+    priceNote: d.offering?.priceNote ?? '',
+    offering: d.offering ? offeringLine(d.offering) : '',
   };
 }
 
@@ -367,15 +388,17 @@ export class CatalogService {
       /** `summary`: the compact projection of `ProductListQuery.fields`. */
       fields?: 'summary' | undefined;
     },
-  ): Promise<ProductListResponse> {
+  ): Promise<ProductListResponse | ProductSummaryListResponse> {
+    const summary = query.fields === 'summary';
+    const pageSize = summary ? Math.min(query.pageSize, PRODUCT_SUMMARY_PAGE_MAX) : query.pageSize;
     return this.store.run(ws, async (tx) => {
       const { rows, total } = await tx.products.list({
         q: query.q ? foldVietnamese(query.q) : undefined,
         status: query.status,
         selectedFor: query.selectedFor,
         source: query.source,
-        offset: (query.page - 1) * query.pageSize,
-        limit: query.pageSize,
+        offset: (query.page - 1) * pageSize,
+        limit: pageSize,
       });
       const variants = await tx.products.variantsOf(rows.map((r) => r.id));
       const stock = await tx.inventory.stockOf(variants.map((v) => v.id));
@@ -386,12 +409,8 @@ export class CatalogService {
           stock,
         ),
       );
-      return {
-        data: query.fields === 'summary' ? dtos.map(productSummary) : dtos,
-        total,
-        page: query.page,
-        pageSize: query.pageSize,
-      };
+      if (summary) return { data: dtos.map(productSummary), total, page: query.page, pageSize };
+      return { data: dtos, total, page: query.page, pageSize };
     });
   }
 
