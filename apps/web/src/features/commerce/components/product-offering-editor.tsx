@@ -43,6 +43,18 @@ export function offeringLabelKey(kind: OfferingKind, key: string): string {
   return `commerce.offering.${kind === 'service' && SERVICE_WORDS.has(key) ? `${key}Service` : key}`;
 }
 
+/**
+ * The key of a catalog word for a course or service ("Khoá học mới", "Lưu dịch vụ"), from
+ * `products.course` or `products.service`; `fallback` (the product word) otherwise.
+ */
+export function catalogKey(
+  kind: OfferingKind | null | undefined,
+  key: string,
+  fallback: string,
+): string {
+  return kind ? `products.${kind}.${key}` : fallback;
+}
+
 export function offeringDraft(offering: OfferingDetails | null | undefined): OfferingDraft {
   return {
     durationMinutes: offering?.durationMinutes ? String(offering.durationMinutes) : '',

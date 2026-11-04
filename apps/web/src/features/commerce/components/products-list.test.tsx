@@ -61,9 +61,14 @@ describe('ProductsList', () => {
     vi.stubGlobal('fetch', fetchStub);
     const view = renderWithRouter(() => <ProductsList offeringKind="course" />);
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Khoá học');
+    expect(screen.getByRole('link', { name: 'Thêm khoá học' })).toBeVisible();
+    expect(screen.getByRole('columnheader', { name: 'Tên khoá học' })).toBeVisible();
+    expect(await screen.findByText(/Chưa có khoá học nào/)).toBeVisible();
     view.unmount();
     renderWithRouter(() => <ProductsList offeringKind="service" />);
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Dịch vụ');
+    expect(screen.getByRole('link', { name: 'Thêm dịch vụ' })).toBeVisible();
+    expect(screen.getByPlaceholderText('Tìm theo tên, mã dịch vụ hoặc SKU')).toBeVisible();
   });
 
   it('keeps the products title for a shop', async () => {
