@@ -333,13 +333,7 @@ export function ProductForm({
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ChevronLeft className="size-4" aria-hidden />
-          {t(
-            offeringKind === 'course'
-              ? 'nav.courses'
-              : offeringKind === 'service'
-                ? 'nav.services'
-                : 'products.title',
-          )}
+          {t(offeringKind ? 'nav.services' : 'products.title')}
         </Link>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">
           {product ? word('editTitle') : word('newTitle')}

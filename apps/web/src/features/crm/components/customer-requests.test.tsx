@@ -138,7 +138,7 @@ describe('CustomerRequestsCard', () => {
     expect(items[0]).toHaveTextContent('crm.requests.kind.appointment');
     expect(items[0]).toHaveTextContent('Thứ Bảy 08/11/2026');
     expect(items[0]).not.toHaveTextContent('crm.requests.card.updated');
-    expect(items[1]).toHaveTextContent('crm.requests.kindEducation.trial');
+    expect(items[1]).toHaveTextContent('crm.requests.kind.trial');
     expect(items[1]).toHaveTextContent('IELTS 6.5 · Online');
     expect(items[1]).toHaveTextContent('crm.requests.card.updated');
   });

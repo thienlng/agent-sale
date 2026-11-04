@@ -1,18 +1,13 @@
 import type { CustomerRequestKind } from '@agent-sales/contracts';
 import type { TFunction } from 'i18next';
 
-/** Education names a trial "học thử" and a consultation "tư vấn lộ trình"; others share labels. */
-const EDUCATION_KINDS: ReadonlySet<string> = new Set(['trial', 'consultation']);
-
-/** The kind of a recorded request, in the words of the business's industry. */
+/** The kind of a recorded request; every industry shares one wording. */
 export function requestKindLabel(
   t: TFunction,
   kind: CustomerRequestKind | string,
-  industry: string | undefined,
+  _industry?: string | undefined,
 ): string {
-  return industry === 'education' && EDUCATION_KINDS.has(kind)
-    ? t(`crm.requests.kindEducation.${kind}`)
-    : t(`crm.requests.kind.${kind}`);
+  return t(`crm.requests.kind.${kind}`);
 }
 
 /**

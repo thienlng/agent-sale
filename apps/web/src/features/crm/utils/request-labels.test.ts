@@ -6,11 +6,9 @@ import { requestDetailsLine, requestKindLabel } from './request-labels';
 const t = ((key: string) => key) as unknown as TFunction;
 
 describe('requestKindLabel', () => {
-  it('uses the education words for a trial class and a learning-path consultation', () => {
-    expect(requestKindLabel(t, 'trial', 'education')).toBe('crm.requests.kindEducation.trial');
-    expect(requestKindLabel(t, 'consultation', 'education')).toBe(
-      'crm.requests.kindEducation.consultation',
-    );
+  it('uses one wording for every industry', () => {
+    expect(requestKindLabel(t, 'trial', 'education')).toBe('crm.requests.kind.trial');
+    expect(requestKindLabel(t, 'consultation', 'education')).toBe('crm.requests.kind.consultation');
     expect(requestKindLabel(t, 'placement_test', 'education')).toBe(
       'crm.requests.kind.placement_test',
     );

@@ -54,16 +54,16 @@ function setup(pmsLink: PmsLink | null | undefined) {
 const LINK = { retailer: 'shopabc', lastSyncAt: new Date(Date.now() - 120_000).toISOString() };
 
 describe('ProductsList', () => {
-  it('names the page for what an education or spa business sells, like the sidebar', async () => {
+  it('names the page "Dịch vụ" for an education or spa business, like the sidebar', async () => {
     const { fetchStub } = stubFetch({
       'GET /products?status=active&page=1&pageSize=20': page([]),
     });
     vi.stubGlobal('fetch', fetchStub);
     const view = renderWithRouter(() => <ProductsList offeringKind="course" />);
-    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Khoá học');
-    expect(screen.getByRole('link', { name: 'Thêm khoá học' })).toBeVisible();
-    expect(screen.getByRole('columnheader', { name: 'Tên khoá học' })).toBeVisible();
-    expect(await screen.findByText(/Chưa có khoá học nào/)).toBeVisible();
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Dịch vụ');
+    expect(screen.getByRole('link', { name: 'Thêm dịch vụ' })).toBeVisible();
+    expect(screen.getByRole('columnheader', { name: 'Tên dịch vụ' })).toBeVisible();
+    expect(await screen.findByText(/Chưa có dịch vụ nào/)).toBeVisible();
     view.unmount();
     renderWithRouter(() => <ProductsList offeringKind="service" />);
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Dịch vụ');

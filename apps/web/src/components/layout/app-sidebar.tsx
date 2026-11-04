@@ -89,7 +89,7 @@ const PRODUCTS: readonly NavItem[] = [
  * catalog, named for what they sell; they take requests, not orders, and have no PMS.
  */
 const SERVICE_CATALOG_LABEL: Readonly<Record<string, string>> = {
-  education: 'nav.courses',
+  education: 'nav.services',
   spa: 'nav.services',
 };
 /** Point-of-sale / inventory software (KiotViet, …) feeding the catalog. */
