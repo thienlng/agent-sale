@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { ImportProposalCard } from './import-proposal-card';
 import { useProposalDecision } from './proposal-decision';
 import { useBusinessName } from '../hooks/use-businesses';
+import { proposalLabelKey } from '../utils/proposal-labels';
 import { ACTION_DRAFT_ROUTE, openLinkFor } from '../utils/proposal-links';
 import { ScheduleProposalCard } from './schedule-proposal-card';
 
@@ -20,30 +21,16 @@ function previewText(preview: unknown): string {
   return text.length > 4000 ? `${text.slice(0, 4000)}…` : text;
 }
 
-type ProposalVerb = 'post' | 'patch' | 'put' | 'delete';
-const VERBS = new Set<string>(['post', 'patch', 'put', 'delete']);
-
 /**
- * What will run, read from `routeKey` (`METHOD /path`), never from the model's summary: the
- * method (as a verb key), the route path, whether it removes or replaces data (DELETE, PUT) and
- * whether it changes an existing record (preview open by default).
+ * What will run, read from `routeKey` (`METHOD /path`), never from the model's summary: whether
+ * it removes or replaces data (DELETE, PUT) and whether it changes an existing record (preview
+ * open by default). The card names it with `proposalLabelKey`, never the raw route.
  */
-function proposalAction(routeKey: string): {
-  verb: ProposalVerb | null;
-  method: string;
-  path: string;
-  destructive: boolean;
-  changesExisting: boolean;
-} {
-  const [rawMethod = '', ...rest] = routeKey.trim().split(/\s+/);
-  const method = rawMethod.toLowerCase();
-  const verb = VERBS.has(method) ? (method as ProposalVerb) : null;
+function proposalAction(routeKey: string): { destructive: boolean; changesExisting: boolean } {
+  const method = (routeKey.trim().split(/\s+/)[0] ?? '').toLowerCase();
   return {
-    verb,
-    method: rawMethod.toUpperCase(),
-    path: rest.join(' '),
-    destructive: verb === 'delete' || verb === 'put',
-    changesExisting: verb === 'patch' || verb === 'put' || verb === 'delete',
+    destructive: method === 'delete' || method === 'put',
+    changesExisting: method === 'patch' || method === 'put' || method === 'delete',
   };
 }
 
@@ -132,7 +119,7 @@ function PreviewBlock({ label, text }: { label: string | null; text: string }) {
 }
 
 /**
- * A pending proposal: what will run (verb + route path, red for DELETE/PUT), the model's summary,
+ * A pending proposal: what will run (the action's name, red for DELETE/PUT), the model's summary,
  * the business, the preview (open by default when it changes an existing record) and
  * Áp dụng / Bỏ.
  */
@@ -177,10 +164,7 @@ function PendingProposal({ proposal }: { proposal: AssistantProposalDto }) {
           )}
           data-testid="proposal-action"
         >
-          <span className="shrink-0 font-semibold">
-            {action.verb ? t(`proposals.verbs.${action.verb}`) : action.method}
-          </span>
-          <code className="min-w-0 font-mono break-all">{action.path}</code>
+          <span className="font-semibold">{t(proposalLabelKey(proposal.routeKey))}</span>
         </p>
         <p className="mt-1 font-medium break-words">{proposal.summary}</p>
         {proposal.routeKey === ACTION_DRAFT_ROUTE ? (
