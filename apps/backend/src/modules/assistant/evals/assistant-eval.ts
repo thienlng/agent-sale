@@ -177,6 +177,7 @@ export async function runAssistantCase(
       role: 'owner',
       industry: c.industry,
       accountId,
+      createdAt: new Date(0),
     },
   ];
   const account = {

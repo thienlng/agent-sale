@@ -1,6 +1,6 @@
 import { useIsMutating } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { Building2, Check, ChevronsUpDown, Loader2, Plus, Settings2 } from 'lucide-react';
+import { Building2, Check, ChevronsUpDown, LayoutDashboard, Loader2, Store } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -16,25 +16,14 @@ import {
 import { useBusinessSwitch } from '@/hooks/use-business-switch';
 import { useSession } from '@/lib/session';
 
-/** Props of the create-business popup a route plugs into the shell (shared code may not import features). */
-export interface CreateBusinessDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
-
 /** The single business picker. Account controls remain account-scoped. */
-export function BusinessSelector({
-  createBusinessDialog,
-}: {
-  createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
-}) {
+export function BusinessSelector() {
   const { t } = useTranslation();
   const session = useSession();
   const { isMobile, setOpenMobile } = useSidebar();
   const mutations = useIsMutating();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [createOpen, setCreateOpen] = useState(false);
   const { busy, choose } = useBusinessSwitch();
   const current = session?.memberships.find((m) => m.workspaceId === session.workspaceId);
   async function select(id: string) {
@@ -91,6 +80,9 @@ export function BusinessSelector({
             className="w-80 max-w-[calc(100vw-2rem)]"
             aria-label={t('business.choose')}
           >
+            <p className="px-1 pb-1.5 text-xs font-medium text-muted-foreground">
+              {t('business.switchTo')}
+            </p>
             <label className="sr-only" htmlFor="business-search">
               {t('business.search')}
             </label>
@@ -132,29 +124,35 @@ export function BusinessSelector({
                 <p className="p-2 text-sm text-muted-foreground">{t('business.noResults')}</p>
               ) : null}
             </div>
-            <Link
-              to="/app/overview"
-              onClick={() => setOpen(false)}
-              className="flex min-h-11 items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+            {/* Account-level actions: a tinted footer of tiles, so they never read as another business. */}
+            <div
+              role="group"
+              aria-labelledby="business-account-actions"
+              className="-mx-2.5 -mb-2.5 flex flex-col gap-2 rounded-b-lg border-t bg-muted/70 p-2.5"
             >
-              <Settings2 aria-hidden className="size-4" />
-              {t('business.manageAccount')}
-            </Link>
-            {createBusinessDialog ? (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  setOpen(false);
-                  setSearch('');
-                  setCreateOpen(true);
-                }}
-                className="flex min-h-11 w-full items-center gap-2 rounded-md border-t px-2 py-2 text-left text-sm font-medium hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60"
+              <p
+                id="business-account-actions"
+                className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase"
               >
-                <Plus aria-hidden className="size-4 shrink-0" />
-                {t('business.create.open')}
-              </button>
-            ) : null}
+                {t('business.accountSection')}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <AccountAction
+                  to="/app/overview"
+                  icon={<LayoutDashboard aria-hidden className="size-4" />}
+                  label={t('business.manageAccount')}
+                  hint={t('business.manageAccountHint')}
+                  onClick={() => setOpen(false)}
+                />
+                <AccountAction
+                  to="/app/businesses"
+                  icon={<Store aria-hidden className="size-4" />}
+                  label={t('business.allBusinesses')}
+                  hint={t('business.allBusinessesHint')}
+                  onClick={() => setOpen(false)}
+                />
+              </div>
+            </div>
             {busy ? (
               <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 aria-hidden className="size-4 animate-spin" />
@@ -168,8 +166,34 @@ export function BusinessSelector({
             ) : null}
           </PopoverContent>
         </Popover>
-        {createBusinessDialog?.({ open: createOpen, onOpenChange: setCreateOpen })}
       </SidebarMenuItem>
     </SidebarMenu>
+  );
+}
+
+/** An account-level tile of the picker footer: icon over label, unlike a business row. */
+function AccountAction({
+  to,
+  icon,
+  label,
+  hint,
+  onClick,
+}: {
+  to: '/app/overview' | '/app/businesses';
+  icon: ReactNode;
+  label: string;
+  hint: string;
+  onClick: () => void;
+}) {
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      title={hint}
+      className="flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-md border bg-background px-2 py-2.5 text-center text-xs font-medium shadow-xs hover:border-primary/40 hover:text-primary focus-visible:outline-2 focus-visible:outline-ring"
+    >
+      <span className="text-muted-foreground">{icon}</span>
+      <span>{label}</span>
+    </Link>
   );
 }

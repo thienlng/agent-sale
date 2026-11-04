@@ -138,9 +138,15 @@ test('business switching isolates source records and survives reload on desktop 
   });
   expect(crossWrite.status()).toBe(404);
   await login(page, owner, /\/app\/overview$/);
+  // Businesses open from the gallery ("Business của tôi").
   await page
     .getByRole('navigation', { name: 'Điều hướng tài khoản' })
-    .getByRole('button', { name: owner.workspaceName, exact: true })
+    .getByRole('link', { name: /Business của tôi/ })
+    .click();
+  await expect(page).toHaveURL(/\/app\/businesses$/);
+  await page
+    .getByRole('main')
+    .getByRole('button', { name: `Mở business ${owner.workspaceName}`, exact: true })
     .click();
   await expect(page).toHaveURL(/\/app\/analytics$/);
   await expect(page.getByRole('button', { name: 'Chọn business', exact: true })).toContainText(

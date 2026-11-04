@@ -1,8 +1,8 @@
 import { Link, useRouterState } from '@tanstack/react-router';
-import { LayoutDashboard, Plus, ServerCog } from 'lucide-react';
+import { LayoutDashboard, Plus, Store } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { BusinessAvatar } from '@/components/business-avatar';
+import { ADMIN_NAV } from '@/components/layout/admin-nav';
 import { Logo } from '@/components/logo';
 import {
   Sidebar,
@@ -11,50 +11,32 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { useBusinessSwitch } from '@/hooks/use-business-switch';
 import { usePreferences } from '@/lib/preferences/preferences';
-import { groupByAccount } from '@/lib/business-groups';
 import { useSession } from '@/lib/session';
 
 /** Paths that belong to the account layer, above any single business. */
 export { ACCOUNT_PATHS } from '@/lib/account-paths';
 
 /**
- * Sidebar of the account layer: all businesses of the signed-in user, grouped by the account
- * that owns them (T-079), and the way in when no business is chosen yet. It has no
- * business-scoped entries (bots, inbox, customers…); choosing a business enters its
- * own management area with the business sidebar.
+ * Sidebar of the account layer, above any single business: the overview, the gallery of all the
+ * user's businesses (where one is opened), creating a business and, for platform admins, the
+ * back-office pages, which open inside this same layer. It has no business-scoped entries (bots, inbox, customers…); opening a
+ * business enters its own management area with the business sidebar.
  */
 export function AccountSidebar() {
   const { t } = useTranslation();
   const session = useSession();
   const prefs = usePreferences();
   const { isMobile, setOpenMobile } = useSidebar();
-  const { busy, choose } = useBusinessSwitch();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const close = () => isMobile && setOpenMobile(false);
-  // Grouped by the owning account (ADR-012); one group keeps the plain "Businesses" label.
-  const groups = groupByAccount(session?.memberships ?? []);
-  if (!groups.length) groups.push({ accountId: null, accountName: null, businesses: [] });
-  const newBusiness = (
-    <SidebarMenuItem>
-      <SidebarMenuButton
-        asChild
-        tooltip={t('nav.newBusiness')}
-        isActive={pathname === '/app/businesses/new'}
-      >
-        <Link to="/app/businesses/new" onClick={close}>
-          <Plus />
-          <span>{t('nav.newBusiness')}</span>
-        </Link>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-  );
+  const count = session?.memberships.length ?? 0;
   return (
     <Sidebar variant={prefs.sidebar_variant} collapsible={prefs.sidebar_collapsible}>
       <SidebarHeader>
@@ -86,48 +68,51 @@ export function AccountSidebar() {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip={t('nav.groupBusinesses')}
+                  isActive={/^\/app\/businesses\/?$/.test(pathname)}
+                >
+                  <Link to="/app/businesses" onClick={close}>
+                    <Store />
+                    <span>{t('nav.groupBusinesses')}</span>
+                  </Link>
+                </SidebarMenuButton>
+                {count ? <SidebarMenuBadge>{count}</SidebarMenuBadge> : null}
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip={t('nav.newBusiness')}
+                  isActive={pathname === '/app/businesses/new'}
+                >
+                  <Link to="/app/businesses/new" onClick={close}>
+                    <Plus />
+                    <span>{t('nav.newBusiness')}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroup>
-          {groups.map((group, i) => (
-            <SidebarGroup key={group.accountId ?? 'none'}>
-              <SidebarGroupLabel>
-                {groups.length > 1
-                  ? (group.accountName ?? t('business.noAccount'))
-                  : t('nav.groupBusinesses')}
-              </SidebarGroupLabel>
+          {session?.user.isPlatformAdmin ? (
+            <SidebarGroup>
+              <SidebarGroupLabel>{t('nav.admin')}</SidebarGroupLabel>
               <SidebarMenu>
-                {group.businesses.map((m) => (
-                  <SidebarMenuItem key={m.workspaceId}>
+                {ADMIN_NAV.map((item) => (
+                  <SidebarMenuItem key={item.to}>
                     <SidebarMenuButton
-                      tooltip={m.workspaceName}
-                      disabled={busy}
-                      onClick={() => void choose(m.workspaceId).then((ok) => ok && close())}
+                      asChild
+                      tooltip={t(item.key)}
+                      isActive={pathname.startsWith(item.to)}
                     >
-                      <BusinessAvatar
-                        workspaceId={m.workspaceId}
-                        logoVersion={m.logoVersion}
-                        icon={m.icon}
-                      />
-                      <span className="truncate">{m.workspaceName}</span>
+                      <Link to={item.to} onClick={close}>
+                        <item.icon />
+                        <span>{t(item.key)}</span>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
-                {i === groups.length - 1 ? newBusiness : null}
-              </SidebarMenu>
-            </SidebarGroup>
-          ))}
-          {session?.user.isPlatformAdmin ? (
-            <SidebarGroup>
-              <SidebarGroupLabel>{t('nav.platform')}</SidebarGroupLabel>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip={t('nav.admin')}>
-                    <Link to="/admin/accounts" onClick={close}>
-                      <ServerCog />
-                      <span>{t('nav.admin')}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroup>
           ) : null}

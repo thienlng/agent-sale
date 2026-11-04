@@ -25,8 +25,20 @@ export function pickAccountForNewBusiness(input: {
   return input.owned[0] ?? null;
 }
 
-export function accountNameFor(businessName: string): string {
-  return businessName.trim().slice(0, 120);
+/**
+ * A new account is named after its owner (ADR-012, like the backfill), never after the first business: the
+ * account holds every business the owner adds later. Without a name the email's local part is
+ * used; without any owner contact (system paths) the business name is the last resort.
+ */
+export function accountNameFor(input: {
+  owner?: Pick<AccountOwnerInfo, 'name' | 'email'> | undefined;
+  businessName: string;
+}): string {
+  const name =
+    input.owner?.name.trim() ||
+    input.owner?.email.split('@')[0]?.trim() ||
+    input.businessName.trim();
+  return name.slice(0, 120);
 }
 
 /** An account the user belongs to, with their account role (never business access). */
