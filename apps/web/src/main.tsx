@@ -3,8 +3,10 @@ import { createRoot } from 'react-dom/client';
 
 import { App } from './app/app';
 import { initPreferences } from './lib/preferences/preferences';
+import { ensureRandomUuid } from './lib/random-uuid';
 import './styles.css';
 
+ensureRandomUuid();
 initPreferences();
 
 const root = document.getElementById('root');

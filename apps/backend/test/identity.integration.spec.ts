@@ -113,6 +113,18 @@ describe('identity on Postgres', () => {
     });
     expect(cur.statusCode).toBe(200);
     expect(cur.json()).toMatchObject({ name: 'Minh Store', industry: 'retail' });
+    // The business gallery filters by industry and creation time from the bootstrap.
+    const listed = BootstrapResponse.parse(
+      (await inject({ method: 'GET', url: '/api/v1/bootstrap', headers: auth })).json(),
+    ).memberships;
+    expect(listed).toEqual([
+      expect.objectContaining({
+        workspaceId: ws,
+        industry: 'retail',
+        createdAt: expect.any(String),
+      }),
+    ]);
+    expect(Date.now() - Date.parse(listed[0]!.createdAt!)).toBeLessThan(60_000);
 
     const taken = await inject({
       method: 'POST',

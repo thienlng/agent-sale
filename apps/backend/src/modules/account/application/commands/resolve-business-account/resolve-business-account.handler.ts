@@ -33,7 +33,7 @@ export class ResolveBusinessAccountHandler {
       const picked = pickAccountForNewBusiness({ requested: input.accountId, owned });
       if (picked) return picked;
       const id = newId();
-      const name = accountNameFor(input.businessName);
+      const name = accountNameFor(input);
       const createdEvent: AccountCreatedV1 = {
         type: 'account.account.created.v1',
         accountId: id,

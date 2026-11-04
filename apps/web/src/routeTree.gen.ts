@@ -39,6 +39,7 @@ import { Route as AdminAccountsIndexRouteImport } from './routes/admin/accounts/
 import { Route as AdminAccountsAccountIdRouteImport } from './routes/admin/accounts/$accountId'
 import { Route as AppBotsIndexRouteImport } from './routes/app/bots/index'
 import { Route as AppBotsBotIdRouteImport } from './routes/app/bots/$botId'
+import { Route as AppBusinessesIndexRouteImport } from './routes/app/businesses/index'
 import { Route as AppBusinessesNewRouteImport } from './routes/app/businesses/new'
 import { Route as AppCrmSettingsIndexRouteImport } from './routes/app/crm-settings/index'
 import { Route as AppCrmSettingsDistributionRouteImport } from './routes/app/crm-settings/distribution'
@@ -228,6 +229,11 @@ const AppBotsIndexRoute = AppBotsIndexRouteImport.update({
 const AppBotsBotIdRoute = AppBotsBotIdRouteImport.update({
   id: '/bots/$botId',
   path: '/bots/$botId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBusinessesIndexRoute = AppBusinessesIndexRouteImport.update({
+  id: '/businesses/',
+  path: '/businesses/',
   getParentRoute: () => AppRoute,
 } as any)
 const AppBusinessesNewRoute = AppBusinessesNewRouteImport.update({
@@ -490,6 +496,7 @@ export interface FileRoutesByFullPath {
   '/app/settings/security': typeof AppSettingsSecurityRoute
   '/admin/accounts/': typeof AdminAccountsIndexRoute
   '/app/bots/': typeof AppBotsIndexRoute
+  '/app/businesses/': typeof AppBusinessesIndexRoute
   '/app/crm-settings/': typeof AppCrmSettingsIndexRoute
   '/app/integrations/': typeof AppIntegrationsIndexRoute
   '/app/order-settings/': typeof AppOrderSettingsIndexRoute
@@ -556,6 +563,7 @@ export interface FileRoutesByTo {
   '/app/settings/security': typeof AppSettingsSecurityRoute
   '/admin/accounts': typeof AdminAccountsIndexRoute
   '/app/bots': typeof AppBotsIndexRoute
+  '/app/businesses': typeof AppBusinessesIndexRoute
   '/app/crm-settings': typeof AppCrmSettingsIndexRoute
   '/app/integrations': typeof AppIntegrationsIndexRoute
   '/app/order-settings': typeof AppOrderSettingsIndexRoute
@@ -629,6 +637,7 @@ export interface FileRoutesById {
   '/app/settings/security': typeof AppSettingsSecurityRoute
   '/admin/accounts/': typeof AdminAccountsIndexRoute
   '/app/bots/': typeof AppBotsIndexRoute
+  '/app/businesses/': typeof AppBusinessesIndexRoute
   '/app/crm-settings/': typeof AppCrmSettingsIndexRoute
   '/app/integrations/': typeof AppIntegrationsIndexRoute
   '/app/order-settings/': typeof AppOrderSettingsIndexRoute
@@ -703,6 +712,7 @@ export interface FileRouteTypes {
     | '/app/settings/security'
     | '/admin/accounts/'
     | '/app/bots/'
+    | '/app/businesses/'
     | '/app/crm-settings/'
     | '/app/integrations/'
     | '/app/order-settings/'
@@ -769,6 +779,7 @@ export interface FileRouteTypes {
     | '/app/settings/security'
     | '/admin/accounts'
     | '/app/bots'
+    | '/app/businesses'
     | '/app/crm-settings'
     | '/app/integrations'
     | '/app/order-settings'
@@ -841,6 +852,7 @@ export interface FileRouteTypes {
     | '/app/settings/security'
     | '/admin/accounts/'
     | '/app/bots/'
+    | '/app/businesses/'
     | '/app/crm-settings/'
     | '/app/integrations/'
     | '/app/order-settings/'
@@ -1083,6 +1095,13 @@ declare module '@tanstack/react-router' {
       path: '/bots/$botId'
       fullPath: '/app/bots/$botId'
       preLoaderRoute: typeof AppBotsBotIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/businesses/': {
+      id: '/app/businesses/'
+      path: '/businesses'
+      fullPath: '/app/businesses/'
+      preLoaderRoute: typeof AppBusinessesIndexRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/businesses/new': {
@@ -1510,6 +1529,7 @@ interface AppRouteChildren {
   AppProductsNewRoute: typeof AppProductsNewRoute
   AppPropertiesPropertyIdRoute: typeof AppPropertiesPropertyIdRoute
   AppBotsIndexRoute: typeof AppBotsIndexRoute
+  AppBusinessesIndexRoute: typeof AppBusinessesIndexRoute
   AppIntegrationsIndexRoute: typeof AppIntegrationsIndexRoute
   AppOrdersIndexRoute: typeof AppOrdersIndexRoute
   AppProductsIndexRoute: typeof AppProductsIndexRoute
@@ -1541,6 +1561,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppProductsNewRoute: AppProductsNewRoute,
   AppPropertiesPropertyIdRoute: AppPropertiesPropertyIdRoute,
   AppBotsIndexRoute: AppBotsIndexRoute,
+  AppBusinessesIndexRoute: AppBusinessesIndexRoute,
   AppIntegrationsIndexRoute: AppIntegrationsIndexRoute,
   AppOrdersIndexRoute: AppOrdersIndexRoute,
   AppProductsIndexRoute: AppProductsIndexRoute,

@@ -17,7 +17,7 @@
     "usage": "Usage limits",
     "upgrade": "Upgrade",
     "settings": "Settings",
-    "admin": "Platform admin",
+    "admin": "System administration",
     "comingSoon": "Soon",
     "beta": "Beta",
     "mainLabel": "Main navigation",
@@ -29,8 +29,6 @@
     "adminPlans": "Plans",
     "adminSettings": "Billing settings",
     "adminLlm": "AI models",
-    "platform": "Platform",
-    "backToBusinesses": "Back to businesses",
     "toggleSidebar": "Open or collapse the sidebar",
     "ordersOverview": "Overview",
     "ordersList": "Order list",
@@ -1713,7 +1711,39 @@
     "welcomeTitle": "Create your first business",
     "welcomeSubtitle": "Tell Rapiz your store name and industry so it can set up a bot, sample answers and customer statuses that fit.",
     "accountLabel": "Account",
-    "createAction": "Create business"
+    "createAction": "Create business",
+    "switchTo": "Switch to another business",
+    "accountSection": "Account",
+    "manageAccountHint": "Leave this business for the account overview",
+    "allBusinesses": "All businesses",
+    "allBusinessesHint": "Browse, filter and open your businesses",
+    "gallery": {
+      "title": "My businesses",
+      "subtitle_one": "{{count}} business. Choose one to manage it.",
+      "subtitle_other": "{{count}} businesses. Choose one to manage it.",
+      "searchLabel": "Search by business name",
+      "searchPlaceholder": "Search by name…",
+      "industry": "Filter by industry",
+      "allIndustries": "All industries",
+      "created": "Filter by creation date",
+      "createdAny": "Any time",
+      "createdWithin": {
+        "7d": "Last 7 days",
+        "30d": "Last 30 days",
+        "90d": "Last 90 days",
+        "365d": "Last 12 months"
+      },
+      "sort": "Sort",
+      "sorts": {
+        "newest": "Newest first",
+        "oldest": "Oldest first",
+        "name": "Name A → Z"
+      },
+      "clear": "Clear filters",
+      "open": "Open business {{name}}",
+      "createdOn": "Created {{date}}",
+      "otherAccount": "In the {{name}} account"
+    }
   },
   "account": {
     "open": "Account of {{name}}",

@@ -41,7 +41,7 @@ import {
 import { useCan } from '@/lib/permissions';
 import { usePreferences } from '@/lib/preferences/preferences';
 
-import { BusinessSelector, type CreateBusinessDialogProps } from './business-selector';
+import { BusinessSelector } from './business-selector';
 
 interface NavItem {
   to: string;
@@ -228,11 +228,9 @@ function NavItems({
 
 /** The dashboard sidebar; variant and collapse mode come from the user's preferences. */
 export function AppSidebar({
-  createBusinessDialog,
   industry,
   navCounts,
 }: {
-  createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
   /** The business's industry; undefined while it loads (industry entries show placeholders). */
   industry?: string | undefined;
   /** Waiting counts composed by the route from features (shared code may not import them). */
@@ -256,7 +254,7 @@ export function AppSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <BusinessSelector createBusinessDialog={createBusinessDialog} />
+        <BusinessSelector />
       </SidebarHeader>
       <SidebarContent>
         {/* `contents` keeps the sidebar's own layout while exposing a navigation landmark. */}

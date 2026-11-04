@@ -2,7 +2,6 @@ import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 
 import { AppShell } from '@/components/app-shell';
 import { MessageUsageBanner } from '@/features/billing/components/message-usage-banner';
-import { CreateBusinessDialog } from '@/features/workspace/components/create-business-dialog';
 import { PlanDialog } from '@/features/billing/components/plan-dialog';
 import { ACCOUNT_PATHS } from '@/lib/account-paths';
 import { ensureSession, selectWorkspace } from '@/lib/session';
@@ -45,7 +44,6 @@ export const Route = createFileRoute('/app')({
     return (
       <AppShell
         planDialog={(props) => <PlanDialog {...props} />}
-        createBusinessDialog={(props) => <CreateBusinessDialog {...props} />}
         // Undefined only while the business is loading, so the sidebar holds the industry entries
         // instead of flashing retail ones; without a business (or on error) it falls back to retail.
         industry={workspace.data?.industry ?? (workspace.isLoading ? undefined : '')}

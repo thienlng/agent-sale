@@ -266,6 +266,7 @@ export class AccountQueries implements IdentityFacade, IdentityAdminFacade {
       accounts,
       memberships: memberships.map((m) => ({
         ...m,
+        createdAt: m.createdAt.toISOString(),
         accountName: m.accountId ? (names.get(m.accountId) ?? null) : null,
       })),
     };

@@ -60,7 +60,7 @@ async function setup(page: Page, initial: ReturnType<typeof business>[]) {
   return state;
 }
 
-test('a user with several businesses chooses one after login, grouped by account', async ({
+test('a user with several businesses chooses one from the gallery after login', async ({
   page,
 }) => {
   await setup(page, [
@@ -70,10 +70,17 @@ test('a user with several businesses chooses one after login, grouped by account
   // A deep link without a chosen business goes to the account overview first.
   await page.goto('/app/bots');
   await expect(page).toHaveURL(/\/app\/overview$/);
-  const account = page.getByRole('navigation', { name: 'Điều hướng tài khoản' });
-  await expect(account.getByText('Hoa Group', { exact: true })).toBeVisible();
-  await expect(account.getByText('Minh', { exact: true })).toBeVisible();
-  await account.getByRole('button', { name: 'Minh English' }).click();
+  // "My businesses" opens the gallery; a business of someone else's account names that account.
+  await page
+    .getByRole('navigation', { name: 'Điều hướng tài khoản' })
+    .getByRole('link', { name: /Business của tôi/ })
+    .click();
+  await expect(page).toHaveURL(/\/app\/businesses$/);
+  const gallery = page.getByRole('main');
+  await expect(gallery.getByRole('button', { name: 'Mở business Hoa Fashion' })).toBeVisible();
+  await expect(gallery.getByText('Thuộc tài khoản Minh')).toBeVisible();
+  await expect(gallery.getByText('Thuộc tài khoản Hoa Group')).toHaveCount(0);
+  await gallery.getByRole('button', { name: 'Mở business Minh English' }).click();
   await expect(page).toHaveURL(/\/app\/analytics$/);
   await expect(page.getByRole('button', { name: 'Chọn business', exact: true })).toContainText(
     'Minh English',
@@ -115,7 +122,7 @@ test('a user without a business creates one and lands in it', async ({ page }) =
   expect(created).toEqual({ name: 'Hoa Spa', industry: 'retail' });
 });
 
-test('losing the current business mid-session lands on the picker with a notice', async ({
+test('losing the current business mid-session lands on the overview with a notice', async ({
   page,
 }) => {
   const state = await setup(page, [
@@ -142,9 +149,14 @@ test('losing the current business mid-session lands on the picker with a notice'
     .click();
   await expect(page).toHaveURL(/\/app\/overview\?lost=true$/);
   await expect(page.getByRole('alert')).toContainText('Bạn không còn quyền truy cập business đó');
-  const account = page.getByRole('navigation', { name: 'Điều hướng tài khoản' });
-  await expect(account.getByRole('button', { name: 'Minh English' })).toHaveCount(0);
-  await account.getByRole('button', { name: 'Hoa Spa' }).click();
+  await page
+    .getByRole('navigation', { name: 'Điều hướng tài khoản' })
+    .getByRole('link', { name: /Business của tôi/ })
+    .click();
+  const gallery = page.getByRole('main');
+  await expect(gallery.getByRole('button', { name: 'Mở business Hoa Spa' })).toBeVisible();
+  await expect(gallery.getByRole('button', { name: 'Mở business Minh English' })).toHaveCount(0);
+  await gallery.getByRole('button', { name: 'Mở business Hoa Spa' }).click();
   await expect(page.getByRole('button', { name: 'Chọn business', exact: true })).toContainText(
     'Hoa Spa',
   );
