@@ -14,6 +14,7 @@ import { ScheduleProposalCard } from './schedule-proposal-card';
 
 const ACCOUNT = '0b9c3a52-5e3f-4c55-9a51-6a0f4b7d2c01';
 const WS = '3f0c1f0e-5b1c-4c1e-9d55-0a1b2c3d4e5f';
+const business = vi.hoisted(() => ({ industry: 'retail' }));
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => WS }));
 vi.mock('@/lib/session', () => ({
@@ -25,7 +26,7 @@ vi.mock('@/lib/session', () => ({
         workspaceId: WS,
         workspaceName: 'Shop An',
         role: 'owner',
-        industry: 'retail',
+        industry: business.industry,
         accountId: ACCOUNT,
         accountName: 'Shop An',
       },
@@ -70,9 +71,26 @@ beforeAll(async () => {
   await loadNamespace('assistant');
 });
 beforeEach(() => useAssistantUi.setState({ scheduleDraft: null }));
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  business.industry = 'retail';
+});
 
 describe('AssistantSchedules', () => {
+  it('suggests a revenue report to a shop and a requests report to a spa or school', async () => {
+    stubList([]);
+    const view = renderWithProviders(<AssistantSchedules />);
+    expect(await screen.findByText(/doanh thu hôm qua/)).toBeVisible();
+    view.unmount();
+    for (const industry of ['spa', 'education']) {
+      business.industry = industry;
+      const next = renderWithProviders(<AssistantSchedules />);
+      expect(await screen.findByText(/các yêu cầu mới của khách/)).toBeVisible();
+      expect(screen.queryByText(/doanh thu/)).toBeNull();
+      next.unmount();
+    }
+  });
+
   it('lists the schedules with the cadence in words and a paused reason', async () => {
     stubList([
       schedule(),

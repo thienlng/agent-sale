@@ -23,6 +23,7 @@ import { useCan } from '@/lib/permissions';
 
 import { useProducts } from '../api/commerce';
 import { usePmsHintDismissed } from '../hooks/pms-hint';
+import { catalogKey } from './product-offering-editor';
 import { priceLabel } from './product-price';
 
 /** The workspace's live KiotViet connection, as the route reads it from the integration feature. */
@@ -123,6 +124,8 @@ export function ProductsList({
       : offeringKind === 'service'
         ? t('nav.services')
         : t('products.title');
+  /** A catalog word, named for the courses or services of an education or spa business. */
+  const word = (key: string, fallback: string) => t(catalogKey(offeringKind, key, fallback));
   const navigate = useNavigate();
   const canAdd = useCan('catalog.manage');
   const [hintDismissed, dismissHint] = usePmsHintDismissed();
@@ -156,7 +159,7 @@ export function ProductsList({
           <Button size="lg" asChild data-assistant-target="products.new">
             <Link to="/app/products/new">
               <Plus />
-              {t('products.add')}
+              {word('add', 'products.add')}
             </Link>
           </Button>
         ) : null}
@@ -183,8 +186,8 @@ export function ProductsList({
             type="search"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={t('products.search')}
-            aria-label={t('products.search')}
+            placeholder={word('search', 'products.search')}
+            aria-label={word('search', 'products.search')}
             className="h-9 pl-9"
           />
         </div>
@@ -222,7 +225,7 @@ export function ProductsList({
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
                 <TableHead>{t('products.col.code')}</TableHead>
-                <TableHead>{t('products.col.name')}</TableHead>
+                <TableHead>{word('colName', 'products.col.name')}</TableHead>
                 <TableHead>{t('products.col.variants')}</TableHead>
                 <TableHead className="text-right">{t('products.col.price')}</TableHead>
                 <TableHead className="text-right">
@@ -276,9 +279,9 @@ export function ProductsList({
                       <TableCell className="text-right tabular-nums">
                         {priceLabel(p, Boolean(offeringKind), t)}
                       </TableCell>
-                      {p.offering ? (
+                      {p.offering || offeringKind ? (
                         <TableCell className="text-right text-muted-foreground tabular-nums">
-                          {offeringLength(p.offering, t)}
+                          {p.offering ? offeringLength(p.offering, t) : '—'}
                         </TableCell>
                       ) : (
                         <TableCell
@@ -297,8 +300,8 @@ export function ProductsList({
                   <TableCell colSpan={5} className="py-14 text-center text-muted-foreground">
                     <Package className="mx-auto mb-3 size-8 text-primary" aria-hidden />
                     {q || status === 'archived' || (pmsLink && source !== 'all')
-                      ? t('products.empty')
-                      : t('products.emptyStart')}
+                      ? word('empty', 'products.empty')
+                      : word('emptyStart', 'products.emptyStart')}
                   </TableCell>
                 </TableRow>
               ) : null}

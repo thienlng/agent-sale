@@ -318,6 +318,7 @@
     "used": "{{used}}/{{limit}} schedules used",
     "add": "Add schedule",
     "empty": "No schedules yet. Press Add schedule, or ask Rapiz: \"send me yesterday's revenue every morning at 8\".",
+    "emptyRequests": "No schedules yet. Press Add schedule, or ask Rapiz: \"send me the new customer requests every morning at 8\".",
     "loading": "Loading schedules",
     "loadError": "Could not load the schedules. Try again later.",
     "newTitle": "New schedule",

@@ -38,6 +38,9 @@ const SECTION: Record<string, string> = {
   businesses: 'nav.newBusiness',
 };
 
+/** The catalog of an education or spa business is named for what it sells, like the sidebar. */
+const CATALOG_SECTION: Record<string, string> = { education: 'nav.courses', spa: 'nav.services' };
+
 /**
  * Dashboard shell (Studio Admin layout on shadcn's Sidebar): the sidebar's
  * variant and collapse mode, the content width and the header behaviour all
@@ -75,7 +78,7 @@ export function AppShell({
   const adminLayer = /^\/admin(\/|$)/.test(pathname);
   const section = adminLayer
     ? ADMIN_NAV.find((item) => pathname.startsWith(item.to))?.key
-    : SECTION[segment];
+    : ((segment === 'products' ? CATALOG_SECTION[industry ?? ''] : undefined) ?? SECTION[segment]);
   const accountLayer = ACCOUNT_PATHS.test(pathname);
 
   return (
