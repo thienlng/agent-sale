@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { CustomerRequestKind } from '../crm/customer-request.js';
+
 /**
  * Owner assistant schedules (T-172): code-computed reports and alerts. Every time is local time
  * in Asia/Ho_Chi_Minh (UTC+7, no DST); the backend computes the run times.
@@ -82,10 +84,17 @@ export const PeriodParams = z.object({
 export const NewOrdersAlertParams = z.object({
   minCount: z.number().int().min(1).max(1000).default(1),
 });
+/**
+ * Only these request kinds (`appointment` for "khách đặt lịch mới"); empty or missing = every kind
+ * (T-187, QA Mailisa B7).
+ */
+const RequestKinds = z.array(CustomerRequestKind).max(8).default([]);
 /** A `new_requests` alert fires when at least `minCount` requests arrived since the last one. */
 export const NewRequestsAlertParams = z.object({
   minCount: z.number().int().min(1).max(1000).default(1),
+  kinds: RequestKinds,
 });
+export const NewRequestsReportParams = PeriodParams.extend({ kinds: RequestKinds });
 export const LowStockParams = z.object({
   threshold: z.number().int().min(0).max(100_000).default(5),
 });
@@ -107,7 +116,7 @@ export function scheduleParamsSchema(template: ScheduleTemplate, mode: ScheduleM
     case 'unanswered_conversations':
       return UnansweredParams;
     case 'new_requests':
-      return mode === 'alert' ? NewRequestsAlertParams : PeriodParams;
+      return mode === 'alert' ? NewRequestsAlertParams : NewRequestsReportParams;
   }
 }
 

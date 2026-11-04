@@ -10,6 +10,7 @@ import {
   ContactQueryRequest,
   CreateContactNoteRequest,
   CreateContactRequest,
+  isRequestIndustry,
   memberRoleOf,
   UpdateContactNoteRequest,
   UpdateContactRequest,
@@ -33,6 +34,7 @@ import {
   BOT_AUTHOR,
   decideStatusMove,
   historyDetails,
+  sameRequest,
   requestNote,
   UPDATE_WINDOW_MS,
 } from '../domain/customer-request.js';
@@ -53,6 +55,8 @@ import { CRM_STORE, type ContactRecord, type CrmStore, type CrmTx } from './port
 
 /** Fields whose change is reported as its own history type and event. */
 const STATUS_FIELDS = ['statusId'] as const;
+/** The first status of every request industry's pipeline (saas, education, spa). */
+const NEW_LEAD_STATUS = 'new_lead';
 const ASSIGNMENT_FIELDS = ['salesUserId', 'careUserId'] as const;
 
 /** Customers: profile, notes and the audit history (CRM-01). */
@@ -179,29 +183,6 @@ export class ContactService {
       const found = await tx.contacts.findByPhone(input.phoneE164);
       if (found) {
         const name = input.displayName.trim();
-        if (input.renameFrom !== undefined && found.name === input.renameFrom && name) {
-          // A placeholder an earlier capture generated gives way to the name the customer gave.
-          const next = { ...found, name, version: found.version + 1, updatedAt: now };
-          if (!(await tx.contacts.update(next, found.version))) {
-            throw new StaleVersionError('contact', next.version);
-          }
-          await this.#record(
-            tx,
-            ws,
-            next,
-            'contact.updated',
-            { name: { from: found.name, to: name } },
-            null,
-            null,
-            now,
-            { channel: input.sourceKey },
-          );
-          await tx.outbox(ws, {
-            type: 'crm.contact.updated.v1',
-            aggregateId: found.id,
-            payload: event(ws, found.id, null, now, { fields: ['name'], phoneCaptured: false }),
-          });
-        }
         // Repeated or racing captures from the same page leave one entry.
         const marker = input.firstUrl ?? input.sourceKey;
         const earlier = await tx.history.list(found.id, {
@@ -209,23 +190,33 @@ export class ContactService {
           order: 'desc',
           limit: 100,
         });
-        const recorded = earlier.some(
+        const leadKnown = earlier.some(
           (h) =>
             (h.changes['lead'] as { to?: unknown } | undefined)?.to === marker &&
             h.data['channel'] === input.sourceKey,
         );
-        if (!recorded)
-          await this.#record(
-            tx,
-            ws,
-            found,
-            'contact.updated',
-            { lead: { from: null, to: marker } },
-            null,
-            null,
-            now,
-            { channel: input.sourceKey },
-          );
+        const changes: Record<string, { from: unknown; to: unknown }> = leadKnown
+          ? {}
+          : { lead: { from: null, to: marker } };
+        let current = found;
+        if (input.renameFrom !== undefined && found.name === input.renameFrom && name) {
+          // A placeholder an earlier capture generated gives way to the name the customer gave.
+          current = { ...found, name, version: found.version + 1, updatedAt: now };
+          if (!(await tx.contacts.update(current, found.version))) {
+            throw new StaleVersionError('contact', current.version);
+          }
+          changes['name'] = { from: found.name, to: name };
+          await tx.outbox(ws, {
+            type: 'crm.contact.updated.v1',
+            aggregateId: found.id,
+            payload: event(ws, found.id, null, now, { fields: ['name'], phoneCaptured: false }),
+          });
+        }
+        // The rename and the lead marker of one capture are one history entry (QA Mailisa B8).
+        if (Object.keys(changes).length)
+          await this.#record(tx, ws, current, 'contact.updated', changes, null, null, now, {
+            channel: input.sourceKey,
+          });
         return { contactId: found.id, created: false };
       }
       await tx.options.ensureDefaults(ws, 'source', DEFAULT_SOURCES);
@@ -237,6 +228,15 @@ export class ContactService {
       };
       const autoSales = source ? await this.distribution.pick(tx, ws, source.id) : null;
       if (autoSales) fields.salesUserId = autoSales;
+      // A request business's new lead starts at its "new" status, so the status strip counts it.
+      const industry = (await this.workspaces.getById(ws)).industry;
+      if (isRequestIndustry(industry)) {
+        await tx.options.ensureDefaults(ws, 'status', defaultStatusesFor(industry));
+        const fresh = (await tx.options.list('status')).find(
+          (o) => o.key === NEW_LEAD_STATUS && !o.archivedAt,
+        );
+        if (fresh) fields.statusId = fresh.id;
+      }
       const empty = emptyContact(null, now);
       const contact = applyFields(empty, fields, now);
       await tx.contacts.insert(contact);
@@ -269,7 +269,7 @@ export class ContactService {
           sourceId: contact.sourceId,
           origin: 'channel',
           phoneCaptured: true,
-          statusId: null,
+          statusId: contact.statusId,
         }),
       });
       return { contactId: contact.id, created: true };
@@ -465,15 +465,11 @@ export class ContactService {
       );
       const updated = earlier !== null;
       const body = requestNote(input.profile, input.kind, input.details, updated);
+      const details = historyDetails(input.profile, input.details);
+      // A retried call (or the same call twice in one turn): the latest request entry of this kind
+      // already holds exactly these details. Notes are not compared: staff may add one in between.
+      if (earlier && sameRequest(earlier.data, details, input.dateLabel)) return { updated };
       const [latestNote] = await tx.notes.list(contactId);
-      // A retried call: the latest note already says exactly this request.
-      if (
-        updated &&
-        latestNote &&
-        (latestNote.body === body ||
-          latestNote.body === requestNote(input.profile, input.kind, input.details, false))
-      )
-        return { updated };
       const move = input.profile.status[input.kind];
       const moved = move ? await this.#moveStatus(tx, ws, contact, move, defaults, now) : null;
       await this.#record(
@@ -485,11 +481,7 @@ export class ContactService {
         null,
         BOT_AUTHOR,
         now,
-        {
-          kind: input.kind,
-          details: historyDetails(input.profile, input.details),
-          dateLabel: input.dateLabel,
-        },
+        { kind: input.kind, details, dateLabel: input.dateLabel },
       );
       if (latestNote?.body !== body)
         await this.#systemNote(tx, ws, contactId, body, BOT_AUTHOR, now);

@@ -46,14 +46,14 @@ Each request:
 3. adds a note signed **Bot AI**: the kind ("Đặt lịch (bot ghi nhận)") and one line per detail given;
 4. adds the history entry `contact.request_recorded`.
 
-The same kind again within 24 hours is an **update**: the entry is `contact.request_updated` and the note starts with "Cập nhật:". An exact retry writes nothing. Playground conversations validate and write nothing.
+The same kind again within 24 hours is an **update**: the entry is `contact.request_updated` and the note starts with "Cập nhật:". An exact retry (the same details as the latest request of that kind) writes nothing, even when staff added a note in between. A customer first captured from the website (a phone typed in the chat) starts at the first status ("Lead mới" / "Khách mới"). Playground conversations validate and write nothing.
 
 ## Where staff see requests
 
 - **Customer list** (`/app/contacts`), for members with `contacts.view_all`: a strip on top with the customers per status (a click filters the list) and the latest open requests (the last 30 days, still at the kind's target status, at most 10; a click opens the customer).
 - **Customer sheet and the Inbox sales panel**: a "Yêu cầu" card with the customer's latest requests: kind, course or service, branch, day or time, and when it was recorded. In the Inbox it replaces the orders block.
 - **The customer's notes and history**: the Bot AI note and the history entry.
-- **Owner assistant**: questions such as "tuần này có bao nhiêu khách đặt lịch" (SQL view `customer_requests`), and a `new_requests` report or alert.
+- **Owner assistant**: questions such as "tuần này có bao nhiêu khách đặt lịch" (SQL view `customer_requests`), and a `new_requests` report or alert. Both take `kinds`, so "báo khi có khách đặt lịch mới" counts appointments only (`kinds: ["appointment"]`); without it every kind counts.
 
 API: `GET /crm/requests/summary` (`contacts.view_all`; 404 outside saas, education and spa) and `GET /contacts/{contactId}/requests` (the latest 10, same visibility as the customer). Both accept workspace API keys.
 

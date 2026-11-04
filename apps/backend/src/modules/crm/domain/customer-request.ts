@@ -77,6 +77,20 @@ export function historyDetails(
 }
 
 /**
+ * Whether a stored request entry's data (`{kind, details, dateLabel}`) holds exactly these details
+ * and day label: a retried call, or the same call twice in one turn, which writes nothing.
+ */
+export function sameRequest(
+  data: Readonly<Record<string, unknown>>,
+  details: Readonly<Record<string, string>>,
+  label: string | null,
+): boolean {
+  const stored = (data['details'] ?? {}) as Record<string, unknown>;
+  const keys = new Set([...Object.keys(stored), ...Object.keys(details)]);
+  return (data['dateLabel'] ?? null) === label && [...keys].every((k) => stored[k] === details[k]);
+}
+
+/**
  * Whether a request moves the customer to `move.key`. `currentKey` is the built-in key of the
  * customer's status (null: none or a custom status). `positions` are the pipeline positions of the
  * current status (null: none) and of the target.

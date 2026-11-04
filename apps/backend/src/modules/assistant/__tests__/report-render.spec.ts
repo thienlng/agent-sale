@@ -1,3 +1,4 @@
+import { scheduleParamsSchema } from '@agent-sales/contracts';
 import { notificationStrings } from '@agent-sales/i18n/notification';
 import { describe, expect, it, vi as mock } from 'vitest';
 
@@ -240,7 +241,7 @@ describe('new_requests computed through the data source (T-187)', () => {
     const data = source(2);
     const reports = new ReportService(data, () => vi);
     const hit = await reports.compute(alertSpec(2), NOW);
-    expect(data.requests).toHaveBeenCalledWith('b1', CURSOR, NOW);
+    expect(data.requests).toHaveBeenCalledWith('b1', CURSOR, NOW, []);
     expect(hit.hit).toBe(true);
     expect(hit.result).toMatchObject({
       template: 'new_requests',
@@ -271,8 +272,22 @@ describe('new_requests computed through the data source (T-187)', () => {
       'b1',
       new Date('2026-11-02T17:00:00.000Z'),
       new Date('2026-11-03T17:00:00.000Z'),
+      [],
     );
     expect(out.result).toMatchObject({ period: { from: '2026-11-03', to: '2026-11-03' } });
+  });
+
+  it('passes the kinds of a bookings-only alert to the data source (QA Mailisa B7)', async () => {
+    const data = source(1);
+    await new ReportService(data, () => vi).compute(
+      { ...alertSpec(1), params: { minCount: 1, kinds: ['appointment'] } },
+      NOW,
+    );
+    expect(data.requests).toHaveBeenCalledWith('b1', CURSOR, NOW, ['appointment']);
+    expect(scheduleParamsSchema('new_requests', 'alert').parse({ kinds: ['appointment'] })).toEqual(
+      { minCount: 1, kinds: ['appointment'] },
+    );
+    expect(scheduleParamsSchema('new_requests', 'report').parse({})).toMatchObject({ kinds: [] });
   });
 });
 

@@ -93,7 +93,10 @@ export class CrmFacadeImpl implements CrmFacade {
     return this.requests.recordFromBot(ws, input);
   }
 
-  requestsRecorded(ws: WorkspaceId, q: { since: Date; until: Date }): Promise<RequestsRecorded> {
+  requestsRecorded(
+    ws: WorkspaceId,
+    q: { since: Date; until: Date; kinds?: readonly CustomerRequestKind[] },
+  ): Promise<RequestsRecorded> {
     return this.requests.recorded(ws, q);
   }
 }

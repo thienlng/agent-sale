@@ -170,8 +170,12 @@ export class CustomerRequestService {
     });
   }
 
-  /** New requests (`contact.request_recorded`) in `[since, until)`: counts only. */
-  recorded(ws: WorkspaceId, q: { since: Date; until: Date }): Promise<RequestsRecorded> {
+  /** New requests (`contact.request_recorded`) in `[since, until)`: counts only; `kinds` limits. */
+  recorded(
+    ws: WorkspaceId,
+    q: { since: Date; until: Date; kinds?: readonly CustomerRequestKind[] },
+  ): Promise<RequestsRecorded> {
+    const only = q.kinds?.length ? new Set<string>(q.kinds) : null;
     return this.store.run(ws, async (tx) => {
       const rows = await tx.history.requestCounts(q.since, q.until);
       const byKind = new Map<CustomerRequestKind, number>();
@@ -179,7 +183,7 @@ export class CustomerRequestService {
       let count = 0;
       for (const r of rows) {
         const kind = CustomerRequestKind.safeParse(r.kind);
-        if (!kind.success) continue;
+        if (!kind.success || (only && !only.has(kind.data))) continue;
         count += r.count;
         byKind.set(kind.data, (byKind.get(kind.data) ?? 0) + r.count);
         const name = r.statusName ?? '';

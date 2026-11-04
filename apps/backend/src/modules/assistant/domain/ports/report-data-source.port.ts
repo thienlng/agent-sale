@@ -65,8 +65,13 @@ export interface ReportDataSource {
   lowStock(ws: string, threshold: number): Promise<StockFigures>;
   awaiting(ws: string, olderThan: Date): Promise<AwaitingFigures>;
   newContacts(ws: string, since: Date, until: Date): Promise<ContactFigures>;
-  /** Requests recorded at or after `since` and before `until`. */
-  requests(ws: string, since: Date, until: Date): Promise<RequestFigures>;
+  /** Requests recorded at or after `since` and before `until`; `kinds` limits them (empty: all). */
+  requests(
+    ws: string,
+    since: Date,
+    until: Date,
+    kinds?: readonly string[],
+  ): Promise<RequestFigures>;
 }
 
 export const REPORT_DATA_SOURCE = Symbol('REPORT_DATA_SOURCE');

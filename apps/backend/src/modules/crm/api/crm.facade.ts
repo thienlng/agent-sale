@@ -174,10 +174,10 @@ export interface CrmFacade {
       catalogNames?: readonly string[];
     },
   ): Promise<BotRequestResult>;
-  /** Requests recorded in `[since, until)` (owner reports `new_requests`). */
+  /** Requests recorded in `[since, until)` (owner reports `new_requests`); `kinds` limits them. */
   requestsRecorded(
     workspaceId: WorkspaceId,
-    q: { since: Date; until: Date },
+    q: { since: Date; until: Date; kinds?: readonly CustomerRequestKind[] },
   ): Promise<RequestsRecorded>;
 }
 

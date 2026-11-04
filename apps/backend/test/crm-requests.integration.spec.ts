@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
-import { CRM_FACADE, type CrmFacade } from '../src/modules/crm/api/index.js';
+import { CRM_FACADE, type CrmFacade, websiteLeadName } from '../src/modules/crm/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../src/modules/workspace/api/index.js';
 import { signUpVerified } from './support/signup.js';
 
@@ -287,6 +287,71 @@ describe('education requests', () => {
       course: 'Khóa học Starters',
       goal: 'Cho bé học khoá Starters',
     });
+  });
+
+  it('starts a website lead at the new status and folds its rename into one entry (QA B5, B8)', async () => {
+    const a = await owner('spa');
+    const phone = '+84983456711';
+    const { contactId } = await crm.upsertLeadByPhone(a.ws, {
+      phoneE164: phone,
+      sourceKey: 'website',
+      displayName: websiteLeadName(phone),
+      firstUrl: 'https://spa.example.vn/dat-lich',
+    });
+    expect(await statusKey(a.headers, contactId)).toBe('new_lead');
+    const res = await record(a.ws, 'appointment', {
+      name: 'Chị Lan',
+      phone,
+      service: 'Gội đầu dưỡng sinh',
+      preferredTime: 'chiều thứ Bảy',
+    });
+    expect(contactIdOf(res)).toBe(contactId);
+    const history = (await call(a.headers, 'GET', `/contacts/${contactId}/history`)).json()
+      .data as Array<{ type: string; changes: Record<string, unknown> }>;
+    const updates = history.filter((e) => e.type === 'contact.updated');
+    expect(updates).toHaveLength(1);
+    expect(Object.keys(updates[0]!.changes).sort()).toEqual(['lead', 'name']);
+    expect(await statusKey(a.headers, contactId)).toBe('booking_requested');
+  });
+
+  it('skips a retried call even when staff wrote a note in between (review minor 2)', async () => {
+    const a = await owner('spa');
+    const details = {
+      name: 'Chị Ngọc',
+      phone: '0983456712',
+      service: 'Massage body đá nóng',
+      preferredTime: 'sáng mai',
+    };
+    const id = contactIdOf(await record(a.ws, 'appointment', details));
+    const note = await call(a.headers, 'POST', `/contacts/${id}/notes`, {
+      body: 'Đã gọi, chưa nghe máy',
+    });
+    expect(note.statusCode, note.body).toBe(201);
+    await record(a.ws, 'appointment', details);
+    expect(await requestHistory(a.headers, id)).toEqual(['contact.request_recorded']);
+    expect(await notes(a.headers, id)).toHaveLength(2);
+    // A real change is still an update.
+    await record(a.ws, 'appointment', { ...details, preferredTime: 'chiều mai' });
+    expect(await requestHistory(a.headers, id)).toEqual([
+      'contact.request_updated',
+      'contact.request_recorded',
+    ]);
+  });
+
+  it('counts only the asked request kinds for a bookings alert (QA B7)', async () => {
+    const a = await owner('spa');
+    await record(a.ws, 'appointment', {
+      name: 'Chị A',
+      phone: '0983456713',
+      service: 'Gội đầu',
+      preferredTime: 'tối nay',
+    });
+    await record(a.ws, 'consultation', { name: 'Chị B', phone: '0983456714' });
+    const since = new Date(Date.now() - 60_000);
+    const until = new Date(Date.now() + 60_000);
+    expect((await crm.requestsRecorded(a.ws, { since, until })).count).toBe(2);
+    const bookings = await crm.requestsRecorded(a.ws, { since, until, kinds: ['appointment'] });
+    expect(bookings).toMatchObject({ count: 1, byKind: [{ kind: 'appointment', count: 1 }] });
   });
 
   it('summarises customers per status and the open requests', async () => {

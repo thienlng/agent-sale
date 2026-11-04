@@ -125,7 +125,12 @@ export class ReportService {
         const alert = s.mode === 'alert';
         const p = alert ? null : period();
         const [r, industry] = await Promise.all([
-          this.data.requests(ws, p ? p.since : (s.alertCursor ?? now), p ? p.until : now),
+          this.data.requests(
+            ws,
+            p ? p.since : (s.alertCursor ?? now),
+            p ? p.until : now,
+            Array.isArray(s.params['kinds']) ? s.params['kinds'].map(String) : [],
+          ),
           this.data.industry(ws),
         ]);
         return {

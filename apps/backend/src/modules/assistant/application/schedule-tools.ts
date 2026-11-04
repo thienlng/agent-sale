@@ -41,7 +41,9 @@ export const SCHEDULE_TOOL_DEFINITION: ToolDefinition = {
     '(send once now) act at once. Templates: revenue_summary, new_customers (report; params ' +
     '{period: day|week|month, window: previous|to_date}); new_orders (report: same params; alert: ' +
     '{minCount}); new_requests (requests the bot recorded: placement tests, trial classes, ' +
-    'consultations, appointments, demos; report: period params; alert: {minCount}); low_stock ' +
+    'consultations, appointments, demos; report: period params; alert: {minCount}; both take ' +
+    'kinds: only these request kinds, e.g. ["appointment"] when the owner asks for bookings only; ' +
+    'omit for every kind); low_stock ' +
     '({threshold}); unanswered_conversations ({minutes, minCount}). Cadence ' +
     '(Asia/Ho_Chi_Minh): daily {at:"HH:mm"}, weekly {days:[1=Mon…7=Sun], at}, monthly {day: 1–28 ' +
     'or -1 = last day, at}, every {minutes, activeFrom?, activeTo?}; alerts use every only. ' +
