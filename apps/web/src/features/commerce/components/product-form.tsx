@@ -114,7 +114,8 @@ export function ProductForm({
     setVariants((vs) => vs.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
 
   // The owner assistant may fill a new product's main fields (the first variant's SKU, price,
-  // cost and weight; the SKU is required to save), and the details of a course or service;
+  // cost and weight; the SKU is required to save), and the details of a course or service
+  // (length, sessions, format, level, period, schedule, audience, price note);
   // the owner reviews them and saves. Editing an existing product is a proposal, not a fill.
   const first = variants[0];
   const offeringKey = editKind && !retail ? editKind : null;
@@ -199,6 +200,27 @@ export function ProductForm({
                 ]
               : []),
             {
+              name: 'period',
+              label: offeringLabel('period'),
+              type: 'text',
+              empty: !offering.period.trim(),
+              value: offering.period,
+            },
+            {
+              name: 'schedule',
+              label: offeringLabel('schedule'),
+              type: 'textarea',
+              empty: !offering.schedule.trim(),
+              value: offering.schedule,
+            },
+            {
+              name: 'audience',
+              label: offeringLabel('audience'),
+              type: 'text',
+              empty: !offering.audience.trim(),
+              value: offering.audience,
+            },
+            {
               name: 'priceNote',
               label: offeringLabel('priceNote'),
               type: 'text',
@@ -235,6 +257,11 @@ export function ProductForm({
       if (format) details.format = format;
       if (offeringKey === 'course' && typeof values['level'] === 'string')
         details.level = values['level'].slice(0, 120);
+      if (typeof values['period'] === 'string') details.period = values['period'].slice(0, 60);
+      if (typeof values['schedule'] === 'string')
+        details.schedule = values['schedule'].slice(0, 500);
+      if (typeof values['audience'] === 'string')
+        details.audience = values['audience'].slice(0, 300);
       if (typeof values['priceNote'] === 'string')
         details.priceNote = values['priceNote'].slice(0, 120);
       if (Object.keys(details).length) setOffering((o) => ({ ...o, ...details }));

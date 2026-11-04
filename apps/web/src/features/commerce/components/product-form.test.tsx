@@ -293,6 +293,14 @@ describe('ProductForm of a spa or education business', () => {
         }),
         expect.objectContaining({ name: 'level', label: 'Trình độ', type: 'text', empty: true }),
         expect.objectContaining({
+          name: 'schedule',
+          label: 'Lịch học hoặc khung giờ',
+          type: 'textarea',
+          empty: true,
+        }),
+        expect.objectContaining({ name: 'period', label: 'Thời gian khoá học', empty: true }),
+        expect.objectContaining({ name: 'audience', type: 'text', empty: true }),
+        expect.objectContaining({
           name: 'priceNote',
           label: 'Ghi chú giá',
           type: 'text',
@@ -309,9 +317,15 @@ describe('ProductForm of a spa or education business', () => {
         sessions: 24,
         format: 'offline',
         level: 'Mất gốc',
+        period: '3 tháng',
+        schedule: 'sáng thứ 7',
+        audience: 'Bé 6-7 tuổi',
         priceNote: 'liên hệ',
       });
     });
+    expect(screen.getByLabelText('Thời gian khoá học')).toHaveValue('3 tháng');
+    expect(screen.getByLabelText('Lịch học hoặc khung giờ')).toHaveValue('sáng thứ 7');
+    expect(screen.getByLabelText(/^Mô tả/)).toHaveValue('');
     expect(screen.getByLabelText('Thời lượng mỗi buổi (phút)')).toHaveValue(90);
     expect(screen.getByLabelText('Số buổi')).toHaveValue(24);
     expect(screen.getByRole('radio', { name: 'Tại cơ sở' })).toBeChecked();
@@ -326,6 +340,9 @@ describe('ProductForm of a spa or education business', () => {
         sessions: 24,
         format: 'offline',
         level: 'Mất gốc',
+        period: '3 tháng',
+        schedule: 'sáng thứ 7',
+        audience: 'Bé 6-7 tuổi',
         priceNote: 'liên hệ',
       },
     });
