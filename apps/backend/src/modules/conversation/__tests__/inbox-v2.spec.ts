@@ -564,6 +564,59 @@ describe('tags', () => {
   });
 });
 
+describe('website customer name', () => {
+  const contactId = '00000000-0000-4000-8000-0000000000c1';
+  async function websiteConversation() {
+    vi.mocked(channels.getConnection).mockResolvedValue({
+      id: channelId,
+      provider: 'website',
+      externalId: 'page',
+      name: 'Website',
+      status: 'connected',
+      botId,
+      expiresAt: null,
+      createdAt: new Date().toISOString(),
+    } as never);
+    const c = await service.receive(
+      ws,
+      channelId,
+      event('w1', { kind: 'website', senderExternalId: 'visitor-c940' }),
+    );
+    expect(c.customerName).toBe('Khách website c940');
+    return c;
+  }
+
+  it('shows the crm customer name once the linked customer has one', async () => {
+    const c = await websiteConversation();
+    await service.linkLead(ws, c.id, {
+      contactId,
+      phoneE164: '+84912345602',
+      capturedAt: new Date().toISOString(),
+    });
+    crm.contactNames.mockResolvedValue(new Map([[contactId, 'Tran Thu Trang']]));
+    expect((await service.list(ws, { limit: 50 }, lan)).data[0]?.customerName).toBe(
+      'Tran Thu Trang',
+    );
+    expect((await service.get(ws, c.id)).conversation.customerName).toBe('Tran Thu Trang');
+    expect(crm.contactNames).toHaveBeenCalledWith(ws, [contactId]);
+  });
+
+  it('keeps the placeholder while the customer is unnamed, unlinked or crm is down', async () => {
+    const c = await websiteConversation();
+    expect((await service.get(ws, c.id)).conversation.customerName).toBe('Khách website c940');
+    expect(crm.contactNames).not.toHaveBeenCalled();
+    await service.linkLead(ws, c.id, {
+      contactId,
+      phoneE164: '+84912345602',
+      capturedAt: new Date().toISOString(),
+    });
+    crm.contactNames.mockResolvedValue(new Map([[contactId, 'Khách website 5602']]));
+    expect((await service.get(ws, c.id)).conversation.customerName).toBe('Khách website c940');
+    crm.contactNames.mockRejectedValue(new Error('crm down'));
+    expect((await service.get(ws, c.id)).conversation.customerName).toBe('Khách website c940');
+  });
+});
+
 describe('tag library outage', () => {
   it('still loads conversations without chips, but fails a tag filter instead of guessing', async () => {
     const c = await service.receive(ws, channelId, event('m1'));
