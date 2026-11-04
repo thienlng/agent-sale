@@ -10,7 +10,8 @@ import { useAssistantUi } from '../stores/assistant-ui.store';
 import { ATTACH_ACCEPT, type AssistantAttachments, AttachmentTray } from './assistant-attachments';
 
 /**
- * Message box: Enter sends, Shift+Enter adds a line, disabled while a turn runs. `onSend`
+ * Message box: Enter sends, Shift+Enter adds a line. While a turn runs the owner can keep typing;
+ * only sending waits (the button is disabled and Enter does nothing). `onSend`
  * resolves false when the message was not sent, and the text comes back for another try. A new
  * `draft` (a page's request that arrived while a turn ran) replaces the text for the owner to send.
  * With `attachments`, 📎 attaches a sheet or product photos (the tray shows them above the box),
@@ -106,7 +107,6 @@ export function AssistantComposer({
           aria-label={t('placeholder')}
           placeholder={t('placeholder')}
           value={text}
-          disabled={sending}
           maxLength={ASSISTANT_MESSAGE_MAX}
           rows={1}
           className="max-h-40 min-h-10 resize-none"
