@@ -276,9 +276,9 @@ export function ProductsList({
                       <TableCell className="text-right tabular-nums">
                         {priceLabel(p, Boolean(offeringKind), t)}
                       </TableCell>
-                      {p.offering ? (
+                      {p.offering || offeringKind ? (
                         <TableCell className="text-right text-muted-foreground tabular-nums">
-                          {offeringLength(p.offering, t)}
+                          {p.offering ? offeringLength(p.offering, t) : '—'}
                         </TableCell>
                       ) : (
                         <TableCell

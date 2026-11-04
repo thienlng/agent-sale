@@ -173,6 +173,19 @@ describe('ProductsList', () => {
     expect(screen.queryByText(/^0\s?₫$/)).toBeNull();
   });
 
+  it('shows no stock for a product without offering in an education or spa business', async () => {
+    const LEGACY = { ...SHOE, available: 0 };
+    const { fetchStub } = stubFetch({
+      'GET /products?status=active&page=1&pageSize=20': page([LEGACY]),
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <ProductsList offeringKind="service" />);
+    const row = (await screen.findByText('Giày sneaker')).closest('tr') as HTMLElement;
+    const stock = within(row).getAllByRole('cell').at(-1) as HTMLElement;
+    expect(stock).toHaveTextContent(/^—$/);
+    expect(stock).not.toHaveClass('text-destructive');
+  });
+
   it('leaves the 0-priced variants out of the price range of a course or service', async () => {
     const variant = (id: string, price: number) => ({
       id,
