@@ -1,11 +1,15 @@
 import {
   NotificationListQuery,
+  PushSubscriptionInput,
+  PushSubscriptionRemove,
   type NotificationCount,
   type NotificationDto,
   type NotificationList,
+  type PushConfig,
+  type PushSubscriptionResult,
 } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
-import { Controller, Get, HttpCode, Inject, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Param, Post, Query } from '@nestjs/common';
 
 import {
   type AuthState,
@@ -53,6 +57,33 @@ export class NotificationController {
     @CurrentWorkspace() ws: WorkspaceId,
   ): Promise<NotificationCount> {
     return { count: await this.service.markAllRead(await this.#account(ws), user.userId) };
+  }
+
+  @Get('push')
+  push(): PushConfig {
+    return this.service.pushConfig();
+  }
+
+  @Post('push/subscriptions')
+  @HttpCode(200)
+  async subscribe(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Body(new ZodValidationPipe(PushSubscriptionInput)) body: PushSubscriptionInput,
+  ): Promise<PushSubscriptionResult> {
+    await this.service.savePushSubscription(await this.#account(ws), user.userId, body);
+    return { ok: true };
+  }
+
+  @Post('push/subscriptions/remove')
+  @HttpCode(200)
+  async unsubscribe(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Body(new ZodValidationPipe(PushSubscriptionRemove)) body: PushSubscriptionRemove,
+  ): Promise<PushSubscriptionResult> {
+    await this.service.removePushSubscription(await this.#account(ws), user.userId, body.endpoint);
+    return { ok: true };
   }
 
   @Post(':notificationId/read')

@@ -6,6 +6,10 @@ export const NotificationType = z.enum([
   'assistant.report',
   'assistant.alert',
   'assistant.schedule_paused',
+  /** The bot handed a conversation to staff (T-190). */
+  'inbox.handoff',
+  /** A customer wrote in a conversation staff are handling (T-190). */
+  'inbox.message',
 ]);
 export type NotificationType = z.infer<typeof NotificationType>;
 
@@ -13,6 +17,8 @@ export type NotificationType = z.infer<typeof NotificationType>;
 export const NotificationTarget = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('path'), path: z.string().max(300) }),
   z.object({ kind: z.literal('assistant_report'), runId: z.uuid() }),
+  /** One inbox conversation of the notification's business (T-190). */
+  z.object({ kind: z.literal('conversation'), conversationId: z.uuid() }),
 ]);
 export type NotificationTarget = z.infer<typeof NotificationTarget>;
 
@@ -51,3 +57,21 @@ export type NotificationList = z.infer<typeof NotificationList>;
 
 export const NotificationCount = z.object({ count: z.number().int().nonnegative() });
 export type NotificationCount = z.infer<typeof NotificationCount>;
+
+/** Web Push (T-190): the VAPID public key, null while push is not configured on the server. */
+export const PushConfig = z.object({ publicKey: z.string().nullable() });
+export type PushConfig = z.infer<typeof PushConfig>;
+
+/** A browser `PushSubscription` (its JSON form), registered for the caller on this account. */
+export const PushSubscriptionInput = z.object({
+  endpoint: z.url().startsWith('https://').max(1000),
+  keys: z.object({ p256dh: z.string().min(1).max(200), auth: z.string().min(1).max(100) }),
+  userAgent: z.string().max(200).optional(),
+});
+export type PushSubscriptionInput = z.infer<typeof PushSubscriptionInput>;
+
+export const PushSubscriptionRemove = z.object({ endpoint: z.string().max(1000) });
+export type PushSubscriptionRemove = z.infer<typeof PushSubscriptionRemove>;
+
+export const PushSubscriptionResult = z.object({ ok: z.literal(true) });
+export type PushSubscriptionResult = z.infer<typeof PushSubscriptionResult>;

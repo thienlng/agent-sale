@@ -105,3 +105,32 @@ export const notificationDeliveries = pgTable(
     ...accountPolicies('notification_deliveries'),
   ],
 );
+
+/**
+ * Web Push devices (0066, T-190): one row per browser push endpoint and account. The push channel
+ * sends to every row of the recipient and deletes a row the push service reports gone.
+ */
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
+  {
+    id: uuid('id').primaryKey(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    userAgent: text('user_agent'),
+    failures: integer('failures').notNull().default(0),
+    lastSentAt: ts('last_sent_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('push_subscriptions_endpoint_unique').on(t.accountId, t.endpoint),
+    index('push_subscriptions_user_idx').on(t.accountId, t.userId),
+    ...accountPolicies('push_subscriptions'),
+  ],
+);

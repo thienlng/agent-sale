@@ -38,6 +38,7 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 | — | [Bot API actions](actions.md) | Implementation | Shop-declared HTTP actions the bot can call, confirmation gate, SSRF-safe executor (T-055) |
 | — | [Meta inbox](meta-inbox.md) | Implementation | Facebook/Instagram connection, webhook processing, takeover, attachments and live testing (T-045) |
 | — | [Sales inbox workspace](18-sales-inbox-workspace.md) | Implementation | Sales queues, composer drafts, explicit CRM selection and order creation alongside chat (T-068) |
+| — | [Installable app and device notifications](19-installable-app.md) | Implementation | PWA install, service worker and Web Push staff alerts for the inbox (T-190) |
 
 - [Lodging](lodging.md) — T-160 properties, rooms, nightly rates, the calendar, holds and bookings for hotel businesses (T-155 stay requests deprecated).
 - [SaaS businesses](saas.md) — ADR-020 SaaS customer statuses, demo/trial requests recorded by the bot on the customer, subscriptions and MRR on the customer list.

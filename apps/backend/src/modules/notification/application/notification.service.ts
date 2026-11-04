@@ -1,4 +1,8 @@
-import type { NotificationDto, NotificationList } from '@agent-sales/contracts';
+import type {
+  NotificationDto,
+  NotificationList,
+  PushSubscriptionInput,
+} from '@agent-sales/contracts';
 import { newId, type UserId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
@@ -47,6 +51,9 @@ export function toNotificationDto(x: NotificationRecord): NotificationDto {
  * Stores notifications for producers and serves the user's own list (S3-R5). Producers render
  * the text; this service validates it, stores the in-app row and queues the other channels.
  */
+/** The VAPID public key handed to browsers (T-190); null while push is off. */
+export const NOTIFICATION_PUSH_PUBLIC_KEY = Symbol('NOTIFICATION_PUSH_PUBLIC_KEY');
+
 @Injectable()
 export class NotificationService {
   constructor(
@@ -54,6 +61,7 @@ export class NotificationService {
     @Inject(NOTIFICATION_CHANNELS) private readonly channels: NotificationChannel[],
     @Inject(IDENTITY_FACADE) private readonly identity: IdentityFacade,
     @Inject(WORKSPACE_FACADE) private readonly workspaces: WorkspaceFacade,
+    @Inject(NOTIFICATION_PUSH_PUBLIC_KEY) private readonly pushPublicKey: string | null,
   ) {}
 
   /** The account of the caller's current business (3-P5); 404 when it has none. */
@@ -61,6 +69,37 @@ export class NotificationService {
     const accountId = await this.workspaces.accountOf(ws);
     if (!accountId) throw new NotificationNotFoundError(ws);
     return accountId;
+  }
+
+  pushAvailable(): boolean {
+    return this.channels.some((c) => c.kind === 'push' && c.available());
+  }
+
+  /** Web Push settings for the app: the VAPID public key, null while push is off. */
+  pushConfig(): { publicKey: string | null } {
+    return { publicKey: this.pushAvailable() ? this.pushPublicKey : null };
+  }
+
+  /** Registers this browser for the caller on the account (idempotent per endpoint). */
+  async savePushSubscription(
+    accountId: string,
+    userId: string,
+    input: PushSubscriptionInput,
+  ): Promise<void> {
+    if (!this.pushAvailable()) throw new NotificationInvalidError('push_unavailable');
+    await this.repo.savePushSubscription({
+      id: newId(),
+      accountId,
+      userId,
+      endpoint: input.endpoint,
+      p256dh: input.keys.p256dh,
+      auth: input.keys.auth,
+      userAgent: input.userAgent?.slice(0, 200) ?? null,
+    });
+  }
+
+  async removePushSubscription(accountId: string, userId: string, endpoint: string): Promise<void> {
+    await this.repo.removePushSubscription(accountId, userId, endpoint);
   }
 
   emailAvailable(): boolean {
@@ -86,6 +125,9 @@ export class NotificationService {
     if (i.target?.kind === 'path' && !isSafeAppPath(i.target.path)) {
       throw new NotificationInvalidError('target_path');
     }
+    if (i.target?.kind === 'conversation' && !UUID.test(i.target.conversationId)) {
+      throw new NotificationInvalidError('target_conversation');
+    }
     if (i.target?.kind === 'assistant_report' && !UUID.test(i.target.runId)) {
       throw new NotificationInvalidError('target_run');
     }
@@ -95,7 +137,9 @@ export class NotificationService {
     const deliveries: NewDelivery[] = kinds.map((channel) =>
       channel === 'email' && !this.emailAvailable()
         ? { id: newId(), channel, status: 'skipped', errorCode: 'email_disabled' }
-        : { id: newId(), channel },
+        : channel === 'push' && !this.pushAvailable()
+          ? { id: newId(), channel, status: 'skipped', errorCode: 'channel_unavailable' }
+          : { id: newId(), channel },
     );
     const stored = await this.repo.insertNotification(
       {

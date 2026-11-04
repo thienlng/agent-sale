@@ -8,6 +8,7 @@ import {
   NOTIFICATION_RETENTION_DAYS,
   nextAttemptAt,
   type NotificationTarget,
+  targetHref,
 } from '../domain/notification.js';
 import {
   NOTIFICATION_CHANNELS,
@@ -78,7 +79,15 @@ export class DeliveryRunner implements NotificationRunner {
 
   async #deliver(
     d: DeliveryRecord,
-    note: { title: string; body: string; target: NotificationTarget | null } | undefined,
+    note:
+      | {
+          title: string;
+          body: string;
+          target: NotificationTarget | null;
+          dedupKey: string | null;
+          workspaceId: string | null;
+        }
+      | undefined,
     now: Date,
   ): Promise<boolean> {
     const skip = (errorCode: string) =>
@@ -90,7 +99,16 @@ export class DeliveryRunner implements NotificationRunner {
       return skip(d.channel === 'email' ? 'email_disabled' : 'channel_unavailable');
     }
     const profile = await this.identity.profile(d.userId as UserId);
-    if (!profile?.email) return skip('no_recipient');
+    const push = d.channel === 'push';
+    // Email goes to the login address; push goes to the user's registered devices.
+    if (!profile || (!push && !profile.email)) return skip('no_recipient');
+    if (
+      push &&
+      channel.hasRecipient &&
+      !(await channel.hasRecipient({ accountId: d.accountId, userId: d.userId }))
+    ) {
+      return skip('no_recipient');
+    }
     if (d.channel === 'email') {
       const sentToday = await this.repo.countSentEmails(d.userId, new Date(now.getTime() - DAY_MS));
       if (sentToday >= EMAIL_DAILY_CAP) return skip('daily_cap');
@@ -104,11 +122,17 @@ export class DeliveryRunner implements NotificationRunner {
     await this.repo.recordAttempt(d.id, attempts);
     try {
       const res = await channel.send({
-        to: profile.email,
+        to: push ? d.userId : (profile.email ?? ''),
+        accountId: d.accountId,
+        userId: d.userId,
         locale: profile.locale,
         title: note.title,
         body: note.body,
-        link: this.#link(note.target),
+        // A push opens inside the installed app, so its link stays relative to the app's origin.
+        link: push
+          ? targetHref(note.target, note.workspaceId)
+          : this.#link(note.target, note.workspaceId),
+        tag: note.dedupKey ? note.dedupKey.replace(/:\d+$/, '') : null,
       });
       await this.repo.finishDelivery(d.id, {
         status: 'sent',
@@ -132,10 +156,10 @@ export class DeliveryRunner implements NotificationRunner {
     }
   }
 
-  #link(target: NotificationTarget | null): string | null {
+  #link(target: NotificationTarget | null, workspaceId: string | null): string | null {
     if (!this.appUrl) return null;
     const base = this.appUrl.replace(/\/+$/, '');
-    return target?.kind === 'path' ? `${base}${target.path}` : `${base}/app`;
+    return `${base}${targetHref(target, workspaceId)}`;
   }
 
   async #purgeDaily(now: Date): Promise<void> {

@@ -20,6 +20,23 @@ export interface NotificationRecord {
   createdAt: Date;
 }
 
+/** Devices one user can have per account; the oldest beyond it are not sent to. */
+export const MAX_PUSH_DEVICES = 10;
+
+/** A browser push endpoint of a user on an account (Web Push, T-190). */
+export interface PushSubscriptionRecord {
+  id: string;
+  accountId: string;
+  userId: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  userAgent: string | null;
+  failures: number;
+  lastSentAt: Date | null;
+  createdAt: Date;
+}
+
 export type NewNotification = Omit<NotificationRecord, 'readAt' | 'createdAt'>;
 
 export interface DeliveryRecord {
@@ -113,6 +130,18 @@ export interface NotificationRepository {
   countSentEmails(userId: string, since: Date): Promise<number>;
   /** Worker: deletes notifications created before `before` (deliveries cascade). */
   purgeOld(before: Date): Promise<number>;
+
+  // ─── Web Push devices (T-190) ───
+  /** Registers (or refreshes the keys of) the caller's endpoint on this account. */
+  savePushSubscription(
+    row: Omit<PushSubscriptionRecord, 'failures' | 'lastSentAt' | 'createdAt'>,
+  ): Promise<void>;
+  /** Forgets the caller's endpoint on this account; false when there was none. */
+  removePushSubscription(accountId: string, userId: string, endpoint: string): Promise<boolean>;
+  /** Worker: every device of a user on an account. */
+  pushSubscriptionsFor(accountId: string, userId: string): Promise<PushSubscriptionRecord[]>;
+  /** Worker: a send outcome; `gone` deletes the row (the push service no longer knows it). */
+  recordPushResult(id: string, outcome: 'sent' | 'failed' | 'gone', at: Date): Promise<void>;
 }
 
 export const NOTIFICATION_REPOSITORY = Symbol('NOTIFICATION_REPOSITORY');

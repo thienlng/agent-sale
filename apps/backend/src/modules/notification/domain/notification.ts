@@ -3,12 +3,33 @@
  * the notification row itself; every other channel is one delivery row.
  */
 
-export type NotificationType = 'assistant.report' | 'assistant.alert' | 'assistant.schedule_paused';
+export type NotificationType =
+  | 'assistant.report'
+  | 'assistant.alert'
+  | 'assistant.schedule_paused'
+  | 'inbox.handoff'
+  | 'inbox.message';
 export type NotificationChannelKind = 'email' | 'push';
 export type DeliveryStatus = 'queued' | 'sending' | 'sent' | 'failed' | 'skipped';
 
 export type NotificationTarget =
-  { kind: 'path'; path: string } | { kind: 'assistant_report'; runId: string };
+  | { kind: 'path'; path: string }
+  | { kind: 'assistant_report'; runId: string }
+  /** One inbox conversation of the notification's business (T-190). */
+  | { kind: 'conversation'; conversationId: string };
+
+/**
+ * The in-app link of a target, for a push (relative, opened by the installed app): a path as is,
+ * a conversation as `/app/inbox?conversation=…&ws=…` (the app switches to that business first).
+ */
+export function targetHref(target: NotificationTarget | null, workspaceId: string | null): string {
+  if (target?.kind === 'path') return target.path;
+  if (target?.kind === 'conversation') {
+    const ws = workspaceId ? `&ws=${workspaceId}` : '';
+    return `/app/inbox?conversation=${target.conversationId}${ws}`;
+  }
+  return '/app';
+}
 
 export const NOTIFICATION_TITLE_MAX = 160;
 export const NOTIFICATION_BODY_MAX = 4000;

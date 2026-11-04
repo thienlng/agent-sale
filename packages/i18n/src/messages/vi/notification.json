@@ -105,5 +105,15 @@
     "more": "Xem thêm",
     "less": "Thu gọn",
     "unread": "chưa đọc"
+  },
+  "inbox": {
+    "handoff": {
+      "title": "{{customer}} cần nhân viên hỗ trợ",
+      "body": "{{business}} · {{excerpt}}"
+    },
+    "message": {
+      "title": "Tin nhắn mới từ {{customer}}",
+      "body": "{{business}} · {{excerpt}}"
+    }
   }
 }

@@ -1,0 +1,26 @@
+{
+  "id": "/app",
+  "name": "Rapiz",
+  "short_name": "Rapiz",
+  "description": "Bot bán hàng AI và hộp thư đa kênh cho cửa hàng Việt Nam.",
+  "lang": "vi",
+  "start_url": "/app/inbox",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#f26b1d",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    {
+      "src": "/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    { "name": "Tin nhắn", "url": "/app/inbox", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

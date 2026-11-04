@@ -21,7 +21,7 @@ function setup(emailOn = true) {
     profile: vi.fn(async () => ({ name: 'Lan', email: 'lan@example.test', locale: 'en' as const })),
   } as unknown as IdentityFacade;
   const workspaces = { accountOf: vi.fn(async () => null) } as unknown as WorkspaceFacade;
-  return { repo, service: new NotificationService(repo, [email], identity, workspaces) };
+  return { repo, service: new NotificationService(repo, [email], identity, workspaces, null) };
 }
 
 const input = (over: Partial<NotifyInput> = {}): NotifyInput => ({
@@ -38,13 +38,13 @@ const input = (over: Partial<NotifyInput> = {}): NotifyInput => ({
 });
 
 describe('NotificationService.notify', () => {
-  it('stores the in-app row and queues one delivery per other channel', async () => {
+  it('stores the in-app row and queues one delivery per other channel (push off: skipped)', async () => {
     const { repo, service } = setup();
     const res = await service.notify(input({ channels: ['in_app', 'email', 'email', 'push'] }));
     expect(res.deduped).toBe(false);
     expect([...repo.deliveries.values()].map((d) => [d.channel, d.status]).sort()).toEqual([
       ['email', 'queued'],
-      ['push', 'queued'],
+      ['push', 'skipped'],
     ]);
     const inAppOnly = await service.notify(input({ channels: ['in_app'] }));
     expect(repo.notifications.has(inAppOnly.id)).toBe(true);

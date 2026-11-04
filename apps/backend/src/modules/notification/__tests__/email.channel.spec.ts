@@ -10,6 +10,8 @@ import {
 
 const message = {
   to: 'lan@example.test',
+  accountId: 'acc',
+  userId: 'usr',
   locale: 'vi' as const,
   title: 'Doanh thu <hôm qua>',
   body: 'Doanh thu: 1.250.000 ₫\n<script>alert(1)</script>\n\nĐơn: 3',

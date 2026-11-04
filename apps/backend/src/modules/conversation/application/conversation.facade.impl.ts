@@ -38,6 +38,7 @@ import { applyControlUpdate, newConversation, preview } from '../domain/conversa
 import { attachTags, tagConditions } from './conversation-tags.js';
 import { refreshCustomerProfile } from './customer-profile.js';
 import { addNote, assertAssignable, markRead, markUnread, setStarred } from './inbox-state.js';
+import { InboxAlerts } from './inbox-alerts.js';
 import {
   CONVERSATION_STORE,
   type ConversationStore,
@@ -68,6 +69,7 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
     @Inject(IDENTITY_FACADE) private readonly identity: IdentityFacade,
     @Inject(CRM_FACADE) private readonly crm: CrmFacade,
     @Inject(BOT_LIFECYCLE) @Optional() private readonly lifecycle?: BotLifecycle,
+    @Inject(InboxAlerts) @Optional() private readonly alerts?: InboxAlerts,
   ) {}
   /** `conversations.bot_id` is "the bot answering now" (ADR-012 §4): a deleted bot answers nothing. */
   onModuleInit(): void {
@@ -129,7 +131,7 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
       async (tx) => (await requireConversation(tx, id)).channelId,
     );
     const bot = await this.channelBot(ws, channelId);
-    return this.store.run(ws, async (tx) => {
+    const handed = await this.store.run(ws, async (tx) => {
       const c = await requireConversation(tx, id);
       const updated = {
         ...c,
@@ -149,6 +151,9 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
       });
       return updated;
     });
+    // Staff learn at once (bell and push) that the bot passed the customer to them (T-190).
+    await this.alerts?.raise(ws, handed, 'handoff');
+    return handed;
   }
   private async tagged(ws: WorkspaceId, c: ConversationView): Promise<ConversationView> {
     return (await attachTags(this.crm, ws, [c]))[0] ?? c;
@@ -553,6 +558,10 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
       return c;
     });
     if (stored.message) await this.linkCustomer(ws, received, stored.previousBotId);
+    // A customer writing while staff hold the conversation: tell them, the bot will not answer.
+    if (stored.message && event.type !== 'echo' && received.mode === 'human') {
+      await this.alerts?.raise(ws, received, 'message', event.text);
+    }
     return received;
   }
   async getReplyContext(ws: WorkspaceId, id: string) {

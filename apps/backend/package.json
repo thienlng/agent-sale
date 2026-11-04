@@ -51,6 +51,7 @@
     "prom-client": "^15.1.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "web-push": "3.6.7",
     "yaml": "^2.9.1",
     "zod": "^4.1.0"
   },
@@ -58,6 +59,7 @@
     "@agent-sales/testing": "workspace:*",
     "@nestjs/testing": "^12.3.2",
     "@types/node": "^26.6.6",
+    "@types/web-push": "^3.6.4",
     "tsx": "^4.20.0",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"
