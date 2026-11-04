@@ -131,7 +131,7 @@ describe('AppSidebar', () => {
   });
 
   it.each([
-    ['education', 'Khoá học'],
+    ['education', 'Dịch vụ'],
     ['spa', 'Dịch vụ'],
   ] as const)(
     'names the catalog for a %s business, without orders or PMS',

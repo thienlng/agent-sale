@@ -66,6 +66,18 @@ export function toRunDto(run: RunRecord & { steps: StepRecord[] }): AssistantRun
     outcome: run.outcome,
     rounds: run.rounds,
     latencyMs: run.latencyMs,
+    debug: {
+      tier: run.tier,
+      provider: run.provider,
+      model: run.model,
+      promptVersion: run.promptVersion,
+      inputTokens: run.inputTokens,
+      cachedTokens: run.cachedTokens,
+      outputTokens: run.outputTokens,
+      guardrail: run.guardrail,
+      startedAt: run.createdAt.toISOString(),
+      finishedAt: run.finishedAt?.toISOString() ?? null,
+    },
     steps: run.steps.map((s) => ({
       idx: s.idx,
       kind: s.kind,
@@ -73,6 +85,7 @@ export function toRunDto(run: RunRecord & { steps: StepRecord[] }): AssistantRun
       ok: s.ok,
       ms: s.ms,
       errorCode: s.errorCode,
+      detail: s.detail ?? null,
     })),
   };
 }

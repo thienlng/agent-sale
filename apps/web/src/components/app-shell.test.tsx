@@ -30,7 +30,7 @@ describe('AppShell', () => {
     expect(screen.getByText('page')).toBeInTheDocument();
   });
 
-  it('names the catalog section for the courses or services of an education or spa business', async () => {
+  it('names the catalog section "Dịch vụ" for an education or spa business', async () => {
     function at(path: string, industry: string) {
       const root = createRootRoute();
       const page = createRoute({
@@ -53,7 +53,7 @@ describe('AppShell', () => {
       return document.querySelector('header');
     };
     let view = at('/app/products/new', 'education');
-    expect(await header()).toHaveTextContent('Khoá học');
+    expect(await header()).toHaveTextContent('Dịch vụ');
     view.unmount();
     view = at('/app/products', 'spa');
     expect(await header()).toHaveTextContent('Dịch vụ');

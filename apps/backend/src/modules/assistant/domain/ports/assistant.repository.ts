@@ -132,6 +132,8 @@ export interface StepRecord {
   ok: boolean | null;
   ms: number | null;
   errorCode: string | null;
+  /** Debug detail (T-189): token usage of a model call, redacted args and result of a tool. */
+  detail?: Record<string, unknown> | null;
 }
 
 export interface SearchHit {

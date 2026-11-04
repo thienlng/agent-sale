@@ -59,7 +59,7 @@ API: `GET /crm/requests/summary` (`contacts.view_all`; 404 outside saas, educati
 
 ## Courses and services
 
-A course or a service is a product with an **offering** (product form, "Chi tiết khoá học" or "Chi tiết dịch vụ"): duration per session or appointment, number of sessions, period, format (online, offline, hybrid), level, schedule, audience, up to 5 outcomes and a price note. In these businesses the products page is called "Khoá học" or "Dịch vụ". An offering has no stock, and the bot never says it is in or out of stock. A price of 0 means "not published": the bot says the price note ("liên hệ") and never "0đ". A spa can still sell retail products (the "Đây là sản phẩm bán lẻ" switch), but its bot takes no orders. Imported products become plain products, so add the offering afterwards.
+A course or a service is a product with an **offering** (product form, "Chi tiết dịch vụ"): duration per session or appointment, number of sessions, period, format (online, offline, hybrid), level, schedule, audience, up to 5 outcomes and a price note. In both businesses the products page is called "Dịch vụ", with the same wording (one label set for the service group); only the level field is shown for courses (or when a level is already saved). An offering has no stock, and the bot never says it is in or out of stock. A price of 0 means "not published": the bot says the price note ("liên hệ") and never "0đ". A spa can still sell retail products (the "Đây là sản phẩm bán lẻ" switch), but its bot takes no orders. Imported products become plain products, so add the offering afterwards.
 
 ## What the bot never promises
 

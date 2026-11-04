@@ -26,6 +26,12 @@ export interface AgentStep {
   ms?: number;
   /** A failed tool step: the `errorCode` its JSON result names (e.g. `turn_budget_exhausted`). */
   errorCode?: string;
+  /** A model call: its token usage and the tools it asked for (debug traces). */
+  usage?: Usage;
+  requested?: string[];
+  /** A tool call: its raw arguments and full result; callers redact and truncate before storing. */
+  input?: unknown;
+  result?: string;
 }
 
 const ERROR_CODE_RE = /^[a-z0-9_:,.-]{1,60}$/i;
@@ -210,7 +216,12 @@ export async function runAgentLoop(input: AgentLoopInput): Promise<AgentLoopResu
     modelCalls += 1;
     usage = usage ? addUsage(usage, out.usage) : out.usage;
     latencyMs += out.latencyMs;
-    step({ kind: 'model_call', ms: now() - callStart });
+    step({
+      kind: 'model_call',
+      ms: now() - callStart,
+      usage: out.usage,
+      requested: out.toolCalls.map((c) => c.name),
+    });
 
     if (out.toolCalls.length === 0) return finish('done', out);
     if (finalCall) {
@@ -243,6 +254,8 @@ export async function runAgentLoop(input: AgentLoopInput): Promise<AgentLoopResu
         ok: r.ok,
         ms: r.ms,
         ...(errorCode ? { errorCode } : {}),
+        input: r.call.input,
+        result: r.content,
       });
     }
     trusted.push(...batch.trusted);

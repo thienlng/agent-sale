@@ -27,32 +27,21 @@ export interface OfferingDraft {
 export const FORMATS: readonly Format[] = ['online', 'offline', 'hybrid'];
 const NO_FORMAT = 'none';
 const MAX_OUTCOMES = 5;
-/** Fields with their own label for a service (`<key>Service` in `commerce.offering`). */
-const SERVICE_WORDS: ReadonlySet<string> = new Set([
-  'durationMinutes',
-  'sessions',
-  'period',
-  'periodPlaceholder',
-  'schedule',
-  'audience',
-  'outcomes',
-]);
-
-/** The `commerce.offering` key of a field label, in the words of the business. */
-export function offeringLabelKey(kind: OfferingKind, key: string): string {
-  return `commerce.offering.${kind === 'service' && SERVICE_WORDS.has(key) ? `${key}Service` : key}`;
+/** The `commerce.offering` key of a field label; one wording for every service business. */
+export function offeringLabelKey(_kind: OfferingKind, key: string): string {
+  return `commerce.offering.${key}`;
 }
 
 /**
- * The key of a catalog word for a course or service ("Khoá học mới", "Lưu dịch vụ"), from
- * `products.course` or `products.service`; `fallback` (the product word) otherwise.
+ * The key of a catalog word for a service business ("Dịch vụ mới", "Lưu dịch vụ"): courses
+ * and spa services share `products.service`; `fallback` (the product word) otherwise.
  */
 export function catalogKey(
   kind: OfferingKind | null | undefined,
   key: string,
   fallback: string,
 ): string {
-  return kind ? `products.${kind}.${key}` : fallback;
+  return kind ? `products.service.${key}` : fallback;
 }
 
 export function offeringDraft(offering: OfferingDetails | null | undefined): OfferingDraft {
@@ -115,9 +104,8 @@ export function ProductOfferingEditor({
 }) {
   const { t } = useTranslation();
   const tr = (key: string) => t(`commerce.offering.${key}`);
-  /** A field label in the words of the business: a spa sells sessions, not a course. */
-  const label = (key: string) =>
-    tr(kind === 'service' && SERVICE_WORDS.has(key) ? `${key}Service` : key);
+  /** Field labels are shared by every service business. */
+  const label = tr;
   // A spa service has no level; it stays visible only when one was already saved.
   const showLevel = kind === 'course' || Boolean(value.level.trim());
   const set = (patch: Partial<OfferingDraft>) => onChange({ ...value, ...patch });
@@ -164,13 +152,9 @@ export function ProductOfferingEditor({
     <section className="rounded-xl border bg-card p-4 md:p-5" aria-labelledby="po-title">
       <div className="space-y-1">
         <h2 id="po-title" className="font-semibold">
-          {tr(kind === 'course' ? 'titleCourse' : 'titleService')}
+          {tr('title')}
         </h2>
-        {retail ? null : (
-          <p className="text-sm text-muted-foreground">
-            {tr(kind === 'course' ? 'hintCourse' : 'hintService')}
-          </p>
-        )}
+        {retail ? null : <p className="text-sm text-muted-foreground">{tr('hint')}</p>}
       </div>
       <div className="mt-4 flex items-start justify-between gap-4 rounded-lg border p-4">
         <div className="space-y-1">

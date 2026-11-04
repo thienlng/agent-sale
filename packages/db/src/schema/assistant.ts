@@ -171,6 +171,8 @@ export const assistantRunSteps = pgTable(
     ok: boolean('ok'),
     ms: integer('ms'),
     errorCode: text('error_code'),
+    /** Debug detail (T-189): usage of a model call, redacted args and result head of a tool. */
+    detail: jsonb('detail').$type<Record<string, unknown>>(),
     createdAt: ts('created_at').notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.runId, t.idx] }), ...accountPolicies('assistant_run_steps')],

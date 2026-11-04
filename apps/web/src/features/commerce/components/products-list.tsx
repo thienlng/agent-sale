@@ -118,12 +118,7 @@ export function ProductsList({
   offeringKind?: 'course' | 'service' | null | undefined;
 }) {
   const { t } = useTranslation();
-  const title =
-    offeringKind === 'course'
-      ? t('nav.courses')
-      : offeringKind === 'service'
-        ? t('nav.services')
-        : t('products.title');
+  const title = offeringKind ? t('nav.services') : t('products.title');
   /** A catalog word, named for the courses or services of an education or spa business. */
   const word = (key: string, fallback: string) => t(catalogKey(offeringKind, key, fallback));
   const navigate = useNavigate();

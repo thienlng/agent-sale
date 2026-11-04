@@ -68,8 +68,24 @@ export function runFixture(over: Partial<AssistantRunDto> = {}): AssistantRunDto
     rounds: 2,
     latencyMs: 1830,
     steps: [
-      { idx: 0, kind: 'model_call', toolName: null, ok: true, ms: 900, errorCode: null },
-      { idx: 1, kind: 'tool', toolName: 'ui_navigate', ok: true, ms: 12, errorCode: null },
+      {
+        idx: 0,
+        kind: 'model_call',
+        toolName: null,
+        ok: true,
+        ms: 900,
+        errorCode: null,
+        detail: null,
+      },
+      {
+        idx: 1,
+        kind: 'tool',
+        toolName: 'ui_navigate',
+        ok: true,
+        ms: 12,
+        errorCode: null,
+        detail: null,
+      },
     ],
     ...over,
   };

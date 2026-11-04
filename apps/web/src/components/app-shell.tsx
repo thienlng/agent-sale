@@ -38,8 +38,8 @@ const SECTION: Record<string, string> = {
   businesses: 'nav.newBusiness',
 };
 
-/** The catalog of an education or spa business is named for what it sells, like the sidebar. */
-const CATALOG_SECTION: Record<string, string> = { education: 'nav.courses', spa: 'nav.services' };
+/** Every service business (education, spa) names its catalog "Dịch vụ", like the sidebar. */
+const CATALOG_SECTION: Record<string, string> = { education: 'nav.services', spa: 'nav.services' };
 
 /**
  * Dashboard shell (Studio Admin layout on shadcn's Sidebar): the sidebar's

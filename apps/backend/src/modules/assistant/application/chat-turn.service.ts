@@ -58,6 +58,7 @@ import { SKILL_TOOL_DEFINITIONS, skillTools } from './skill-tools.js';
 import { SkillsService } from './skills.service.js';
 import { MAX_CHARTS_PER_TURN } from './sql/chart.js';
 import { type NativeToolEntry, SQL_TOOLSET, sqlTools } from './sql/sql-tools.js';
+import { stepDetail } from './step-detail.js';
 import { disabledTools, enabledDefinitions, toolsetCacheSuffix } from './toolsets.js';
 import { withTurnOutputBudget } from './turn-budget.js';
 
@@ -168,8 +169,8 @@ function toRow(m: ChatMessage, runId: string): NewMessage {
 }
 
 /**
- * Steps keep no arguments or results: kind, tool name, ok, duration and, for a failed tool, the
- * error code its result named (`turn_budget_exhausted`, `http_400`, …).
+ * A step keeps its kind, tool name, ok, duration and, for a failed tool, the error code its result
+ * named (`turn_budget_exhausted`, `http_400`, …), plus a redacted debug detail (`stepDetail`).
  */
 const toStepRecord = (runId: string, idx: number, s: AgentStep): StepRecord => ({
   runId,
@@ -179,6 +180,7 @@ const toStepRecord = (runId: string, idx: number, s: AgentStep): StepRecord => (
   ok: s.ok ?? null,
   ms: s.ms === undefined ? null : Math.round(s.ms),
   errorCode: s.errorCode ?? null,
+  detail: stepDetail(s),
 });
 
 /** The last `max` messages, from the first user, event or compaction summary message on. */

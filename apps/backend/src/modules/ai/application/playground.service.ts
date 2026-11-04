@@ -506,7 +506,10 @@ export class PlaygroundService implements AiFacade {
         // Once a message went out, an empty final answer is fine: no gateway retry for it.
         generate: (req) => meter.generate(output.sent.length ? { ...req, allowEmpty: true } : req),
         onStep: (step) => {
-          steps.push(step);
+          // The shop bot keeps no tool arguments or results in its steps (only the trace's
+          // allowlisted detail); the owner-assistant debug fields stay out of its result.
+          const { input: _in, result: _out, usage: _u, requested: _r, ...kept } = step;
+          steps.push(kept);
           recorder.onStep(step);
         },
         isTerminal: (call) => call.name === HANDOFF_TOOL,
