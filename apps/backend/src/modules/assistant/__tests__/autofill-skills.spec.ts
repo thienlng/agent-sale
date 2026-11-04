@@ -74,7 +74,15 @@ describe('shop autofill skills (T-175)', () => {
 
   it('reads one compact catalog page and at most 2 sibling bots before filling (QA retest N1)', () => {
     const fill = skills.get('fill-shop-info')!;
-    expect(fill.version).toBe(4);
+    expect(fill.version).toBe(5);
+    // A field the owner cleared on the form comes back from the saved profile (T-188, Mailisa).
+    expect(fill.body).toContain(
+      'its saved profile facts include the promotion and the policy fields',
+    );
+    expect(fill.body).toContain(
+      "A field empty on the form but filled in the bot's saved profile (the bot you read) gets its saved value back",
+    );
+    expect(fill.body).toContain('never leave it empty or call it unconfirmed');
     expect(fill.body).toContain('GET /products with fields=summary and pageSize=20');
     expect(fill.body).toContain('Read no further page and no product detail');
     expect(fill.body).not.toContain('every next page');
