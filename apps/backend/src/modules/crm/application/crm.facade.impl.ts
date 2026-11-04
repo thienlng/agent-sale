@@ -83,7 +83,12 @@ export class CrmFacadeImpl implements CrmFacade {
 
   recordBotRequest(
     ws: WorkspaceId,
-    input: { kind: CustomerRequestKind; details: unknown; preview: boolean },
+    input: {
+      kind: CustomerRequestKind;
+      details: unknown;
+      preview: boolean;
+      catalogNames?: readonly string[];
+    },
   ): Promise<BotRequestResult> {
     return this.requests.recordFromBot(ws, input);
   }

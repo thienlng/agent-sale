@@ -273,6 +273,22 @@ describe('education requests', () => {
     });
   });
 
+  it('fills an empty course from a goal that names a seen catalog course (T-187)', async () => {
+    const a = await owner('education');
+    const res = await crm.recordBotRequest(a.ws, {
+      kind: 'trial',
+      details: { name: 'Chị Mai', phone: '0983456709', goal: 'Cho bé học khoá Starters' },
+      preview: false,
+      catalogNames: ['Khóa học Starters', 'Khóa học Movers'],
+    });
+    const id = contactIdOf(res);
+    const [request] = (await call(a.headers, 'GET', `/contacts/${id}/requests`)).json().data;
+    expect(request.details).toMatchObject({
+      course: 'Khóa học Starters',
+      goal: 'Cho bé học khoá Starters',
+    });
+  });
+
   it('summarises customers per status and the open requests', async () => {
     const a = await owner('education');
     const open = contactIdOf(

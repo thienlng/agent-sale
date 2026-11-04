@@ -376,6 +376,8 @@ export class PlaygroundService implements AiFacade {
         : null;
     // A bot of a request industry records its requests on the CRM customer itself (ADR-020).
     const requestProfile = requestProfileFor(bot.industry);
+    // The products the turn knows by name: an empty course or service is filled from them.
+    const seenNames = new Map(focus.map((p) => [p.id, p.name]));
     const requestTool: RequestToolContext | null =
       this.crm && requestProfile
         ? {
@@ -385,6 +387,7 @@ export class PlaygroundService implements AiFacade {
             isTest: options.isTest,
             customerTexts,
             calls: actionState.calls,
+            catalogNames: () => [...seenNames.values()],
             onError: (error) => this.#logger.warn(`Request tool failed: ${errorClass(error)}`),
           }
         : null;
@@ -392,7 +395,11 @@ export class PlaygroundService implements AiFacade {
     const tools = turnTools({
       ...(catalog ? { catalog: { ws, scope, catalog } } : {}),
       allowlist,
-      onProducts: (products) => products.forEach((p) => seenProducts.add(p.id)),
+      onProducts: (products) =>
+        products.forEach((p) => {
+          seenProducts.add(p.id);
+          seenNames.set(p.id, p.name);
+        }),
       output,
       ...(options.sink ? { sink: options.sink } : {}),
       sendMessage: !isCommentReply,

@@ -7,12 +7,14 @@ import { describe, expect, it } from 'vitest';
 
 import { defaultStatusesFor } from './crm-defaults.js';
 import {
+  catalogNameIn,
   dateLabel,
   decideStatusMove,
   historyDetails,
   isPastDate,
   requestNote,
   UPDATE_WINDOW_MS,
+  withCatalogItem,
 } from './customer-request.js';
 
 const saas = REQUEST_PROFILES.saas;
@@ -243,5 +245,50 @@ describe('request profiles and statuses', () => {
 
   it('updates within 24 hours', () => {
     expect(UPDATE_WINDOW_MS).toBe(86_400_000);
+  });
+});
+
+describe('catalogNameIn and withCatalogItem (T-187)', () => {
+  const names = [
+    'IELTS Foundation 5.5',
+    'IELTS Intensive 6.5',
+    'Khóa học Starters',
+    'Gội đầu dưỡng sinh',
+  ];
+
+  it('finds the one catalog name a goal or note names, without diacritics too', () => {
+    expect(catalogNameIn('Khoá Starters cho bé', names)).toBe('Khóa học Starters');
+    expect(catalogNameIn('Đăng ký ielts foundation 5.5', names)).toBe('IELTS Foundation 5.5');
+    expect(catalogNameIn('goi dau duong sinh', names)).toBe('Gội đầu dưỡng sinh');
+  });
+
+  it('leaves an ambiguous or unknown text alone', () => {
+    expect(catalogNameIn('Kiểm tra trình độ IELTS', names)).toBeNull();
+    expect(catalogNameIn('IELTS 6.5', names)).toBeNull();
+    expect(catalogNameIn('IELTS Foundation', names)).toBeNull();
+    expect(catalogNameIn('khoá học', names)).toBeNull();
+    expect(catalogNameIn('Starters', [])).toBeNull();
+  });
+
+  it('fills an empty course from the goal and keeps the goal', () => {
+    expect(withCatalogItem({ course: '', goal: 'Học khoá Starters' }, names)).toEqual({
+      course: 'Khóa học Starters',
+      goal: 'Học khoá Starters',
+    });
+  });
+
+  it('fills an empty spa service from the note', () => {
+    expect(withCatalogItem({ service: '', note: 'muốn gội đầu dưỡng sinh' }, names)).toMatchObject({
+      service: 'Gội đầu dưỡng sinh',
+    });
+  });
+
+  it('never replaces a given course, nor adds one where the profile has none', () => {
+    expect(withCatalogItem({ course: 'IELTS', goal: 'Khoá Starters' }, names)).toMatchObject({
+      course: 'IELTS',
+    });
+    expect(withCatalogItem({ need: 'IELTS Foundation' }, names)).toEqual({
+      need: 'IELTS Foundation',
+    });
   });
 });

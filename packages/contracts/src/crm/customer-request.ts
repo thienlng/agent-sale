@@ -229,13 +229,15 @@ const EDUCATION_PROFILE: RequestProfile = {
       key: 'course',
       max: 200,
       label: 'Khoá học quan tâm',
-      describe: 'The course of interest, named as in the catalog',
+      describe:
+        'The course or programme of interest: its name exactly as in the catalog (the product name). Never put it in goal',
     },
     {
       key: 'goal',
       max: 500,
       label: 'Mục tiêu',
-      describe: 'What the student wants to reach, as the customer said ("IELTS 6.5", "giao tiếp")',
+      describe:
+        'What the student wants to reach, as the customer said ("IELTS 6.5", "tự tin giao tiếp"); the course name goes in course, not here',
     },
     {
       key: 'branch',
@@ -297,7 +299,8 @@ const SPA_PROFILE: RequestProfile = {
       key: 'service',
       max: 200,
       label: 'Dịch vụ',
-      describe: 'The service the customer wants, named as in the catalog',
+      describe:
+        'The service or treatment the customer wants: its name exactly as in the catalog (the product name)',
     },
     {
       key: 'branch',

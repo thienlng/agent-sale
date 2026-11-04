@@ -3,7 +3,7 @@ import type {
   RequestProfile,
   RequestStatusMove,
 } from '@agent-sales/contracts';
-import { vietnameseDateLabel } from '@agent-sales/shared';
+import { foldVietnamese, vietnameseDateLabel } from '@agent-sales/shared';
 
 /**
  * Pure rules of a bot-recorded customer request (ESV spec §5.1; ADR-020 generalised): the note
@@ -94,4 +94,66 @@ export function decideStatusMove(
   if (move.move === 'forward_only')
     return positions.current === null || positions.current < positions.target;
   return currentKey === null || !move.keep.includes(currentKey);
+}
+
+/** The free-text fields a model sometimes puts a course or service name into instead (T-187). */
+const ITEM_SOURCES: Readonly<Record<string, readonly string[]>> = {
+  course: ['goal'],
+  service: ['note'],
+};
+
+/** Words of a course or service name too generic to identify one ("khoá học", "lớp", "dịch vụ"). */
+const GENERIC_WORDS = new Set(['khoa', 'hoc', 'lop', 'cho', 'dich', 'vu', 'goi']);
+
+const words = (text: string): string[] =>
+  foldVietnamese(text)
+    .split(/[^\p{L}\p{N}.]+/u)
+    .map((w) => w.replace(/^\.+|\.+$/g, ''))
+    .filter((w) => w && !GENERIC_WORDS.has(w));
+
+/**
+ * The catalog name `text` names: every distinctive word of the name is in the text ("Học khoá
+ * Starters" → "Khóa học Starters"); the longest such name wins. Null when none fits or two tie.
+ * A part of a name ("IELTS 6.5") is a goal, not a course: it fills nothing.
+ */
+export function catalogNameIn(text: string, names: readonly string[]): string | null {
+  const said = words(text);
+  if (!said.length) return null;
+  const has = (all: string[], part: string[]) => part.every((w) => all.includes(w));
+  const unique = [...new Set(names.map((n) => n.trim()).filter(Boolean))];
+  const named = unique.filter((n) => {
+    const w = words(n);
+    return w.length > 0 && has(said, w);
+  });
+  if (!named.length) return null;
+  // The longest name the text contains ("IELTS Foundation 5.5" over "IELTS"), when one is longest.
+  const size = (n: string) => words(n).length;
+  const top = Math.max(...named.map(size));
+  const best = named.filter((n) => size(n) === top);
+  return best.length === 1 ? (best[0] ?? null) : null;
+}
+
+/**
+ * The details with the course (education) or service (spa) filled from the catalog when the model
+ * left it empty but wrote the item's name into goal or note: `customer_requests.item` and the
+ * request card read it. The source field keeps its text.
+ */
+export function withCatalogItem(
+  details: Readonly<Record<string, unknown>>,
+  catalogNames: readonly string[],
+): Record<string, unknown> {
+  const out = { ...details };
+  if (!catalogNames.length) return out;
+  for (const [item, sources] of Object.entries(ITEM_SOURCES)) {
+    if (!(item in out) || (typeof out[item] === 'string' && out[item].trim())) continue;
+    for (const source of sources) {
+      const text = out[source];
+      const name = typeof text === 'string' ? catalogNameIn(text, catalogNames) : null;
+      if (name) {
+        out[item] = name;
+        break;
+      }
+    }
+  }
+  return out;
 }

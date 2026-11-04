@@ -34,6 +34,7 @@ The rule is "move unless at a confirmed status", not "forward only". A returning
 The bot calls its built-in tool `record_request` once it knows the name and a phone number the customer wrote themselves (the last 9 digits must appear in the customer's messages). For a spa appointment it also needs the service and a day or a time. Before calling, it asks for the details worth having, at most two per message:
 
 - **education:** the course or the goal, the student's age or level, the branch or "online", and a preferred time or day. A parent can register a child: the student's name and age go in their own fields.
+- The course or service field holds the catalog name. When the bot leaves it empty but names a course it saw in the conversation in `goal` (education) or a service in `note` (spa), crm fills the field with that catalog name (every distinctive word of the name in the text, one name only).
 - **spa:** the service, the branch, the day and the time window, and how many people come.
 
 A day the customer named is stored as `YYYY-MM-DD`. The server writes its label ("Thứ Bảy 07/11/2026") and the bot repeats it, so the bot never works out a weekday itself. A day before today (Vietnam time) is refused, and the bot asks for a future day. Vague times ("tối thứ 3-5", "sau 18h") stay as the customer wrote them.

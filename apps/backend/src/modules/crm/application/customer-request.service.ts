@@ -19,7 +19,7 @@ import {
 } from '../api/crm.facade.js';
 import { defaultStatusesFor } from '../domain/crm-defaults.js';
 import { ContactNotFoundError, RequestsNotOfferedError } from '../domain/crm.errors.js';
-import { dateLabel, isPastDate } from '../domain/customer-request.js';
+import { dateLabel, isPastDate, withCatalogItem } from '../domain/customer-request.js';
 import { ContactService } from './contact.service.js';
 import { canSee, type Viewer } from './crm-rules.js';
 import { CRM_STORE, type CrmStore, type HistoryRecord } from './ports/crm-store.js';
@@ -47,7 +47,12 @@ export class CustomerRequestService {
   /** The bot's `record_request`. Bad input answers `invalid`, never throws. */
   async recordFromBot(
     ws: WorkspaceId,
-    input: { kind: CustomerRequestKind; details: unknown; preview: boolean },
+    input: {
+      kind: CustomerRequestKind;
+      details: unknown;
+      preview: boolean;
+      catalogNames?: readonly string[];
+    },
   ): Promise<BotRequestResult> {
     // 1–2. The industry's profile, and a kind it offers.
     const { industry } = await this.workspaces.getById(ws);
@@ -63,7 +68,8 @@ export class CustomerRequestService {
           i.path.length ? `${i.path.join('.')}: ${i.message}` : i.message,
         ),
       };
-    const details = parsed.data as Record<string, unknown>;
+    // The course or service named in goal or note, when the model left the item empty (T-187).
+    const details = withCatalogItem(parsed.data, input.catalogNames ?? []);
     // 4. Required groups.
     const unmet = unmetRules(profile.required[input.kind], details);
     if (unmet.length) return { outcome: 'invalid', problems: unmet.map((k) => `missing:${k}`) };

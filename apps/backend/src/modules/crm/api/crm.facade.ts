@@ -163,7 +163,16 @@ export interface CrmFacade {
    */
   recordBotRequest(
     workspaceId: WorkspaceId,
-    input: { kind: CustomerRequestKind; details: unknown; preview: boolean },
+    input: {
+      kind: CustomerRequestKind;
+      details: unknown;
+      preview: boolean;
+      /**
+       * Names of the catalog products the bot saw in the conversation: an empty course or service
+       * is filled from one of them when the goal or note names it (T-187).
+       */
+      catalogNames?: readonly string[];
+    },
   ): Promise<BotRequestResult>;
   /** Requests recorded in `[since, until)` (owner reports `new_requests`). */
   requestsRecorded(

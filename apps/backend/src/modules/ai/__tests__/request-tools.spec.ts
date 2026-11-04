@@ -120,6 +120,7 @@ describe('record_request in the reply pipeline: saas (ADR-020)', () => {
       kind: 'demo',
       details: { name: 'Lan', phone: '0983456721' },
       preview: false,
+      catalogNames: [],
     });
     expect(lastToolResult(requests[1])).toContain('\\"recorded\\":true');
     expect(requests[0]?.tools?.find((t) => t.name === REQUEST_TOOL)?.description).toBe(
@@ -206,6 +207,7 @@ describe('record_request for education and spa', () => {
         preferredTime: 'chiều',
       },
       preview: false,
+      catalogNames: [],
     });
     const result = lastToolResult(requests[1]);
     expect(result).toContain('\\"updated\\":true');
@@ -308,5 +310,22 @@ describe('contactVouched', () => {
     expect(contactVouched({ email: 'lan@example.test' }, ['xlan@example.test'])).toBe(false);
     expect(contactVouched({ email: 'lan@example.test' }, ['lan@example.test.vn'])).toBe(false);
     expect(contactVouched({}, [said])).toBe(true);
+  });
+
+  it('passes the names of the products seen so far, read at call time (T-187)', async () => {
+    const recordBotRequest = vi.fn(async (_ws: unknown, _input: unknown) => recorded);
+    const seen: string[] = [];
+    const { runnable } = requestTools({
+      facade: { recordBotRequest },
+      ws,
+      profile: REQUEST_PROFILES.saas,
+      isTest: false,
+      customerTexts: [said],
+      calls: [],
+      catalogNames: () => seen,
+    });
+    seen.push('Gói Pro');
+    await runnable[0]!.run(args);
+    expect(recordBotRequest.mock.calls[0]?.[1]).toMatchObject({ catalogNames: ['Gói Pro'] });
   });
 });

@@ -86,6 +86,8 @@ export interface RequestToolContext {
   customerTexts: readonly string[];
   /** The turn's call list (the reply's `actions`): the tool adds its own entry. */
   calls: ActionCall[];
+  /** Names of the products the bot saw so far (focus products, search results), read at call time. */
+  catalogNames?: () => readonly string[];
   onError?(error: unknown): void;
 }
 
@@ -112,7 +114,12 @@ export function requestTools(ctx: RequestToolContext): {
       );
       let r: BotRequestResult;
       try {
-        r = await ctx.facade.recordBotRequest(ctx.ws, { kind, details, preview: ctx.isTest });
+        r = await ctx.facade.recordBotRequest(ctx.ws, {
+          kind,
+          details,
+          preview: ctx.isTest,
+          ...(ctx.catalogNames ? { catalogNames: ctx.catalogNames() } : {}),
+        });
       } catch (error) {
         // The customer's reply must not fail: the model says it could not record it right now.
         ctx.onError?.(error);
