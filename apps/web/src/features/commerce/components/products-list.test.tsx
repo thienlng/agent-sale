@@ -173,6 +173,48 @@ describe('ProductsList', () => {
     expect(screen.queryByText(/^0\s?₫$/)).toBeNull();
   });
 
+  it('leaves the 0-priced variants out of the price range of a course or service', async () => {
+    const variant = (id: string, price: number) => ({
+      id,
+      sku: id.slice(-4),
+      name: '',
+      price,
+      cost: 0,
+      weightGram: 0,
+      stock: [],
+    });
+    const MIXED = {
+      ...product('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f09', 'DV02', 'Nâng mũi', false),
+      priceMin: 0,
+      priceMax: 9_000_000,
+      variants: [
+        variant('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f10', 0),
+        variant('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f11', 9_000_000),
+      ],
+    };
+    const RANGE = {
+      ...MIXED,
+      id: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f12',
+      code: 'DV03',
+      name: 'Triệt lông',
+      variants: [
+        variant('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f13', 0),
+        variant('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f14', 2_000_000),
+        variant('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f15', 9_000_000),
+      ],
+    };
+    const { fetchStub } = stubFetch({
+      'GET /products?status=active&page=1&pageSize=20': page([MIXED, RANGE]),
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <ProductsList offeringKind="service" />);
+    const price = (name: string) =>
+      within(screen.getByText(name).closest('tr') as HTMLElement).getAllByRole('cell')[3];
+    await screen.findByText('Nâng mũi');
+    expect(price('Nâng mũi')).toHaveTextContent(/^9\.000\.000\s?₫$/);
+    expect(price('Triệt lông')).toHaveTextContent(/^2\.000\.000\s?₫ – 9\.000\.000\s?₫$/);
+  });
+
   it('keeps a 0 price of a shop product as it is', async () => {
     const { fetchStub } = stubFetch({
       'GET /products?status=active&page=1&pageSize=20': page([
