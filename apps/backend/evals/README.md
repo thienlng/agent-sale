@@ -38,7 +38,7 @@ industry's prompt (`PROMPT_BY_INDUSTRY`: hotel `@18`; saas, education and spa `@
   them before changing a prompt or a model, not in CI.
 - The fakes return every FAQ of the case regardless of the customer's query. The in-memory catalog
   ranks `search_products` queries by accent-folded term overlap with the product name (weight 3),
-  category and description (weight 1), so a live model that searches for a product by name finds it;
+  category, description and an offering's audience and level (weight 1), so a live model that searches for a product by name finds it;
   it is not the SQL ranking (that has its own integration test).
 - **Lodging holds.** A hotel bot gets `check_availability` and, with `orderTaking: true`,
   `prepare_hold` / `confirm_hold` / `cancel_hold_draft` on an in-memory lodging bot facade

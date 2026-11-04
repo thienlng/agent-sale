@@ -183,7 +183,8 @@ const terms = (text: string): string[] =>
 
 /**
  * The in-memory catalog of a case. `search_products` ranks like a small search engine: accent-folded
- * terms of the query found in the name (weight 3), category or description, so a live model that
+ * terms of the query found in the name (weight 3), category, description or offering audience and
+ * level, so a live model that
  * searches for a product by name finds it first. No query lists every product.
  */
 export function evalCatalog(products: ProductDto[]): CatalogFacade {
@@ -200,7 +201,9 @@ export function evalCatalog(products: ProductDto[]): CatalogFacade {
       if (wanted.length) {
         const score = (p: ProductDto): number => {
           const name = foldVietnamese(p.name);
-          const rest = foldVietnamese(`${p.category ?? ''} ${p.description}`);
+          const rest = foldVietnamese(
+            `${p.category ?? ''} ${p.description} ${p.offering?.audience ?? ''} ${p.offering?.level ?? ''}`,
+          );
           return wanted.reduce(
             (sum, t) => sum + (name.includes(t) ? 3 : 0) + (rest.includes(t) ? 1 : 0),
             0,
