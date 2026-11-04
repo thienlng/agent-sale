@@ -123,17 +123,29 @@ const SAAS_RULES: readonly StarterRule[] = [
   },
 ];
 
-const PRICE_WORDING = SHARED_RULES.find((r) => r.title === 'Cách nói giá');
 const PAYMENT = SHARED_RULES.find((r) => r.title === 'Khách hỏi về thanh toán');
-if (!PRICE_WORDING || !PAYMENT) throw new Error('shared starter rules are missing');
+if (!PAYMENT) throw new Error('shared starter rules are missing');
+
+/**
+ * Course fees and service prices are quoted in full (QA retest B9: "2.000k" read badly for a
+ * 2-million service), unlike the shop pack's "k". Same title as the shop rule, so a bot keeps one
+ * price rule. No sample amount, for the number-grounding reason above.
+ */
+const FULL_PRICE_WORDING: StarterRule = {
+  title: 'Cách nói giá',
+  trigger: 'Khi báo giá hoặc học phí',
+  content:
+    'Viết giá đầy đủ bằng số, có dấu chấm ngăn cách hàng nghìn và chữ "đ" ở cuối; không viết tắt bằng "k" hay "triệu". Chỉ báo mức giá có trong dữ liệu của cửa hàng.',
+  section: 'general',
+};
 
 /**
  * Education and spa businesses convert through requests recorded for staff, not orders, so they
- * keep the price wording and payment rules but never the delivery-address rule. No rule states a
+ * keep the payment rule, quote prices in full, and never get the delivery-address rule. No rule states a
  * free slot or class, or promises a result: the bot records the wish and staff confirm it.
  */
 const EDUCATION_RULES: readonly StarterRule[] = [
-  PRICE_WORDING,
+  FULL_PRICE_WORDING,
   PAYMENT,
   {
     title: 'Khách hỏi học phí',
@@ -172,9 +184,9 @@ const EDUCATION_RULES: readonly StarterRule[] = [
   },
   {
     title: 'Mặc cả học phí',
-    trigger: 'Khách xin giảm học phí hoặc mặc cả',
+    trigger: 'Khách chê học phí đắt, xin giảm học phí hoặc mặc cả',
     content:
-      'Không tự giảm học phí. Trước tiên nêu các ưu đãi đang có trong thông tin của trung tâm và mời khách đăng ký tư vấn hoặc học thử. Chỉ chuyển nhân viên khi khách vẫn muốn một mức giá riêng sau khi đã nghe ưu đãi, hoặc khách muốn gặp nhân viên.',
+      'Không tự giảm học phí. Trước tiên nêu các ưu đãi đang có trong thông tin của trung tâm, kể cả ưu đãi chung như học thử, kiểm tra đầu vào miễn phí hay trả góp; ưu đãi chỉ dành cho một khoá thì nói rõ là của khoá đó. Rồi mời khách đăng ký tư vấn hoặc học thử. Chỉ chuyển nhân viên khi khách vẫn đòi một mức giá riêng sau khi đã nghe ưu đãi, hoặc khách muốn gặp nhân viên.',
     section: 'general',
   },
   {
@@ -188,7 +200,7 @@ const EDUCATION_RULES: readonly StarterRule[] = [
 ];
 
 const SPA_RULES: readonly StarterRule[] = [
-  PRICE_WORDING,
+  FULL_PRICE_WORDING,
   PAYMENT,
   {
     title: 'Khách hỏi giá dịch vụ',
@@ -227,9 +239,9 @@ const SPA_RULES: readonly StarterRule[] = [
   },
   {
     title: 'Mặc cả giá',
-    trigger: 'Khách xin giảm giá hoặc mặc cả',
+    trigger: 'Khách chê đắt, xin giảm giá hoặc mặc cả',
     content:
-      'Không tự giảm giá. Trước tiên nêu các ưu đãi đang có trong thông tin của spa và mời khách đặt lịch hoặc để lại thông tin để được tư vấn. Chỉ chuyển nhân viên khi khách vẫn muốn một mức giá riêng sau khi đã nghe ưu đãi, hoặc khách muốn gặp nhân viên.',
+      'Không tự giảm giá. Trước tiên nêu các ưu đãi đang có trong thông tin của spa, cả các mức giá ưu đãi. Nếu thông tin của spa có đăng ký nhận ưu đãi, mời khách để lại họ tên và số điện thoại để đăng ký nhận ưu đãi và được tư vấn; nếu không, mời khách đặt lịch hoặc để lại thông tin để được tư vấn. Chỉ chuyển nhân viên khi khách vẫn đòi một mức giá riêng sau khi đã nghe ưu đãi, hoặc khách muốn gặp nhân viên.',
     section: 'general',
   },
   {

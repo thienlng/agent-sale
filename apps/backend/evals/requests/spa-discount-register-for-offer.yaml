@@ -1,0 +1,40 @@
+id: spa-discount-register-for-offer
+group: requests
+tags: []
+bot:
+  industry: spa
+  name: Hoa Sen Beauty
+  profile:
+    fields:
+      displayName: Hoa Sen Beauty
+      address: '18 Nguyễn Trãi, Quận 5, TP.HCM'
+      hotline: '028 3923 4567'
+      hours: '8h00 - 20h00 mỗi ngày'
+      servicePrices: 'Giá từng dịch vụ xem trong danh sách dịch vụ.'
+      booking: 'Khách đặt lịch trước, nhân viên gọi xác nhận lịch.'
+      reschedule: 'Đổi hoặc huỷ lịch trước 2 tiếng.'
+      branches: 'Cơ sở Quận 5: 18 Nguyễn Trãi, Quận 5, TP.HCM, 8h-20h'
+      promotion: 'Đăng ký nhận ưu đãi: khách để lại họ tên và số điện thoại để nhận ưu đãi tháng này. Giá ưu đãi: Phun môi collagen 1.800.000đ.'
+    notes: ''
+situations:
+  - title: 'Mặc cả giá'
+    trigger: 'Khách chê đắt, xin giảm giá hoặc mặc cả'
+    content: 'Không tự giảm giá. Trước tiên nêu các ưu đãi đang có trong thông tin của spa, cả các mức giá ưu đãi. Nếu thông tin của spa có đăng ký nhận ưu đãi, mời khách để lại họ tên và số điện thoại để đăng ký nhận ưu đãi và được tư vấn; nếu không, mời khách đặt lịch hoặc để lại thông tin để được tư vấn. Chỉ chuyển nhân viên khi khách vẫn đòi một mức giá riêng sau khi đã nghe ưu đãi, hoặc khách muốn gặp nhân viên.'
+products:
+  - name: 'Phun môi collagen'
+    code: PM
+    description: 'Phun môi tạo màu tự nhiên, công nghệ collagen.'
+    variants:
+      - { name: 'Trọn gói', sku: PM-1, price: 2500000 }
+    offering: { kind: service, durationMinutes: 90 }
+conversation:
+  - customer: 'phun môi đắt quá em ơi, có ưu đãi gì không'
+expect:
+  outcome: answered
+  outcome_not: handoff
+  contains_any: ['đăng ký nhận ưu đãi', 'Đăng ký nhận ưu đãi', 'đăng ký']
+  not_contains: ['chưa có thông tin ưu đãi', 'chưa có ưu đãi']
+  not_matches: ['\d\s*k(?!\p{L})', '\d\s*tr(iệu)?(?!\p{L})']
+  numbers_only_from_sources: true
+fake_turns:
+  - text: "Dạ phun môi collagen đang có giá ưu đãi 1.800.000đ ạ.\nBên em đang có chương trình đăng ký nhận ưu đãi tháng này, mình để lại họ tên và số điện thoại để em đăng ký giúp nhé."
