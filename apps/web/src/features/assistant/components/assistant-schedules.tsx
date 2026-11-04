@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { ApiClientError } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format';
+import { useWorkspaceId } from '@/lib/use-workspace';
 import { cn } from '@/lib/utils';
 
 import {
@@ -29,10 +30,10 @@ import {
   useScheduleRuns,
   useSchedules,
 } from '../api/schedules';
-import { useBusinessName } from '../hooks/use-businesses';
+import { useAccountBusinesses, useBusinessName } from '../hooks/use-businesses';
 import { useAssistantUi } from '../stores/assistant-ui.store';
 import { cadenceText } from '../utils/cadence-text';
-import { ScheduleEditor } from './schedule-editor';
+import { defaultTemplate, ScheduleEditor } from './schedule-editor';
 
 /** The last runs of one schedule, newest first. */
 function ScheduleRuns({ scheduleId }: { scheduleId: string }) {
@@ -209,6 +210,11 @@ type Editing = { schedule: ScheduleDto } | { draft: Partial<ScheduleDraft> } | n
 export function AssistantSchedules() {
   const { t } = useTranslation('assistant');
   const list = useSchedules();
+  const ws = useWorkspaceId();
+  // An education or spa business tracks requests, not revenue: the hint suggests a requests report.
+  const industry = useAccountBusinesses().find((b) => b.id === ws)?.industry;
+  const emptyHint =
+    defaultTemplate(industry) === 'new_requests' ? 'schedules.emptyRequests' : 'schedules.empty';
   const [editing, setEditing] = useState<Editing>(null);
   const pendingDraft = useAssistantUi((s) => s.scheduleDraft);
   // An accepted suggestion (now or while the view is open) opens the editor prefilled.
@@ -256,7 +262,7 @@ export function AssistantSchedules() {
       ) : list.isError ? (
         <p className="text-sm text-destructive">{t('schedules.loadError')}</p>
       ) : list.data.items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('schedules.empty')}</p>
+        <p className="text-sm text-muted-foreground">{t(emptyHint)}</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {list.data.items.map((s) => (
