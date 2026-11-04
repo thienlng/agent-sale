@@ -937,6 +937,14 @@
       "outcomesHint": "Mỗi dòng một ý, tối đa 5 ý.",
       "priceNote": "Ghi chú giá",
       "priceNoteHint": "Hiện cạnh giá và thay cho giá 0, ví dụ: giá tham khảo, từ, liên hệ.",
+      "priceOnRequest": "Liên hệ",
+      "durationMinutesService": "Thời lượng (phút)",
+      "sessionsService": "Số buổi/liệu trình",
+      "periodService": "Thời gian liệu trình",
+      "periodPlaceholderService": "1 tháng",
+      "scheduleService": "Khung giờ phục vụ",
+      "audienceService": "Phù hợp với",
+      "outcomesService": "Hiệu quả",
       "col": "Thời lượng",
       "minutesCount": "{{count}} phút",
       "sessionsCount": "{{count}} buổi"
@@ -1002,6 +1010,7 @@
     "noName": "(chưa có tên)",
     "stale": "Khách hàng này vừa được người khác sửa. Đã tải bản mới nhất, hãy kiểm tra rồi lưu lại.",
     "col": {
+      "lead": "Ghi nhận từ",
       "name": "Khách hàng",
       "phone": "Số điện thoại",
       "email": "Email",

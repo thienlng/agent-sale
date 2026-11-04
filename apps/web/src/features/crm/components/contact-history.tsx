@@ -34,10 +34,12 @@ function shown(field: string, v: unknown, lookups: CrmLookups, t: TFunction): st
   return s;
 }
 
-const fieldName = (field: string, t: TFunction) =>
-  field === 'body'
-    ? t('crm.detail.notes')
-    : t(`crm.col.${field.replace(/UserId$/, '').replace(/Id$/, '')}`);
+/** A changed field's name; one without a label shows as itself, never as a raw i18n key. */
+function fieldName(field: string, t: TFunction): string {
+  if (field === 'body') return t('crm.detail.notes');
+  const key = field.replace(/UserId$/, '').replace(/Id$/, '');
+  return t(`crm.col.${key}`, { defaultValue: key });
+}
 
 const isRequest = (type: ContactHistoryType) =>
   type === 'contact.request_recorded' || type === 'contact.request_updated';

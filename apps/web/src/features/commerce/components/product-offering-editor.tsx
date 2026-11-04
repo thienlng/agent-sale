@@ -24,9 +24,24 @@ export interface OfferingDraft {
   priceNote: string;
 }
 
-const FORMATS: readonly Format[] = ['online', 'offline', 'hybrid'];
+export const FORMATS: readonly Format[] = ['online', 'offline', 'hybrid'];
 const NO_FORMAT = 'none';
 const MAX_OUTCOMES = 5;
+/** Fields with their own label for a service (`<key>Service` in `commerce.offering`). */
+const SERVICE_WORDS: ReadonlySet<string> = new Set([
+  'durationMinutes',
+  'sessions',
+  'period',
+  'periodPlaceholder',
+  'schedule',
+  'audience',
+  'outcomes',
+]);
+
+/** The `commerce.offering` key of a field label, in the words of the business. */
+export function offeringLabelKey(kind: OfferingKind, key: string): string {
+  return `commerce.offering.${kind === 'service' && SERVICE_WORDS.has(key) ? `${key}Service` : key}`;
+}
 
 export function offeringDraft(offering: OfferingDetails | null | undefined): OfferingDraft {
   return {
@@ -88,6 +103,11 @@ export function ProductOfferingEditor({
 }) {
   const { t } = useTranslation();
   const tr = (key: string) => t(`commerce.offering.${key}`);
+  /** A field label in the words of the business: a spa sells sessions, not a course. */
+  const label = (key: string) =>
+    tr(kind === 'service' && SERVICE_WORDS.has(key) ? `${key}Service` : key);
+  // A spa service has no level; it stays visible only when one was already saved.
+  const showLevel = kind === 'course' || Boolean(value.level.trim());
   const set = (patch: Partial<OfferingDraft>) => onChange({ ...value, ...patch });
   const text = (
     key: 'period' | 'level' | 'audience' | 'priceNote',
@@ -95,7 +115,7 @@ export function ProductOfferingEditor({
     extra: { placeholder?: string; hint?: string } = {},
   ) => (
     <div className="flex flex-col gap-1.5">
-      <Label htmlFor={`po-${key}`}>{tr(key)}</Label>
+      <Label htmlFor={`po-${key}`}>{label(key)}</Label>
       <Input
         id={`po-${key}`}
         maxLength={max}
@@ -113,7 +133,7 @@ export function ProductOfferingEditor({
   );
   const number = (key: 'durationMinutes' | 'sessions', min: number, max: number) => (
     <div className="flex flex-col gap-1.5">
-      <Label htmlFor={`po-${key}`}>{tr(key)}</Label>
+      <Label htmlFor={`po-${key}`}>{label(key)}</Label>
       <Input
         id={`po-${key}`}
         type="number"
@@ -158,8 +178,8 @@ export function ProductOfferingEditor({
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           {number('durationMinutes', 5, 1440)}
           {number('sessions', 1, 1000)}
-          {text('period', 60, { placeholder: tr('periodPlaceholder') })}
-          {text('level', 120)}
+          {text('period', 60, { placeholder: label('periodPlaceholder') })}
+          {showLevel ? text('level', 120) : null}
           <div className="flex flex-col gap-2 md:col-span-2">
             <Label id="po-format-label">{tr('format')}</Label>
             <RadioGroup
@@ -177,7 +197,7 @@ export function ProductOfferingEditor({
             </RadioGroup>
           </div>
           <div className="flex flex-col gap-1.5 md:col-span-2">
-            <Label htmlFor="po-schedule">{tr('schedule')}</Label>
+            <Label htmlFor="po-schedule">{label('schedule')}</Label>
             <Textarea
               id="po-schedule"
               rows={2}
@@ -188,7 +208,7 @@ export function ProductOfferingEditor({
           </div>
           <div className="md:col-span-2">{text('audience', 300)}</div>
           <div className="flex flex-col gap-1.5 md:col-span-2">
-            <Label htmlFor="po-outcomes">{tr('outcomes')}</Label>
+            <Label htmlFor="po-outcomes">{label('outcomes')}</Label>
             <Textarea
               id="po-outcomes"
               rows={3}

@@ -40,10 +40,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { formatDateTime, formatVnd } from '@/lib/format';
+import { formatDateTime } from '@/lib/format';
 
 import { useBotProducts, useProducts, useSetBotProducts } from '../api/commerce';
 import { downloadCsv, formatProductsCsv } from './bot-products-csv';
+import { priceLabel } from './product-price';
 
 const PAGE_SIZES = [10, 20, 50] as const;
 
@@ -58,6 +59,7 @@ function ProductRow({
   selection?: { checked: boolean; onChange: (checked: boolean) => void } | undefined;
 }) {
   const { t } = useTranslation('training');
+  const { t: common } = useTranslation();
   const navigate = useNavigate();
   return (
     <TableRow
@@ -96,11 +98,7 @@ function ProductRow({
           </span>
         </div>
       </TableCell>
-      <TableCell className="tabular-nums">
-        {product.priceMin === product.priceMax
-          ? formatVnd(product.priceMin)
-          : `${formatVnd(product.priceMin)} – ${formatVnd(product.priceMax)}`}
-      </TableCell>
+      <TableCell className="tabular-nums">{priceLabel(product, false, common)}</TableCell>
       <TableCell className="whitespace-normal text-sm text-muted-foreground">
         <span className="line-clamp-2 break-words">{product.description || '—'}</span>
       </TableCell>

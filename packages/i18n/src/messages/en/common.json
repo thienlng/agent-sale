@@ -941,6 +941,14 @@
       "outcomesHint": "One per line, at most 5.",
       "priceNote": "Price note",
       "priceNoteHint": "Shown next to the price and instead of a 0 price, e.g. reference price, from, ask us.",
+      "priceOnRequest": "Ask us",
+      "durationMinutesService": "Length (minutes)",
+      "sessionsService": "Sessions per package",
+      "periodService": "Package length",
+      "periodPlaceholderService": "1 month",
+      "scheduleService": "Opening slots",
+      "audienceService": "Suits",
+      "outcomesService": "Results",
       "col": "Length",
       "minutesCount": "{{count}} min",
       "sessionsCount": "{{count}} sessions"
@@ -1006,6 +1014,7 @@
     "noName": "(no name)",
     "stale": "Someone else just edited this customer. The latest version is loaded; check it and save again.",
     "col": {
+      "lead": "Captured from",
       "name": "Customer",
       "phone": "Phone",
       "email": "Email",

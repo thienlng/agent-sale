@@ -127,6 +127,64 @@ describe('ProductsList', () => {
     expect(screen.getByRole('columnheader', { name: 'Có thể bán / Thời lượng' })).toBeVisible();
   });
 
+  it('shows the price note, or "Liên hệ", instead of a 0 price of a course or service', async () => {
+    const offering = (priceNote: string) => ({
+      kind: 'course',
+      durationMinutes: null,
+      sessions: null,
+      period: '',
+      format: null,
+      level: '',
+      schedule: '',
+      audience: '',
+      outcomes: [],
+      priceNote,
+    });
+    const free = (id: string, code: string, name: string) => ({
+      ...product(id, code, name, false),
+      priceMin: 0,
+      priceMax: 0,
+    });
+    const ASK = {
+      ...free('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f05', 'KH02', 'Starters'),
+      offering: offering(''),
+    };
+    const NOTED = {
+      ...free('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f06', 'KH03', 'Movers'),
+      offering: offering('theo lộ trình'),
+    };
+    const PRICED = {
+      ...product('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f07', 'KH04', 'Flyers', false),
+      offering: offering('giá tham khảo'),
+    };
+    const LEGACY = free('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f08', 'KH05', 'IELTS');
+    const { fetchStub } = stubFetch({
+      'GET /products?status=active&page=1&pageSize=20': page([ASK, NOTED, PRICED, LEGACY]),
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <ProductsList offeringKind="course" />);
+    const price = (name: string) =>
+      within(screen.getByText(name).closest('tr') as HTMLElement).getAllByRole('cell')[3];
+    await screen.findByText('Starters');
+    expect(price('Starters')).toHaveTextContent(/^Liên hệ$/);
+    expect(price('Movers')).toHaveTextContent(/^theo lộ trình$/);
+    expect(price('Flyers')).toHaveTextContent('100.000 ₫ (giá tham khảo)');
+    expect(price('IELTS')).toHaveTextContent(/^Liên hệ$/);
+    expect(screen.queryByText(/^0\s?₫$/)).toBeNull();
+  });
+
+  it('keeps a 0 price of a shop product as it is', async () => {
+    const { fetchStub } = stubFetch({
+      'GET /products?status=active&page=1&pageSize=20': page([
+        { ...SHOE, priceMin: 0, priceMax: 0 },
+      ]),
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <ProductsList pmsLink={undefined} />);
+    const row = (await screen.findByText('Giày sneaker')).closest('tr') as HTMLElement;
+    expect(within(row).getAllByRole('cell')[3]).toHaveTextContent(/^0\s?₫$/);
+  });
+
   it('filters by source once connected', async () => {
     const { calls } = setup(LINK);
     await screen.findByText('Giày sneaker');

@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useAssistantForm } from '@/lib/assistant-context';
+import { type AssistantFormField, useAssistantForm } from '@/lib/assistant-context';
 import { errorMessage } from '@/lib/errors';
 import { productSaveErrorMessage } from '../hooks/lodging-errors';
 import { cn } from '@/lib/utils';
@@ -20,8 +20,11 @@ import { useSaveProduct, useSaveProductBotSettings } from '../api/commerce';
 import { FieldLabel, LOCKED_FIELD, LockedHint } from './locked-field';
 import { ProductImagesEditor } from './product-images-editor';
 import {
+  FORMATS,
+  type OfferingDraft,
   type OfferingKind,
   offeringDraft,
+  offeringLabelKey,
   ProductOfferingEditor,
   toOffering,
 } from './product-offering-editor';
@@ -111,9 +114,11 @@ export function ProductForm({
     setVariants((vs) => vs.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
 
   // The owner assistant may fill a new product's main fields (the first variant's SKU, price,
-  // cost and weight; the SKU is required to save);
+  // cost and weight; the SKU is required to save), and the details of a course or service;
   // the owner reviews them and saves. Editing an existing product is a proposal, not a fill.
   const first = variants[0];
+  const offeringKey = editKind && !retail ? editKind : null;
+  const offeringLabel = (key: string) => t(offeringLabelKey(offeringKey ?? 'course', key));
   useAssistantForm(
     'product',
     () => [
@@ -161,6 +166,47 @@ export function ProductForm({
         type: 'number',
         empty: !first?.weightGram,
       },
+      ...(offeringKey
+        ? ([
+            {
+              name: 'durationMinutes',
+              label: offeringLabel('durationMinutes'),
+              type: 'number',
+              empty: !offering.durationMinutes,
+            },
+            {
+              name: 'sessions',
+              label: offeringLabel('sessions'),
+              type: 'number',
+              empty: !offering.sessions,
+            },
+            {
+              name: 'format',
+              label: offeringLabel('format'),
+              type: 'select',
+              options: [...FORMATS],
+              empty: !offering.format,
+            },
+            ...(offeringKey === 'course'
+              ? [
+                  {
+                    name: 'level',
+                    label: offeringLabel('level'),
+                    type: 'text' as const,
+                    empty: !offering.level.trim(),
+                    value: offering.level,
+                  },
+                ]
+              : []),
+            {
+              name: 'priceNote',
+              label: offeringLabel('priceNote'),
+              type: 'text',
+              empty: !offering.priceNote.trim(),
+              value: offering.priceNote,
+            },
+          ] satisfies AssistantFormField[])
+        : []),
     ],
     (values) => {
       if (typeof values['code'] === 'string') setCode(values['code'].slice(0, 64));
@@ -177,6 +223,21 @@ export function ProductForm({
       if (typeof values['weightGram'] === 'number' && values['weightGram'] >= 0)
         patch.weightGram = Math.round(values['weightGram']);
       if (Object.keys(patch).length) setVariant(0, patch);
+      if (!offeringKey) return;
+      const details: Partial<OfferingDraft> = {};
+      const whole = (v: unknown, min: number, max: number) =>
+        typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max ? String(v) : null;
+      const minutes = whole(values['durationMinutes'], 5, 1440);
+      if (minutes) details.durationMinutes = minutes;
+      const sessions = whole(values['sessions'], 1, 1000);
+      if (sessions) details.sessions = sessions;
+      const format = FORMATS.find((f) => f === values['format']);
+      if (format) details.format = format;
+      if (offeringKey === 'course' && typeof values['level'] === 'string')
+        details.level = values['level'].slice(0, 120);
+      if (typeof values['priceNote'] === 'string')
+        details.priceNote = values['priceNote'].slice(0, 120);
+      if (Object.keys(details).length) setOffering((o) => ({ ...o, ...details }));
     },
     { submitTarget: 'products.save', enabled: !product },
   );

@@ -1,7 +1,7 @@
 import { ChevronRight, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { customerDisplayName } from '../lib/inbox-list';
+import { customerDisplayName, providerLabel } from '../lib/inbox-list';
 import type { InboxConversation, InboxMessage } from '../lib/inbox-v2-types';
 import { CustomerAvatar } from './customer-avatar';
 import { Hint } from './hint';
@@ -23,7 +23,7 @@ export function PanelProfileHeader({
   const tr = (key: string, options?: Record<string, unknown>) =>
     t(`channelInbox.${key}`, options ?? {});
   const name = customerDisplayName(c, (provider, last4) => tr('v2.row.guest', { provider, last4 }));
-  const provider = c.provider === 'facebook' ? 'Facebook' : 'Instagram';
+  const provider = providerLabel(c.provider);
   return (
     <div className="flex items-center gap-3 border-b px-4 py-3">
       <CustomerAvatar conversation={c} name={name} size="lg" />
