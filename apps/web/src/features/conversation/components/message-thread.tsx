@@ -166,7 +166,7 @@ export function MessageThread({
                   <div
                     title={stamp(m.createdAt)}
                     className={cn(
-                      'min-w-0 rounded-[18px] px-3.5 py-2 text-[15px] leading-snug whitespace-pre-wrap break-words',
+                      'min-w-0 rounded-[18px] px-3.5 py-2 text-sm leading-normal whitespace-pre-wrap break-words',
                       inbound ? 'bg-muted text-foreground' : 'bg-primary text-primary-foreground',
                       m.status === 'failed' && 'opacity-70',
                     )}

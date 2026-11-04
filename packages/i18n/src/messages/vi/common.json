@@ -1499,7 +1499,7 @@
     },
     "logo": {
       "title": "Logo",
-      "rules": "PNG hoặc JPG, hình vuông, tối đa 1 MB. Khuyến nghị 720 × 720 px (cho phép từ 128 đến 2048 px).",
+      "rules": "Chọn ảnh bất kỳ, rồi kéo và phóng to để cắt thành hình vuông.",
       "alt": "Logo của shop",
       "none": "Chưa có logo",
       "upload": "Chọn ảnh",
@@ -1515,8 +1515,14 @@
         "not_square": "Ảnh phải là hình vuông (hiện là {{width}} × {{height}} px).",
         "too_small": "Ảnh quá nhỏ (từ 128 × 128 px trở lên).",
         "too_big": "Ảnh quá lớn (tối đa 2048 × 2048 px).",
-        "type": "Chỉ nhận ảnh PNG hoặc JPG."
-      }
+        "type": "Tệp này không phải ảnh.",
+        "unreadable": "Trình duyệt không mở được ảnh này. Hãy chọn ảnh khác (JPG, PNG, WebP…)."
+      },
+      "cropTitle": "Cắt logo",
+      "cropHint": "Kéo ảnh để căn chỉnh, dùng thanh trượt hoặc con lăn chuột để phóng to, thu nhỏ.",
+      "cropArea": "Vùng cắt logo",
+      "zoom": "Phóng to",
+      "cropSave": "Lưu logo"
     },
     "security": {
       "title": "Xác minh 2 bước",

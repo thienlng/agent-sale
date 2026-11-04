@@ -1503,7 +1503,7 @@
     },
     "logo": {
       "title": "Logo",
-      "rules": "PNG or JPG, square, up to 1 MB. 720 × 720 px recommended (128 to 2048 px accepted).",
+      "rules": "Pick any image, then drag and zoom to crop it to a square.",
       "alt": "Shop logo",
       "none": "No logo yet",
       "upload": "Choose image",
@@ -1519,8 +1519,14 @@
         "not_square": "The image must be square (it is {{width}} × {{height}} px).",
         "too_small": "The image is too small (at least 128 × 128 px).",
         "too_big": "The image is too large (at most 2048 × 2048 px).",
-        "type": "Only PNG or JPG images are accepted."
-      }
+        "type": "This file is not an image.",
+        "unreadable": "The browser can't open this image. Pick another one (JPG, PNG, WebP…)."
+      },
+      "cropTitle": "Crop logo",
+      "cropHint": "Drag the image to position it; use the slider or mouse wheel to zoom.",
+      "cropArea": "Logo crop area",
+      "zoom": "Zoom",
+      "cropSave": "Save logo"
     },
     "security": {
       "title": "Two-step verification",
