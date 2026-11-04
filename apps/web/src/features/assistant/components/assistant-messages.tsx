@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
-import { useAssistantRun } from '../api/assistant';
+import { FIRST_RUN_POLL_MS, useAssistantRun } from '../api/assistant';
 import { useMessageFeedback } from '../api/assistant-settings';
 import { NAVIGATE_FOLLOW_UP_TEXT } from '../utils/navigate-follow-up';
 import { AssistantMarkdown } from './assistant-markdown';
@@ -118,7 +118,13 @@ function placeProposals(
 /** While a turn runs: "Đang tra cứu…" and the steps so far (polled every second). */
 function LiveTurn({ turnId }: { turnId: string }) {
   const { t } = useTranslation('assistant');
-  const run = useAssistantRun(turnId, { poll: true });
+  // The turn whose run may exist by now; another turn starts its own wait.
+  const [ready, setReady] = useState<string | null>(null);
+  useEffect(() => {
+    const timer = setTimeout(() => setReady(turnId), FIRST_RUN_POLL_MS);
+    return () => clearTimeout(timer);
+  }, [turnId]);
+  const run = useAssistantRun(ready === turnId ? turnId : null, { poll: true });
   return (
     <li className="flex max-w-[85%] min-w-0 flex-col gap-2 self-start rounded-2xl rounded-bl-sm bg-muted px-3 py-2">
       <span className="inline-flex items-center gap-2 text-muted-foreground" role="status">

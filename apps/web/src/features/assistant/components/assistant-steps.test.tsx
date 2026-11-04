@@ -11,6 +11,7 @@ import {
 } from '@/testing/assistant-factories';
 import { renderWithProviders, stubFetch } from '@/testing/render';
 
+import { FIRST_RUN_POLL_MS } from '../api/assistant';
 import { AssistantMessages } from './assistant-messages';
 import { AssistantThreadList } from './assistant-thread-list';
 
@@ -55,6 +56,35 @@ describe('assistant steps and threads', () => {
     expect(screen.getByText('45 ms')).toBeInTheDocument();
     expect(screen.getByText('Suy nghĩ')).toBeInTheDocument();
     expect(screen.getByText('900 ms')).toBeInTheDocument();
+  });
+
+  it('polls a live turn only after the send had time to create its run', async () => {
+    const { fetchStub, calls } = stubFetch({
+      [`GET /assistant/runs/${ASSISTANT_IDS.turn}`]: {
+        status: 200,
+        body: runFixture({
+          steps: [
+            { idx: 0, kind: 'tool', toolName: 'tool_search', ok: true, ms: 12, errorCode: null },
+          ],
+        }),
+      },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    const startedAt = Date.now();
+    renderWithProviders(
+      <AssistantMessages
+        messages={[]}
+        loading={false}
+        pendingTurn={ASSISTANT_IDS.turn}
+        unavailable={false}
+      />,
+    );
+    await new Promise((resolve) => setTimeout(resolve, FIRST_RUN_POLL_MS / 2));
+    expect(calls).toHaveLength(0);
+    await waitFor(() => expect(calls).toHaveLength(1), { timeout: FIRST_RUN_POLL_MS * 2 });
+    expect(calls[0]?.key).toBe(`GET /assistant/runs/${ASSISTANT_IDS.turn}`);
+    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(FIRST_RUN_POLL_MS - 20);
+    expect(await screen.findByText('tool_search')).toBeInTheDocument();
   });
 
   it('lists threads pinned first and searches with q after typing stops', async () => {

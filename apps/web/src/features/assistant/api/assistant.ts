@@ -68,8 +68,16 @@ export function useAssistantMessages(threadId: string | null) {
 }
 
 /**
- * One run with its steps. `poll` refetches every second while a turn runs; the run may not
- * exist for the first moment, so errors are not retried and simply wait for the next poll.
+ * How long a live turn waits before its first poll. The send and the first poll leave together,
+ * and the server creates the run row only when the send arrives: a poll at once answered 404 on
+ * every turn (T-188). The run row is the first thing the send writes, well within this delay.
+ */
+export const FIRST_RUN_POLL_MS = 1000;
+
+/**
+ * One run with its steps. `poll` refetches every second while a turn runs. A live turn starts
+ * polling only after `FIRST_RUN_POLL_MS`, once the send has created the run; should a poll still
+ * miss it, errors are not retried and simply wait for the next poll.
  */
 export function useAssistantRun(runId: string | null, { poll = false } = {}) {
   const ws = useWorkspaceId();
