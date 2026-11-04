@@ -25,7 +25,7 @@ import type { PublicObjectStorage } from '../../../common/storage/public-object-
 import { PRODUCT_IMAGE_STORAGE } from './ports/product-image-storage.js';
 
 import type { BotCatalogScope } from '../api/catalog.facade.js';
-import { catalogTerms } from '../domain/bot-catalog-query.js';
+import { catalogTerms, coversAge, queryAge } from '../domain/bot-catalog-query.js';
 import { LodgingError } from '../domain/lodging.js';
 import {
   BotNotFoundError,
@@ -128,6 +128,25 @@ function productSearchText(
   return foldVietnamese([p.code, p.name, ...variants.flatMap((v) => [v.sku, v.name])].join(' '));
 }
 
+/**
+ * Search rows with the products whose stated ages cover `age` first, then those that state no
+ * age, then those for other ages; each group keeps the search order. Null `age` keeps the rows.
+ */
+function byAge(rows: ProductDto[], age: number | null): ProductDto[] {
+  if (age === null) return rows;
+  const group = (d: ProductDto) => {
+    const covers = coversAge(
+      [d.name, d.description, d.offering?.audience ?? '', d.offering?.level ?? ''].join(' \n '),
+      age,
+    );
+    return covers === true ? 0 : covers === null ? 1 : 2;
+  };
+  return rows
+    .map((d, i) => ({ d, i, g: group(d) }))
+    .sort((a, b) => a.g - b.g || a.i - b.i)
+    .map((x) => x.d);
+}
+
 /** Most rows a bot catalog search or browse returns (spec §5). */
 const BOT_CATALOG_CAP = 300;
 
@@ -169,17 +188,20 @@ export class CatalogService {
           .replace(/[^\p{L}\p{N}]+/gu, ' ')
           .trim()
       : '';
+    // A course for "con 7 tuổi": the products whose stated ages cover it come first (T-187).
+    const age = terms.length ? queryAge(input.query ?? '') : null;
     // Price and stock are computed from variants and stock rows, so they filter after the query.
-    const filtered = input.maxPriceVnd !== undefined || input.inStockOnly === true;
+    const filtered = input.maxPriceVnd !== undefined || input.inStockOnly === true || age !== null;
     try {
       return await this.store.run(ws, async (tx) => {
         const rows = await tx.products.searchForBot({
           terms,
           query,
           selectedFor: selection(bot),
+          withStatedAges: age !== null,
           limit: filtered ? BOT_CATALOG_CAP : limit,
         });
-        const dtos = await this.#dtos(tx, rows);
+        const dtos = byAge(await this.#dtos(tx, rows), age);
         // An accommodation has no stock and a rate reference rather than a price: neither filter applies.
         return (
           dtos

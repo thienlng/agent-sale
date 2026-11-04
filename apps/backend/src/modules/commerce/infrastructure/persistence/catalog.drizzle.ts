@@ -49,6 +49,9 @@ function linkRace(e: unknown): void {
     throw new ExternalLinkConflictError(constraint);
 }
 
+/** A stated age in folded text: "7 tuoi", "6-7 tuoi", "16+ tuoi", "5t" (T-187). */
+const STATED_AGE = '[0-9][[:space:]]*([+][[:space:]]*)?(tuoi|t)([^[:alnum:]]|$)';
+
 /** Drops below this best single-term word_similarity (spec §5). */
 const SIMILARITY_FLOOR = 0.3;
 
@@ -209,7 +212,7 @@ export function catalogTx(
         ]);
         return { rows: rows.map(toProduct), total: n(count?.c) };
       },
-      async searchForBot({ terms, query, selectedFor, limit }) {
+      async searchForBot({ terms, query, selectedFor, withStatedAges, limit }) {
         const base = botVisible(selectedFor);
         if (!terms.length) {
           const rows = await tx
@@ -223,6 +226,11 @@ export function catalogTx(
         const category = foldedSql(sql`coalesce(${p.category}, '')`);
         const name = foldedSql(sql`${p.name}`);
         const text = sql`${p.searchText}`;
+        // The description and a course's or service's audience and level are searched too, at the
+        // category's weight (T-187): "khoá cho bé 6-7 tuổi" lives there more often than in a name.
+        const details = foldedSql(
+          sql`coalesce(${p.description}, '') || ' ' || coalesce(${p.offering}->>'audience', '') || ' ' || coalesce(${p.offering}->>'level', '')`,
+        );
         // A 1–2 letter term ("so" of "sơ mi") is too short for trigrams: as a fuzzy prefix it would
         // match every word starting with "s". It counts only as a whole word.
         const termScore = (t: string, against: SQL) =>
@@ -231,13 +239,23 @@ export function catalogTx(
             : sql`word_similarity(${t}, ${against})`;
         const sims = terms.map((t) => termScore(t, text));
         const catSims = terms.map((t) => termScore(t, category));
+        const detailSims = terms.map((t) => termScore(t, details));
         const sum = (parts: SQL[]) => sql.join(parts, sql` + `);
-        const score = sql`(${sum(sims)}) + 0.5 * (${sum(catSims)}) + (case when strpos(${name}, ${query}) > 0 then 1.0 else 0 end)`;
-        const best = sql`greatest(${sql.join([...sims, ...catSims], sql`, `)})`;
+        const score = sql`(${sum(sims)}) + 0.5 * (${sum(catSims)}) + 0.5 * (${sum(detailSims)}) + (case when strpos(${name}, ${query}) > 0 then 1.0 else 0 end)`;
+        const best = sql`greatest(${sql.join([...sims, ...catSims, ...detailSims], sql`, `)})`;
+        // The caller ranks these by the age the query names (the age itself is no trigram term).
+        const statesAge = withStatedAges
+          ? sql` or (${name} || ' ' || ${details}) ~ ${STATED_AGE}`
+          : sql``;
         const rows = await tx
           .select()
           .from(p)
-          .where(and(base, sql`(${best} >= ${SIMILARITY_FLOOR} or strpos(${name}, ${query}) > 0)`))
+          .where(
+            and(
+              base,
+              sql`(${best} >= ${SIMILARITY_FLOOR} or strpos(${name}, ${query}) > 0${statesAge})`,
+            ),
+          )
           .orderBy(desc(score), asc(p.name), asc(p.id))
           .limit(limit);
         return rows.map(toProduct);

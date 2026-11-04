@@ -377,6 +377,8 @@ export interface CommerceTx {
       query: string;
       /** Only the products selected for this bot. */
       selectedFor?: string | undefined;
+      /** Also return the rows whose name, description or offering audience state an age (T-187). */
+      withStatedAges?: boolean;
       limit: number;
     }): Promise<ProductRecord[]>;
     /** Active, bot-visible products with these ids (any order). */
