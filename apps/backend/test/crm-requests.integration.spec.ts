@@ -192,6 +192,53 @@ describe('saas requests (ported from saas.integration.spec.ts)', () => {
 });
 
 describe('education requests', () => {
+  it('merges an update over the earlier details: course and day stay (QA retest M5)', async () => {
+    const a = await owner('education');
+    const date = vnDate(4);
+    const first = await record(a.ws, 'trial', {
+      name: 'Chị Thu',
+      phone: '0983456790',
+      course: 'Starters 6-7 tuổi',
+      branch: 'online',
+      preferredDate: date,
+    });
+    const id = contactIdOf(first);
+    // A new conversation repeats only the name, the phone and what changed.
+    const upd = await record(a.ws, 'trial', {
+      name: 'Chị Thu',
+      phone: '0983456790',
+      studentAge: '7',
+    });
+    expect(upd).toMatchObject({ outcome: 'updated', contactId: id });
+    expect(upd.outcome === 'updated' && upd.dateLabel).toMatch(/^(Thứ|Chủ)/);
+    const [latest] = (await call(a.headers, 'GET', `/contacts/${id}/requests`)).json().data;
+    expect(latest).toMatchObject({
+      update: true,
+      details: {
+        course: 'Starters 6-7 tuổi',
+        branch: 'online',
+        studentAge: '7',
+        preferredDate: date,
+      },
+    });
+    expect(latest.dateLabel).toMatch(/^(Thứ|Chủ)/);
+    expect((await notes(a.headers, id))[0]?.body).toContain('Starters 6-7 tuổi');
+
+    // A new time replaces the old day and time together; the course stays.
+    await record(a.ws, 'trial', {
+      name: 'Chị Thu',
+      phone: '0983456790',
+      preferredTime: 'sáng chủ nhật',
+    });
+    const [moved] = (await call(a.headers, 'GET', `/contacts/${id}/requests`)).json().data;
+    expect(moved.details).toMatchObject({
+      course: 'Starters 6-7 tuổi',
+      preferredTime: 'sáng chủ nhật',
+    });
+    expect(moved.details).not.toHaveProperty('preferredDate');
+    expect(moved.dateLabel).toBeNull();
+  });
+
   it('records a placement test, updates it within 24 h and keeps confirmed statuses', async () => {
     const a = await owner('education');
     const res = await record(a.ws, 'placement_test', {

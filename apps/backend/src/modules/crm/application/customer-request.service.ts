@@ -94,7 +94,7 @@ export class CustomerRequestService {
       renameFrom: websiteLeadName(phone),
     });
     // 9. Status, history entry and note in one transaction.
-    const { updated } = await this.contacts.applyBotRequest(ws, contactId, {
+    const applied = await this.contacts.applyBotRequest(ws, contactId, {
       industry,
       profile,
       kind: input.kind,
@@ -102,11 +102,14 @@ export class CustomerRequestService {
       dateLabel: label,
     });
     return {
-      outcome: updated ? 'updated' : 'recorded',
+      outcome: applied.updated ? 'updated' : 'recorded',
       contactId,
       created,
-      missing,
-      dateLabel: label,
+      // An update is judged on the merged details: what the earlier request said is not missing.
+      missing: applied.updated
+        ? unmetRules(profile.recommended[input.kind], applied.details)
+        : missing,
+      dateLabel: applied.dateLabel,
     };
   }
 

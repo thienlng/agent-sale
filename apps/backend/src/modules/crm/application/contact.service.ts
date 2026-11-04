@@ -32,8 +32,10 @@ import { lockedFields } from '../domain/external-contact.js';
 import { DEFAULT_SOURCES, defaultStatusesFor } from '../domain/crm-defaults.js';
 import {
   BOT_AUTHOR,
+  dateLabel,
   decideStatusMove,
   historyDetails,
+  mergeRequestDetails,
   sameRequest,
   requestNote,
   UPDATE_WINDOW_MS,
@@ -453,7 +455,11 @@ export class ContactService {
       details: Readonly<Record<string, unknown>>;
       dateLabel: string | null;
     },
-  ): Promise<{ updated: boolean }> {
+  ): Promise<{
+    updated: boolean;
+    details: Readonly<Record<string, unknown>>;
+    dateLabel: string | null;
+  }> {
     const defaults = defaultStatusesFor(input.industry);
     return this.store.run(ws, async (tx) => {
       const contact = await this.#contact(tx, contactId, { forUpdate: true });
@@ -464,11 +470,17 @@ export class ContactService {
         new Date(now.getTime() - UPDATE_WINDOW_MS),
       );
       const updated = earlier !== null;
-      const body = requestNote(input.profile, input.kind, input.details, updated);
-      const details = historyDetails(input.profile, input.details);
+      // An update keeps what the earlier request said and the new call left out (QA retest M5).
+      const merged = earlier ? mergeRequestDetails(earlier.data, input.details) : input.details;
+      const date = typeof merged['preferredDate'] === 'string' ? merged['preferredDate'] : '';
+      const label =
+        date === input.details['preferredDate'] ? input.dateLabel : date ? dateLabel(date) : null;
+      const out = { updated, details: merged, dateLabel: label };
+      const body = requestNote(input.profile, input.kind, merged, updated);
+      const details = historyDetails(input.profile, merged);
       // A retried call (or the same call twice in one turn): the latest request entry of this kind
       // already holds exactly these details. Notes are not compared: staff may add one in between.
-      if (earlier && sameRequest(earlier.data, details, input.dateLabel)) return { updated };
+      if (earlier && sameRequest(earlier.data, details, label)) return out;
       const [latestNote] = await tx.notes.list(contactId);
       const move = input.profile.status[input.kind];
       const moved = move ? await this.#moveStatus(tx, ws, contact, move, defaults, now) : null;
@@ -481,11 +493,11 @@ export class ContactService {
         null,
         BOT_AUTHOR,
         now,
-        { kind: input.kind, details, dateLabel: input.dateLabel },
+        { kind: input.kind, details, dateLabel: label },
       );
       if (latestNote?.body !== body)
         await this.#systemNote(tx, ws, contactId, body, BOT_AUTHOR, now);
-      return { updated };
+      return out;
     });
   }
 

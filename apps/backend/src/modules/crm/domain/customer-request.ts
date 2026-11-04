@@ -76,6 +76,30 @@ export function historyDetails(
   return out;
 }
 
+/** The day fields: an update that names one replaces both (a new day drops the old time). */
+const WHEN_FIELDS = ['preferredDate', 'preferredTime'] as const;
+
+/**
+ * The details of an update (QA retest M5): the previous request's stored details (`data.details`
+ * of its history entry), with every non-empty new value over them. A new conversation often
+ * repeats only what changed ("đổi sang sáng chủ nhật"), so the course, branch or service stay.
+ * When the update gives `preferredDate` or `preferredTime`, both old ones are dropped first, so a
+ * new time never sits next to the old day.
+ */
+export function mergeRequestDetails(
+  previous: Readonly<Record<string, unknown>> | null,
+  next: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
+  const given = (v: unknown) =>
+    typeof v === 'string' ? v.trim() !== '' : v !== null && v !== undefined;
+  const stored = (previous?.['details'] ?? {}) as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(stored)) if (typeof v === 'string' && v.trim()) out[k] = v;
+  if (WHEN_FIELDS.some((k) => given(next[k]))) for (const k of WHEN_FIELDS) delete out[k];
+  for (const [k, v] of Object.entries(next)) if (given(v)) out[k] = v;
+  return out;
+}
+
 /**
  * Whether a stored request entry's data (`{kind, details, dateLabel}`) holds exactly these details
  * and day label: a retried call, or the same call twice in one turn, which writes nothing.

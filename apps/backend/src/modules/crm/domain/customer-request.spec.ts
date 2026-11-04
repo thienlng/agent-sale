@@ -12,6 +12,7 @@ import {
   decideStatusMove,
   historyDetails,
   isPastDate,
+  mergeRequestDetails,
   requestNote,
   UPDATE_WINDOW_MS,
   withCatalogItem,
@@ -290,5 +291,37 @@ describe('catalogNameIn and withCatalogItem (T-187)', () => {
     expect(withCatalogItem({ need: 'IELTS Foundation' }, names)).toEqual({
       need: 'IELTS Foundation',
     });
+  });
+});
+
+describe('mergeRequestDetails (QA retest M5)', () => {
+  const earlier = {
+    kind: 'trial',
+    details: { course: 'Starters', branch: 'online', preferredDate: '2026-11-07', note: '' },
+    dateLabel: 'Thứ Bảy 07/11/2026',
+  };
+
+  it('keeps the earlier details the update leaves out, and takes every new value', () => {
+    expect(
+      mergeRequestDetails(earlier, { name: 'Thu', phone: '0912', branch: '', course: 'Movers' }),
+    ).toEqual({
+      course: 'Movers',
+      branch: 'online',
+      preferredDate: '2026-11-07',
+      name: 'Thu',
+      phone: '0912',
+    });
+  });
+
+  it('replaces the day and the time together', () => {
+    expect(mergeRequestDetails(earlier, { preferredTime: 'sáng chủ nhật' })).toEqual({
+      course: 'Starters',
+      branch: 'online',
+      preferredTime: 'sáng chủ nhật',
+    });
+  });
+
+  it('starts from nothing without an earlier entry', () => {
+    expect(mergeRequestDetails(null, { name: 'Thu' })).toEqual({ name: 'Thu' });
   });
 });
