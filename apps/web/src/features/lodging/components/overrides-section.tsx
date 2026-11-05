@@ -28,9 +28,12 @@ const ddmmyyyy = (night: string) =>
 export function OverridesSection({
   property: p,
   canEdit,
+  target,
 }: {
   property: PropertyDto;
   canEdit: boolean;
+  /** Only this target's special dates (a unit page); undefined = all. */
+  target?: string | null | undefined;
 }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState<RateDto | null | undefined>(undefined);
@@ -38,10 +41,14 @@ export function OverridesSection({
   const remove = useDeleteOverride();
   const saveError = useSaveError();
   const overrides = p.rates
-    .filter((r) => r.kind === 'override')
+    .filter((r) => r.kind === 'override' && (target === undefined || r.unitId === target))
     .sort((a, b) => (a.dateFrom ?? '').localeCompare(b.dateFrom ?? ''));
   const unitName = (id: string | null) =>
     id === null ? t('lodging.rates.whole') : (p.units.find((u) => u.id === id)?.name ?? '');
+  const targetName = (r: RateDto) => {
+    const pkg = r.packageId ? p.packages.find((k) => k.id === r.packageId)?.name : undefined;
+    return [target === undefined ? unitName(r.unitId) : '', pkg ?? ''].filter(Boolean).join(' · ');
+  };
 
   return (
     <section className="grid gap-3">
@@ -73,7 +80,7 @@ export function OverridesSection({
                   to: ddmmyyyy(r.dateTo ?? ''),
                 })}
               </span>
-              <span className="text-muted-foreground">{unitName(r.unitId)}</span>
+              <span className="text-muted-foreground">{targetName(r)}</span>
               <span className="tabular-nums">
                 {formatVnd(r.sell)}
                 <span className="text-xs text-muted-foreground"> / {formatVnd(r.cost)}</span>
@@ -110,7 +117,12 @@ export function OverridesSection({
         </ul>
       )}
       {editing !== undefined && (
-        <OverrideDialog property={p} rate={editing} onClose={() => setEditing(undefined)} />
+        <OverrideDialog
+          property={p}
+          rate={editing}
+          lockedTarget={target}
+          onClose={() => setEditing(undefined)}
+        />
       )}
       <AlertDialog open={deleting !== null} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>

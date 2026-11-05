@@ -4,13 +4,20 @@ import { useTranslation } from 'react-i18next';
 import { MoneyInput } from '@/components/money-input';
 import { cn } from '@/lib/utils';
 
-import { type RateRow, WEEKDAYS } from '../lib/rates-model';
+import { type RateCell, type RateRow, WEEKDAYS } from '../lib/rates-model';
+
+/** Accessible name of a row: the target, plus the package for a package row. */
+export const rowTitle = (row: RateRow) =>
+  row.packageKey ? `${row.name} · ${row.packageName}` : row.name;
 
 /**
- * Weekday price table: one row per target (whole place / room), one column per day
- * T2…CN, each cell a sell input over a smaller cost input; a narrow column names the
- * two lines ("Giá bán" / "Giá nhập") so the second line is not read as a duplicate. Rows that miss a price show
- * the days right under the row, and their empty sell inputs are marked invalid.
+ * Weekday price table: one row per target (whole place / room), or per package of a
+ * target with packages (most bedrooms first), one column per day T2…CN, each cell a sell
+ * input over a smaller cost input; a narrow column names the two lines ("Giá bán" /
+ * "Giá nhập") so the second line is not read as a duplicate. A package row shows its
+ * name, with the target and "Gói đầy đủ" under it; an empty day of a package that is
+ * not the full one reads "Không bán". Rows that miss a price show the days right under
+ * the row, and their empty sell inputs are marked invalid.
  */
 export function RatesMatrix({
   rows,
@@ -19,28 +26,29 @@ export function RatesMatrix({
   onChange,
 }: {
   rows: RateRow[];
-  /** Row index → missing weekdays (only after a save attempt or a blur). */
-  errors: Map<number, number[]>;
+  /** Row key → missing weekdays (only after a save attempt). */
+  errors: Map<string, number[]>;
   disabled: boolean;
-  onChange: (rows: RateRow[]) => void;
+  onChange: (key: string, cells: RateCell[]) => void;
 }) {
   const { t } = useTranslation();
   const day = (d: number) => t(`lodging.weekdayShort.${d}`);
-  const setRow = (i: number, row: RateRow) => onChange(rows.map((r, j) => (j === i ? row : r)));
-  const setCell = (i: number, d: number, patch: Partial<{ sell: number; cost: number }>) => {
-    const row = rows[i];
-    if (!row) return;
-    setRow(i, {
-      ...row,
-      cells: row.cells.map((c, k) => (k === d - 1 ? { ...c, ...patch } : c)),
-    });
-  };
-  const label = (row: RateRow) =>
-    row.unitId === null && !row.required
+  const setCell = (row: RateRow, d: number, patch: Partial<RateCell>) =>
+    onChange(
+      row.key,
+      row.cells.map((c, k) => (k === d - 1 ? { ...c, ...patch } : c)),
+    );
+  const severalTargets = new Set(rows.map((r) => r.unitId)).size > 1;
+  const targetLabel = (row: RateRow) =>
+    row.wholeOptional
       ? t('lodging.rates.wholeOptional')
       : row.inactive
         ? t('lodging.rates.roomInactive', { name: row.name })
         : row.name;
+  const subLabel = (row: RateRow) =>
+    [severalTargets ? targetLabel(row) : '', row.full ? t('lodging.packages.full') : '']
+      .filter(Boolean)
+      .join(' · ');
 
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -66,13 +74,31 @@ export function RatesMatrix({
         </thead>
         <tbody>
           {rows.map((row, i) => {
-            const missing = errors.get(i) ?? [];
+            const missing = errors.get(row.key) ?? [];
             const errorId = `rates-row-${i}-error`;
+            const title = rowTitle(row);
+            const sub = row.packageKey ? subLabel(row) : '';
+            const notSold = row.fill === 'any';
             return (
-              <Fragment key={row.unitId ?? 'whole'}>
+              <Fragment key={row.key}>
                 <tr className={cn('border-t align-top', row.inactive && 'text-muted-foreground')}>
                   <th scope="row" className="px-3 py-2 text-left font-medium">
-                    <span className="flex min-h-8 items-center break-words">{label(row)}</span>
+                    {row.packageKey ? (
+                      <>
+                        <span className="flex min-h-8 items-center break-words">
+                          {row.packageName || t('lodging.packages.unnamed')}
+                        </span>
+                        {sub && (
+                          <span className="mt-1 flex min-h-7 items-center text-xs font-normal text-muted-foreground">
+                            {sub}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="flex min-h-8 items-center break-words">
+                        {targetLabel(row)}
+                      </span>
+                    )}
                   </th>
                   <td className="px-1.5 py-2 text-xs text-muted-foreground" aria-hidden>
                     <span className="flex h-8 items-center font-medium text-foreground">
@@ -86,25 +112,29 @@ export function RatesMatrix({
                     return (
                       <td key={d} className={cn('px-1.5 py-2', d >= 6 && 'bg-muted/30')}>
                         <MoneyInput
-                          aria-label={t('lodging.rates.sellLabel', { row: row.name, day: day(d) })}
+                          aria-label={t('lodging.rates.sellLabel', { row: title, day: day(d) })}
                           aria-invalid={invalid || undefined}
                           aria-describedby={invalid ? errorId : undefined}
-                          placeholder={t('lodging.rates.sell')}
+                          placeholder={
+                            notSold ? t('lodging.packages.notSold') : t('lodging.rates.sell')
+                          }
                           disabled={disabled}
                           value={cell.sell}
-                          onValueChange={(sell) => setCell(i, d, { sell })}
+                          onValueChange={(sell) => setCell(row, d, { sell })}
                           className="h-8 bg-background px-2 text-sm"
                         />
                         <MoneyInput
-                          aria-label={t('lodging.rates.costLabel', { row: row.name, day: day(d) })}
+                          aria-label={t('lodging.rates.costLabel', { row: title, day: day(d) })}
                           placeholder={
                             cell.sell
                               ? new Intl.NumberFormat('vi-VN').format(cell.sell)
-                              : t('lodging.rates.cost')
+                              : notSold
+                                ? '—'
+                                : t('lodging.rates.cost')
                           }
                           disabled={disabled}
                           value={cell.cost}
-                          onValueChange={(cost) => setCell(i, d, { cost })}
+                          onValueChange={(cost) => setCell(row, d, { cost })}
                           className="mt-1 h-7 bg-background px-2 text-xs text-muted-foreground"
                         />
                       </td>
@@ -116,7 +146,7 @@ export function RatesMatrix({
                     <td colSpan={9} className="px-3 pb-2">
                       <p id={errorId} className="text-xs text-destructive">
                         {t('lodging.rates.missing', {
-                          row: row.name,
+                          row: title,
                           days: missing.map(day).join(', '),
                         })}
                       </p>

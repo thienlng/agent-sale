@@ -66,6 +66,7 @@ const calendar: CalendarDto = {
           segments: [
             {
               bookingId: BK1,
+              packageNames: [],
               code: 'BK-0001',
               kind: 'stay',
               status: 'confirmed',
@@ -104,6 +105,7 @@ const calendar: CalendarDto = {
           segments: [
             {
               bookingId: BK2,
+              packageNames: [],
               code: 'BK-0002',
               kind: 'stay',
               status: 'hold',
@@ -171,9 +173,18 @@ const property: PropertyDto = {
       capacityChildren: 8,
       active: true,
       sortOrder: 0,
+      category: 'room',
+      view: '',
+      areaM2: null,
+      description: '',
+      amenities: [],
+      maxGuests: null,
+      gallery: [],
+      galleryCover: '',
     },
   ],
   rates: [],
+  packages: [],
   surcharges: { extraAdult: null, extraChild: null },
   version: 1,
   createdAt: '2026-11-01T00:00:00.000Z',
@@ -193,6 +204,7 @@ const quote: QuoteDto = {
   totalCost: 30_000_000,
   warnings: [],
   takenBy: [],
+  packages: [],
 };
 
 const created = {
@@ -205,6 +217,8 @@ const created = {
   whole: true,
   unitIds: [A17_UNIT],
   unitNames: ['Nguyên căn'],
+  packageIds: [],
+  packageNames: [],
   status: 'hold',
   checkIn: '2026-11-02',
   checkOut: '2026-11-05',
@@ -324,7 +338,17 @@ describe('CalendarPage', () => {
       'POST /lodging/availability': {
         status: 200,
         body: {
-          options: [{ propertyId: A17, whole: true, unitIds: [A17_UNIT], fits: true, quote }],
+          options: [
+            {
+              propertyId: A17,
+              whole: true,
+              unitIds: [A17_UNIT],
+              fits: true,
+              quote,
+              packages: [],
+              alternatives: [],
+            },
+          ],
         },
       },
     });
@@ -421,6 +445,8 @@ describe('CalendarPage', () => {
               unitIds: [A17_UNIT],
               fits: true,
               quote: { ...quote, totalSell: 27_000_000 },
+              packages: [],
+              alternatives: [],
             },
           ],
         },
@@ -642,6 +668,7 @@ describe('CalendarPage notes, tags and quick view', () => {
     for (const row of h1.rows)
       row.segments.push({
         bookingId: BK3,
+        packageNames: [],
         code: 'BK-0009',
         kind: 'stay',
         status: 'confirmed',
