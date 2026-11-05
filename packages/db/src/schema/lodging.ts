@@ -21,7 +21,7 @@ import { tenantPolicies, workspaces } from './workspace.js';
  * Lodging v2 tables (migration 0041, T-160): properties → units → rates → bookings, with one
  * `lodging_unit_nights` row per occupied unit-night as the anti-double-booking key. Money is
  * bigint VND read as JS numbers; nights are local calendar dates ('YYYY-MM-DD' strings).
- * CHECK constraints live in the SQL migrations only (0041, 0042, 0043).
+ * CHECK constraints live in the SQL migrations only (0041, 0042, 0043); 0066 reshapes `gallery` into folders.
  */
 const money = (name: string) => bigint(name, { mode: 'number' });
 const night = (name: string) => date(name, { mode: 'string' });
@@ -48,6 +48,17 @@ export type LodgingBookingStatus =
   | 'removed';
 export type LodgingBookingSource =
   'messenger' | 'zalo' | 'phone' | 'walk_in' | 'owner' | 'ota' | 'bot' | 'other';
+/** One gallery entry (migration 0066): a product-picture path or https photo, a video, a link. */
+export type LodgingGalleryItemJson = {
+  kind: 'image' | 'video' | 'link';
+  url: string;
+  caption?: string;
+};
+export type LodgingGalleryFolderJson = {
+  id: string;
+  name: string;
+  items: LodgingGalleryItemJson[];
+};
 
 export const lodgingProperties = pgTable(
   'lodging_properties',
@@ -72,7 +83,10 @@ export const lodgingProperties = pgTable(
       .notNull()
       .default([]),
     policies: jsonb('policies').$type<Record<string, string>>().notNull().default({}),
-    gallery: jsonb('gallery').$type<{ url: string; caption?: string }[]>().notNull().default([]),
+    /** Media folders (0066). Rows copied later by `lodging_copy_accommodations()` may be flat. */
+    gallery: jsonb('gallery').$type<LodgingGalleryFolderJson[]>().notNull().default([]),
+    /** '' = automatic cover; else the url of an image item (0066). */
+    galleryCover: text('gallery_cover').notNull().default(''),
     extraAdultSell: money('extra_adult_sell'),
     extraAdultCost: money('extra_adult_cost'),
     extraChildSell: money('extra_child_sell'),
