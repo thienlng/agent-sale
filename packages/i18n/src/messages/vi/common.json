@@ -2,6 +2,7 @@
   "app": {
     "name": "Rapiz",
     "assistantLauncher": "Hỏi Thỏ Rapiz",
+    "assistantLauncherHint": "Hỏi Thỏ Rapiz · kéo để đổi chỗ",
     "assistantAskSample": "Nhờ trợ lý điền mẫu",
     "notifications": "Thông báo",
     "notificationsUnread": "Thông báo, {{count}} chưa đọc",

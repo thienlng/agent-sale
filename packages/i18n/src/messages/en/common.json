@@ -2,6 +2,7 @@
   "app": {
     "name": "Rapiz",
     "assistantLauncher": "Ask Thỏ Rapiz",
+    "assistantLauncherHint": "Ask Thỏ Rapiz · drag to move",
     "assistantAskSample": "Ask the assistant to fill it in",
     "notifications": "Notifications",
     "notificationsUnread": "Notifications, {{count}} unread",
