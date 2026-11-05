@@ -60,10 +60,10 @@ export const lodgingV2Routes = defineRoutes([
     path: '/lodging/properties/{id}',
     assistant: {
       use: 'read',
-      when: 'One property with its rooms, rates, surcharges and policies.',
+      when: 'One property with its units, packages, rates, surcharges and policies.',
     },
     apiKey: true,
-    summary: 'One property with units, rates and surcharges',
+    summary: 'One property with units, packages, rates and surcharges',
     responses: { 200: PropertyDto },
   },
   {
@@ -84,9 +84,9 @@ export const lodgingV2Routes = defineRoutes([
     path: '/lodging/properties/{id}/units',
     assistant: {
       use: 'write',
-      when: 'The owner asks to add, rename or deactivate rooms of a property. Read the property first and send the full list.',
+      when: 'The owner asks to add, rename, describe or deactivate units (rooms, bungalows) of a property. Read the property first and send the full list.',
     },
-    summary: 'Replace the room list; units with future nights can only be deactivated',
+    summary: 'Replace the unit list and details; units with future nights can only be deactivated',
     body: ReplaceUnitsRequest,
     responses: { 200: PropertyDto },
   },
@@ -96,9 +96,9 @@ export const lodgingV2Routes = defineRoutes([
     path: '/lodging/properties/{id}/rates',
     assistant: {
       use: 'write',
-      when: 'The owner asks to change weekday rates or surcharges of a property. Read the property first and send them whole.',
+      when: 'The owner asks to change weekday rates, bedroom packages or surcharges of a property. Read the property first and send them whole.',
     },
-    summary: 'Replace weekday rates and surcharges, validated as a whole',
+    summary: 'Replace bedroom packages, weekday rates and surcharges, validated as a whole',
     body: PutRatesRequest,
     responses: { 200: PropertyDto },
   },
