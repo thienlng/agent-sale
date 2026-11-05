@@ -5,8 +5,10 @@ import {
   assertNoOverrideOverlap,
   assertPackages,
   assertRateCoverage,
+  assertRatePackage,
   assertWeekdayCoverage,
   fullPackage,
+  priceFull,
   priceNight,
 } from './rates.js';
 import { auraPackages, auraRates, pkg } from '../__tests__/factories/packages.js';
@@ -254,5 +256,33 @@ describe('assertPackages', () => {
   it('refuses names equal ignoring case within a target', () => {
     const packages = [pkg('a', null, 3, { name: 'Full' }), pkg('b', null, 4, { name: 'full' })];
     expect(code(() => assertPackages(packages, [null]))).toBe('VALIDATION_FAILED');
+  });
+});
+
+describe('priceFull', () => {
+  it('prices a target with packages with its full package', () => {
+    expect(priceFull(auraRates(), auraPackages, null, '2026-11-07')?.sell).toBe(18_000_000);
+  });
+  it('prices a target without packages with its package-less rules', () => {
+    expect(priceFull(a17, auraPackages, null, '2026-11-07')).toBeNull();
+    expect(priceFull(a17, [], null, '2026-11-07')?.sell).toBe(14_000_000);
+  });
+});
+
+describe('assertRatePackage', () => {
+  it('accepts a package of the same target and no package on a target without any', () => {
+    expect(
+      code(() => assertRatePackage(forPackage('pk5', weekday(null, [1], 1)), auraPackages)),
+    ).toBeUndefined();
+    expect(code(() => assertRatePackage(weekday('r1', [1], 1), auraPackages))).toBeUndefined();
+  });
+  it('refuses a foreign package, an unknown one and no package on a packaged target', () => {
+    for (const rule of [
+      forPackage('pk5', weekday('r1', [1], 1)),
+      forPackage('nope', weekday(null, [1], 1)),
+      weekday(null, [1], 1),
+    ]) {
+      expect(code(() => assertRatePackage(rule, auraPackages))).toBe('VALIDATION_FAILED');
+    }
   });
 });

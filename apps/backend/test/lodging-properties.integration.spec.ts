@@ -157,6 +157,7 @@ function booking(
     kind: 'stay',
     whole: true,
     unitIds,
+    unitPackages: {},
     status: 'confirmed',
     checkIn,
     checkOut,

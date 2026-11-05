@@ -1,8 +1,13 @@
-import type { BookingListQuery, GalleryFolder, Policies } from '@agent-sales/contracts';
+import type {
+  BookingListQuery,
+  GalleryFolder,
+  Policies,
+  UnitCategory,
+} from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 
 import type { Quote } from '../../domain/quote.js';
-import type { RateRule } from '../../domain/rates.js';
+import type { DomainPackage, RateRule } from '../../domain/rates.js';
 
 export interface PropertyRecord {
   id: string;
@@ -47,6 +52,22 @@ export interface UnitRecord {
   capacityChildren: number;
   active: boolean;
   sortOrder: number;
+  /** T-193 details; ignored for the whole unit. */
+  category: UnitCategory;
+  view: string;
+  areaM2: number | null;
+  description: string;
+  amenities: string[];
+  /** Hard maximum party of the unit; null = none. */
+  maxGuests: number | null;
+  /** The unit's own media folders (same shape and cover rule as the property's). */
+  gallery: GalleryFolder[];
+  galleryCover: string;
+}
+
+/** A bedroom package of one target of a property (`unitId` null = the whole property). */
+export interface PackageRecord extends DomainPackage {
+  propertyId: string;
 }
 
 /** Every `BookingDto` field except the joined `propertyCode` / `propertyName` / `unitNames`. */
@@ -65,6 +86,8 @@ export interface BookingRecord {
   kind: 'stay' | 'block';
   whole: boolean;
   unitIds: string[];
+  /** Package of each booked unit that has one (unit id → package id; T-193). */
+  unitPackages: Record<string, string>;
   status: string;
   checkIn: string;
   checkOut: string;
@@ -158,6 +181,13 @@ export interface LodgingTx {
   rates(propertyIds: string[]): Promise<RateRule[]>;
   /** The rules of several properties in one query, keyed by property id (every id present). */
   ratesByProperty(propertyIds: string[]): Promise<Map<string, RateRule[]>>;
+  /** Packages of the properties, by sort order. */
+  packages(propertyIds: string[]): Promise<PackageRecord[]>;
+  /**
+   * Upserts the property's packages by id and deletes the missing ones (their rates cascade,
+   * booking units keep their rows with the package cleared).
+   */
+  replacePackages(propertyId: string, packages: PackageRecord[]): Promise<void>;
   /** Replaces the weekday rules only; overrides stay. */
   replaceWeekdayRates(propertyId: string, rules: RateRule[]): Promise<void>;
   insertOverride(propertyId: string, r: RateRule): Promise<void>;
@@ -180,9 +210,9 @@ export interface LodgingTx {
    * whose check-in night is in [from, to] inclusive.
    */
   stayTotals(from: string, to: string): Promise<StayTotals>;
-  /** Inserts the booking and its `unitIds` rows. */
+  /** Inserts the booking and its `unitIds` rows (with their `unitPackages`). */
   insertBooking(b: BookingRecord): Promise<void>;
-  /** Updates the booking and replaces its `unitIds` rows. */
+  /** Updates the booking and replaces its `unitIds` rows (with their `unitPackages`). */
   updateBooking(b: BookingRecord): Promise<void>;
   /** Occupies unit-nights; any already taken → LodgingError NIGHTS_TAKEN `{ codes }`. */
   takeNights(bookingId: string, unitIds: string[], nights: string[]): Promise<void>;

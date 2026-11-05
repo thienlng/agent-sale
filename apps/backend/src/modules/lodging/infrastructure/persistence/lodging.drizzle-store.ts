@@ -21,9 +21,11 @@ import type { RateRule } from '../../domain/rates.js';
 import { botHoldPort } from './lodging-bot-holds.drizzle.js';
 import { bookingPort } from './lodging-bookings.drizzle.js';
 import {
+  packageValues,
   pgCode,
   propertyValues,
   rateValues,
+  toPackage,
   toProperty,
   toRate,
   toUnit,
@@ -33,6 +35,7 @@ import {
 const P = schema.lodgingProperties;
 const U = schema.lodgingUnits;
 const R = schema.lodgingRates;
+const PK = schema.lodgingPackages;
 const S = schema.lodgingSettings;
 const BP = schema.lodgingBotProperties;
 const NN = schema.lodgingNightNotes;
@@ -152,6 +155,45 @@ function lodgingTx(tx: TenantTx, ws: WorkspaceId): LodgingTx {
             target: U.id,
             set,
             setWhere: sql`${U.workspaceId} = ${ws} and ${U.propertyId} = ${propertyId}`,
+          });
+      }
+    },
+
+    async packages(propertyIds) {
+      if (propertyIds.length === 0) return [];
+      const rows = await tx
+        .select()
+        .from(PK)
+        .where(and(eq(PK.workspaceId, ws), inArray(PK.propertyId, propertyIds)))
+        .orderBy(asc(PK.sortOrder), asc(PK.id));
+      return rows.map(toPackage);
+    },
+
+    async replacePackages(propertyId, packages) {
+      const keep = packages.map((p) => p.id);
+      const own = and(eq(PK.workspaceId, ws), eq(PK.propertyId, propertyId));
+      await tx.delete(PK).where(and(own, keep.length > 0 ? notInArray(PK.id, keep) : undefined));
+      if (keep.length === 0) return;
+      // Kept packages may swap names; park them under their (unique) id first so the
+      // case-insensitive name index never sees two equal names mid-statement.
+      await tx
+        .update(PK)
+        .set({ name: sql`${PK.id}::text` })
+        .where(and(own, inArray(PK.id, keep)));
+      for (const p of packages) {
+        const {
+          id: _id,
+          workspaceId: _ws,
+          propertyId: _p,
+          ...set
+        } = packageValues(ws, propertyId, p);
+        await tx
+          .insert(PK)
+          .values(packageValues(ws, propertyId, p))
+          .onConflictDoUpdate({
+            target: PK.id,
+            set,
+            setWhere: sql`${PK.workspaceId} = ${ws} and ${PK.propertyId} = ${propertyId}`,
           });
       }
     },

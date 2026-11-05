@@ -30,6 +30,7 @@ import {
   lockForWrite,
   readProperty,
   saveBumped,
+  toPackageDto,
   toPropertyDto,
   toUnitDto,
   weekdaySell,
@@ -70,12 +71,13 @@ function fieldsOf(p: PropertyRecord): PropertyFieldsOut {
 function assertOwnGallery(
   ws: WorkspaceId,
   gallery: readonly { items: readonly { kind: string; url: string }[] }[] | undefined,
+  prefix = '',
 ): void {
   gallery?.forEach((folder, f) =>
     folder.items.forEach((item, i) => {
       if (item.kind === 'link') return;
       const path = mediaPath(item.url);
-      const field = `gallery[${f}].items[${i}].url`;
+      const field = `${prefix}gallery[${f}].items[${i}].url`;
       if (item.kind === 'video' && !path?.startsWith(`/media/lodging/${ws}/`))
         throw new LodgingError('VALIDATION_FAILED', 'Gallery video is not one of this business', {
           reason: 'VIDEO_NOT_UPLOADED',
@@ -109,9 +111,38 @@ function validationError(issues: z.core.$ZodIssue[]): LodgingError {
   });
 }
 
-/** The single whole unit follows the property's name and standard capacity. */
+type UnitDetails = Pick<
+  UnitRecord,
+  | 'category'
+  | 'view'
+  | 'areaM2'
+  | 'description'
+  | 'amenities'
+  | 'maxGuests'
+  | 'gallery'
+  | 'galleryCover'
+>;
+
+/** Details of a unit that has none yet (the T-193 column defaults). */
+const noDetails = (): UnitDetails => ({
+  category: 'room',
+  view: '',
+  areaM2: null,
+  description: '',
+  amenities: [],
+  maxGuests: null,
+  gallery: [],
+  galleryCover: '',
+});
+
+/**
+ * The single whole unit follows the property's name and standard capacity; its own details are
+ * unused (the property carries them) and kept as stored.
+ */
 function wholeUnit(p: PropertyRecord, existing?: UnitRecord): UnitRecord {
   return {
+    ...noDetails(),
+    ...existing,
     id: existing?.id ?? newId(),
     propertyId: p.id,
     kind: 'whole',
@@ -166,6 +197,7 @@ export class PropertyService {
       const ids = props.map((p) => p.id);
       const units = await tx.units(ids);
       const rates = ids.length ? await tx.ratesByProperty(ids) : new Map<string, RateRule[]>();
+      const packages = await tx.packages(ids);
       const today = localToday(now);
       const tomorrow = addNights(today, 1);
       const taken = await tx.takenNights(
@@ -180,11 +212,13 @@ export class PropertyService {
         data: props.map((p) => {
           const own = currentUnits(p, units);
           const { sortOrder: _s, ...rest } = p;
+          const ownPackages = packages.filter((pk) => pk.propertyId === p.id);
           return {
             ...rest,
             units: own.map(toUnitDto),
+            packages: ownPackages.map(toPackageDto),
             today: todayStatus(own, taken, bookings, now),
-            weekdaySell: weekdaySell(p, units, rates.get(p.id) ?? []),
+            weekdaySell: weekdaySell(p, units, rates.get(p.id) ?? [], ownPackages),
           };
         }),
       };
@@ -262,8 +296,10 @@ export class PropertyService {
   }
 
   /**
-   * Replaces the rooms of a `rooms` property; a room that has bookings can only be deactivated,
-   * and no room is added or reactivated while a future whole-property booking exists (409).
+   * Replaces the rooms of a `rooms` property with their details; a room that has bookings can
+   * only be deactivated (its packages stay), and no room is added or reactivated while a future
+   * whole-property booking exists (409). Each room's gallery passes the property's own-media
+   * checks; a cover that is not an image of the room's new gallery resets to automatic ('').
    */
   async replaceUnits(
     ws: WorkspaceId,
@@ -272,6 +308,7 @@ export class PropertyService {
     actorId: string,
   ): Promise<PropertyDto> {
     await this.access.assertHotel(ws);
+    input.units.forEach((u, i) => assertOwnGallery(ws, u.gallery, `units[${i}].`));
     return this.store.run(ws, async (tx) => {
       const p = await lockForWrite(tx, id, input.version);
       if (p.sellMode !== 'rooms') {
@@ -299,6 +336,15 @@ export class PropertyService {
         capacityChildren: u.capacityChildren,
         active: u.active,
         sortOrder: i,
+        category: u.category,
+        view: u.view,
+        areaM2: u.areaM2,
+        description: u.description,
+        amenities: u.amenities,
+        maxGuests: u.maxGuests,
+        gallery: u.gallery,
+        galleryCover:
+          u.galleryCover && hasGalleryImage(u.gallery, u.galleryCover) ? u.galleryCover : '',
       }));
       const activeBefore = new Set(existing.filter((u) => u.active).map((u) => u.id));
       if (rooms.some((u) => u.active && !activeBefore.has(u.id))) {
@@ -311,7 +357,7 @@ export class PropertyService {
       await tx.audit(actorId, 'lodging_property', p.id, 'lodging.property.units_replaced', {
         rooms: rooms.length,
       });
-      return toPropertyDto(saved, units, await tx.rates([p.id]));
+      return toPropertyDto(saved, units, await tx.rates([p.id]), await tx.packages([p.id]));
     });
   }
 

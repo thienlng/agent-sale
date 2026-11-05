@@ -243,3 +243,34 @@ export function priceNight(
     minNights: hit.kind === 'override' ? hit.minNights : null,
   };
 }
+
+/**
+ * One rate's package fits its target: a package of that same target, and none on a target
+ * without packages; a target with packages needs one (`assertRateCoverage` per rate).
+ */
+export function assertRatePackage(rule: RateRule, packages: DomainPackage[]): void {
+  const own = packagesOf(packages, rule.unitId);
+  const ok = own.length === 0 ? rule.packageId === null : own.some((p) => p.id === rule.packageId);
+  if (!ok) {
+    throw new LodgingError(
+      'VALIDATION_FAILED',
+      own.length === 0
+        ? 'A rate names a package its target does not have'
+        : 'Every rate of a target with packages must name one of its packages',
+      { unitId: rule.unitId, packageId: rule.packageId },
+    );
+  }
+}
+
+/**
+ * The night's price of a target as the calendar and the catalog show it: its full package's
+ * price when it has packages, else its package-less price.
+ */
+export function priceFull(
+  rules: RateRule[],
+  packages: DomainPackage[],
+  target: string | null,
+  night: string,
+): NightPrice | null {
+  return priceNight(rules, target, night, fullPackage(packages, target)?.id ?? null);
+}
