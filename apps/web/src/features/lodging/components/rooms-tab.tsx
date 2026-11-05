@@ -239,7 +239,7 @@ function UnitCard({
         )}
       </div>
       <div className="flex flex-1 flex-col gap-1.5 p-3">
-        <div className="flex min-w-0 items-start justify-between gap-2">
+        <div className="flex min-w-0 items-baseline justify-between gap-2">
           <h3 id={titleId} className="min-w-0 text-sm font-semibold break-words">
             <Link
               to="/app/properties/$propertyId/units/$unitId"

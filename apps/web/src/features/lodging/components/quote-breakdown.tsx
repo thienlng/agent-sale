@@ -20,6 +20,10 @@ const parseMoney = (raw: string): number | null => {
   return raw.trim().startsWith('-') ? -n : n;
 };
 
+/** A night the quote could not price (sent as a 0 line with `missing_rate`). */
+const unpriced = (quote: QuoteDto, n: QuoteDto['nights'][number]) =>
+  n.sell === 0 && quote.warnings.includes('missing_rate');
+
 /** Nightly table and surcharges of a quote. */
 function QuoteLines({ quote }: { quote: QuoteDto }) {
   const { t } = useTranslation();
@@ -41,7 +45,7 @@ function QuoteLines({ quote }: { quote: QuoteDto }) {
                 <td className="py-1">{dayMonth(n.date)}</td>
                 <td className="py-1">{weekdayShort(t, n.date)}</td>
                 <td className="py-1 text-muted-foreground">{n.label}</td>
-                <td className="py-1 text-right">{formatVnd(n.sell)}</td>
+                <td className="py-1 text-right">{unpriced(quote, n) ? '—' : formatVnd(n.sell)}</td>
               </tr>
             ))}
           </tbody>
@@ -201,7 +205,7 @@ export function QuoteBreakdown({
 }) {
   const { t } = useTranslation();
   const id = useId();
-  const priced = new Set(quote?.nights.map((n) => n.date));
+  const priced = new Set(quote?.nights.filter((n) => !unpriced(quote, n)).map((n) => n.date));
   const missing = quote?.warnings.includes('missing_rate')
     ? nightList(checkIn, checkOut).filter((n) => !priced.has(n))
     : [];

@@ -90,7 +90,10 @@ export function PropertyEditor({
         {p.status === 'paused' && <Badge variant="outline">{t('lodging.places.paused')}</Badge>}
       </div>
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-        <TabsList variant="line" className="w-full justify-start overflow-x-auto border-b">
+        <TabsList
+          variant="line"
+          className="w-full justify-start overflow-x-auto overflow-y-hidden border-b"
+        >
           {tabs.map((key) => (
             <TabsTrigger key={key} value={key} className="flex-none px-3">
               {t(`lodging.editor.tabs.${key}`)}

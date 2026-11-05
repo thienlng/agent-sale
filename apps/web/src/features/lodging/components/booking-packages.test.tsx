@@ -45,6 +45,16 @@ const total: Record<string, number> = { [P6.id]: 30_000_000, [P5.id]: 27_000_000
 /** The quote of the chosen package; without a choice the server auto-picks 5PN. */
 const quoteOf = (packageIds: string[] = []): QuoteDto => {
   const chosen = [P6, P5, P4].find((k) => k.id === packageIds[0]) ?? P5;
+  if (chosen === P4)
+    return {
+      nights: [{ date: '2099-11-06', weekday: 5, label: '', sell: 0, cost: 0 }],
+      surcharges: [],
+      totalSell: null,
+      totalCost: null,
+      warnings: ['missing_rate', 'package_unavailable'],
+      takenBy: [],
+      packages: [{ target: null, packageId: P4.id, name: P4.name }],
+    };
   return {
     nights: [{ date: '2099-11-06', weekday: 5, label: '', sell: total[chosen.id] ?? 0, cost: 0 }],
     surcharges: [],
@@ -180,5 +190,22 @@ describe('booking package select', () => {
         party: { adults: 8, childAges: [] },
       }),
     );
+  });
+
+  it('marks the nights a chosen package does not sell', async () => {
+    stubApi();
+    const user = userEvent.setup();
+    renderSheet({
+      mode: 'create',
+      initial: { propertyId: PROP, checkIn: '2099-11-06', checkOut: '2099-11-07' },
+    });
+    const sheet = await screen.findByRole('dialog');
+    const select = await within(sheet).findByRole('combobox', { name: 'Gói' });
+    await waitFor(() => expect(select).toHaveTextContent('5PN'));
+    await user.click(select);
+    await user.click(await screen.findByRole('option', { name: '4PN' }));
+    expect(await within(sheet).findByText(/Gói đã chọn không bán một số đêm/)).toBeInTheDocument();
+    expect(within(sheet).getByText(/Chưa có giá cho đêm 06\/11/)).toBeInTheDocument();
+    expect(within(sheet).getByRole('cell', { name: '—' })).toBeInTheDocument();
   });
 });

@@ -106,7 +106,10 @@ export function UnitPage({
         </p>
       </div>
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-        <TabsList variant="line" className="w-full justify-start overflow-x-auto border-b">
+        <TabsList
+          variant="line"
+          className="w-full justify-start overflow-x-auto overflow-y-hidden border-b"
+        >
           {TABS.map((key) => (
             <TabsTrigger key={key} value={key} className="flex-none px-3">
               {t(`lodging.units.tabs.${key}`)}
