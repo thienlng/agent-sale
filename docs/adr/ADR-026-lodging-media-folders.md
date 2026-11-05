@@ -66,5 +66,11 @@ Spec: `docs/superpowers/specs/2026-11-05-lodging-media-folders-design.md` (T-192
   deletes its object (no orphan cleanup yet); "already sent" is bounded by the 200 loaded messages,
   so in a long conversation an older album may be sent again; the website widget still shows only
   the first image of a message and no video.
+- Rollback: migration 0066 rewrites `gallery` into folders, and the release before it reads only
+  the flat list (it fails with 500 on a folder row). Rolling back past this release, by
+  `deploy.sh rollback` or the automatic rollback after a failed health check, therefore needs the
+  hand-run reverse SQL `packages/db/sql/rollback-0066-lodging-media-folders.sql` first
+  (docs/runbooks/deploy-vps.md). It keeps images only; videos, links and folder names are lost.
+  The short window between `migrate` and the new containers starting is accepted.
 - Follow-ups: orphan cleanup for product pictures and lodging videos; streaming the upload to
   storage; server-side thumbnails or transcoding; album and video rendering in the website widget.

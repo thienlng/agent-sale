@@ -118,6 +118,18 @@ The login lives in the `hermes` volume. Do not sign the same ChatGPT account in 
 | Put an account on a plan from the shell | `docker compose exec api node apps/backend/dist/cli/workspace-plan.js set <owner-email> <plan> [months]` (audited like an `/admin` change, reason `cli`) |
 | Backup now | `./backup.sh` (daily at 03:15 UTC by cron, 14 days kept in `backups/`) |
 
+### Rolling back T-192 (migration 0066)
+
+Migration 0066 turns each lodging gallery into folders. Releases before T-192 read only the flat list and answer 500 on hotel properties and the bot catalog once a row holds folders. Before `./deploy.sh rollback` to a release before T-192 (and after an automatic rollback to one), flatten the galleries back with the reverse SQL. It ships in the T-192 (or later) image, so read it from that tag:
+
+```bash
+RAPIZ_TAG=<T-192-or-later sha> docker compose --env-file .env run --rm --no-deps -T migrate \
+  cat packages/db/sql/rollback-0066-lodging-media-folders.sql |
+  docker compose --env-file .env exec -T postgres psql -U rapiz_owner -d rapiz -v ON_ERROR_STOP=1
+```
+
+It keeps image items only, folder order then item order, captions kept; videos, links and folder names are dropped. It changes nothing else and can run again. Before deploying T-192 or later again, let 0066 run again: `docker compose exec postgres psql -U rapiz_owner -d rapiz -c "delete from schema_migrations where name = '0066_lodging_media_folders.sql'"`.
+
 ### Restore
 
 ```bash
