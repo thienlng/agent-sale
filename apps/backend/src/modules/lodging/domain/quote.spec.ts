@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { override, weekday } from '../__tests__/factories/rate-rules.js';
+import { auraPackages, auraRates, pkg } from '../__tests__/factories/packages.js';
+import { forPackage, override, weekday } from '../__tests__/factories/rate-rules.js';
 import { LodgingError } from './lodging.errors.js';
 import { quoteStay, resolveUnits, type QuoteProperty, type QuoteUnit } from './quote.js';
 
@@ -295,5 +296,262 @@ describe('quoteStay', () => {
       { date: '2026-11-09', weekday: 1, label: '', sell: 0, cost: 0 },
       { date: '2026-11-10', weekday: 2, label: '', sell: 0, cost: 0 },
     ]);
+  });
+});
+
+describe('quoteStay with bedroom packages', () => {
+  const aura: QuoteProperty = { ...villa, standardAdults: 12, standardChildren: 0, maxGuests: 16 };
+  const auraUnits: QuoteUnit[] = [
+    { id: 'w', kind: 'whole', capacityAdults: 12, capacityChildren: 0, active: true },
+  ];
+  const stay = (checkIn: string, checkOut: string, adults: number, packageIds?: string[]) => ({
+    ...whole,
+    checkIn,
+    checkOut,
+    adults,
+    childAges: [] as number[],
+    ...(packageIds ? { packageIds } : {}),
+  });
+
+  it('auto-picks the fewest bedrooms that hold the party and price every night', () => {
+    const q = quoteStay(
+      aura,
+      auraUnits,
+      auraRates(),
+      stay('2026-11-09', '2026-11-10', 6),
+      auraPackages,
+    );
+    expect(q.packages).toEqual([{ target: null, packageId: 'pk4', name: '4PN' }]);
+    expect(q.totalSell).toBe(8_000_000);
+    expect(q.warnings).toEqual([]);
+  });
+
+  it('skips 4PN on a Saturday stay because it is not sold that night', () => {
+    const q = quoteStay(
+      aura,
+      auraUnits,
+      auraRates(),
+      stay('2026-11-06', '2026-11-08', 6),
+      auraPackages,
+    );
+    expect(q.packages).toEqual([{ target: null, packageId: 'pk5', name: '5PN' }]);
+    expect(q.totalSell).toBe(11_000_000 + 16_000_000);
+    expect(q.warnings).toEqual([]);
+  });
+
+  it('auto-picks 6PN for 14 guests', () => {
+    const q = quoteStay(
+      aura,
+      auraUnits,
+      auraRates(),
+      stay('2026-11-07', '2026-11-08', 14),
+      auraPackages,
+    );
+    expect(q.packages).toEqual([{ target: null, packageId: 'pk6', name: '6PN' }]);
+    expect(q.totalSell).toBe(18_000_000);
+    expect(q.warnings).toEqual(['over_standard']); // 14 > 6PN standard 12, no surcharge set
+  });
+
+  it('counts children in the party of the auto-pick', () => {
+    const q = quoteStay(
+      aura,
+      auraUnits,
+      auraRates(),
+      { ...stay('2026-11-09', '2026-11-10', 8), childAges: [3, 4, 5] },
+      auraPackages,
+    );
+    expect(q.packages[0]?.packageId).toBe('pk5'); // 11 guests > 4PN max 10
+  });
+
+  it('falls back to the full package when no package holds the party', () => {
+    const q = quoteStay(
+      aura,
+      auraUnits,
+      auraRates(),
+      stay('2026-11-09', '2026-11-10', 20),
+      auraPackages,
+    );
+    expect(q.packages[0]?.packageId).toBe('pk6');
+    expect(q.warnings).toContain('over_max');
+  });
+
+  it('uses the standard party of a package without a maximum for the auto-pick', () => {
+    const packages = auraPackages.map((p) => ({ ...p, maxGuests: null }));
+    const q = quoteStay(
+      aura,
+      auraUnits,
+      auraRates(),
+      stay('2026-11-09', '2026-11-10', 9),
+      packages,
+    );
+    expect(q.packages[0]?.packageId).toBe('pk5'); // 4PN standard 8 < 9
+  });
+
+  it('flags an explicit package that is not sold on a night', () => {
+    const q = quoteStay(
+      aura,
+      auraUnits,
+      auraRates(),
+      stay('2026-11-06', '2026-11-08', 6, ['pk4']),
+      auraPackages,
+    );
+    expect(q.packages).toEqual([{ target: null, packageId: 'pk4', name: '4PN' }]);
+    expect(q.nights).toEqual([
+      { date: '2026-11-06', weekday: 5, label: '', sell: 10_000_000, cost: 10_000_000 },
+      { date: '2026-11-07', weekday: 6, label: '', sell: 0, cost: 0 },
+    ]);
+    expect(q.warnings).toEqual(['missing_rate', 'package_unavailable']);
+    expect(q.totalSell).toBeNull();
+    expect(q.totalCost).toBeNull();
+  });
+
+  it('honours an explicit package over the auto-pick', () => {
+    const q = quoteStay(
+      aura,
+      auraUnits,
+      auraRates(),
+      stay('2026-11-09', '2026-11-10', 6, ['pk6']),
+      auraPackages,
+    );
+    expect(q.packages[0]?.packageId).toBe('pk6');
+    expect(q.totalSell).toBe(10_000_000);
+  });
+
+  it('lets an override of the package win, also on a night it does not sell', () => {
+    const rules = [
+      ...auraRates(),
+      forPackage('pk4', override(null, '2026-11-07', '2026-11-07', 15_000_000, 'Promo')),
+    ];
+    const q = quoteStay(aura, auraUnits, rules, stay('2026-11-07', '2026-11-08', 6), auraPackages);
+    expect(q.packages[0]?.packageId).toBe('pk4');
+    expect(q.nights[0]).toMatchObject({ label: 'Promo', sell: 15_000_000 });
+  });
+
+  it('refuses an unknown package or a package of another target', () => {
+    expect(
+      code(() =>
+        quoteStay(
+          aura,
+          auraUnits,
+          auraRates(),
+          stay('2026-11-09', '2026-11-10', 6, ['x']),
+          auraPackages,
+        ),
+      ),
+    ).toBe('VALIDATION_FAILED');
+    const roomPackage = [...auraPackages, pkg('r', 'p1', 1)];
+    expect(
+      code(() =>
+        quoteStay(
+          aura,
+          auraUnits,
+          auraRates(),
+          stay('2026-11-09', '2026-11-10', 6, ['r']),
+          roomPackage,
+        ),
+      ),
+    ).toBe('VALIDATION_FAILED');
+  });
+
+  it('uses the package standard and surcharges above it', () => {
+    const p: QuoteProperty = {
+      ...aura,
+      surcharges: { extraAdult: { sell: 500_000, cost: 300_000 }, extraChild: null },
+    };
+    const q = quoteStay(
+      p,
+      auraUnits,
+      auraRates(),
+      stay('2026-11-09', '2026-11-10', 9, ['pk4']),
+      auraPackages,
+    );
+    expect(q.surcharges).toEqual([
+      { kind: 'extra_adult', persons: 1, nights: 1, sell: 500_000, cost: 300_000 },
+    ]);
+    expect(q.totalSell).toBe(8_500_000);
+  });
+
+  it('warns over the maximum of the chosen package', () => {
+    const q = quoteStay(
+      aura,
+      auraUnits,
+      auraRates(),
+      stay('2026-11-09', '2026-11-10', 11, ['pk4']),
+      auraPackages,
+    );
+    expect(q.warnings).toContain('over_max');
+  });
+
+  it('prices room packages and picks the full package when several rooms are chosen', () => {
+    const roomPackages = [
+      pkg('p1a', 'p1', 1, { maxGuests: 2 }),
+      pkg('p1b', 'p1', 2, { maxGuests: 4 }),
+    ];
+    const rules = [
+      forPackage('p1a', weekday('p1', [1, 2, 3, 4, 5, 6, 7], 700_000)),
+      forPackage('p1b', weekday('p1', [1, 2, 3, 4, 5, 6, 7], 1_200_000)),
+      roomRates[1]!,
+    ];
+    const one = quoteStay(
+      homestay,
+      rooms,
+      rules,
+      {
+        whole: false,
+        unitIds: ['p1'],
+        checkIn: '2026-11-09',
+        checkOut: '2026-11-10',
+        adults: 2,
+        childAges: [],
+      },
+      roomPackages,
+    );
+    expect(one.packages).toEqual([{ target: 'p1', packageId: 'p1a', name: '1PN' }]);
+    expect(one.totalSell).toBe(700_000);
+    const two = quoteStay(
+      homestay,
+      rooms,
+      rules,
+      {
+        whole: false,
+        unitIds: ['p1', 'p2'],
+        checkIn: '2026-11-09',
+        checkOut: '2026-11-10',
+        adults: 2,
+        childAges: [],
+      },
+      roomPackages,
+    );
+    expect(two.packages).toEqual([{ target: 'p1', packageId: 'p1b', name: '2PN' }]);
+    expect(two.totalSell).toBe(2_200_000);
+  });
+
+  it('warns over the summed unit maxima when every selected unit has one', () => {
+    const capped = rooms.map((u) => ({ ...u, maxGuests: 2 }));
+    const q = quoteStay(homestay, capped, roomRates, {
+      whole: false,
+      unitIds: ['p1', 'p2'],
+      checkIn: '2026-11-09',
+      checkOut: '2026-11-10',
+      adults: 5,
+      childAges: [],
+    });
+    expect(q.warnings).toContain('over_max');
+    const partly = capped.map((u) => (u.id === 'p2' ? { ...u, maxGuests: null } : u));
+    const r = quoteStay(homestay, partly, roomRates, {
+      whole: false,
+      unitIds: ['p1', 'p2'],
+      checkIn: '2026-11-09',
+      checkOut: '2026-11-10',
+      adults: 5,
+      childAges: [],
+    });
+    expect(r.warnings).not.toContain('over_max');
+  });
+
+  it('lists no packages for a property without packages', () => {
+    const q = quoteStay(villa, villaUnits, a17Rates, stay('2026-11-06', '2026-11-08', 20));
+    expect(q.packages).toEqual([]);
+    expect(q.totalSell).toBe(27_000_000);
   });
 });

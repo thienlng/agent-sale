@@ -20,6 +20,7 @@ export function weekday(
     sell,
     cost,
     minNights: null,
+    packageId: null,
   };
 }
 
@@ -43,5 +44,11 @@ export function override(
     sell,
     cost: sell,
     minNights,
+    packageId: null,
   };
+}
+
+/** The same rule priced for one bedroom package of its target. */
+export function forPackage(packageId: string, rule: RateRule): RateRule {
+  return { ...rule, packageId };
 }
