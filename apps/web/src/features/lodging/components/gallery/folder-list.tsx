@@ -72,8 +72,12 @@ export function FolderList({
   return (
     <div className="grid gap-4">
       <p className="text-sm text-muted-foreground">{t('lodging.media.hint')}</p>
-      <section aria-label={t('lodging.media.coverTitle')} className="flex items-center gap-3">
-        <div className="relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted">
+      {/* Same bordered row, inset and 48px thumbnail as the folder rows, so both columns line up. */}
+      <section
+        aria-label={t('lodging.media.coverTitle')}
+        className="flex items-center gap-3 rounded-lg border p-2 text-sm"
+      >
+        <div className="relative grid size-12 shrink-0 place-items-center overflow-hidden rounded-md bg-muted">
           {cover ? (
             <img
               src={cover}
@@ -85,9 +89,9 @@ export function FolderList({
             <ImageOff className="size-5 text-muted-foreground" aria-hidden />
           )}
         </div>
-        <div className="grid justify-items-start gap-0.5 text-sm">
+        <div className="grid min-w-0 justify-items-start">
           <span className="font-medium">{t('lodging.media.coverTitle')}</span>
-          <span className="text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {!cover
               ? t('lodging.media.noCover')
               : draft.galleryCover
@@ -99,6 +103,7 @@ export function FolderList({
               type="button"
               size="xs"
               variant="ghost"
+              className="-ml-2"
               onClick={() => onChange((d) => setCover(d, ''))}
             >
               {t('lodging.media.coverReset')}
@@ -119,7 +124,7 @@ export function FolderList({
                 <button
                   type="button"
                   aria-label={t('lodging.media.open', { name: f.name })}
-                  className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   onClick={() => onOpen(f.id)}
                 >
                   <span className="relative grid size-12 shrink-0 place-items-center overflow-hidden rounded-md bg-muted">

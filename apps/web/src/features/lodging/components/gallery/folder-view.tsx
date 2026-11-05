@@ -22,6 +22,7 @@ import {
 import { ChevronLeft, FolderInput, ImagePlus, Link2, Loader2, Trash2 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -131,14 +132,23 @@ export function FolderView({
 
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" size="sm" variant="ghost" className="-ml-2" onClick={onBack}>
-          <ChevronLeft aria-hidden />
-          {t('lodging.media.back')}
-        </Button>
-        <h2 className="min-w-0 flex-1 truncate text-base font-semibold">{folder.name}</h2>
+      {/* Phones: back + name on row 1 (the name wraps, never truncated), actions on row 2. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="-ml-2 shrink-0"
+            onClick={onBack}
+          >
+            <ChevronLeft aria-hidden />
+            {t('lodging.media.back')}
+          </Button>
+          <h2 className="min-w-0 text-base font-semibold break-words">{folder.name}</h2>
+        </div>
         {canEdit && (
-          <>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             <input
               ref={inputRef}
               type="file"
@@ -173,7 +183,7 @@ export function FolderView({
               <Link2 aria-hidden />
               {t('lodging.media.addLink')}
             </Button>
-          </>
+          </div>
         )}
       </div>
       <p className="text-sm text-muted-foreground">
@@ -239,17 +249,25 @@ export function FolderView({
           'rounded-lg border border-dashed p-2',
           dragging && 'border-primary bg-accent',
         )}
+        // Files dropped here never open in the browser, even when the folder cannot take them.
         onDragOver={(e) => {
-          if (!canEdit || full || !e.dataTransfer.types.includes('Files')) return;
+          if (!e.dataTransfer.types.includes('Files')) return;
           e.preventDefault();
-          setDragging(true);
+          if (canEdit && !full) setDragging(true);
+          else e.dataTransfer.dropEffect = 'none';
         }}
-        onDragLeave={() => setDragging(false)}
+        onDragLeave={(e) => {
+          // Moving between children fires dragleave on the zone; only leaving it counts.
+          if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+          setDragging(false);
+        }}
         onDrop={(e) => {
           if (!e.dataTransfer.files.length) return;
           e.preventDefault();
           setDragging(false);
-          if (canEdit && !full) void upload(Array.from(e.dataTransfer.files));
+          if (!canEdit) return;
+          if (full) toast.error(t('lodging.media.full', { max: GALLERY_MAX_ITEMS }));
+          else void upload(Array.from(e.dataTransfer.files));
         }}
       >
         {folder.items.length === 0 ? (
@@ -261,10 +279,13 @@ export function FolderView({
             sensors={sensors}
             collisionDetection={closestCenter}
             onDragEnd={onDragEnd}
-            accessibility={{ announcements }}
+            accessibility={{
+              announcements,
+              screenReaderInstructions: { draggable: t('lodging.media.dragInstructions') },
+            }}
           >
             <SortableContext items={keys} strategy={rectSortingStrategy}>
-              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                 {folder.items.map((item, i) => {
                   const number = numbers[i] ?? null;
                   return (

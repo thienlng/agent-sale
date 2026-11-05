@@ -36,13 +36,19 @@ export function useMediaUpload({
   const uploadVideo = useUploadLodgingVideo();
   const [entries, setEntries] = useState<UploadEntry[]>([]);
   const seq = useRef(0);
+  // Files accepted but not finished yet: a second batch must not count their slots as free.
+  const inFlight = useRef(0);
+  // `remaining` as of the last render; lowered at once when a file lands, before the re-render.
+  const room = useRef(remaining);
+  room.current = remaining;
 
   const upload = useCallback(
     async (files: File[]) => {
       const notMp4 = files.filter((f) => f.type.startsWith('video/') && f.type !== 'video/mp4');
       if (notMp4.length) toast.error(t('lodging.media.videoInvalid'));
       const supported = files.filter((f) => IMAGE_TYPES.includes(f.type) || f.type === 'video/mp4');
-      const accepted = supported.slice(0, remaining);
+      const accepted = supported.slice(0, Math.max(0, room.current - inFlight.current));
+      inFlight.current += accepted.length;
       const skipped = files.length - notMp4.length - accepted.length;
       if (skipped > 0) toast.warning(t('lodging.media.skipped', { count: skipped }));
       for (const file of accepted) {
@@ -56,21 +62,25 @@ export function useMediaUpload({
             const stored = await uploadVideo(file, (progress) =>
               setEntries((all) => all.map((e) => (e.id === id ? { ...e, progress } : e))),
             );
+            room.current -= 1;
             onItems([{ kind: 'video', url: stored.url, caption: '' }]);
           } else {
             if (!uploadImage) throw new GalleryUploadError(t('lodging.media.uploadFailed'));
-            onItems([{ kind: 'image', url: await uploadImage(file), caption: '' }]);
+            const url = await uploadImage(file);
+            room.current -= 1;
+            onItems([{ kind: 'image', url, caption: '' }]);
           }
         } catch (error) {
           toast.error(
             error instanceof GalleryUploadError ? error.message : t(videoUploadErrorKey(error)),
           );
         } finally {
+          inFlight.current -= 1;
           setEntries((all) => all.filter((e) => e.id !== id));
         }
       }
     },
-    [onItems, remaining, t, uploadImage, uploadVideo],
+    [onItems, t, uploadImage, uploadVideo],
   );
 
   return { entries, upload };

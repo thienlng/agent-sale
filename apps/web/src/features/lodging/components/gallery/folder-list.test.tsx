@@ -69,7 +69,9 @@ describe('FolderList', () => {
     render(<Harness initial={{ gallery: [rooms, outdoor], galleryCover: '' }} />);
     expect(screen.getByText('2 ảnh · 1 video')).toBeInTheDocument();
     expect(screen.getByText('Thư mục trống')).toBeInTheDocument();
-    expect(screen.getByText('Tự động: ảnh đầu tiên của thư mục đầu tiên')).toBeInTheDocument();
+    expect(
+      screen.getByText('Tự động: ảnh đầu tiên của thư mục đầu tiên có ảnh'),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Tuỳ chọn thư mục Ngoài trời' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Lên' }));
     expect(current().gallery.map((f) => f.id)).toEqual(['out', 'rooms']);

@@ -2327,7 +2327,7 @@
     "media": {
       "hint": "Xếp ảnh và video vào thư mục như trên Google Drive. Bot chọn thư mục theo tên thư mục.",
       "coverTitle": "Ảnh bìa",
-      "coverAuto": "Tự động: ảnh đầu tiên của thư mục đầu tiên",
+      "coverAuto": "Tự động: ảnh đầu tiên của thư mục đầu tiên có ảnh",
       "coverChosen": "Do bạn chọn",
       "coverReset": "Dùng ảnh bìa tự động",
       "noCover": "Chưa có ảnh bìa",
@@ -2392,6 +2392,7 @@
       "dragOver": "{{label}} đang ở vị trí {{position}}",
       "dragEnd": "Đã thả {{label}} ở vị trí {{position}}",
       "dragCancel": "Đã huỷ kéo {{label}}",
+      "dragInstructions": "Để nhấc một mục, nhấn Space hoặc Enter. Dùng phím mũi tên để di chuyển, nhấn Space hoặc Enter lần nữa để thả, hoặc Esc để huỷ.",
       "save": "Lưu ảnh & video"
     },
     "conv": {

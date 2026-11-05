@@ -2333,7 +2333,7 @@
     "media": {
       "hint": "Keep photos and videos in folders, like on Google Drive. The bot picks a folder by its name.",
       "coverTitle": "Cover photo",
-      "coverAuto": "Automatic: the first photo of the first folder",
+      "coverAuto": "Automatic: the first photo of the first folder that has photos",
       "coverChosen": "Chosen by you",
       "coverReset": "Use the automatic cover",
       "noCover": "No cover photo yet",
@@ -2405,6 +2405,7 @@
       "dragOver": "{{label}} is at position {{position}}",
       "dragEnd": "Dropped {{label}} at position {{position}}",
       "dragCancel": "Cancelled dragging {{label}}",
+      "dragInstructions": "To pick up an item, press Space or Enter. Use the arrow keys to move it, press Space or Enter again to drop it, or Escape to cancel.",
       "save": "Save photos & videos"
     },
     "conv": {

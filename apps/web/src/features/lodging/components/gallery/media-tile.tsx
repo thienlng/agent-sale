@@ -18,6 +18,9 @@ import { cn } from '@/lib/utils';
 
 import { hostOf } from '../../lib/gallery-model';
 
+/** Every tile badge: one text size and line height. */
+const BADGE = 'inline-flex items-center rounded px-1.5 text-xs leading-5 tabular-nums';
+
 const clock = (seconds: number) =>
   `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 
@@ -48,7 +51,7 @@ function Preview({ item, label }: { item: GalleryItem; label: string }) {
             if (Number.isFinite(d)) setSeconds(d);
           }}
         />
-        <span className="absolute right-1.5 bottom-1.5 flex items-center gap-1 rounded bg-background/90 px-1.5 text-xs tabular-nums">
+        <span className={cn(BADGE, 'absolute right-1 bottom-1 gap-1 bg-background/90')}>
           <Play className="size-3" aria-hidden />
           {seconds !== null ? clock(seconds) : null}
         </span>
@@ -126,79 +129,96 @@ export function MediaTile({
       )}
     >
       <Preview item={item} label={label} />
-      <span className="absolute top-1.5 left-1.5 rounded bg-background/90 px-1.5 text-xs font-semibold tabular-nums">
-        {number !== null
-          ? number
-          : item.kind === 'video'
-            ? t('lodging.media.videoBadge')
-            : t('lodging.media.linkBadge')}
-      </span>
-      {showEarlyLabel && (
-        <span className="absolute bottom-1.5 left-1.5 rounded bg-primary px-1.5 text-[11px] font-medium text-primary-foreground">
-          {t('lodging.media.botFirst')}
+      {/* One top bar: the number badge and the controls share a 28px row and one centre line. */}
+      <div className="absolute inset-x-1 top-1 flex items-center justify-between gap-1">
+        <span
+          className={cn(
+            BADGE,
+            'h-7 min-w-7 justify-center rounded-[min(var(--radius-md),12px)] bg-background/90 font-semibold',
+          )}
+        >
+          {number !== null
+            ? number
+            : item.kind === 'video'
+              ? t('lodging.media.videoBadge')
+              : t('lodging.media.linkBadge')}
         </span>
-      )}
-      {isCover && (
-        <span className="absolute right-1.5 bottom-1.5 rounded bg-background/90 px-1.5 text-[11px]">
-          {t('lodging.media.coverTitle')}
-        </span>
-      )}
-      {canEdit && (
-        <div className="absolute top-1 right-1 flex items-center gap-0.5">
-          <Checkbox
-            aria-label={t('lodging.media.select', { label })}
-            checked={selected}
-            onCheckedChange={(v) => onSelect(v === true)}
-            className={cn(
-              'bg-background',
-              !selected &&
-                'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(pointer:coarse)]:opacity-100',
-            )}
-          />
-          <button
-            type="button"
-            aria-label={t('lodging.media.dragHandle', { label })}
-            className="grid size-7 cursor-grab touch-none place-items-center rounded bg-background/90"
-            {...attributes}
-            {...listeners}
-          >
-            <GripVertical className="size-4" aria-hidden />
-          </button>
-          <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="secondary"
-                aria-label={t('lodging.media.itemMenu', { label })}
-              >
-                <MoreVertical aria-hidden />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem disabled={first} onSelect={onUp}>
-                {t('lodging.media.up')}
-              </DropdownMenuItem>
-              <DropdownMenuItem disabled={last} onSelect={onDown}>
-                {t('lodging.media.down')}
-              </DropdownMenuItem>
-              <DropdownMenuItem disabled={!canMove} onSelect={onMove}>
-                {t('lodging.media.moveTo')}
-              </DropdownMenuItem>
-              {canSetCover && (
-                <DropdownMenuItem onSelect={onCover}>
-                  {t('lodging.media.setCover')}
-                </DropdownMenuItem>
+        {canEdit && (
+          <div className="flex items-center gap-1">
+            <span
+              className={cn(
+                'grid size-7 place-items-center rounded-[min(var(--radius-md),12px)] bg-background/90',
+                !selected &&
+                  'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 [@media(pointer:coarse)]:opacity-100',
               )}
-              <DropdownMenuItem onSelect={onCaption}>
-                {t('lodging.media.editCaption')}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onSelect={onRemove}>
-                {t('lodging.media.remove')}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            >
+              <Checkbox
+                aria-label={t('lodging.media.select', { label })}
+                checked={selected}
+                onCheckedChange={(v) => onSelect(v === true)}
+                className="bg-background"
+              />
+            </span>
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="secondary"
+              aria-label={t('lodging.media.dragHandle', { label })}
+              className="cursor-grab touch-none active:cursor-grabbing"
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical aria-hidden />
+            </Button>
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="secondary"
+                  aria-label={t('lodging.media.itemMenu', { label })}
+                >
+                  <MoreVertical aria-hidden />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem disabled={first} onSelect={onUp}>
+                  {t('lodging.media.up')}
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={last} onSelect={onDown}>
+                  {t('lodging.media.down')}
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={!canMove} onSelect={onMove}>
+                  {t('lodging.media.moveTo')}
+                </DropdownMenuItem>
+                {canSetCover && (
+                  <DropdownMenuItem onSelect={onCover}>
+                    {t('lodging.media.setCover')}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onSelect={onCaption}>
+                  {t('lodging.media.editCaption')}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onSelect={onRemove}>
+                  {t('lodging.media.remove')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+      </div>
+      {(showEarlyLabel || isCover) && (
+        // Stacked from the bottom so the two labels never overlap on narrow phone tiles.
+        <div className="absolute inset-x-1 bottom-1 flex flex-col items-start gap-1">
+          {showEarlyLabel && (
+            <span className={cn(BADGE, 'bg-primary font-medium text-primary-foreground')}>
+              {t('lodging.media.botFirst')}
+            </span>
+          )}
+          {isCover && (
+            <span className={cn(BADGE, 'bg-background/90')}>{t('lodging.media.coverTitle')}</span>
+          )}
         </div>
       )}
     </li>
