@@ -37,6 +37,11 @@ export const PlaygroundRequest = z.object({
   postContext: FanpageContext.optional(),
   /** The customer already left a phone number: the bot must not ask for it again. */
   phoneKnown: z.boolean().optional(),
+  /**
+   * Picture URLs the bot already sent in this test chat (the playground stores no conversation):
+   * `send_message` with an `albumId` sends the folder's photos not among them first (T-192).
+   */
+  sentMediaUrls: z.array(z.string().max(2000)).max(200).optional(),
 });
 export type PlaygroundRequest = z.infer<typeof PlaygroundRequest>;
 
@@ -86,6 +91,10 @@ export const PlaygroundResponse = z.object({
       z.object({
         text: z.string(),
         images: z.array(z.object({ id: z.string(), url: z.string(), label: z.string() })),
+        /** An uploaded video this message sent (T-192). */
+        videos: z
+          .array(z.object({ id: z.string(), url: z.string(), label: z.string() }))
+          .optional(),
         via: z.enum(['send_message', 'final']),
         /** Buttons under this message (the order summary's confirm/edit). */
         quickReplies: z

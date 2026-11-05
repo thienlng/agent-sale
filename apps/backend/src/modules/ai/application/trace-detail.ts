@@ -161,16 +161,27 @@ export function toolDetail(
     case 'calculate':
       detail = result ? withError({ ok: errorCode === null }) : null;
       break;
-    case SEND_MESSAGE_TOOL:
+    case SEND_MESSAGE_TOOL: {
+      const album = result && isObject(result.album) ? result.album : null;
       detail = result
         ? {
             chars: str(args.text)?.length ?? 0,
             imageCount: arr(args.imageIds).length,
             droppedImages: arr(result.droppedImageIds).length,
             delivered: result.status === 'sent',
+            ...(str(args.albumId)
+              ? {
+                  album: true,
+                  albumSent: num(album?.sent) ?? 0,
+                  albumRemaining: num(album?.remaining) ?? 0,
+                }
+              : {}),
+            ...(str(args.videoId) ? { video: true } : {}),
+            ...(result.incomplete === true ? { incomplete: true } : {}),
           }
         : null;
       break;
+    }
     case HANDOFF_TOOL: {
       const reason = str(args.reason);
       detail = reason ? { reason: redactSensitive(reason, REASON_MAX) } : {};

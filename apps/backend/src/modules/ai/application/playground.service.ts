@@ -269,9 +269,10 @@ export class PlaygroundService implements AiFacade {
       focus.some((p) => p.accommodation) ? query : '',
     );
     const allowlist = new ImageAllowlist(initialAllowed, this.mediaBase);
+    allowlist.addMedia(focus);
     const carryIds = carriedProductIds(options.carry ?? []);
     if (catalog && carryIds.length)
-      allowlist.add(productImages(await catalog.getBotProductsByIds(ws, scope, carryIds)));
+      allowlist.addProducts(await catalog.getBotProductsByIds(ws, scope, carryIds));
 
     const situations = [
       post
@@ -407,6 +408,8 @@ export class PlaygroundService implements AiFacade {
       orders,
       holds,
       requests: requestTool,
+      // Channels pass what the conversation already received; the playground sends its own list.
+      sentMediaUrls: options.sentMediaUrls ?? input.sentMediaUrls ?? [],
     });
 
     const postRules = post ? await this.#prompts.load(POST_PROMPT) : '';
