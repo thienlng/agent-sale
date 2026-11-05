@@ -1,6 +1,13 @@
-import { foldVietnamese } from '@agent-sales/shared';
+import { foldVietnamese, type WorkspaceId } from '@agent-sales/shared';
 
-import type { HoldToolContext } from './hold-tools.js';
+import type { LodgingBotFacade } from '../../lodging/api/index.js';
+
+/** What room resolution needs from the hold tools' context (kept narrow: no import cycle). */
+export interface RoomsContext {
+  facade: Pick<LodgingBotFacade, 'checkAvailabilityForBot'>;
+  ws: WorkspaceId;
+  botId: string;
+}
 
 /** What `prepare_hold` asked for: the stay, the rooms and the packages by name (T-193). */
 export interface RoomsAsk {
@@ -20,7 +27,7 @@ export interface ResolvedRooms {
 
 /** The property's room names (folded) → id and name, read from its free options. */
 async function roomsOf(
-  ctx: HoldToolContext,
+  ctx: RoomsContext,
   ask: RoomsAsk,
   propertyId: string,
 ): Promise<Map<string, { id: string; name: string }>> {
@@ -47,7 +54,7 @@ async function roomsOf(
  * is read only when a room is named.
  */
 export async function resolveRooms(
-  ctx: HoldToolContext,
+  ctx: RoomsContext,
   ask: RoomsAsk,
   propertyId: string,
 ): Promise<ResolvedRooms | { unknown: string[] }> {
