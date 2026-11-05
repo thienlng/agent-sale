@@ -49,6 +49,7 @@ export * from './commerce/commerce.schema.js';
 export * from './commerce/lodging.schema.js';
 export * from './commerce/lodging.routes.js';
 export * from './lodging/lodging.schema.js';
+export * from './lodging/gallery.js';
 export * from './lodging/lodging.routes.js';
 export * from './commerce/order-overview.schema.js';
 export * from './commerce/order-review.schema.js';

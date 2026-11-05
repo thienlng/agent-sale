@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { PublicImageUrl } from '../common/media.js';
+import { GALLERY_MAX_FOLDERS, GalleryFolder } from '../lodging/gallery.js';
 
 const Amount = z.number().int().min(0).max(1_000_000_000_000);
 const text = (max: number) => z.string().trim().max(max);
@@ -53,6 +54,11 @@ export const AccommodationDetails = z
     extraGuestPolicy: text(1000).default(''),
     holidayPolicy: text(1000).default(''),
     gallery: z.array(Image).max(30),
+    /**
+     * Lodging media folders (T-192): filled only by the lodging bot product; older commerce rows
+     * have none. `gallery` keeps the flat photo list for them.
+     */
+    albums: z.array(GalleryFolder).max(GALLERY_MAX_FOLDERS).optional(),
     notes: text(3000).default(''),
     /** Lodging v2 (T-160): bookable rooms of a `rooms` property with their weekday rates. */
     units: z

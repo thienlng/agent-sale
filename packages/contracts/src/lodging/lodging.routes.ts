@@ -27,6 +27,7 @@ import {
   UpdateOverrideRequest,
   UpdatePropertyRequest,
 } from './lodging.schema.js';
+import { UploadLodgingVideoResponse } from './gallery.js';
 
 const scoped = { tag: 'lodging', auth: true, workspaceScoped: true } as const;
 
@@ -282,5 +283,13 @@ export const lodgingV2Routes = defineRoutes([
     summary: 'Replace the properties this bot sells',
     body: BotPropertiesDto,
     responses: { 200: BotPropertiesDto },
+  },
+  {
+    ...scoped,
+    method: 'post',
+    path: '/lodging/media/videos',
+    assistant: { use: 'never' },
+    summary: 'Upload an MP4 video (multipart field `file`, at most 25 MB) to Rapiz storage',
+    responses: { 201: UploadLodgingVideoResponse },
   },
 ]);

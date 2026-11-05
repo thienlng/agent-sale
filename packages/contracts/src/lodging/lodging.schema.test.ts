@@ -6,7 +6,6 @@ import {
   BookingStatusRequest,
   BookingTag,
   CreateBookingRequest,
-  GalleryImage,
   normalizeBookingTag,
   normalizeBookingTags,
   OverrideInput,
@@ -75,20 +74,6 @@ describe('lodging v2 override patch', () => {
   it('still defaults minNights on create', () => {
     const base = { unitId: null, dateFrom: '2027-02-05', dateTo: '2027-02-06', label: 'Tết' };
     expect(OverrideInput.parse({ ...base, sell: 1, cost: 1 }).minNights).toBeNull();
-  });
-});
-
-describe('lodging v2 gallery images', () => {
-  it('accepts https links and Rapiz /media/ paths only', () => {
-    expect(GalleryImage.safeParse({ url: 'https://cdn.example.com/a.jpg' }).success).toBe(true);
-    expect(
-      GalleryImage.safeParse({
-        url: '/media/products/0192f0a0-0000-7000-8000-000000000001/0192f0a0-0000-7000-8000-0000000000aa.jpg',
-      }).success,
-    ).toBe(true);
-    expect(GalleryImage.safeParse({ url: '/media/../etc/passwd.jpg' }).success).toBe(false);
-    expect(GalleryImage.safeParse({ url: 'http://cdn.example.com/a.jpg' }).success).toBe(false);
-    expect(GalleryImage.safeParse({ url: 'javascript:alert(1)' }).success).toBe(false);
   });
 });
 

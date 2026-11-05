@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { PublicImageUrl } from '../common/media.js';
+import { Gallery, hasGalleryImage } from './gallery.js';
 
 /**
  * Lodging v2 (T-160, spec 2026-11-01-lodging-calendar): properties → units → rates →
@@ -62,11 +62,6 @@ export const Policies = z.object({
   other: z.string().max(2000).default(''),
 });
 export type Policies = z.infer<typeof Policies>;
-/** Same rule as the commerce `Image`: a Rapiz `/media/…` path or an https link (no http:, javascript:, data:). */
-export const GalleryImage = z.object({
-  url: PublicImageUrl,
-  caption: z.string().trim().max(300).default(''),
-});
 
 /** Property field validators without defaults; shared by create (with defaults) and patch. */
 const propertyShape = {
@@ -92,7 +87,10 @@ const propertyShape = {
   amenities: z.array(z.string().trim().min(1).max(200)).max(80),
   layout: z.array(LayoutRoom).max(100),
   policies: Policies,
-  gallery: z.array(GalleryImage).max(30),
+  /** Media folders (T-192): photos, uploaded videos and video links, in the owner's order. */
+  gallery: Gallery,
+  /** '' = automatic (first image of the first folder that has one); else an image item's url. */
+  galleryCover: z.string().trim().max(2000),
   /** Staff-only note about the property (owner habits, keys…); never reaches the bot. */
   internalNote: z.string().trim().max(2000),
 };
@@ -114,19 +112,24 @@ export const PropertyFields = z.object({
   layout: propertyShape.layout.default([]),
   policies: propertyShape.policies.prefault({}),
   gallery: propertyShape.gallery.default([]),
+  galleryCover: propertyShape.galleryCover.default(''),
   internalNote: propertyShape.internalNote.default(''),
 });
 /**
  * PATCH fields: every field optional and WITHOUT defaults, so omitted fields stay absent
  * and never overwrite stored values. A given `policies` / `layout` / `gallery` replaces the
- * stored value as a whole (inner item defaults still apply to what is sent).
+ * stored value as a whole; `galleryCover` is checked against the merged gallery (inner item
+ * defaults still apply to what is sent).
  */
 export const PropertyPatchFields = z.object(propertyShape).partial();
 export type PropertyPatchFields = z.infer<typeof PropertyPatchFields>;
 export const PropertyInput = PropertyFields.refine(
   (v) => v.childFreeBelow <= v.childAdultFrom,
   'childFreeBelow must not exceed childAdultFrom',
-);
+).refine((v) => v.galleryCover === '' || hasGalleryImage(v.gallery, v.galleryCover), {
+  message: 'galleryCover must be the url of an image in the gallery',
+  path: ['galleryCover'],
+});
 export type PropertyInput = z.input<typeof PropertyInput>;
 export const UpdatePropertyRequest = z.object({
   version: z.number().int().positive(),
