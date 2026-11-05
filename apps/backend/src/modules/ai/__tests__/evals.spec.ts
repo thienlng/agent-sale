@@ -242,7 +242,7 @@ describe('eval suite (fake mode)', () => {
     const report = buildReport('fake', results);
     expect(report.gate).toBe('pass');
     expect(report.promptVersion).toContain('sales-agent@15');
-    expect(report.promptVersion).toContain('sales-agent@18');
+    expect(report.promptVersion).toContain('sales-agent@20');
     expect(report.promptVersion).toContain('sales-agent@19');
     expect(report.passed).toBe(report.total);
     expect(report.groups.map((g) => g.group)).toContain('safety');

@@ -364,4 +364,35 @@ describe('TestChat', () => {
     expect(await screen.findByText('Đã gọi API: Tra cứu đơn')).toBeInTheDocument();
     expect(screen.getByText('Gọi API lỗi: Đặt lịch')).toBeInTheDocument();
   });
+
+  it('tells the next turn which pictures the bot already sent, and plays bot videos', async () => {
+    const first = {
+      ...reply,
+      reply: 'Dạ ảnh ạ',
+      images: [{ url: 'https://rapiz.test/media/a.jpg', label: 'A' }],
+      messages: [
+        {
+          text: 'Dạ ảnh ạ',
+          images: [{ id: 'a:v:0:0', url: 'https://rapiz.test/media/a.jpg', label: 'A' }],
+          videos: [{ id: 'v:v:1:0', url: 'https://rapiz.test/media/lodging/t.mp4', label: 'Tour' }],
+          via: 'send_message',
+        },
+      ],
+    };
+    const { fetchStub, calls } = stubFetch({
+      [`POST /bots/${botId}/playground`]: { status: 200, body: first },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithProviders(<TestChat botId={botId} greeting="" />);
+
+    await userEvent.type(screen.getByLabelText('Nhập tin nhắn của bạn'), 'cho xem phòng{Enter}');
+    expect(await screen.findByLabelText('Tour')).toHaveAttribute(
+      'src',
+      'https://rapiz.test/media/lodging/t.mp4',
+    );
+    await userEvent.type(screen.getByLabelText('Nhập tin nhắn của bạn'), 'xem thêm{Enter}');
+    await waitFor(() => expect(calls).toHaveLength(2));
+    expect(calls[0]?.body).not.toHaveProperty('sentMediaUrls');
+    expect(calls[1]?.body).toMatchObject({ sentMediaUrls: ['https://rapiz.test/media/a.jpg'] });
+  });
 });

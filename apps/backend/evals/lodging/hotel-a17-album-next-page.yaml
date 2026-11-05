@@ -1,0 +1,80 @@
+id: hotel-a17-album-next-page
+group: lodging-a17
+tags: [critical]
+bot:
+  industry: hotel
+  name: Test lodging assistant
+  profile:
+    fields:
+      displayName: Test lodging business
+    notes: ''
+products:
+  - name: 'A17 – Villa A17'
+    code: A17
+    description: 'Một căn nguyên căn, có bể bơi và 8 phòng ngủ.'
+    variants:
+      - name: 'Nguyên căn, giá tham khảo'
+        price: 12000000
+        stock: 0
+    accommodation:
+      rentalType: entire_property
+      code: A17
+      bedrooms: 1
+      standardAdults: 24
+      standardChildren: 8
+      childAgeBelow: 6
+      maxGuests: null
+      roomLayout:
+        - { name: 'Nguyên căn', beds: 'Beds described by owner' }
+      amenities: ['Bể bơi']
+      rateBasis: night
+      rates:
+        - { days: [1, 2, 3, 4, 5, 6, 7], amount: 12000000 }
+      gallery: []
+      albums:
+        - id: outdoor
+          name: 'Ngoài trời ban ngày'
+          items:
+            - { kind: image, url: 'https://media.rapiz.test/a17/out-0.jpg', caption: 'Bể bơi' }
+            - { kind: image, url: 'https://media.rapiz.test/a17/out-1.jpg', caption: '' }
+        - id: bedrooms
+          name: 'Phòng ngủ'
+          items:
+            - { kind: image, url: 'https://media.rapiz.test/a17/bed-0.jpg', caption: '' }
+            - { kind: image, url: 'https://media.rapiz.test/a17/bed-1.jpg', caption: '' }
+            - { kind: image, url: 'https://media.rapiz.test/a17/bed-2.jpg', caption: '' }
+            - { kind: image, url: 'https://media.rapiz.test/a17/bed-3.jpg', caption: '' }
+            - { kind: image, url: 'https://media.rapiz.test/a17/bed-4.jpg', caption: '' }
+            - { kind: image, url: 'https://media.rapiz.test/a17/bed-5.jpg', caption: '' }
+            - { kind: image, url: 'https://media.rapiz.test/a17/bed-6.jpg', caption: '' }
+            - { kind: image, url: 'https://media.rapiz.test/a17/bed-7.jpg', caption: '' }
+            - { kind: image, url: 'https://media.rapiz.test/a17/bed-8.jpg', caption: '' }
+            - { kind: image, url: 'https://media.rapiz.test/a17/bed-9.jpg', caption: '' }
+            - { kind: image, url: 'https://media.rapiz.test/a17/bed-10.jpg', caption: '' }
+            - { kind: image, url: 'https://media.rapiz.test/a17/bed-11.jpg', caption: '' }
+sent_media:
+  - 'https://media.rapiz.test/a17/bed-0.jpg'
+  - 'https://media.rapiz.test/a17/bed-1.jpg'
+  - 'https://media.rapiz.test/a17/bed-2.jpg'
+  - 'https://media.rapiz.test/a17/bed-3.jpg'
+  - 'https://media.rapiz.test/a17/bed-4.jpg'
+  - 'https://media.rapiz.test/a17/bed-5.jpg'
+  - 'https://media.rapiz.test/a17/bed-6.jpg'
+  - 'https://media.rapiz.test/a17/bed-7.jpg'
+conversation:
+  - customer: 'Cho em xem ảnh phòng ngủ A17 với'
+  - bot: 'Dạ em gửi ảnh phòng ngủ A17 ạ. Phòng ngủ còn ảnh nữa, em gửi tiếp nhé?'
+  - customer: 'xem thêm'
+# "xem thêm" after the first page: the same album sends only the 4 photos not sent yet.
+expect:
+  outcome: answered
+  steps_succeeded: [search_products, send_message]
+  images_min: 4
+  images_per_message_max: 4
+fake_turns:
+  - tool_calls:
+      - { name: search_products, input: { query: 'A17 phòng ngủ' } }
+  - tool_calls:
+      - name: send_message
+        input: { text: 'Dạ em gửi thêm ảnh phòng ngủ ạ', albumId: 'a:eval-product-1:1' }
+  - text: 'Dạ đây là các ảnh phòng ngủ còn lại ạ.'

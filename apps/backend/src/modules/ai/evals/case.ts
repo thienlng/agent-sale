@@ -232,6 +232,11 @@ export const EvalCase = z
      * new call of the same kind is an update (the 24 h rule).
      */
     requests_before: z.array(CustomerRequestKind).optional(),
+    /**
+     * Attachment URLs the bot already sent in this conversation before the turn (album paging,
+     * T-192): an `albumId` send skips them. The runner passes them as `sentMediaUrls`.
+     */
+    sent_media: z.array(z.string().url()).max(200).default([]),
     conversation: z
       .array(Turn)
       .min(1)

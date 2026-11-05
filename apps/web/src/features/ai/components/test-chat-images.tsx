@@ -76,3 +76,22 @@ export function BotImages({ images }: { images: readonly BotReplyImage[] }) {
     </div>
   );
 }
+
+/** Videos the bot sends, each as its own message (lodging folders, T-192). */
+export function BotVideos({ videos }: { videos: readonly { url: string; label: string }[] }) {
+  if (!videos.length) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      {videos.map((video) => (
+        <video
+          key={video.url}
+          src={video.url}
+          controls
+          preload="metadata"
+          aria-label={video.label}
+          className="max-h-64 w-full max-w-xs rounded-lg border bg-muted"
+        />
+      ))}
+    </div>
+  );
+}

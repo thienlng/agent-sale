@@ -22,7 +22,7 @@ import { usePlayground } from '../api/playground';
 import { toPlaygroundImages, useImageAttachments } from '../hooks/use-image-attachments';
 import { TestChatComposer } from './test-chat-composer';
 import { Outcome } from './test-chat-outcome';
-import { AttachmentThumbs, BotImages } from './test-chat-images';
+import { AttachmentThumbs, BotImages, BotVideos } from './test-chat-images';
 import { TestChatSteps } from './test-chat-steps';
 
 interface Turn {
@@ -133,8 +133,15 @@ export function TestChat({
         .filter((h) => !h.error && (h.content.trim() || h.images?.length))
         .map((h) => ({ role: h.role, content: h.content.trim() || t('playground.imageOnly') })),
     ];
+    // The playground stores no conversation: it tells the server what the bot already sent.
+    const sentMediaUrls = turns.flatMap(
+      (h) =>
+        h.result?.messages?.flatMap((m) => m.images.map((i) => i.url)) ??
+        h.result?.images.map((i) => i.url) ??
+        [],
+    );
     playground.mutate(
-      { messages, images },
+      { messages, images, sentMediaUrls },
       {
         onSuccess: (result) =>
           setTurns((all) => [
@@ -242,6 +249,11 @@ export function TestChat({
                             {message.images.length ? (
                               <div className="mt-0.5">
                                 <BotImages images={message.images} />
+                              </div>
+                            ) : null}
+                            {message.videos?.length ? (
+                              <div className="mt-0.5">
+                                <BotVideos videos={message.videos} />
                               </div>
                             ) : null}
                             {/* Only the newest bot message offers its buttons, as on
