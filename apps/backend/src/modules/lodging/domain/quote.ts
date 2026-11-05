@@ -153,7 +153,7 @@ function choosePackages(
     chosen.set(p.unitId, p);
     explicit.add(p.id);
   }
-  const byParty = targets.length === 1;
+  const byParty = singlePackageTarget(targets, packages) !== null;
   for (const t of targets) {
     if (chosen.has(t)) continue;
     const full = fullPackage(packages, t);
@@ -170,6 +170,56 @@ function choosePackages(
 }
 
 /**
+ * The targets a stay is priced on, per night and in order of first appearance. Whole property:
+ * the whole target only. Whole rental of a rooms property: a whole-target rate for that night if
+ * any (package-less or of any whole package; override, else weekday), otherwise the sum of the
+ * active rooms. Room selection: the selected rooms.
+ */
+export function stayTargets(
+  p: QuoteProperty,
+  units: QuoteUnit[],
+  rules: RateRule[],
+  input: QuoteInput,
+  packages: DomainPackage[] = [],
+): {
+  unitIds: string[];
+  perNight: { date: string; targets: (string | null)[] }[];
+  priced: (string | null)[];
+} {
+  const unitIds = resolveUnits(p, units, input);
+  const wholePackages = packagesOf(packages, null);
+  const wholePriced = (night: string) =>
+    priceNight(rules, null, night) !== null ||
+    wholePackages.some((pk) => priceNight(rules, null, night, pk.id) !== null);
+  const targetsFor = (night: string): (string | null)[] => {
+    if (!input.whole) return unitIds;
+    if (p.sellMode === 'whole') return [null];
+    return wholePriced(night) ? [null] : unitIds;
+  };
+  const perNight = nightsBetween(input.checkIn, input.checkOut).map((date) => ({
+    date,
+    targets: targetsFor(date),
+  }));
+  const priced: (string | null)[] = [];
+  for (const n of perNight) for (const t of n.targets) if (!priced.includes(t)) priced.push(t);
+  return { unitIds, perNight, priced };
+}
+
+/**
+ * The one target whose package the auto-pick chooses by party, and whose other packages are
+ * offered as alternatives: the selection prices exactly one target and it has packages. Null
+ * otherwise (several priced targets, or one without packages).
+ */
+export function singlePackageTarget(
+  priced: (string | null)[],
+  packages: DomainPackage[],
+): { target: string | null } | null {
+  const [only, ...rest] = priced;
+  if (only === undefined || rest.length > 0) return null;
+  return packagesOf(packages, only).length > 0 ? { target: only } : null;
+}
+
+/**
  * Prices a stay from rules (override wins, else weekday) plus per-person surcharges. A target
  * with bedroom packages is priced with its chosen package (see `choosePackages`).
  */
@@ -181,26 +231,8 @@ export function quoteStay(
   packages: DomainPackage[] = [],
 ): Quote {
   const nights = nightsBetween(input.checkIn, input.checkOut);
-  const unitIds = resolveUnits(p, units, input);
+  const { unitIds, perNight, priced } = stayTargets(p, units, rules, input, packages);
   const party = input.adults + input.childAges.length;
-  const wholePackages = packagesOf(packages, null);
-  /** A whole-target rate prices the night (package-less, or of any whole package). */
-  const wholePriced = (night: string) =>
-    priceNight(rules, null, night) !== null ||
-    wholePackages.some((pk) => priceNight(rules, null, night, pk.id) !== null);
-  /**
-   * Targets priced for one night. Whole property: the whole target only. Whole rental of a
-   * rooms property: a whole-target rate for that night if any (override, else weekday — see
-   * `priceNight`), otherwise the sum of the active rooms. Room selection: the selected rooms.
-   */
-  const targetsFor = (night: string): (string | null)[] => {
-    if (!input.whole) return unitIds;
-    if (p.sellMode === 'whole') return [null];
-    return wholePriced(night) ? [null] : unitIds;
-  };
-  const perNight = nights.map((date) => ({ date, targets: targetsFor(date) }));
-  const priced: (string | null)[] = [];
-  for (const n of perNight) for (const t of n.targets) if (!priced.includes(t)) priced.push(t);
   const { chosen, explicit } = choosePackages(
     rules,
     packages,

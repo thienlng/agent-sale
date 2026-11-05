@@ -395,6 +395,33 @@ describe('lodging rates with bedroom packages over HTTP (T-193)', () => {
       }),
       { bedrooms: 6 },
     );
+    // A kept package id cannot move to another target (here: whole property → a room).
+    const retarget = await put(hs, {
+      packages: [{ ...roomPackage, id: packageId(p, '6PN') }],
+      weekday: [{ unitId: b1, weekdays: all, sell: 1, cost: 1, packageKey: 'r' }],
+    });
+    expect(retarget.statusCode).toBe(400);
+    const roomPriced = await ok(
+      await put(hs, {
+        packages: [roomPackage],
+        weekday: [
+          { unitId: b1, weekdays: all, sell: 1, cost: 1, packageKey: 'r' },
+          { unitId: b2, weekdays: all, sell: 1, cost: 1 },
+        ],
+      }),
+      PropertyDto,
+    );
+    const b1Package = packageId(roomPriced, '2PN');
+    refused(
+      await put(roomPriced, {
+        packages: [{ ...roomPackage, id: b1Package, unitId: b2 }],
+        weekday: [
+          { unitId: b1, weekdays: all, sell: 1, cost: 1 },
+          { unitId: b2, weekdays: all, sell: 1, cost: 1, packageKey: 'r' },
+        ],
+      }),
+      { packageId: b1Package, unitId: b2 },
+    );
     // Nothing changed.
     const still = await ok(
       await call(o.headers, 'GET', `/lodging/properties/${p.id}`),
@@ -445,10 +472,24 @@ describe('lodging rates with bedroom packages over HTTP (T-193)', () => {
       PropertyDto,
     );
     expect(deactivated.packages).toHaveLength(2);
+    // The inactive room's packages may come back without its rates; they are kept.
+    const keptInactive = await ok(
+      await call(o.headers, 'PUT', `/lodging/properties/${hs.id}/rates`, {
+        version: deactivated.version,
+        surcharges: NO_SURCHARGES,
+        packages: deactivated.packages.map(({ sortOrder: _s, ...pk }) => ({ ...pk, key: pk.id })),
+        weekday: [{ unitId: b2, weekdays: all, sell: 1_500_000, cost: 1 }],
+      }),
+      PropertyDto,
+    );
+    expect(keptInactive.packages.map((pk) => pk.id)).toEqual(
+      deactivated.packages.map((pk) => pk.id),
+    );
+    expect(keptInactive.rates.map((r) => r.unitId)).toEqual([b2]);
     // A new package needs an active room.
     refused(
       await call(o.headers, 'PUT', `/lodging/properties/${hs.id}/rates`, {
-        version: deactivated.version,
+        version: keptInactive.version,
         surcharges: NO_SURCHARGES,
         packages: [{ key: 'n', unitId: b1, name: '3PN', bedrooms: 3, standardAdults: 6 }],
         weekday: [
@@ -868,5 +909,134 @@ describe('lodging bookings with bedroom packages over HTTP (T-193)', () => {
       201,
     );
     expect(room).toMatchObject({ packageIds: [], packageNames: [] });
+  });
+
+  it('re-picks an auto package that no longer fits when the dates move (review F1)', async () => {
+    const o = await signup();
+    const p = await auraVilla(o.headers);
+    const monday = friday + 3;
+    const b = await ok(
+      await call(
+        o.headers,
+        'POST',
+        '/lodging/bookings',
+        stay(p.id, { checkIn: night(monday), checkOut: night(monday + 2) }),
+      ),
+      BookingDetail,
+      201,
+    );
+    expect(b).toMatchObject({ packageNames: ['4PN'], totalSell: 16_000_000 });
+    // Fri → Sun: 4PN is not sold on Saturday, so the edit picks 5PN again.
+    const moved = await ok(
+      await call(o.headers, 'PATCH', `/lodging/bookings/${b.id}`, {
+        version: b.version,
+        checkIn: night(friday + 7),
+        checkOut: night(friday + 9),
+      }),
+      BookingDetail,
+    );
+    expect(moved).toMatchObject({ packageNames: ['5PN'], totalSell: 27_000_000 });
+    // 14 guests do not fit 5PN (max 12): 6PN.
+    const grown = await ok(
+      await call(o.headers, 'PATCH', `/lodging/bookings/${b.id}`, {
+        version: moved.version,
+        party: { adults: 14, childAges: [] },
+      }),
+      BookingDetail,
+    );
+    expect(grown.packageNames).toEqual(['6PN']);
+  });
+
+  it('keeps a booking readable when its package is removed (review F6b)', async () => {
+    const o = await signup();
+    const p = await auraVilla(o.headers);
+    const pk5 = packageId(p, '5PN');
+    const b = await ok(
+      await call(o.headers, 'POST', '/lodging/bookings', stay(p.id)),
+      BookingDetail,
+      201,
+    );
+    expect(b.packageIds).toEqual([pk5]);
+    const keep = p.packages.filter((pk) => pk.id !== pk5);
+    await ok(
+      await call(o.headers, 'PUT', `/lodging/properties/${p.id}/rates`, {
+        version: p.version,
+        surcharges: NO_SURCHARGES,
+        packages: keep.map(({ sortOrder: _s, ...pk }) => ({ ...pk, key: pk.id })),
+        weekday: p.rates
+          .filter((r) => r.kind === 'weekday' && r.packageId !== pk5)
+          .map((r) => ({
+            unitId: r.unitId,
+            weekdays: r.weekdays,
+            sell: r.sell,
+            cost: r.cost,
+            packageKey: r.packageId,
+          })),
+      }),
+      PropertyDto,
+    );
+    const after = await ok(
+      await call(o.headers, 'GET', `/lodging/bookings/${b.id}`),
+      BookingDetail,
+    );
+    expect(after).toMatchObject({ packageIds: [], packageNames: [], totalSell: 27_000_000 });
+    expect(await bookingUnitPackages(b.id)).toEqual([{ unitId: p.units[0]?.id, packageId: null }]);
+  });
+
+  it('sells each room its full package in a whole rental without whole packages (review F6d)', async () => {
+    const o = await signup();
+    const hs = await homestay(o.headers);
+    const [b1, b2] = hs.units.map((u) => u.id);
+    const withMax = await ok(
+      await call(o.headers, 'PUT', `/lodging/properties/${hs.id}/units`, {
+        version: hs.version,
+        units: [
+          { id: b1, name: 'B1', capacityAdults: 2 },
+          { id: b2, name: 'B2', capacityAdults: 2, maxGuests: 2 },
+        ],
+      }),
+      PropertyDto,
+    );
+    const all = [1, 2, 3, 4, 5, 6, 7];
+    const priced = await ok(
+      await call(o.headers, 'PUT', `/lodging/properties/${hs.id}/rates`, {
+        version: withMax.version,
+        surcharges: NO_SURCHARGES,
+        packages: [
+          { key: 'big', unitId: b1, name: '2PN', bedrooms: 2, standardAdults: 3, maxGuests: 3 },
+          { key: 'small', unitId: b1, name: '1PN', bedrooms: 1, standardAdults: 2, maxGuests: 2 },
+        ],
+        weekday: [
+          { unitId: b1, weekdays: all, sell: 2_000_000, cost: 1, packageKey: 'big' },
+          { unitId: b1, weekdays: all, sell: 1_000_000, cost: 1, packageKey: 'small' },
+          { unitId: b2, weekdays: all, sell: 1_500_000, cost: 1 },
+        ],
+      }),
+      PropertyDto,
+    );
+    const big = packageId(priced, '2PN');
+    // Two priced targets: no party look, B1 gets its full package; B2 sells none.
+    const whole = await ok(
+      await call(o.headers, 'POST', '/lodging/bookings', stay(hs.id, { party: { adults: 2 } })),
+      BookingDetail,
+      201,
+    );
+    expect(whole).toMatchObject({ packageIds: [big], packageNames: ['2PN'], totalSell: 7_000_000 });
+    const rows = await bookingUnitPackages(whole.id);
+    expect(Object.fromEntries(rows.map((r) => [r.unitId, r.packageId]))).toEqual({
+      [b1 ?? 'b1']: big,
+      [b2 ?? 'b2']: null,
+    });
+    // Maximum = 2PN max 3 + B2 max 2 = 5.
+    const quote = (adults: number) =>
+      call(o.headers, 'POST', '/lodging/quote', {
+        propertyId: hs.id,
+        whole: true,
+        checkIn: night(friday + 7),
+        checkOut: night(friday + 8),
+        party: { adults, childAges: [] },
+      });
+    expect((await ok(await quote(5), QuoteDto)).warnings).not.toContain('over_max');
+    expect((await ok(await quote(6), QuoteDto)).warnings).toContain('over_max');
   });
 });

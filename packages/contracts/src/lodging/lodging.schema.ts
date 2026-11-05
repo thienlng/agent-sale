@@ -429,6 +429,10 @@ export const UpdateBookingRequest = z.object({
   checkOut: IsoNight.optional(),
   whole: z.boolean().optional(),
   unitIds: z.array(z.uuid()).max(100).optional(),
+  /**
+   * Omitted = keep the booking's packages; `[]` = pick them automatically; otherwise the chosen
+   * ones. A change re-prices the stay, so clients send it only when the package changed.
+   */
   packageIds: z.array(z.uuid()).max(100).optional(),
   party: Party.optional(),
   guestName: z.string().trim().min(1).max(200).optional(),

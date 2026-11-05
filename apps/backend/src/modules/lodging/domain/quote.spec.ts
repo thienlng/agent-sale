@@ -3,7 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { auraPackages, auraRates, pkg } from '../__tests__/factories/packages.js';
 import { forPackage, override, weekday } from '../__tests__/factories/rate-rules.js';
 import { LodgingError } from './lodging.errors.js';
-import { quoteStay, resolveUnits, type QuoteProperty, type QuoteUnit } from './quote.js';
+import {
+  quoteStay,
+  resolveUnits,
+  singlePackageTarget,
+  type QuoteProperty,
+  type QuoteUnit,
+} from './quote.js';
 
 const villa: QuoteProperty = {
   sellMode: 'whole',
@@ -594,5 +600,20 @@ describe('quoteStay with bedroom packages', () => {
     const q = quoteStay(villa, villaUnits, a17Rates, stay('2026-11-06', '2026-11-08', 20));
     expect(q.packages).toEqual([]);
     expect(q.totalSell).toBe(27_000_000);
+  });
+});
+
+describe('singlePackageTarget', () => {
+  const roomPackages = [pkg('a2', 'rA', 2), pkg('a1', 'rA', 1)];
+  it('is the one priced target when it has packages', () => {
+    expect(singlePackageTarget([null], auraPackages)).toEqual({ target: null });
+    expect(singlePackageTarget(['rA'], roomPackages)).toEqual({ target: 'rA' });
+  });
+  it('is null for several priced targets, even when only one has packages', () => {
+    expect(singlePackageTarget(['rA', 'rB'], roomPackages)).toBeNull();
+  });
+  it('is null for one target without packages', () => {
+    expect(singlePackageTarget(['rB'], roomPackages)).toBeNull();
+    expect(singlePackageTarget([], roomPackages)).toBeNull();
   });
 });

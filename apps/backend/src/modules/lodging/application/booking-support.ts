@@ -95,8 +95,10 @@ export function unitPackagesOf(
 }
 
 /**
- * Quote of a stay keeping the packages it was sold with; when they no longer fit the selection
- * (the target is no longer priced the same way) the packages are picked automatically.
+ * Quote of a stay keeping the packages it was sold with, while they still fit: when they no
+ * longer belong to the selection, leave a night unpriced (`package_unavailable`) or hold too few
+ * guests (`over_max`), the packages are picked automatically. The booking does not remember
+ * whether staff chose its package or the quote did, so a kept package never blocks an edit.
  */
 export function quoteKeepingPackages(
   ctx: PropertyContext,
@@ -106,12 +108,16 @@ export function quoteKeepingPackages(
   const quote = (packageIds: string[]) =>
     quoteStay(ctx.property, ctx.units, ctx.rates, { ...input, packageIds }, ctx.packages);
   if (stored.length === 0) return quote([]);
+  let kept: Quote;
   try {
-    return quote(stored);
+    kept = quote(stored);
   } catch (error) {
     if (error instanceof LodgingError && error.code === 'VALIDATION_FAILED') return quote([]);
     throw error;
   }
+  const misfit =
+    kept.warnings.includes('package_unavailable') || kept.warnings.includes('over_max');
+  return misfit ? quote([]) : kept;
 }
 
 /** Quote of a stay with the `requested` packages when sent, else `quoteKeepingPackages(kept)`. */

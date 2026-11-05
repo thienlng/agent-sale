@@ -1,4 +1,11 @@
-import { quoteStay, resolveUnits, type Quote, type QuotePackage } from '../domain/quote.js';
+import {
+  quoteStay,
+  resolveUnits,
+  singlePackageTarget,
+  stayTargets,
+  type Quote,
+  type QuotePackage,
+} from '../domain/quote.js';
 import { packagesOf, type RateRule } from '../domain/rates.js';
 import type {
   LodgingTx,
@@ -27,7 +34,10 @@ export interface FreeOption {
   fits: boolean;
   /** The packages the quote picked (`quote.packages`). */
   packages: QuotePackage[];
-  /** The other packages of a single package target, fewest bedrooms first; else empty. */
+  /**
+   * When the option prices exactly one target and it has packages (`singlePackageTarget`): its
+   * other packages, fewest bedrooms first; else empty.
+   */
   alternatives: PackageAlternative[];
 }
 
@@ -102,11 +112,16 @@ export async function freeOptions(
     }
     for (const s of selections) {
       const quote = quoteStay(p, own, rates, { ...s, ...stay }, packages);
-      const [single, ...more] = quote.packages;
+      const ask = { ...s, ...stay };
+      const single = singlePackageTarget(
+        stayTargets(p, own, rates, ask, packages).priced,
+        packages,
+      );
+      const chosen = single && quote.packages.find((c) => c.target === single.target);
       const alternatives =
-        single && more.length === 0
+        single && chosen
           ? packagesOf(packages, single.target)
-              .filter((pk) => pk.id !== single.packageId)
+              .filter((pk) => pk.id !== chosen.packageId)
               .sort((a, b) => a.bedrooms - b.bedrooms)
               .map((pk): PackageAlternative => {
                 const q = quoteStay(

@@ -206,8 +206,9 @@ export class BookingService {
   /**
    * Edits a booking. Holds, confirmed stays and active blocks change freely; a checked-in stay
    * only moves its check-out and corrects its price. Only a change of dates, units, packages or
-   * party re-prices the stay (a stay re-priced without `packageIds` keeps its packages while its
-   * units stay, else they are picked automatically); any other edit keeps the stored quote and nights. Units and nights are
+   * party re-prices the stay. `packageIds` omitted = keep the stored packages (re-priced: kept
+   * while the units stay and they still fit, see `quoteKeepingPackages`, else auto-picked);
+   * `[]` = pick automatically, so a client sends `packageIds` only when staff changed them; any other edit keeps the stored quote and nights. Units and nights are
    * re-taken in the same transaction, so a conflict leaves the old nights in place.
    */
   async update(

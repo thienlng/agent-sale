@@ -1,8 +1,8 @@
 import { workspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
 
-import { auraPackages, auraRates } from '../__tests__/factories/packages.js';
-import { weekday } from '../__tests__/factories/rate-rules.js';
+import { auraPackages, auraRates, pkg } from '../__tests__/factories/packages.js';
+import { forPackage, weekday } from '../__tests__/factories/rate-rules.js';
 import { unitDetails } from '../__tests__/factories/units.js';
 import type { RateRule } from '../domain/rates.js';
 import { CalendarService } from './calendar.service.js';
@@ -217,6 +217,30 @@ describe('CalendarService with bedroom packages (T-193)', () => {
     expect(option?.alternatives).toEqual([
       { packageId: 'pk4', name: '4PN', bedrooms: 4, totalSell: null, fits: true },
       { packageId: 'pk6', name: '6PN', bedrooms: 6, totalSell: 30_000_000, fits: true },
+    ]);
+  });
+
+  it('offers no alternatives when the option prices two targets, one with packages', async () => {
+    const roomRates = new Map([
+      [
+        HOMESTAY,
+        [
+          forPackage('p1-2', weekday(P1, ALL_DAYS, 1_500_000)),
+          forPackage('p1-1', weekday(P1, ALL_DAYS, 1_000_000)),
+          weekday(P2, ALL_DAYS, 1_200_000),
+        ],
+      ],
+    ]);
+    const packages = [pkg('p1-2', P1, 2), pkg('p1-1', P1, 1)].map((pk) => ({
+      ...pk,
+      propertyId: HOMESTAY,
+    }));
+    const r = await service({ rates: roomRates, packages }).calendar.availability(ws, {
+      ...request(4),
+      propertyIds: [HOMESTAY],
+    });
+    expect(r.options.map((o) => [o.unitIds, o.packages, o.alternatives])).toEqual([
+      [[P1, P2], [{ target: P1, packageId: 'p1-2', name: '2PN' }], []],
     ]);
   });
 

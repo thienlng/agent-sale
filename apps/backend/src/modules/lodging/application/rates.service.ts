@@ -74,6 +74,13 @@ function nextPackages(
           { packageId: pk.id },
         );
       }
+      // Bookings and overrides point at the package of its target: a move is a delete + create.
+      if (stored.find((s) => s.id === pk.id)?.unitId !== pk.unitId) {
+        throw new LodgingError('VALIDATION_FAILED', 'A package cannot move to another target', {
+          packageId: pk.id,
+          unitId: pk.unitId,
+        });
+      }
       ids.add(pk.id);
     }
     assertRateTarget(p, units, pk.unitId);
@@ -126,12 +133,12 @@ export class RatesService {
       const packages = nextPackages(p, units, await tx.packages([p.id]), input.packages);
       const idOf = new Map(input.packages.map((pk, i) => [pk.key, packages[i]?.id ?? '']));
       for (const r of input.weekday) assertRateTarget(p, units, r.unitId);
-      const targets = new Set<string | null>([
-        ...input.weekday.map((r) => r.unitId),
-        ...packages.map((pk) => pk.unitId),
-      ]);
+      // Coverage: the active targets and every target priced in the request. The packages of an
+      // inactive room may come without rates (they are kept, and that room needs no prices).
+      const targets = new Set<string | null>(input.weekday.map((r) => r.unitId));
       if (p.sellMode === 'whole') targets.add(null);
       else units.filter((u) => u.kind === 'room' && u.active).forEach((u) => targets.add(u.id));
+      const packageTargets = [...new Set([...targets, ...packages.map((pk) => pk.unitId)])];
       const rules: RateRule[] = input.weekday.map((r) => {
         const packageId = r.packageKey === null ? null : idOf.get(r.packageKey);
         if (packageId === undefined) {
@@ -166,7 +173,7 @@ export class RatesService {
           moved.push(next);
           return next;
         });
-      assertPackages(packages, [...targets]);
+      assertPackages(packages, packageTargets);
       assertRateCoverage([...rules, ...overrides], [...targets], packages);
       assertNoOverrideOverlap(overrides);
       await tx.replacePackages(p.id, packages);
