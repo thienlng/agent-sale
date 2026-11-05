@@ -60,7 +60,8 @@ describe('PoliciesTab', () => {
     expect(bodies[0]).toMatchObject({
       patch: { policies: { checkInTime: '14:00', checkOutTime: '12:00' } },
     });
-  });
+    // Two 49-option Radix selects in jsdom take ~2 s alone and pass 5 s under full-suite load.
+  }, 15_000);
 
   it('keeps an older free-text time until the owner picks a slot', async () => {
     const base = propertyFixture();
