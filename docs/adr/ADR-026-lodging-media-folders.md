@@ -30,8 +30,9 @@ Spec: `docs/superpowers/specs/2026-11-05-lodging-media-folders-design.md` (T-192
    the result reports `remaining`. When every photo was already sent it restarts from photo 1, and
    the first restart page of a folder in a turn reports `remaining: 0` (an unordered sent set cannot
    page a re-cycle across turns); later calls in the same turn page on from the restart point. An
-   uploaded video is its own video message; a link is appended to the text as "title: url" (the
-   caption, or "video n"). `albumId` and `imageIds` are exclusive.
+   uploaded video is its own video message (Meta fetches it before answering, so a Messenger send
+   with a video waits up to 60 s instead of 15 s); a link is appended to the text as "title: url"
+   (the caption, or "video n"). `albumId` and `imageIds` are exclusive.
 4. **Who knows what was sent.** The conversation processor computes the bot's sent attachment URLs
    of the last 30 days from the context it already loaded (the newest 200 messages, so in effect
    "last 30 days or last 200 messages, whichever is less") and passes them as

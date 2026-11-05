@@ -26,6 +26,14 @@ export interface CustomerProfile {
 }
 /** Meta could not fetch one of the pictures of an album (#100): a definite rejection, nothing sent. */
 const ALBUM_FETCH_FAILED = 2018047;
+/**
+ * Meta fetches an attachment URL before it answers the send, and a video can be 25 MiB, so a send
+ * with a video waits longer; a timeout would leave its delivery unknown (counted as not sent).
+ */
+const SEND_TIMEOUT_MS = 15_000;
+const VIDEO_SEND_TIMEOUT_MS = 60_000;
+const sendTimeoutMs = (message: OutboundMessage): number =>
+  message.attachments?.some((a) => a.type === 'video') ? VIDEO_SEND_TIMEOUT_MS : SEND_TIMEOUT_MS;
 
 /**
  * No automatic retries: a network failure after a POST has an uncertain delivery outcome. The one
@@ -122,7 +130,7 @@ export class MetaAdapter implements ChannelAdapter {
             message: outbound(message),
             ...(this.kind === 'facebook' ? { messaging_type: 'RESPONSE' } : {}),
           }),
-          signal: AbortSignal.timeout(15000),
+          signal: AbortSignal.timeout(sendTimeoutMs(message)),
           redirect: 'error',
         },
       );
