@@ -18,8 +18,9 @@ import {
   rectSortingStrategy,
   SortableContext,
   sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { ChevronLeft, FolderInput, ImagePlus, Link2, Loader2, Trash2 } from 'lucide-react';
+import { ChevronLeft, ImagePlus, Link2, Loader2 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -44,8 +45,11 @@ import {
   setCaption,
   setCover,
 } from '../../lib/gallery-model';
+import { savedView, SelectionBar, type ViewMode, ViewToggle } from './folder-toolbar';
 import { LinkDialog } from './link-dialog';
+import { MediaRow } from './media-row';
 import { MediaTile } from './media-tile';
+import { MediaViewer } from './media-viewer';
 import { MoveDialog } from './move-dialog';
 import { TextDialog } from './text-dialog';
 
@@ -81,6 +85,8 @@ export function FolderView({
   const [moving, setMoving] = useState<number[] | null>(null);
   const [captioning, setCaptioning] = useState<number | null>(null);
   const [selected, setSelected] = useState<ReadonlySet<number>>(new Set());
+  const [view, setView] = useState<ViewMode>(savedView);
+  const [viewing, setViewing] = useState<number | null>(null);
   const remaining = remainingItems(draft);
   const full = remaining <= 0;
   const { entries, upload } = useMediaUpload({
@@ -186,9 +192,12 @@ export function FolderView({
           </div>
         )}
       </div>
-      <p className="text-sm text-muted-foreground">
-        {t('lodging.media.help', { count: BOT_ALBUM_PAGE_SIZE })}
-      </p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {t('lodging.media.help', { count: BOT_ALBUM_PAGE_SIZE })}
+        </p>
+        <ViewToggle value={view} onChange={setView} />
+      </div>
       {canEdit && (
         <p className="text-xs text-muted-foreground tabular-nums">
           {full
@@ -212,37 +221,13 @@ export function FolderView({
         </ul>
       )}
       {selected.size > 0 && (
-        <div
-          role="toolbar"
-          aria-label={t('lodging.media.selected', { count: selected.size })}
-          className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/50 p-2 text-sm"
-        >
-          <span className="font-medium">
-            {t('lodging.media.selected', { count: selected.size })}
-          </span>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={!others.length}
-            onClick={() => setMoving([...selected].sort((a, b) => a - b))}
-          >
-            <FolderInput aria-hidden />
-            {t('lodging.media.moveTo')}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => edit((d) => removeItems(d, folder.id, [...selected]))}
-          >
-            <Trash2 aria-hidden />
-            {t('lodging.media.remove')}
-          </Button>
-          <Button type="button" size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
-            {t('lodging.media.clearSelection')}
-          </Button>
-        </div>
+        <SelectionBar
+          count={selected.size}
+          canMove={others.length > 0}
+          onMove={() => setMoving([...selected].sort((x, y) => x - y))}
+          onRemove={() => edit((d) => removeItems(d, folder.id, [...selected]))}
+          onClear={() => setSelected(new Set())}
+        />
       )}
       <div
         data-testid="media-drop-zone"
@@ -286,41 +271,93 @@ export function FolderView({
               screenReaderInstructions: { draggable: t('lodging.media.dragInstructions') },
             }}
           >
-            <SortableContext items={keys} strategy={rectSortingStrategy}>
-              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                {folder.items.map((item, i) => {
-                  const number = numbers[i] ?? null;
-                  return (
-                    <MediaTile
-                      key={keys[i]}
-                      id={keys[i] ?? String(i)}
-                      item={item}
-                      label={labels[i] ?? ''}
-                      number={number}
-                      early={number !== null && number <= BOT_ALBUM_PAGE_SIZE}
-                      showEarlyLabel={number === 1}
-                      isCover={item.kind === 'image' && item.url === cover}
-                      canSetCover={item.kind === 'image' && item.url !== draft.galleryCover}
-                      canEdit={canEdit}
-                      selected={selected.has(i)}
-                      first={i === 0}
-                      last={i === folder.items.length - 1}
-                      canMove={others.length > 0}
-                      onSelect={(on) => toggle(i, on)}
-                      onUp={() => edit((d) => moveItem(d, folder.id, i, -1))}
-                      onDown={() => edit((d) => moveItem(d, folder.id, i, 1))}
-                      onMove={() => setMoving([i])}
-                      onCover={() => onChange((d) => setCover(d, item.url))}
-                      onCaption={() => setCaptioning(i)}
-                      onRemove={() => edit((d) => removeItems(d, folder.id, [i]))}
-                    />
-                  );
-                })}
-              </ul>
-            </SortableContext>
+            {view === 'grid' ? (
+              <SortableContext items={keys} strategy={rectSortingStrategy}>
+                <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                  {folder.items.map((item, i) => {
+                    const number = numbers[i] ?? null;
+                    return (
+                      <MediaTile
+                        key={keys[i]}
+                        id={keys[i] ?? String(i)}
+                        item={item}
+                        label={labels[i] ?? ''}
+                        number={number}
+                        early={number !== null && number <= BOT_ALBUM_PAGE_SIZE}
+                        showEarlyLabel={number === 1}
+                        isCover={item.kind === 'image' && item.url === cover}
+                        canSetCover={item.kind === 'image' && item.url !== draft.galleryCover}
+                        canEdit={canEdit}
+                        selected={selected.has(i)}
+                        first={i === 0}
+                        last={i === folder.items.length - 1}
+                        canMove={others.length > 0}
+                        onSelect={(on) => toggle(i, on)}
+                        onUp={() => edit((d) => moveItem(d, folder.id, i, -1))}
+                        onDown={() => edit((d) => moveItem(d, folder.id, i, 1))}
+                        onMove={() => setMoving([i])}
+                        onCover={() => onChange((d) => setCover(d, item.url))}
+                        onCaption={() => setCaptioning(i)}
+                        onRemove={() => edit((d) => removeItems(d, folder.id, [i]))}
+                        onOpen={() => setViewing(i)}
+                      />
+                    );
+                  })}
+                </ul>
+              </SortableContext>
+            ) : (
+              <SortableContext items={keys} strategy={verticalListSortingStrategy}>
+                <ul className="divide-y overflow-hidden rounded-md border">
+                  {folder.items.map((item, i) => {
+                    const number = numbers[i] ?? null;
+                    return (
+                      <MediaRow
+                        key={keys[i]}
+                        id={keys[i] ?? String(i)}
+                        item={item}
+                        label={labels[i] ?? ''}
+                        number={number}
+                        early={number !== null && number <= BOT_ALBUM_PAGE_SIZE}
+                        isCover={item.kind === 'image' && item.url === cover}
+                        canSetCover={item.kind === 'image' && item.url !== draft.galleryCover}
+                        canEdit={canEdit}
+                        selected={selected.has(i)}
+                        folderName={folder.name}
+                        first={i === 0}
+                        last={i === folder.items.length - 1}
+                        canMove={others.length > 0}
+                        onSelect={(on) => toggle(i, on)}
+                        onUp={() => edit((d) => moveItem(d, folder.id, i, -1))}
+                        onDown={() => edit((d) => moveItem(d, folder.id, i, 1))}
+                        onMove={() => setMoving([i])}
+                        onCover={() => onChange((d) => setCover(d, item.url))}
+                        onCaption={() => setCaptioning(i)}
+                        onCaptionChange={(caption) =>
+                          onChange((d) => setCaption(d, folder.id, i, caption))
+                        }
+                        onRemove={() => edit((d) => removeItems(d, folder.id, [i]))}
+                        onOpen={() => setViewing(i)}
+                      />
+                    );
+                  })}
+                </ul>
+              </SortableContext>
+            )}
           </DndContext>
         )}
       </div>
+      <MediaViewer
+        items={folder.items}
+        labels={labels}
+        index={viewing !== null && viewing < folder.items.length ? viewing : null}
+        folderName={folder.name}
+        canEdit={canEdit}
+        onIndexChange={setViewing}
+        onClose={() => setViewing(null)}
+        onCaptionChange={(index, caption) =>
+          onChange((d) => setCaption(d, folder.id, index, caption))
+        }
+      />
       <LinkDialog
         open={linkOpen}
         onOpenChange={setLinkOpen}

@@ -2393,6 +2393,15 @@
       "dragEnd": "Đã thả {{label}} ở vị trí {{position}}",
       "dragCancel": "Đã huỷ kéo {{label}}",
       "dragInstructions": "Để nhấc một mục, nhấn Space hoặc Enter. Dùng phím mũi tên để di chuyển, nhấn Space hoặc Enter lần nữa để thả, hoặc Esc để huỷ.",
+      "view": "Xem lớn {{label}}",
+      "viewMode": "Kiểu hiển thị",
+      "viewGrid": "Dạng lưới",
+      "viewList": "Dạng danh sách",
+      "position": "{{n}} / {{total}}",
+      "previous": "Mục trước",
+      "next": "Mục sau",
+      "openLink": "Mở link ({{host}})",
+      "captionOf": "Chú thích cho {{label}}",
       "save": "Lưu ảnh & video"
     },
     "conv": {

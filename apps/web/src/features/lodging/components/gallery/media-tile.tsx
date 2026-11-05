@@ -21,10 +21,10 @@ import { hostOf } from '../../lib/gallery-model';
 /** Every tile badge: one text size and line height. */
 const BADGE = 'inline-flex items-center rounded px-1.5 text-xs leading-5 tabular-nums';
 
-const clock = (seconds: number) =>
+export const clock = (seconds: number) =>
   `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 
-function Preview({ item, label }: { item: GalleryItem; label: string }) {
+export function Preview({ item, label }: { item: GalleryItem; label: string }) {
   const [seconds, setSeconds] = useState<number | null>(null);
   if (item.kind === 'image')
     return (
@@ -66,6 +66,71 @@ function Preview({ item, label }: { item: GalleryItem; label: string }) {
   );
 }
 
+export interface ItemMenuProps {
+  label: string;
+  first: boolean;
+  last: boolean;
+  canMove: boolean;
+  /** False only for the cover the owner already chose; the automatic cover can be pinned. */
+  canSetCover: boolean;
+  onUp: () => void;
+  onDown: () => void;
+  onMove: () => void;
+  onCover: () => void;
+  onCaption: () => void;
+  onRemove: () => void;
+}
+
+/** The ⋮ menu of one item, shared by the grid tile and the list row. */
+export function ItemMenu({
+  label,
+  first,
+  last,
+  canMove,
+  canSetCover,
+  onUp,
+  onDown,
+  onMove,
+  onCover,
+  onCaption,
+  onRemove,
+}: ItemMenuProps) {
+  const { t } = useTranslation();
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="secondary"
+          aria-label={t('lodging.media.itemMenu', { label })}
+        >
+          <MoreVertical aria-hidden />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem disabled={first} onSelect={onUp}>
+          {t('lodging.media.up')}
+        </DropdownMenuItem>
+        <DropdownMenuItem disabled={last} onSelect={onDown}>
+          {t('lodging.media.down')}
+        </DropdownMenuItem>
+        <DropdownMenuItem disabled={!canMove} onSelect={onMove}>
+          {t('lodging.media.moveTo')}
+        </DropdownMenuItem>
+        {canSetCover && (
+          <DropdownMenuItem onSelect={onCover}>{t('lodging.media.setCover')}</DropdownMenuItem>
+        )}
+        <DropdownMenuItem onSelect={onCaption}>{t('lodging.media.editCaption')}</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem variant="destructive" onSelect={onRemove}>
+          {t('lodging.media.remove')}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 /** One sortable tile of the folder grid: its number (photos), badges, selection and ⋮ menu. */
 export function MediaTile({
   id,
@@ -88,6 +153,7 @@ export function MediaTile({
   onCover,
   onCaption,
   onRemove,
+  onOpen,
 }: {
   id: string;
   item: GalleryItem;
@@ -110,6 +176,7 @@ export function MediaTile({
   onCover: () => void;
   onCaption: () => void;
   onRemove: () => void;
+  onOpen: () => void;
 }) {
   const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -129,8 +196,16 @@ export function MediaTile({
       )}
     >
       <Preview item={item} label={label} />
+      {/* The whole tile opens the large view; the top bar's controls sit above this button. */}
+      <button
+        type="button"
+        aria-label={t('lodging.media.view', { label })}
+        title={item.caption || undefined}
+        className="absolute inset-0 cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
+        onClick={onOpen}
+      />
       {/* One top bar: the number badge and the controls share a 28px row and one centre line. */}
-      <div className="absolute inset-x-1 top-1 flex items-center justify-between gap-1">
+      <div className="pointer-events-none absolute inset-x-1 top-1 flex items-center justify-between gap-1 *:pointer-events-auto">
         <span
           className={cn(
             BADGE,
@@ -170,47 +245,25 @@ export function MediaTile({
             >
               <GripVertical aria-hidden />
             </Button>
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant="secondary"
-                  aria-label={t('lodging.media.itemMenu', { label })}
-                >
-                  <MoreVertical aria-hidden />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem disabled={first} onSelect={onUp}>
-                  {t('lodging.media.up')}
-                </DropdownMenuItem>
-                <DropdownMenuItem disabled={last} onSelect={onDown}>
-                  {t('lodging.media.down')}
-                </DropdownMenuItem>
-                <DropdownMenuItem disabled={!canMove} onSelect={onMove}>
-                  {t('lodging.media.moveTo')}
-                </DropdownMenuItem>
-                {canSetCover && (
-                  <DropdownMenuItem onSelect={onCover}>
-                    {t('lodging.media.setCover')}
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onSelect={onCaption}>
-                  {t('lodging.media.editCaption')}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onSelect={onRemove}>
-                  {t('lodging.media.remove')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ItemMenu
+              label={label}
+              first={first}
+              last={last}
+              canMove={canMove}
+              canSetCover={canSetCover}
+              onUp={onUp}
+              onDown={onDown}
+              onMove={onMove}
+              onCover={onCover}
+              onCaption={onCaption}
+              onRemove={onRemove}
+            />
           </div>
         )}
       </div>
       {(showEarlyLabel || isCover) && (
         // Stacked from the bottom so the two labels never overlap on narrow phone tiles.
-        <div className="absolute inset-x-1 bottom-1 flex flex-col items-start gap-1">
+        <div className="pointer-events-none absolute inset-x-1 bottom-1 flex flex-col items-start gap-1">
           {showEarlyLabel && (
             <span className={cn(BADGE, 'bg-primary font-medium text-primary-foreground')}>
               {t('lodging.media.botFirst')}

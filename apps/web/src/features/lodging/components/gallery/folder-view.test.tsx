@@ -179,4 +179,47 @@ describe('FolderView', () => {
     expect(toast.error).toHaveBeenCalledWith('Căn hộ đã đủ 200 mục');
     expect(uploadImage).not.toHaveBeenCalled();
   });
+
+  it('opens a photo large, steps with the arrows and edits its caption there', async () => {
+    const user = userEvent.setup();
+    start();
+    await user.click(screen.getByRole('button', { name: 'Xem lớn Ảnh 1' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('1 / 11')).toBeInTheDocument();
+    expect(within(dialog).getByRole('img', { name: 'Ảnh 1' })).toHaveAttribute(
+      'src',
+      'https://cdn.example.com/1.jpg',
+    );
+    await user.type(within(dialog).getByRole('textbox', { name: 'Chú thích' }), 'Mặt tiền');
+    expect(current().gallery[0]?.items[0]?.caption).toBe('Mặt tiền');
+    await user.click(within(dialog).getByRole('button', { name: 'Mục sau' }));
+    expect(within(dialog).getByText('2 / 11')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Tour')).toHaveAttribute('src', VIDEO.url);
+    fireEvent.keyDown(dialog, { key: 'ArrowLeft' });
+    expect(within(dialog).getByText('1 / 11')).toBeInTheDocument();
+    fireEvent.keyDown(dialog, { key: 'ArrowLeft' });
+    expect(within(dialog).getByText('11 / 11')).toBeInTheDocument();
+  });
+
+  it('switches to a list with captions edited in place, and remembers the choice', async () => {
+    const user = userEvent.setup();
+    localStorage.removeItem('rapiz.lodging.mediaView');
+    const first = start();
+    await user.click(screen.getByRole('radio', { name: 'Dạng danh sách' }));
+    const rows = screen.getAllByTestId('media-row');
+    expect(rows).toHaveLength(11);
+    expect(screen.queryAllByTestId('media-tile')).toHaveLength(0);
+    expect(rows.filter((r) => r.dataset.early === 'true')).toHaveLength(8);
+    expect(within(rows[1]!).getByRole('textbox', { name: 'Chú thích cho Tour' })).toHaveValue(
+      'Tour',
+    );
+    const caption = within(rows[2]!).getByRole('textbox', { name: 'Chú thích cho Ảnh 2' });
+    expect(caption).toHaveAttribute('placeholder', 'Phòng ngủ');
+    await user.type(caption, 'Phòng ngủ chính');
+    expect(current().gallery[0]?.items[2]?.caption).toBe('Phòng ngủ chính');
+    first.unmount();
+    start();
+    expect(screen.getAllByTestId('media-row')).toHaveLength(11);
+    localStorage.removeItem('rapiz.lodging.mediaView');
+  });
 });

@@ -2406,6 +2406,15 @@
       "dragEnd": "Dropped {{label}} at position {{position}}",
       "dragCancel": "Cancelled dragging {{label}}",
       "dragInstructions": "To pick up an item, press Space or Enter. Use the arrow keys to move it, press Space or Enter again to drop it, or Escape to cancel.",
+      "view": "View {{label}} large",
+      "viewMode": "View",
+      "viewGrid": "Grid",
+      "viewList": "List",
+      "position": "{{n}} / {{total}}",
+      "previous": "Previous item",
+      "next": "Next item",
+      "openLink": "Open link ({{host}})",
+      "captionOf": "Caption for {{label}}",
       "save": "Save photos & videos"
     },
     "conv": {
