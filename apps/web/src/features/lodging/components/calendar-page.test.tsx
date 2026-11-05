@@ -159,6 +159,7 @@ const property: PropertyDto = {
     other: '',
   },
   gallery: [],
+  galleryCover: '',
   internalNote: '',
   units: [
     {

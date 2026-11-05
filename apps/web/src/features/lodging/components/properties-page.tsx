@@ -1,4 +1,4 @@
-import type { PropertySummary } from '@agent-sales/contracts';
+import { galleryCoverUrl, type PropertySummary } from '@agent-sales/contracts';
 import { Link } from '@tanstack/react-router';
 import { CircleAlert, House, ImageOff, LayoutGrid, List, Plus, TriangleAlert } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -164,7 +164,7 @@ function PropertyCard({
   warning: PropertyWarning | undefined;
 }) {
   const { t } = useTranslation();
-  const cover = p.gallery[0];
+  const cover = galleryCoverUrl(p);
   const titleId = `property-${p.id}-title`;
   const rooms = p.units.filter((u) => u.kind === 'room' && u.active).length;
   return (
@@ -178,7 +178,7 @@ function PropertyCard({
       {/* Fixed 4:3 crop; the absolute image cannot stretch the box (aspect-ratio min-height). */}
       <div className="relative aspect-[4/3] shrink-0 overflow-hidden bg-muted">
         {cover ? (
-          <CoverImage src={cover.url} alt={cover.caption} />
+          <CoverImage src={cover} alt={p.name} />
         ) : (
           <div className="grid size-full place-items-center text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">

@@ -86,6 +86,8 @@ describe('gallery items', () => {
     const moved = moveItemsTo(d, 'a', [0, 2], 'b');
     expect(moved.gallery[0]?.items).toEqual([img(2)]);
     expect(moved.gallery[1]?.items).toEqual([img(9), img(1), img(3)]);
+    // An unknown target folder must not drop the items from the source.
+    expect(moveItemsTo(d, 'a', [0], 'gone')).toBe(d);
   });
 
   it('numbers photos only, counts kinds and keys repeated urls apart', () => {

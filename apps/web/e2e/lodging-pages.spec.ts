@@ -50,6 +50,7 @@ function property(n: number) {
       other: '',
     },
     gallery: [],
+    galleryCover: '',
     internalNote: '',
     units: rooms ? [unit(1, 'room'), unit(2, 'room', false), unit(3, 'room')] : [unit(0, 'whole')],
     surcharges: { extraAdult: { sell: 300_000, cost: 200_000 }, extraChild: null },

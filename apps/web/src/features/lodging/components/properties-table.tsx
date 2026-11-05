@@ -1,4 +1,4 @@
-import type { PropertySummary } from '@agent-sales/contracts';
+import { galleryCoverUrl, type PropertySummary } from '@agent-sales/contracts';
 import { Link } from '@tanstack/react-router';
 import { ImageOff, TriangleAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -74,7 +74,7 @@ export function PropertiesTable({
         </TableHeader>
         <TableBody>
           {properties.map((p) => {
-            const cover = p.gallery[0];
+            const cover = galleryCoverUrl(p);
             const warning = warnings.get(p.id);
             return (
               <TableRow
@@ -86,8 +86,8 @@ export function PropertiesTable({
                   <div className="relative size-10 shrink-0 overflow-hidden rounded-md bg-muted">
                     {cover ? (
                       <img
-                        src={cover.url}
-                        alt={cover.caption}
+                        src={cover}
+                        alt={p.name}
                         loading="lazy"
                         referrerPolicy="no-referrer"
                         className="absolute inset-0 size-full object-cover"

@@ -80,8 +80,15 @@ describe('PropertiesPage', () => {
       code: 'T1',
       gallery: [
         {
-          url: '/media/products/0192f0a0-0000-7000-8000-000000000001/0192f0a0-0000-7000-8000-0000000000aa.jpg',
-          caption: 'Ảnh dọc',
+          id: 'front',
+          name: 'Mặt tiền',
+          items: [
+            {
+              kind: 'image',
+              url: '/media/products/0192f0a0-0000-7000-8000-000000000001/0192f0a0-0000-7000-8000-0000000000aa.jpg',
+              caption: 'Ảnh dọc',
+            },
+          ],
         },
       ],
     });
@@ -94,7 +101,7 @@ describe('PropertiesPage', () => {
     });
     vi.stubGlobal('fetch', fetchStub);
     renderWithRouter(() => <PropertiesPage />);
-    const img = await screen.findByRole('img', { name: 'Ảnh dọc' });
+    const img = await screen.findByRole('img', { name: tall.name });
     // An absolutely positioned cover cannot stretch its aspect-ratio box (min-height: auto).
     expect(img).toHaveClass('absolute', 'inset-0', 'object-cover');
     expect(img.parentElement).toHaveClass('aspect-[4/3]', 'relative', 'overflow-hidden');

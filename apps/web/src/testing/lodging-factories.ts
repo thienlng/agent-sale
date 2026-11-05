@@ -79,6 +79,7 @@ export function propertyFixture(over: Partial<PropertyDto> = {}): PropertyDto {
       other: '',
     },
     gallery: [],
+    galleryCover: '',
     internalNote: '',
     units: [unitFixture()],
     rates: [],

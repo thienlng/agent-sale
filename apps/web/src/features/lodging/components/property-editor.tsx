@@ -20,7 +20,7 @@ import { ApiClientError } from '@/lib/api-client';
 import { useCan } from '@/lib/permissions';
 
 import { useProperty } from '../api/properties';
-import type { GalleryUploadSlot } from './gallery-editor';
+import type { GalleryImageUpload } from '../lib/gallery-model';
 import { GalleryTab } from './gallery-tab';
 import { InfoTab } from './info-tab';
 import { PoliciesTab } from './policies-tab';
@@ -36,20 +36,26 @@ type TabKey = 'info' | 'rooms' | 'rates' | 'policies' | 'gallery';
  */
 export function PropertyEditor({
   propertyId,
-  renderGalleryUpload,
+  uploadImage,
+  folderId,
+  onFolderChange,
 }: {
   propertyId: string;
-  renderGalleryUpload?: GalleryUploadSlot | undefined;
+  uploadImage?: GalleryImageUpload | undefined;
+  /** The open gallery folder (route search `folder`); opens the "Ảnh & video" tab. */
+  folderId?: string | undefined;
+  onFolderChange?: ((folderId: string | undefined) => void) | undefined;
 }) {
   const { t } = useTranslation();
   const property = useProperty(propertyId);
   const canEdit = useCan('catalog.manage');
-  const [tab, setTab] = useState<TabKey>('info');
+  const [tab, setTab] = useState<TabKey>(folderId ? 'gallery' : 'info');
   const [dirtyTabs, setDirtyTabs] = useState<ReadonlySet<TabKey>>(new Set());
   const reporters = useReporters(setDirtyTabs);
   const dirty = dirtyTabs.size > 0;
   const blocker = useBlocker({
-    shouldBlockFn: () => dirty,
+    // Opening or closing a gallery folder only changes the search: that is not leaving the page.
+    shouldBlockFn: ({ current, next }) => dirty && current.pathname !== next.pathname,
     enableBeforeUnload: () => dirty,
     withResolver: true,
   });
@@ -123,7 +129,9 @@ export function PropertyEditor({
               <GalleryTab
                 {...shared}
                 onDirtyChange={reporters.gallery}
-                renderUpload={renderGalleryUpload}
+                uploadImage={uploadImage}
+                folderId={folderId}
+                onFolderChange={onFolderChange ?? (() => {})}
               />
             )}
           </TabsContent>

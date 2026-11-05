@@ -1,0 +1,337 @@
+import {
+  BOT_ALBUM_PAGE_SIZE,
+  GALLERY_MAX_ITEMS,
+  type GalleryFolder,
+  type GalleryItem,
+} from '@agent-sales/contracts';
+import {
+  type Announcements,
+  closestCenter,
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  rectSortingStrategy,
+  SortableContext,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
+import { ChevronLeft, FolderInput, ImagePlus, Link2, Loader2, Trash2 } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
+import { MEDIA_ACCEPT, useMediaUpload } from '../../hooks/use-media-upload';
+import {
+  appendItems,
+  coverOf,
+  type GalleryDraft,
+  type GalleryImageUpload,
+  hostOf,
+  imageNumbers,
+  itemKeys,
+  moveItem,
+  moveItemsTo,
+  remainingItems,
+  removeItems,
+  reorderItems,
+  setCaption,
+  setCover,
+} from '../../lib/gallery-model';
+import { LinkDialog } from './link-dialog';
+import { MediaTile } from './media-tile';
+import { MoveDialog } from './move-dialog';
+import { TextDialog } from './text-dialog';
+
+type Translate = ReturnType<typeof useTranslation>['t'];
+
+/** What a tile is called in menus and announcements: "Ảnh 3", a video's caption, a link's host. */
+function itemLabel(t: Translate, item: GalleryItem, number: number | null): string {
+  if (item.kind === 'image') return t('lodging.media.number', { n: number ?? 0 });
+  if (item.kind === 'video') return item.caption || t('lodging.media.videoBadge');
+  return item.caption || hostOf(item.url);
+}
+
+/** Inside one folder: add photos/videos/links, numbered sortable grid, multi-select (spec §5). */
+export function FolderView({
+  draft,
+  folder,
+  canEdit,
+  onChange,
+  onBack,
+  uploadImage,
+}: {
+  draft: GalleryDraft;
+  folder: GalleryFolder;
+  canEdit: boolean;
+  onChange: (update: (d: GalleryDraft) => GalleryDraft) => void;
+  onBack: () => void;
+  uploadImage?: GalleryImageUpload | undefined;
+}) {
+  const { t } = useTranslation();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [moving, setMoving] = useState<number[] | null>(null);
+  const [captioning, setCaptioning] = useState<number | null>(null);
+  const [selected, setSelected] = useState<ReadonlySet<number>>(new Set());
+  const remaining = remainingItems(draft);
+  const full = remaining <= 0;
+  const { entries, upload } = useMediaUpload({
+    uploadImage,
+    remaining,
+    onItems: (items) => onChange((d) => appendItems(d, folder.id, items)),
+  });
+  const keys = itemKeys(folder.items);
+  const numbers = imageNumbers(folder.items);
+  const labels = folder.items.map((item, i) => itemLabel(t, item, numbers[i] ?? null));
+  const labelOf = (id: string | number) => labels[keys.indexOf(String(id))] ?? '';
+  const positionOf = (id: string | number) => keys.indexOf(String(id)) + 1;
+  const others = draft.gallery.filter((f) => f.id !== folder.id);
+  const cover = coverOf(draft);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const announcements: Announcements = {
+    onDragStart: ({ active }) => t('lodging.media.dragStart', { label: labelOf(active.id) }),
+    onDragOver: ({ active, over }) =>
+      over
+        ? t('lodging.media.dragOver', { label: labelOf(active.id), position: positionOf(over.id) })
+        : undefined,
+    onDragEnd: ({ active, over }) =>
+      over
+        ? t('lodging.media.dragEnd', { label: labelOf(active.id), position: positionOf(over.id) })
+        : undefined,
+    onDragCancel: ({ active }) => t('lodging.media.dragCancel', { label: labelOf(active.id) }),
+  };
+  // Positions change after any structural edit, so the selection (by index) is cleared.
+  const edit = (fn: (d: GalleryDraft) => GalleryDraft) => {
+    setSelected(new Set());
+    onChange(fn);
+  };
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+    const from = keys.indexOf(String(active.id));
+    const to = keys.indexOf(String(over.id));
+    edit((d) => reorderItems(d, folder.id, from, to));
+  };
+  const toggle = (i: number, on: boolean) =>
+    setSelected((s) => {
+      const next = new Set(s);
+      if (on) next.add(i);
+      else next.delete(i);
+      return next;
+    });
+
+  return (
+    <div className="grid gap-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" variant="ghost" className="-ml-2" onClick={onBack}>
+          <ChevronLeft aria-hidden />
+          {t('lodging.media.back')}
+        </Button>
+        <h2 className="min-w-0 flex-1 truncate text-base font-semibold">{folder.name}</h2>
+        {canEdit && (
+          <>
+            <input
+              ref={inputRef}
+              type="file"
+              accept={MEDIA_ACCEPT}
+              multiple
+              hidden
+              aria-label={t('lodging.media.add')}
+              data-testid="media-file-input"
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []);
+                e.target.value = '';
+                void upload(files);
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={full}
+              onClick={() => inputRef.current?.click()}
+            >
+              <ImagePlus aria-hidden />
+              {t('lodging.media.add')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={full}
+              onClick={() => setLinkOpen(true)}
+            >
+              <Link2 aria-hidden />
+              {t('lodging.media.addLink')}
+            </Button>
+          </>
+        )}
+      </div>
+      <p className="text-sm text-muted-foreground">
+        {t('lodging.media.help', { count: BOT_ALBUM_PAGE_SIZE })}
+      </p>
+      {canEdit && (
+        <p className="text-xs text-muted-foreground tabular-nums">
+          {full
+            ? t('lodging.media.full', { max: GALLERY_MAX_ITEMS })
+            : t('lodging.media.remaining', { count: remaining })}
+        </p>
+      )}
+      {entries.length > 0 && (
+        <ul className="grid gap-1 text-sm" aria-live="polite">
+          {entries.map((e) => (
+            <li key={e.id} className="flex items-center gap-2">
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+              <span className="min-w-0 truncate">
+                {t('lodging.media.uploading', { name: e.name })}
+              </span>
+              {e.kind === 'video' && (
+                <progress max={1} value={e.progress} aria-label={e.name} className="h-1.5 w-24" />
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {selected.size > 0 && (
+        <div
+          role="toolbar"
+          aria-label={t('lodging.media.selected', { count: selected.size })}
+          className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/50 p-2 text-sm"
+        >
+          <span className="font-medium">
+            {t('lodging.media.selected', { count: selected.size })}
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!others.length}
+            onClick={() => setMoving([...selected].sort((a, b) => a - b))}
+          >
+            <FolderInput aria-hidden />
+            {t('lodging.media.moveTo')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => edit((d) => removeItems(d, folder.id, [...selected]))}
+          >
+            <Trash2 aria-hidden />
+            {t('lodging.media.remove')}
+          </Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
+            {t('lodging.media.clearSelection')}
+          </Button>
+        </div>
+      )}
+      <div
+        className={cn(
+          'rounded-lg border border-dashed p-2',
+          dragging && 'border-primary bg-accent',
+        )}
+        onDragOver={(e) => {
+          if (!canEdit || full || !e.dataTransfer.types.includes('Files')) return;
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          if (!e.dataTransfer.files.length) return;
+          e.preventDefault();
+          setDragging(false);
+          if (canEdit && !full) void upload(Array.from(e.dataTransfer.files));
+        }}
+      >
+        {folder.items.length === 0 ? (
+          <p className="p-6 text-center text-sm text-muted-foreground">
+            {t('lodging.media.dropHere')}
+          </p>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={onDragEnd}
+            accessibility={{ announcements }}
+          >
+            <SortableContext items={keys} strategy={rectSortingStrategy}>
+              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                {folder.items.map((item, i) => {
+                  const number = numbers[i] ?? null;
+                  return (
+                    <MediaTile
+                      key={keys[i]}
+                      id={keys[i] ?? String(i)}
+                      item={item}
+                      label={labels[i] ?? ''}
+                      number={number}
+                      early={number !== null && number <= BOT_ALBUM_PAGE_SIZE}
+                      showEarlyLabel={number === 1}
+                      isCover={item.kind === 'image' && item.url === cover}
+                      canSetCover={item.kind === 'image' && item.url !== draft.galleryCover}
+                      canEdit={canEdit}
+                      selected={selected.has(i)}
+                      first={i === 0}
+                      last={i === folder.items.length - 1}
+                      canMove={others.length > 0}
+                      onSelect={(on) => toggle(i, on)}
+                      onUp={() => edit((d) => moveItem(d, folder.id, i, -1))}
+                      onDown={() => edit((d) => moveItem(d, folder.id, i, 1))}
+                      onMove={() => setMoving([i])}
+                      onCover={() => onChange((d) => setCover(d, item.url))}
+                      onCaption={() => setCaptioning(i)}
+                      onRemove={() => edit((d) => removeItems(d, folder.id, [i]))}
+                    />
+                  );
+                })}
+              </ul>
+            </SortableContext>
+          </DndContext>
+        )}
+      </div>
+      <LinkDialog
+        open={linkOpen}
+        onOpenChange={setLinkOpen}
+        onAdd={(item) => onChange((d) => appendItems(d, folder.id, [item]))}
+      />
+      <MoveDialog
+        open={moving !== null}
+        folders={others}
+        onOpenChange={(open) => {
+          if (!open) setMoving(null);
+        }}
+        onPick={(toId) => {
+          const picked = moving ?? [];
+          setMoving(null);
+          edit((d) => moveItemsTo(d, folder.id, picked, toId));
+        }}
+      />
+      <TextDialog
+        open={captioning !== null}
+        onOpenChange={(open) => {
+          if (!open) setCaptioning(null);
+        }}
+        title={t('lodging.media.editCaption')}
+        label={t('lodging.media.caption')}
+        placeholder={t('lodging.media.captionPlaceholder')}
+        initial={captioning !== null ? (folder.items[captioning]?.caption ?? '') : ''}
+        maxLength={300}
+        submitLabel={t('lodging.media.apply')}
+        onSubmit={(value) => {
+          const index = captioning;
+          setCaptioning(null);
+          if (index !== null) onChange((d) => setCaption(d, folder.id, index, value.trim()));
+        }}
+      />
+    </div>
+  );
+}

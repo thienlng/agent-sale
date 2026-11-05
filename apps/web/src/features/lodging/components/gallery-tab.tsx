@@ -1,49 +1,62 @@
 import type { PropertyDto } from '@agent-sales/contracts';
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { useUpdateProperty } from '../api/properties';
 import { useSaveError } from '../hooks/use-save-error';
-import { GalleryEditor, type GalleryPhoto, type GalleryUploadSlot } from './gallery-editor';
+import { cloneGallery, type GalleryDraft, type GalleryImageUpload } from '../lib/gallery-model';
+import { FolderList } from './gallery/folder-list';
+import { FolderView } from './gallery/folder-view';
 import { TabSaveBar, useReportDirty, useTabDraft } from './property-tab-parts';
 
-/** "Ảnh" tab: captioned photos (first = cover), saved as the whole gallery. */
+const draftOf = (p: PropertyDto): GalleryDraft => ({
+  gallery: cloneGallery(p.gallery),
+  galleryCover: p.galleryCover,
+});
+
+/**
+ * "Ảnh & video" tab (T-192): the folder list, or the open folder (`folderId`, kept in the URL by
+ * the route so Back works). One draft of every folder plus the cover, saved with one PATCH.
+ */
 export function GalleryTab({
   property: p,
   canEdit,
   onDirtyChange,
-  renderUpload,
+  uploadImage,
+  folderId,
+  onFolderChange,
 }: {
   property: PropertyDto;
   canEdit: boolean;
   onDirtyChange: (dirty: boolean) => void;
-  renderUpload?: GalleryUploadSlot | undefined;
+  uploadImage?: GalleryImageUpload | undefined;
+  folderId?: string | undefined;
+  onFolderChange: (folderId: string | undefined) => void;
 }) {
   const { t } = useTranslation();
-  const base = useMemo<GalleryPhoto[]>(() => p.gallery.map((g) => ({ ...g })), [p]);
+  const base = useMemo(() => draftOf(p), [p]);
   const { draft, setDraft, dirty, discard } = useTabDraft(base);
   useReportDirty(dirty, onDirtyChange);
-  const [submitted, setSubmitted] = useState(false);
   const update = useUpdateProperty();
   const saveError = useSaveError();
+  const change = (fn: (d: GalleryDraft) => GalleryDraft) => setDraft((d) => fn(d));
+  const open = folderId ? draft.gallery.find((f) => f.id === folderId) : undefined;
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
-    if (draft.some((g) => !g.caption.trim()) || update.isPending || !canEdit) return;
+    if (update.isPending || !canEdit) return;
     update.mutate(
       {
         id: p.id,
         body: {
           version: p.version,
-          patch: { gallery: draft.map((g) => ({ url: g.url, caption: g.caption.trim() })) },
+          patch: { gallery: draft.gallery, galleryCover: draft.galleryCover },
         },
       },
       {
         onSuccess: (saved) => {
-          setDraft(saved.gallery.map((g) => ({ ...g })));
-          setSubmitted(false);
+          setDraft(draftOf(saved));
           toast.success(t('lodging.editor.saved'), { duration: 3500 });
         },
         onError: (error) => saveError(error, { onStale: discard }),
@@ -53,19 +66,23 @@ export function GalleryTab({
 
   return (
     <form onSubmit={submit} noValidate className="grid gap-4">
-      <p className="text-sm text-muted-foreground">{t('lodging.photos.hint')}</p>
-      <GalleryEditor
-        value={draft}
-        onChange={setDraft}
-        disabled={!canEdit}
-        showErrors={submitted}
-        renderUpload={renderUpload}
-      />
+      {open ? (
+        <FolderView
+          draft={draft}
+          folder={open}
+          canEdit={canEdit}
+          onChange={change}
+          onBack={() => onFolderChange(undefined)}
+          uploadImage={uploadImage}
+        />
+      ) : (
+        <FolderList draft={draft} canEdit={canEdit} onChange={change} onOpen={onFolderChange} />
+      )}
       <TabSaveBar
         dirty={dirty}
         pending={update.isPending}
         canEdit={canEdit}
-        label={t('lodging.photos.save')}
+        label={t('lodging.media.save')}
       />
     </form>
   );

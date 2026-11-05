@@ -122,7 +122,7 @@ export function moveItemsTo(
   toId: string,
 ): GalleryDraft {
   const source = d.gallery.find((f) => f.id === fromId);
-  if (!source || fromId === toId) return d;
+  if (!source || fromId === toId || !d.gallery.some((f) => f.id === toId)) return d;
   const picked = new Set(indexes);
   const moving = source.items.filter((_, i) => picked.has(i));
   return {

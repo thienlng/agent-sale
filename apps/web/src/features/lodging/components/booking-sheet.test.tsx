@@ -307,6 +307,7 @@ describe('BookingSheet view', () => {
         other: '',
       },
       gallery: [],
+      galleryCover: '',
       units: [room(R1, 'P101', 0), room(R2, 'P102', 1)],
       rates: [],
       surcharges: { extraAdult: null, extraChild: null },
