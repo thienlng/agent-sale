@@ -51,7 +51,7 @@ Spec: `docs/superpowers/specs/2026-11-05-lodging-media-folders-design.md` (T-192
 2. **Let the model pick photos by caption, more of them** (raise `imageIds` to 8): needs captions on
    every photo (the owner's complaint) and cannot page through a folder. Rejected.
 3. **Store videos through the commerce image route** (one upload path): commerce would own lodging
-   media and its 1 MiB base64 JSON body cannot carry 25 MB. Rejected.
+   media and its 1 MiB base64 JSON body cannot carry 25 MiB. Rejected.
 4. **A conversation facade query for sent media** (ai asks conversation per album send): a new
    cross-module dependency from ai to conversation and a query per tool call, while the processor
    already holds the recent messages. Rejected.
@@ -62,7 +62,7 @@ Spec: `docs/superpowers/specs/2026-11-05-lodging-media-folders-design.md` (T-192
 
 - Positive: owners upload as they already organise; the bot sends coherent pages in the owner's
   order and offers more; videos reach Messenger natively.
-- Negative: a 25 MB video is buffered in the api process while it uploads; deleting an item never
+- Negative: a 25 MiB video is buffered in the api process while it uploads; deleting an item never
   deletes its object (no orphan cleanup yet); "already sent" is bounded by the 200 loaded messages,
   so in a long conversation an older album may be sent again; the website widget still shows only
   the first image of a message and no video.
