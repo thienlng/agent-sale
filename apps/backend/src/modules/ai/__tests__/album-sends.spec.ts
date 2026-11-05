@@ -86,8 +86,32 @@ describe('send_message albums', () => {
     });
     expect(sent[1]?.images.map((i) => i.url)).toEqual(bedrooms.slice(8).map(abs));
     expect(await send({ albumId: 'a:villa-1:0' })).toMatchObject({
-      album: { sent: 8, remaining: 4, restarted: true },
+      album: { sent: 8, remaining: 0, restarted: true },
     });
+    expect(sent[2]?.images.map((i) => i.url)).toEqual(bedrooms.slice(0, 8).map(abs));
+    // A fourth call pages on from the restart instead of resending the first 8.
+    expect(await send({ albumId: 'a:villa-1:0' })).toEqual({
+      status: 'sent',
+      delivered: 1,
+      album: { sent: 4, remaining: 0 },
+    });
+    expect(sent[3]?.images.map((i) => i.url)).toEqual(bedrooms.slice(8).map(abs));
+  });
+
+  it('restarts a folder the conversation fully received, promising nothing more, then pages on', async () => {
+    const { sent, send } = setup(bedrooms.map(abs));
+    expect(await send({ albumId: 'a:villa-1:0' })).toEqual({
+      status: 'sent',
+      delivered: 1,
+      album: { sent: 8, remaining: 0, restarted: true },
+    });
+    expect(sent[0]?.images.map((i) => i.url)).toEqual(bedrooms.slice(0, 8).map(abs));
+    expect(await send({ albumId: 'a:villa-1:0' })).toEqual({
+      status: 'sent',
+      delivered: 1,
+      album: { sent: 4, remaining: 0 },
+    });
+    expect(sent[1]?.images.map((i) => i.url)).toEqual(bedrooms.slice(8).map(abs));
   });
 
   it('skips the photos the conversation already received, on whatever host they went out', async () => {
@@ -131,6 +155,28 @@ describe('send_message videos', () => {
     expect(await send({ videoId: 'v:villa-1:1:1' })).toMatchObject({ video: 'link' });
     expect(sent[0]?.text).toBe('Flycam: https://youtu.be/flycam');
     expect(sent[0]?.videos).toBeUndefined();
+  });
+
+  it('drops an unknown video id', async () => {
+    const { send } = setup();
+    expect(await send({ text: 'Dạ', videoId: 'v:other:0:0' })).toEqual({
+      status: 'sent',
+      delivered: 1,
+      droppedImageIds: ['v:other:0:0'],
+    });
+  });
+
+  it('sends a folder page and a video in one message', async () => {
+    const { sent, send } = setup();
+    expect(await send({ albumId: 'a:villa-1:0', videoId: 'v:villa-1:1:0' })).toEqual({
+      status: 'sent',
+      delivered: 1,
+      album: { sent: 8, remaining: 4 },
+      video: 'video',
+    });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.images).toHaveLength(8);
+    expect(sent[0]?.videos?.map((v) => v.id)).toEqual(['v:villa-1:1:0']);
   });
 
   it('reports a send that did not fully go out, e.g. a video Meta rejected', async () => {

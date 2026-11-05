@@ -171,12 +171,19 @@ export function outputTools(opts: {
   const { sink, allowlist, state } = opts;
 
   // Album paging (spec D3): a photo the conversation already received (any host) or that went
-  // out earlier in this turn counts as sent.
+  // out earlier in this turn counts as sent. Once a folder restarts in this turn, only what went out
+  // since the restart counts (`restartAt`: index into `state.sent`), so later calls page on.
   const sentKey = (url: string): string => mediaPath(url) ?? url;
   const earlier = new Set((opts.sentMediaUrls ?? []).map(sentKey));
-  const wasSent = (url: string): boolean =>
-    earlier.has(sentKey(url)) ||
-    state.sent.some((m) => m.images.some((image) => sentKey(image.url) === sentKey(url)));
+  const restartAt = new Map<string, number>();
+  const sentIn = (from: number, url: string): boolean =>
+    state.sent
+      .slice(from)
+      .some((m) => m.images.some((image) => sentKey(image.url) === sentKey(url)));
+  const wasSent = (albumId: string, url: string): boolean => {
+    const from = restartAt.get(albumId);
+    return from === undefined ? earlier.has(sentKey(url)) || sentIn(0, url) : sentIn(from, url);
+  };
 
   const sendMessage: RunnableTool = {
     name: SEND_MESSAGE_TOOL,
@@ -191,7 +198,9 @@ export function outputTools(opts: {
       const video = videoId ? allowlist.video(videoId) : undefined;
       if (albumId && !album) dropped.push(albumId.slice(0, 80));
       if (videoId && !video) dropped.push(videoId.slice(0, 80));
-      const page = album ? nextAlbumPage(album.images.map((image) => wasSent(image.url))) : null;
+      const page = album
+        ? nextAlbumPage(album.images.map((image) => wasSent(album.id, image.url)))
+        : null;
       const images =
         album && page
           ? page.indexes.flatMap((k) => {
@@ -218,12 +227,17 @@ export function outputTools(opts: {
       const delivered = outcome.delivered;
       if (delivered <= 0)
         return { content: safeJson({ error: 'not_delivered', ...extra }), ok: false };
+      // The 30-day set is unordered, so a later turn cannot tell where a re-sent cycle stopped:
+      // the first restart of a folder in this turn reports nothing remaining (the bot must not
+      // promise photos it cannot page to). Within this turn further calls page on from the restart.
+      const firstRestart = Boolean(album && page?.restarted && !restartAt.has(album.id));
+      if (album && page?.restarted) restartAt.set(album.id, state.sent.length);
       state.sent.push({ text, images, ...(videos.length ? { videos } : {}), via: 'send_message' });
       const albumResult = page
         ? {
             album: {
               sent: images.length,
-              remaining: page.remaining,
+              remaining: firstRestart ? 0 : page.remaining,
               ...(page.restarted ? { restarted: true } : {}),
             },
           }
