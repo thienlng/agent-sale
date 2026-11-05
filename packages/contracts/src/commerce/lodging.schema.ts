@@ -20,6 +20,19 @@ export const StayDate = z
     return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
   }, 'must be a real calendar date');
 
+/**
+ * A bedroom package of a rental target (T-193): a price variant of the whole property or of one
+ * unit. `weekdaySell[0]` is Monday … `[6]` Sunday, sell prices only; null = not sold that weekday.
+ */
+const AccommodationPackage = z.object({
+  name: z.string(),
+  bedrooms: z.number().int().min(1).max(100),
+  standardAdults: z.number().int().min(0).max(1000),
+  standardChildren: z.number().int().min(0).max(1000),
+  maxGuests: z.number().int().min(1).max(2000).nullable(),
+  weekdaySell: z.array(Amount.nullable()).length(7),
+});
+
 export const AccommodationDetails = z
   .object({
     /** `rooms` (T-160): a property rented per room; `roomLayout` may list fewer rows than bedrooms. */
@@ -72,9 +85,24 @@ export const AccommodationDetails = z
           weekdayRates: z.array(
             z.object({ days: z.array(z.number().int().min(1).max(7)), amount: Amount }),
           ),
+          /** Unit details (T-193); absent on rows written before them. */
+          category: z.enum(['room', 'bungalow', 'house', 'other']).optional(),
+          view: z.string().optional(),
+          areaM2: z.number().int().min(1).max(100_000).nullable().optional(),
+          description: z.string().optional(),
+          amenities: z.array(z.string()).optional(),
+          maxGuests: z.number().int().min(1).max(2000).nullable().optional(),
+          /** The unit's own media folders; ids usable as `send_message` album / video ids. */
+          albums: z.array(GalleryFolder).max(GALLERY_MAX_FOLDERS).optional(),
+          /** The unit's bedroom packages; `weekdayRates` are its full package's prices. */
+          packages: z.array(AccommodationPackage).max(10).optional(),
         }),
       )
       .optional(),
+    /**
+     * Bedroom packages of the whole property (T-193); `rates` are then the full package's prices.
+     */
+    packages: z.array(AccommodationPackage).max(10).optional(),
     /** Lodging v2 (T-160): date-range prices; inclusive nights; `unitName` null = whole property. */
     overrides: z
       .array(

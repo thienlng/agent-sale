@@ -229,6 +229,58 @@ describe('accommodation details stay backward compatible', () => {
     };
     expect(AccommodationDetails.safeParse(rooms).success).toBe(true);
   });
+
+  it('carries unit details, unit albums and bedroom packages (T-193)', () => {
+    const pkg = (name: string, bedrooms: number, saturday: boolean) => ({
+      name,
+      bedrooms,
+      standardAdults: bedrooms * 2,
+      standardChildren: 0,
+      maxGuests: bedrooms * 2 + 2,
+      weekdaySell: [1, 2, 3, 4, 5, 6, 7].map((d) =>
+        d === 6 && !saturday ? null : bedrooms * 1_000_000,
+      ),
+    });
+    const parsed = AccommodationDetails.parse({
+      ...a17,
+      rentalType: 'rooms',
+      packages: [pkg('4PN', 4, false), pkg('6PN', 6, true)],
+      units: [
+        {
+          name: 'Bungalow 1',
+          beds: '1 giường đôi',
+          capacityAdults: 2,
+          capacityChildren: 1,
+          weekdayRates: [{ days: [1, 2, 3, 4, 5, 6, 7], amount: 1_200_000 }],
+          category: 'bungalow',
+          view: 'đồi',
+          areaM2: 40,
+          description: 'Bungalow gỗ',
+          amenities: ['Bồn tắm'],
+          maxGuests: 3,
+          albums: [
+            {
+              id: '11111111-1111-4111-8111-111111111111',
+              name: 'Bungalow 1',
+              items: [{ kind: 'image', url: 'https://cdn.example.com/b1.jpg', caption: '' }],
+            },
+          ],
+          packages: [pkg('1PN', 1, true)],
+        },
+      ],
+    });
+    expect(parsed.packages?.[0]?.weekdaySell[5]).toBeNull();
+    expect(parsed.units?.[0]).toMatchObject({ category: 'bungalow', view: 'đồi', maxGuests: 3 });
+    expect(parsed.units?.[0]?.albums).toHaveLength(1);
+    expect(parsed.units?.[0]?.packages?.[0]?.name).toBe('1PN');
+    // A package lists exactly the seven weekdays.
+    expect(
+      AccommodationDetails.safeParse({
+        ...a17,
+        packages: [{ ...pkg('4PN', 4, true), weekdaySell: [1, 2, 3] }],
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe('lodging calendar polish: night notes, internal note, tags', () => {
