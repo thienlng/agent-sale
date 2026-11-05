@@ -2289,7 +2289,8 @@
       "childAdultFrom": "Counts as adult from (age)",
       "childAgesInvalid": "The free age cannot be above the adult age.",
       "save": "Save prices",
-      "empty": "No price to save. Turn on at least one room or enter a whole-place price."
+      "empty": "No price to save. Turn on at least one room or enter a whole-place price.",
+      "otherMissing": "Prices are missing elsewhere: {{rows}}."
     },
     "overrides": {
       "title": "Special dates",
@@ -2318,6 +2319,39 @@
       "save": "Save",
       "rangeInvalid": "The last night must not be before the first.",
       "minInvalid": "Enter 1 to 60 nights."
+    },
+    "packages": {
+      "title": "Bedroom packages",
+      "hint": "Rent the place by the number of bedrooms opened to the guest. The package with the most bedrooms is the full package and needs a price on all 7 days; a smaller package left empty on a day is not sold that day.",
+      "empty": "No packages yet. Add them only when the place is rented by number of bedrooms (e.g. 4BR, 5BR, 6BR).",
+      "add": "Add package",
+      "limit": "At most {{count}} packages.",
+      "name": "Package name",
+      "namePlaceholder": "e.g. 4BR",
+      "bedrooms": "Bedrooms",
+      "standardAdults": "Std. adults",
+      "standardChildren": "Std. children",
+      "maxGuests": "Max guests",
+      "unnamed": "Unnamed package",
+      "full": "Full package",
+      "notSold": "Not sold",
+      "remove": "Remove package {{name}}",
+      "removeTitle": "Remove package {{name}}?",
+      "removeDescription": "When the prices are saved, {{count}} special date(s) of this package are deleted too.",
+      "removeConfirm": "Remove package",
+      "keep": "Keep",
+      "select": "Package",
+      "selectPlaceholder": "Choose a package",
+      "errors": {
+        "nameRequired": "Enter a package name.",
+        "nameTooLong": "Package names are at most 50 characters.",
+        "nameDuplicate": "Package name is used twice.",
+        "bedroomsInvalid": "Bedrooms from 1 to 100.",
+        "bedroomsDuplicate": "Two packages cannot have the same number of bedrooms.",
+        "adultsInvalid": "Standard adults from 1 to 1000.",
+        "childrenInvalid": "Standard children from 0 to 1000.",
+        "maxInvalid": "Max from 1 to 2000 guests, or leave empty."
+      }
     },
     "policies": {
       "checkInTime": "Check-in time",

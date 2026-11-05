@@ -2283,7 +2283,8 @@
       "childAdultFrom": "Tính người lớn từ (tuổi)",
       "childAgesInvalid": "Tuổi miễn phí không được lớn hơn tuổi tính người lớn.",
       "save": "Lưu giá",
-      "empty": "Chưa có giá nào để lưu. Bật ít nhất một phòng hoặc nhập giá nguyên căn."
+      "empty": "Chưa có giá nào để lưu. Bật ít nhất một phòng hoặc nhập giá nguyên căn.",
+      "otherMissing": "Còn thiếu giá ở mục khác: {{rows}}."
     },
     "overrides": {
       "title": "Ngày đặc biệt",
@@ -2312,6 +2313,39 @@
       "save": "Lưu",
       "rangeInvalid": "Đêm cuối phải từ đêm đầu trở đi.",
       "minInvalid": "Nhập từ 1 đến 60 đêm."
+    },
+    "packages": {
+      "title": "Gói phòng",
+      "hint": "Bán căn theo số phòng ngủ mở cho khách. Gói nhiều phòng ngủ nhất là gói đầy đủ, phải có giá đủ 7 ngày; gói nhỏ hơn để trống ngày nào là không bán ngày đó.",
+      "empty": "Chưa có gói phòng. Chỉ cần thêm khi căn cho thuê theo số phòng ngủ (ví dụ 4PN, 5PN, 6PN).",
+      "add": "Thêm gói",
+      "limit": "Tối đa {{count}} gói.",
+      "name": "Tên gói",
+      "namePlaceholder": "VD: 4PN",
+      "bedrooms": "Phòng ngủ",
+      "standardAdults": "NL tiêu chuẩn",
+      "standardChildren": "TE tiêu chuẩn",
+      "maxGuests": "Tối đa khách",
+      "unnamed": "Gói chưa đặt tên",
+      "full": "Gói đầy đủ",
+      "notSold": "Không bán",
+      "remove": "Xoá gói {{name}}",
+      "removeTitle": "Xoá gói {{name}}?",
+      "removeDescription": "Khi lưu giá, {{count}} ngày đặc biệt của gói này cũng bị xoá.",
+      "removeConfirm": "Xoá gói",
+      "keep": "Giữ lại",
+      "select": "Gói",
+      "selectPlaceholder": "Chọn gói",
+      "errors": {
+        "nameRequired": "Nhập tên gói.",
+        "nameTooLong": "Tên gói tối đa 50 ký tự.",
+        "nameDuplicate": "Tên gói bị trùng.",
+        "bedroomsInvalid": "Số phòng ngủ từ 1 đến 100.",
+        "bedroomsDuplicate": "Hai gói không được cùng số phòng ngủ.",
+        "adultsInvalid": "Người lớn tiêu chuẩn từ 1 đến 1000.",
+        "childrenInvalid": "Trẻ em tiêu chuẩn từ 0 đến 1000.",
+        "maxInvalid": "Tối đa từ 1 đến 2000 khách, hoặc để trống."
+      }
     },
     "policies": {
       "checkInTime": "Giờ nhận phòng",
