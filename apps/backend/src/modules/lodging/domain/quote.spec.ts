@@ -526,6 +526,47 @@ describe('quoteStay with bedroom packages', () => {
     expect(two.totalSell).toBe(2_200_000);
   });
 
+  it('sums package standards and maxima per room in a multi-room selection', () => {
+    const roomPackages = [
+      pkg('p1a', 'p1', 1, { standardAdults: 1, standardChildren: 0, maxGuests: 2 }),
+      pkg('p1b', 'p1', 2, { standardAdults: 3, standardChildren: 0, maxGuests: 4 }),
+    ];
+    const rules = [
+      forPackage('p1a', weekday('p1', [1, 2, 3, 4, 5, 6, 7], 700_000)),
+      forPackage('p1b', weekday('p1', [1, 2, 3, 4, 5, 6, 7], 1_200_000)),
+      roomRates[1]!,
+    ];
+    const p: QuoteProperty = {
+      ...homestay,
+      surcharges: { extraAdult: { sell: 100_000, cost: 50_000 }, extraChild: null },
+    };
+    const sel = (adults: number, packageIds: string[]) => ({
+      whole: false,
+      unitIds: ['p1', 'p2'],
+      checkIn: '2026-11-09',
+      checkOut: '2026-11-10',
+      adults,
+      childAges: [] as number[],
+      packageIds,
+    });
+    const capped = rooms.map((u) => ({ ...u, maxGuests: u.id === 'p2' ? 2 : null }));
+    // p1a standard 1 + p2 capacity 2 = 3 adults; max 2 (package) + 2 (unit) = 4.
+    const a = quoteStay(p, capped, rules, sel(4, ['p1a']), roomPackages);
+    expect(a.surcharges).toEqual([
+      { kind: 'extra_adult', persons: 1, nights: 1, sell: 100_000, cost: 50_000 },
+    ]);
+    expect(a.warnings).toEqual([]);
+    const b = quoteStay(p, capped, rules, sel(5, ['p1a']), roomPackages);
+    expect(b.warnings).toContain('over_max');
+    // Auto picks the full package p1b: standard 3 + 2 = 5, max 4 + 2 = 6.
+    const c = quoteStay(p, capped, rules, sel(5, []), roomPackages);
+    expect(c.surcharges).toEqual([]);
+    expect(c.warnings).toEqual([]);
+    // A package without a maximum turns the summed check off.
+    const open = roomPackages.map((x) => ({ ...x, maxGuests: null }));
+    expect(quoteStay(p, capped, rules, sel(9, []), open).warnings).not.toContain('over_max');
+  });
+
   it('warns over the summed unit maxima when every selected unit has one', () => {
     const capped = rooms.map((u) => ({ ...u, maxGuests: 2 }));
     const q = quoteStay(homestay, capped, roomRates, {

@@ -234,18 +234,24 @@ export function quoteStay(
   });
 
   const selected = units.filter((u) => unitIds.includes(u.id));
-  const wholePackage = chosen.get(null);
-  const [onlyUnit] = unitIds;
-  const unitPackage =
-    !input.whole && unitIds.length === 1 && onlyUnit ? chosen.get(onlyUnit) : undefined;
-  const standardPackage = input.whole ? wholePackage : unitPackage;
-  const standard = standardPackage
-    ? { adults: standardPackage.standardAdults, children: standardPackage.standardChildren }
+  /**
+   * Whole rental with a whole-target package: the package's party. Whole rental otherwise: the
+   * property's. Room selection: the sum per unit of its package's standard, else its capacity.
+   */
+  const wholePackage = input.whole ? chosen.get(null) : undefined;
+  const unitParty = selected.map((u) => {
+    const pk = chosen.get(u.id);
+    return pk
+      ? { adults: pk.standardAdults, children: pk.standardChildren, max: pk.maxGuests }
+      : { adults: u.capacityAdults, children: u.capacityChildren, max: u.maxGuests ?? null };
+  });
+  const standard = wholePackage
+    ? { adults: wholePackage.standardAdults, children: wholePackage.standardChildren }
     : input.whole
       ? { adults: p.standardAdults, children: p.standardChildren }
       : {
-          adults: selected.reduce((s, u) => s + u.capacityAdults, 0),
-          children: selected.reduce((s, u) => s + u.capacityChildren, 0),
+          adults: unitParty.reduce((s, u) => s + u.adults, 0),
+          children: unitParty.reduce((s, u) => s + u.children, 0),
         };
 
   let small = 0;
@@ -286,13 +292,12 @@ export function quoteStay(
 
   const limits: number[] = [];
   if (p.maxGuests !== null) limits.push(p.maxGuests);
-  const [onlyTarget] = priced;
-  const onePackage =
-    priced.length === 1 && onlyTarget !== undefined ? chosen.get(onlyTarget) : undefined;
-  if (onePackage) {
-    if (onePackage.maxGuests !== null) limits.push(onePackage.maxGuests);
-  } else if (selected.length > 0 && selected.every((u) => typeof u.maxGuests === 'number')) {
-    limits.push(selected.reduce((s, u) => s + (u.maxGuests ?? 0), 0));
+  // A whole-target package caps the party; otherwise the per-unit maxima (a unit's package
+  // maximum when it has a package) cap their sum when every one is set.
+  if (wholePackage) {
+    if (wholePackage.maxGuests !== null) limits.push(wholePackage.maxGuests);
+  } else if (unitParty.length > 0 && unitParty.every((u) => u.max !== null)) {
+    limits.push(unitParty.reduce((s, u) => s + (u.max ?? 0), 0));
   }
   if (limits.some((max) => party > max)) warnings.add('over_max');
 
