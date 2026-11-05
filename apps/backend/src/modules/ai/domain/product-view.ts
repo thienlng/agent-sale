@@ -1,7 +1,7 @@
 import { OfferingDetails, type ProductDto } from '@agent-sales/contracts';
 
 import { catalogProductContext } from './catalog-context.js';
-import { productImages } from './image-allowlist.js';
+import { productAlbums, productImages, productVideos } from './image-allowlist.js';
 
 export const SUMMARY_MAX = 200;
 export const DESCRIPTION_MAX = 1500;
@@ -50,12 +50,17 @@ export interface ProductDetails extends CompactProduct {
   /** `available` is absent for a course or a service. */
   variants?: { sku: string; name: string; priceVnd: number; available?: number }[];
   images: { id: string; label: string }[];
+  /** Lodging folders the model may send with `send_message` `albumId` (next 8 photos). */
+  albums?: { id: string; label: string }[];
+  /** Lodging videos and video links the model may send with `send_message` `videoId`. */
+  videos?: { id: string; label: string }[];
   accommodation?: unknown;
   offering?: Record<string, unknown>;
   availability?: 'unverified';
 }
 
 const imageList = (p: ProductDto) => productImages([p]).map(({ id, label }) => ({ id, label }));
+const idLabel = ({ id, label }: { id: string; label: string }) => ({ id, label });
 
 /**
  * A product of a request business (education, spa, saas) seen as an offering of the industry's
@@ -118,11 +123,15 @@ export function productDetails(p: ProductDto): ProductDetails {
     const { priceNote: _note, ...facts } = rest.offering;
     rest.offering = facts;
   }
+  const albums = productAlbums([p]).map(idLabel);
+  const videos = productVideos([p]).map(idLabel);
   return {
     ...compact,
     ...rest,
     description: cleanDescription(p.description, DESCRIPTION_MAX),
     instructions: cleanDescription(instructions, DESCRIPTION_MAX),
     images: imageList(p),
+    ...(albums.length ? { albums } : {}),
+    ...(videos.length ? { videos } : {}),
   } as ProductDetails;
 }

@@ -25,11 +25,18 @@ export function catalogProductContext(product: ProductDto) {
     instructions: product.botInstructions,
   };
   if (product.accommodation) {
-    const { gallery: _gallery, ...details } = product.accommodation;
+    const { gallery: _gallery, albums, ...details } = product.accommodation;
+    // What each folder holds, never a URL: the model sends one through its album / video ids.
+    const summary = (albums ?? []).map((a) => ({
+      name: a.name,
+      photos: a.items.filter((i) => i.kind === 'image').length,
+      videos: a.items.filter((i) => i.kind === 'video').length,
+      links: a.items.filter((i) => i.kind === 'link').length,
+    }));
     return {
       ...base,
       catalogKind: 'accommodation',
-      accommodation: details,
+      accommodation: summary.length ? { ...details, albums: summary } : details,
       availability: 'unverified',
     };
   }

@@ -95,4 +95,37 @@ describe('lodging catalog grounding', () => {
     expect(allowed[0]?.id).toBe('m:11');
     expect(allowed).toHaveLength(10);
   });
+  it('shows the model a folder summary and album / video ids, never media URLs', () => {
+    const withAlbums: ProductDto = {
+      ...product,
+      accommodation: {
+        ...details,
+        albums: [
+          {
+            id: 'f1',
+            name: 'Phòng ngủ',
+            items: [
+              { kind: 'image', url: 'https://images.example.test/b1.jpg', caption: '' },
+              { kind: 'image', url: 'https://images.example.test/b2.jpg', caption: '' },
+              { kind: 'link', url: 'https://youtu.be/tour', caption: 'Tour' },
+            ],
+          },
+        ],
+      },
+    };
+    const ctx = catalogProductContext(withAlbums);
+    expect(ctx).toMatchObject({
+      accommodation: { albums: [{ name: 'Phòng ngủ', photos: 2, videos: 0, links: 1 }] },
+    });
+    const full = productDetails(withAlbums);
+    expect(full.albums).toEqual([
+      { id: `a:${product.id}:0`, label: 'Test property – Phòng ngủ (2 ảnh)' },
+    ]);
+    expect(full.videos).toEqual([
+      { id: `v:${product.id}:0:2`, label: 'Test property – Phòng ngủ – video: Tour' },
+    ]);
+    expect(JSON.stringify(full)).not.toContain('https://');
+    expect(JSON.stringify(ctx)).not.toContain('youtu.be');
+    expect(productDetails(product)).not.toHaveProperty('albums');
+  });
 });
