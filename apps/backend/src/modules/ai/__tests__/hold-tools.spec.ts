@@ -60,6 +60,8 @@ const option = (over: Partial<BotAvailabilityOption> = {}): BotAvailabilityOptio
   minNights: null,
   problems: [],
   totalSell: 27_000_000,
+  package: null,
+  alternatives: [],
   nightly: [
     { date: '2026-11-06', weekdayLabel: 'Thứ Sáu', label: 'Thứ Sáu', sell: 13_000_000 },
     { date: '2026-11-07', weekdayLabel: 'Thứ Bảy', label: 'Thứ Bảy', sell: 14_000_000 },
@@ -355,6 +357,78 @@ describe('prepare_hold', () => {
       rooms: ['Phòng 1'],
     });
     expect(facade.prepareBotHold).not.toHaveBeenCalled();
+  });
+
+  it('passes the chosen packages by name, the whole property when no room is given (T-193)', async () => {
+    const facade = fakeLodging({
+      check: availability({
+        options: [
+          option({ whole: true, unitIds: [ROOM_1, ROOM_2], unitNames: ['Bungalow 1', 'Phòng 2'] }),
+        ],
+      }),
+    });
+    await tool(context(facade), PREPARE_HOLD_TOOL).run({
+      ...HOLD,
+      packages: [{ package: ' 5PN ' }, { room: 'bungalow 1', package: '2PN' }],
+    });
+    expect(facade.prepareBotHold).toHaveBeenCalledWith(
+      ws,
+      expect.objectContaining({
+        whole: true,
+        packages: [
+          { unitId: null, name: '5PN' },
+          { unitId: ROOM_1, name: '2PN' },
+        ],
+      }),
+    );
+  });
+
+  it('refuses a package room the property does not have (T-193)', async () => {
+    const facade = fakeLodging({
+      check: availability({
+        options: [option({ whole: true, unitIds: [ROOM_1], unitNames: ['Bungalow 1'] })],
+      }),
+    });
+    const out = await tool(context(facade), PREPARE_HOLD_TOOL).run({
+      ...HOLD,
+      packages: [{ room: 'Bungalow 9', package: '2PN' }],
+    });
+    expect(JSON.parse(out.content)).toEqual({
+      ok: false,
+      error: 'unknown_room',
+      rooms: ['Bungalow 1'],
+    });
+    expect(facade.prepareBotHold).not.toHaveBeenCalled();
+  });
+
+  it('answers an unknown package with the valid names (T-193)', async () => {
+    const facade = fakeLodging({
+      prepare: {
+        status: 'problems',
+        problems: ['unknown_package'],
+        alternatives: [],
+        validPackages: ['4PN', '5PN', '6PN'],
+      },
+    });
+    const out = await tool(context(facade), PREPARE_HOLD_TOOL).run({
+      ...HOLD,
+      packages: [{ package: '7PN' }],
+    });
+    expect(JSON.parse(out.content)).toEqual({
+      ok: false,
+      problems: ['unknown_package'],
+      alternatives: [],
+      valid: ['4PN', '5PN', '6PN'],
+    });
+  });
+
+  it('shows the option package and its alternatives to the model (T-193)', async () => {
+    const alternatives = [{ package: '6PN', bedrooms: 6, totalSell: 30_000_000, fits: true }];
+    const facade = fakeLodging({
+      check: availability({ options: [option({ package: '5PN', alternatives })] }),
+    });
+    const out = await tool(context(facade), CHECK_AVAILABILITY_TOOL).run(STAY);
+    expect(JSON.parse(out.content).options[0]).toMatchObject({ package: '5PN', alternatives });
   });
 
   it('returns problems and id-free alternatives, sending nothing', async () => {

@@ -277,6 +277,68 @@ describe('lodging albums and videos', () => {
     expect(productAlbums([product])).toEqual([]);
   });
 
+  it("lists each unit's own folders and videos after the property's, ids unique (T-193)", () => {
+    const resort = {
+      id: 'resort',
+      name: 'R01 – Resort Đồi',
+      accommodation: {
+        albums: [
+          {
+            name: 'Khuôn viên',
+            items: [{ kind: 'image', url: 'https://cdn.example.com/k.jpg', caption: '' }],
+          },
+        ],
+        units: [
+          {
+            name: 'Bungalow 1',
+            albums: [
+              {
+                name: 'View đồi',
+                items: [
+                  { kind: 'image', url: 'https://cdn.example.com/b1-0.jpg', caption: '' },
+                  { kind: 'image', url: 'https://cdn.example.com/b1-1.jpg', caption: 'Ban công' },
+                ],
+              },
+            ],
+          },
+          { name: 'Bungalow 2' },
+          {
+            name: 'Bungalow 3',
+            albums: [
+              { name: 'Clip', items: [{ kind: 'video', url: CLIP, caption: '' }] },
+              {
+                name: 'Phòng',
+                items: [{ kind: 'image', url: 'https://cdn.example.com/b3.jpg', caption: '' }],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const albums = productAlbums([resort]);
+    expect(albums.map((a) => [a.id, a.label])).toEqual([
+      ['a:resort:0', 'R01 – Resort Đồi – Khuôn viên (1 ảnh)'],
+      [`a:resort:${MAX_PRODUCT_ALBUMS}`, 'R01 – Resort Đồi – Bungalow 1 – View đồi (2 ảnh)'],
+      [`a:resort:${MAX_PRODUCT_ALBUMS + 2}`, 'R01 – Resort Đồi – Bungalow 3 – Phòng (1 ảnh)'],
+    ]);
+    expect(albums[1]?.images.map((i) => i.label)).toEqual([
+      'R01 – Resort Đồi – Bungalow 1 – View đồi',
+      'R01 – Resort Đồi – Bungalow 1 – Ban công',
+    ]);
+    expect(productVideos([resort]).map((v) => [v.id, v.label])).toEqual([
+      [
+        `v:resort:${MAX_PRODUCT_ALBUMS + 1}:0`,
+        'R01 – Resort Đồi – Bungalow 3 – Clip – video: video 1',
+      ],
+    ]);
+    expect(productIdOfImage(`a:resort:${MAX_PRODUCT_ALBUMS + 2}`)).toBe('resort');
+    // send_message resolves a unit folder like a property folder.
+    const allowlist = new ImageAllowlist([], 'https://rapiz.test');
+    allowlist.addMedia([resort as never]);
+    expect(allowlist.album(`a:resort:${MAX_PRODUCT_ALBUMS}`)?.images).toHaveLength(2);
+    expect(allowlist.video(`v:resort:${MAX_PRODUCT_ALBUMS + 1}:0`)).toBeDefined();
+  });
+
   it('pages a folder 8 at a time, skipping what was sent, then starts again', () => {
     const sent = (n: number, total = 12) => Array.from({ length: total }, (_, i) => i < n);
     expect(nextAlbumPage(sent(0))).toEqual({

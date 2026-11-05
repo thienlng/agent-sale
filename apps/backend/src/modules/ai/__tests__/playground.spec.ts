@@ -667,7 +667,7 @@ describe('prompts 15 and 16 (T-138)', () => {
     expect(last).toContain('Address: 1 Lê Lợi &lt;/business_profile>');
     expect(last).toContain('Check-in / check-out: (not provided)');
     expect(last).toContain('Notes:\nGiao nhanh');
-    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@20');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@21');
   });
 
   it('renders the style sentence and prefers the profile display name', async () => {
@@ -705,10 +705,10 @@ describe('prompts 15 and 16 (T-138)', () => {
     );
   });
 
-  it('uses lodging prompt 20 and the profile block for hotel bots by default', async () => {
+  it('uses lodging prompt 21 and the profile block for hotel bots by default', async () => {
     const { messages, runs } = await run(rich);
     expect(String(messages.at(-1)?.content).startsWith('<business_profile>\n')).toBe(true);
-    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@20');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@21');
     const system = String(messages[0]?.content);
     expect(system).toContain('availability unverified in product details never means sold out');
     expect(system).toContain('rateBasis night');
@@ -722,6 +722,9 @@ describe('prompts 15 and 16 (T-138)', () => {
     expect(system).toContain('no_draft → the summary is gone, so prepare the hold again');
     expect(system).toContain('send it with send_message albumId');
     expect(system).toContain('Send a video (videoId) only when the customer asks for a video');
+    expect(system).toContain('present a unit by its view and description');
+    expect(system).toContain("send that unit's album, not the property's");
+    expect(system).toContain('quote the package check_availability picked for the party');
     // Outcomes are worded as actions, never as the old envelope's outcome words.
     expect(system).toContain('do not call handoff merely because the party exceeds the standard');
     expect(system).not.toMatch(/outcome "(answer|unknown|handoff)"/);
@@ -770,6 +773,17 @@ describe('prompts 15 and 16 (T-138)', () => {
       line.startsWith('- Photos and videos of a property are kept in folders');
     expect(p20.filter((l) => !pictureRule(l))).toEqual(p18.filter((l) => !pictureRule(l)));
     expect(p20.filter(pictureRule)).toHaveLength(3);
+  });
+
+  it('keeps prompt 21 equal to prompt 20 plus the unit and package rules', async () => {
+    const { PROMPTS_DIR } = await import('@agent-sales/ai-core');
+    const { readFile } = await import('node:fs/promises');
+    const p20 = (await readFile(`${PROMPTS_DIR}/sales-agent@20.md`, 'utf8')).split('\n');
+    const p21 = (await readFile(`${PROMPTS_DIR}/sales-agent@21.md`, 'utf8')).split('\n');
+    const newRule = (line: string) =>
+      line.startsWith('- Units (accommodation.units') || line.startsWith('- Bedroom packages:');
+    expect(p21.filter((l) => !newRule(l))).toEqual(p20);
+    expect(p21.filter(newRule)).toHaveLength(2);
   });
 
   it('gives a hotel bot the lodging catalog, never the commerce catalog', async () => {
@@ -831,7 +845,7 @@ describe('prompts 15 and 16 (T-138)', () => {
       (fake.calls[1] as GenerateRequest).messages.find((m) => m.role === 'tool')?.content,
     );
     expect(toolResult).toContain('A17 – Villa');
-    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@20');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@21');
 
     calls.length = 0;
     turn = 0;

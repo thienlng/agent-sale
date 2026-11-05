@@ -88,24 +88,50 @@ export interface AllowedVideo {
   title: string;
 }
 
+type MediaFolders =
+  | readonly {
+      name: string;
+      items: readonly { kind: string; url: string; caption: string }[];
+    }[]
+  | undefined;
+
 interface MediaProduct {
   id: string;
   name: string;
   accommodation?:
     | {
-        albums?:
-          | readonly {
-              name: string;
-              items: readonly { kind: string; url: string; caption: string }[];
-            }[]
-          | undefined;
+        albums?: MediaFolders;
+        /** Units with their own folders (T-193). */
+        units?: readonly { name: string; albums?: MediaFolders }[] | undefined;
       }
     | null
     | undefined;
 }
 
-const albumsOf = (product: MediaProduct) =>
-  (product.accommodation?.albums ?? []).slice(0, MAX_PRODUCT_ALBUMS);
+/** Folders of all units of one product (after the property's own, T-193). */
+export const MAX_UNIT_ALBUMS = 40;
+export const MAX_UNIT_VIDEOS = 20;
+
+/**
+ * The folders of a product with their id index: the property's own at 0..19, then its units'
+ * folders from MAX_PRODUCT_ALBUMS on (labelled with the unit name, `unit` = "<unit> – "), so a
+ * unit folder never shifts a property folder id.
+ */
+const albumsOf = (product: MediaProduct) => [
+  ...(product.accommodation?.albums ?? [])
+    .slice(0, MAX_PRODUCT_ALBUMS)
+    .map((folder, f) => ({ f, unit: '', name: folder.name, items: folder.items })),
+  ...(product.accommodation?.units ?? [])
+    .flatMap((unit) =>
+      (unit.albums ?? []).map((folder) => ({
+        unit: `${unit.name} – `,
+        name: folder.name,
+        items: folder.items,
+      })),
+    )
+    .slice(0, MAX_UNIT_ALBUMS)
+    .map((folder, k) => ({ f: MAX_PRODUCT_ALBUMS + k, ...folder })),
+];
 
 /**
  * The folders of lodging products, ids `a:<productId>:<folderIndex>`, each with its sendable
@@ -113,18 +139,18 @@ const albumsOf = (product: MediaProduct) =>
  */
 export function productAlbums(products: readonly MediaProduct[]): AllowedAlbum[] {
   return products.flatMap((product) =>
-    albumsOf(product).flatMap((folder, f) => {
+    albumsOf(product).flatMap(({ f, ...folder }) => {
       const images = folder.items
         .filter((item) => item.kind === 'image' && isSendableImage(item.url))
         .map((item) => ({
           url: item.url,
-          label: `${product.name} – ${item.caption.trim() || folder.name}`,
+          label: `${product.name} – ${folder.unit}${item.caption.trim() || folder.name}`,
         }));
       return images.length
         ? [
             {
               id: `a:${product.id}:${f}`,
-              label: `${product.name} – ${folder.name} (${images.length} ảnh)`,
+              label: `${product.name} – ${folder.unit}${folder.name} (${images.length} ảnh)`,
               images,
             },
           ]
@@ -135,30 +161,34 @@ export function productAlbums(products: readonly MediaProduct[]): AllowedAlbum[]
 
 /** Uploaded videos and video links of lodging products, ids `v:<productId>:<folder>:<item>`. */
 export function productVideos(products: readonly MediaProduct[]): AllowedVideo[] {
-  return products.flatMap((product) =>
-    albumsOf(product)
-      .flatMap((folder, f) => {
-        let n = 0;
-        return folder.items.flatMap((item, i): AllowedVideo[] => {
-          if (item.kind !== 'video' && item.kind !== 'link') return [];
-          n += 1;
-          const ok = item.kind === 'video' ? isSendable(item.url) : isHttps(item.url);
-          const title = item.caption.trim() || `video ${n}`;
-          return ok
-            ? [
-                {
-                  id: `v:${product.id}:${f}:${i}`,
-                  label: `${product.name} – ${folder.name} – video: ${title}`,
-                  kind: item.kind,
-                  url: item.url,
-                  title,
-                },
-              ]
-            : [];
-        });
-      })
-      .slice(0, MAX_PRODUCT_VIDEOS),
-  );
+  return products.flatMap((product) => {
+    const videos = albumsOf(product).flatMap(({ f, ...folder }) => {
+      let n = 0;
+      return folder.items.flatMap((item, i): AllowedVideo[] => {
+        if (item.kind !== 'video' && item.kind !== 'link') return [];
+        n += 1;
+        const ok = item.kind === 'video' ? isSendable(item.url) : isHttps(item.url);
+        const title = item.caption.trim() || `video ${n}`;
+        return ok
+          ? [
+              {
+                id: `v:${product.id}:${f}:${i}`,
+                label: `${product.name} – ${folder.unit}${folder.name} – video: ${title}`,
+                kind: item.kind,
+                url: item.url,
+                title,
+              },
+            ]
+          : [];
+      });
+    });
+    // At most 10 of the property's own, then at most 20 of its units'.
+    const own = (v: AllowedVideo) => Number(v.id.split(':')[2]) < MAX_PRODUCT_ALBUMS;
+    return [
+      ...videos.filter(own).slice(0, MAX_PRODUCT_VIDEOS),
+      ...videos.filter((v) => !own(v)).slice(0, MAX_UNIT_VIDEOS),
+    ];
+  });
 }
 
 /**

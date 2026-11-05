@@ -1,5 +1,6 @@
 import { FakeLlmProvider, type GenerateRequest } from '@agent-sales/ai-core';
 import { newId, workspaceId } from '@agent-sales/shared';
+import type { ProductDto } from '@agent-sales/contracts';
 import { describe, expect, it } from 'vitest';
 
 import { LlmRuntime } from '../application/llm-runtime.js';
@@ -9,6 +10,7 @@ import { buildReport, renderMarkdown, renderText } from '../evals/report.js';
 import { dateLabel, evalRequests, isPastDate } from '../evals/requests.js';
 import { evalCatalog, fakeRuntime, fakeScript, runCase, runCaseFake } from '../evals/runner.js';
 import { runChecks } from '../evals/checks.js';
+import { evalLodging } from '../evals/lodging.js';
 
 const cases = loadCases();
 
@@ -242,7 +244,7 @@ describe('eval suite (fake mode)', () => {
     const report = buildReport('fake', results);
     expect(report.gate).toBe('pass');
     expect(report.promptVersion).toContain('sales-agent@15');
-    expect(report.promptVersion).toContain('sales-agent@20');
+    expect(report.promptVersion).toContain('sales-agent@21');
     expect(report.promptVersion).toContain('sales-agent@19');
     expect(report.passed).toBe(report.total);
     expect(report.groups.map((g) => g.group)).toContain('safety');
@@ -529,5 +531,52 @@ describe('eval long conversation (history compression)', () => {
     expect(context).not.toContain(
       `<customer>\n${first && 'customer' in first ? first.customer : ''}`,
     );
+  });
+});
+
+describe('eval lodging calendar with bedroom packages (T-193)', () => {
+  const ws = workspaceId(newId());
+  const aura = cases.find((c) => c.id === 'hotel-aura-package-autopick');
+  const products = (aura?.products ?? []).map((p, i) => ({
+    ...p,
+    id: `eval-product-${i + 1}`,
+    code: p.code ?? '',
+  })) as unknown as ProductDto[];
+  const stay = { botId: 'b', checkIn: '2027-01-09', checkOut: '2027-01-10', childAges: [] };
+
+  it('picks the smallest package sold every night that holds the party', async () => {
+    const res = await evalLodging(products).checkAvailabilityForBot(ws, { ...stay, adults: 6 });
+    expect(res.options[0]).toMatchObject({
+      package: '5PN',
+      totalSell: 16_000_000,
+      alternatives: [
+        { package: '4PN', bedrooms: 4, totalSell: null },
+        { package: '6PN', bedrooms: 6, totalSell: 18_000_000, fits: true },
+      ],
+    });
+  });
+
+  it('holds a package chosen by name and answers unknown_package with the valid names', async () => {
+    const lodging = evalLodging(products);
+    const hold = {
+      ...stay,
+      adults: 6,
+      conversationId: newId(),
+      channel: 'test',
+      propertyId: 'eval-product-1',
+      whole: true,
+      guestName: 'Anh Nam',
+      guestPhone: '0901234567',
+    };
+    const ready = await lodging.prepareBotHold(ws, {
+      ...hold,
+      packages: [{ unitId: null, name: '6pn' }],
+    });
+    expect(ready.status === 'ready' && ready.summary.split('\n')[0]).toBe(
+      'Giữ chỗ AURA – Aura Villa 6PN · Nguyên căn · gói 6PN',
+    );
+    expect(
+      await lodging.prepareBotHold(ws, { ...hold, packages: [{ unitId: null, name: '7PN' }] }),
+    ).toMatchObject({ problems: ['unknown_package'], validPackages: ['4PN', '5PN', '6PN'] });
   });
 });
