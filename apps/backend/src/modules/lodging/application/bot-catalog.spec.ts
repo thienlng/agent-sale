@@ -47,13 +47,31 @@ function property(over: Partial<PropertyRecord> = {}): PropertyRecord {
       other: 'Có chỗ đỗ ô tô',
     },
     gallery: [
-      { url: 'https://cdn.example.com/a17/1.jpg', caption: 'Bể bơi' },
-      { url: 'https://cdn.example.com/a17/2.jpg', caption: '' },
-      ...Array.from({ length: 5 }, (_, i) => ({
-        url: `https://cdn.example.com/a17/${i + 3}.jpg`,
-        caption: `Ảnh ${i + 3}`,
-      })),
+      {
+        id: 'pool',
+        name: 'Hồ bơi',
+        items: [
+          { kind: 'image', url: 'https://cdn.example.com/a17/1.jpg', caption: 'Bể bơi' },
+          { kind: 'image', url: 'https://cdn.example.com/a17/2.jpg', caption: '' },
+          {
+            kind: 'video',
+            url: `/media/lodging/${ws}/01890000-0000-7000-8000-0000000000e1.mp4`,
+            caption: 'Tour',
+          },
+          { kind: 'link', url: 'https://youtu.be/a17', caption: 'Flycam' },
+        ],
+      },
+      {
+        id: 'rooms',
+        name: 'Phòng ngủ',
+        items: Array.from({ length: 5 }, (_, i) => ({
+          kind: 'image' as const,
+          url: `https://cdn.example.com/a17/${i + 3}.jpg`,
+          caption: `Ảnh ${i + 3}`,
+        })),
+      },
     ],
+    galleryCover: '',
     internalNote: '',
     surcharges: {
       extraAdult: { sell: 300_000, cost: COSTS[3]! },
@@ -152,8 +170,8 @@ describe('toBotProduct', () => {
     expect(acc.notes).toContain('Không hát karaoke sau 22h');
     expect(acc.notes).toContain('Có chỗ đỗ ô tô');
     expect(acc.gallery).toHaveLength(7);
-    // An empty caption still labels the picture (the image allowlist needs a label).
-    expect(acc.gallery[1]?.caption.length).toBeGreaterThan(0);
+    // An empty caption falls back to the folder name (the image allowlist needs a label).
+    expect(acc.gallery[1]?.caption).toBe('Hồ bơi');
   });
 
   it('never carries a cost price', () => {
@@ -254,6 +272,36 @@ describe('toBotProduct', () => {
     ];
     const acc = ProductDto.parse(toBotProduct(p, units, rates, today)).accommodation!;
     expect(acc.rates).toEqual([{ days: [1, 2, 3, 4, 5, 6, 7], amount: 2_000_000 }]);
+  });
+
+  it('carries the folders as albums, in order, with their videos and links', () => {
+    const acc = ProductDto.parse(
+      toBotProduct(property(), [wholeUnit()], a17Rates(), today),
+    ).accommodation!;
+    expect(acc.albums?.map((a) => [a.name, a.items.map((i) => i.kind)])).toEqual([
+      ['Hồ bơi', ['image', 'image', 'video', 'link']],
+      ['Phòng ngủ', ['image', 'image', 'image', 'image', 'image']],
+    ]);
+    expect(acc.gallery.map((g) => g.url)).not.toContain('https://youtu.be/a17');
+  });
+
+  it('puts the chosen cover first in imageUrls, once', () => {
+    const cover = 'https://cdn.example.com/a17/5.jpg';
+    const dto = toBotProduct(property({ galleryCover: cover }), [wholeUnit()], a17Rates(), today);
+    expect(dto?.imageUrls[0]).toBe(cover);
+    expect(dto?.imageUrls.filter((u) => u === cover)).toHaveLength(1);
+    expect(dto?.imageUrls).toHaveLength(5);
+  });
+
+  it('leaves albums out of a property without folders', () => {
+    const acc = toBotProduct(
+      property({ gallery: [] }),
+      [wholeUnit()],
+      a17Rates(),
+      today,
+    )?.accommodation;
+    expect(acc?.albums).toBeUndefined();
+    expect(acc?.gallery).toEqual([]);
   });
 });
 

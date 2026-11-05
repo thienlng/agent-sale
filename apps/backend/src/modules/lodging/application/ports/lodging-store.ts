@@ -1,4 +1,4 @@
-import type { BookingListQuery, Policies } from '@agent-sales/contracts';
+import type { BookingListQuery, GalleryFolder, Policies } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 
 import type { Quote } from '../../domain/quote.js';
@@ -21,7 +21,10 @@ export interface PropertyRecord {
   amenities: string[];
   layout: { name: string; beds: string; note: string }[];
   policies: Policies;
-  gallery: { url: string; caption: string }[];
+  /** Media folders (T-192): photos, uploaded videos and video links, in the owner's order. */
+  gallery: GalleryFolder[];
+  /** '' = automatic cover (contracts `galleryCoverUrl`); else an image item's url. */
+  galleryCover: string;
   /** Staff-only; never mapped to the bot product. */
   internalNote: string;
   surcharges: {

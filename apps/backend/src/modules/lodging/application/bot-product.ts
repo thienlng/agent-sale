@@ -1,4 +1,8 @@
-import type { AccommodationDetails, ProductDto } from '@agent-sales/contracts';
+import {
+  type AccommodationDetails,
+  galleryCoverUrl,
+  type ProductDto,
+} from '@agent-sales/contracts';
 
 import type { RateRule } from '../domain/rates.js';
 import type { PropertyRecord, UnitRecord } from './ports/lodging-store.js';
@@ -7,6 +11,7 @@ import { currentUnits } from './property-support.js';
 /** Limits of the bot view (the product image list and the `AccommodationDetails` schema). */
 const MAX_IMAGE_URLS = 5;
 const MAX_GALLERY = 30;
+const MAX_ALBUMS = 20;
 const MAX_AMENITIES = 50;
 const MAX_OVERRIDES = 20;
 const MAX_NOTES = 3000;
@@ -55,6 +60,8 @@ const overrideLabel = (label: string, minNights: number | null): string =>
  * the per-night weekday rates, the rooms of a `rooms` property, upcoming date-range prices (from
  * `today`, at most 20) and the surcharges. Sell prices only: no cost ever leaves this function.
  * `rates` are this property's rules; `units` may hold other properties' units too.
+ * `albums` carries the media folders (photos, videos, links) for the bot's album and video ids;
+ * `gallery` is their photos flattened.
  * Returns null when the property cannot be quoted (some weekday has no price).
  */
 export function toBotProduct(
@@ -109,10 +116,29 @@ export function toBotProduct(
     name: l.name.slice(0, 100),
     beds: l.beds.trim().slice(0, 500) || NOT_PROVIDED,
   }));
-  const gallery = p.gallery.slice(0, MAX_GALLERY).map((g, i) => ({
-    url: g.url,
-    caption: g.caption.trim().slice(0, 300) || `${p.code} photo ${i + 1}`,
+  const albums = p.gallery.slice(0, MAX_ALBUMS).map((f) => ({
+    id: f.id,
+    name: f.name,
+    items: f.items.map((i) => ({ ...i, caption: i.caption.trim().slice(0, 300) })),
   }));
+  // The flat photo list older readers know: every folder's photos in order, captioned by the
+  // folder name when the owner left the caption empty (the image allowlist needs a label).
+  const gallery = p.gallery
+    .flatMap((f) =>
+      f.items
+        .filter((i) => i.kind === 'image')
+        .map((i) => ({
+          url: i.url,
+          caption: i.caption.trim().slice(0, 300) || f.name.slice(0, 300),
+        })),
+    )
+    .slice(0, MAX_GALLERY)
+    .map((g, i) => ({ url: g.url, caption: g.caption || `${p.code} photo ${i + 1}` }));
+  const cover = galleryCoverUrl(p);
+  const imageUrls = [...new Set([...(cover ? [cover] : []), ...gallery.map((g) => g.url)])].slice(
+    0,
+    MAX_IMAGE_URLS,
+  );
   const { checkInTime, checkOutTime, deposit, cancellation, houseRules, other } = p.policies;
 
   const accommodation: AccommodationDetails = {
@@ -133,6 +159,7 @@ export function toBotProduct(
     extraGuestPolicy: '',
     holidayPolicy: '',
     gallery,
+    ...(albums.length ? { albums } : {}),
     notes: [p.address.trim() ? `Address: ${p.address.trim()}` : '', houseRules, other]
       .map((s) => s.trim())
       .filter(Boolean)
@@ -167,7 +194,7 @@ export function toBotProduct(
     status: 'active',
     visibleToBot: true,
     botInstructions: '',
-    imageUrls: gallery.slice(0, MAX_IMAGE_URLS).map((g) => g.url),
+    imageUrls,
     accommodation,
     offering: null,
     // Lodging places are Rapiz-owned; they never come from a PMS.

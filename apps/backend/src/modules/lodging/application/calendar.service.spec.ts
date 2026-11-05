@@ -38,6 +38,7 @@ function property(id: string, code: string, sellMode: 'whole' | 'rooms'): Proper
       other: '',
     },
     gallery: [],
+    galleryCover: '',
     internalNote: '',
     surcharges: { extraAdult: null, extraChild: null },
     sortOrder: 0,

@@ -57,7 +57,14 @@ function property(over: Partial<PropertyRecord> = {}): PropertyRecord {
       houseRules: '',
       other: '',
     },
-    gallery: [{ url: 'https://media.rapiz.test/a17/0.jpg', caption: 'Hồ bơi' }],
+    gallery: [
+      {
+        id: 'pool',
+        name: 'Hồ bơi',
+        items: [{ kind: 'image', url: 'https://media.rapiz.test/a17/0.jpg', caption: 'Hồ bơi' }],
+      },
+    ],
+    galleryCover: '',
     internalNote: '',
     surcharges: { extraAdult: { sell: 300_000, cost: 200_000 }, extraChild: null },
     sortOrder: 0,

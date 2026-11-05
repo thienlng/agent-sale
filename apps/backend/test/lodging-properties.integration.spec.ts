@@ -359,6 +359,54 @@ describe('lodging v2 properties over HTTP', () => {
     ]);
   });
 
+  it('saves media folders and a cover, and refuses a video of another business', async () => {
+    const o = await signup();
+    const p = await create(o.headers, villa());
+    const own = `/media/lodging/${o.ws}/${newId()}.mp4`;
+    const foreign = `/media/lodging/${newId()}/${newId()}.mp4`;
+    const photo = 'https://cdn.example.com/a17/pool.jpg';
+    const gallery = [
+      {
+        id: 'pool',
+        name: 'Hồ bơi',
+        items: [
+          { kind: 'image', url: photo },
+          { kind: 'video', url: own, caption: 'Tour' },
+          { kind: 'link', url: 'https://youtu.be/a17', caption: 'Flycam' },
+        ],
+      },
+    ];
+    const saved = await ok(
+      await call(o.headers, 'PATCH', `/lodging/properties/${p.id}`, {
+        version: 1,
+        patch: { gallery, galleryCover: photo },
+      }),
+    );
+    expect(saved.galleryCover).toBe(photo);
+    expect(saved.gallery[0]?.items.map((i) => i.kind)).toEqual(['image', 'video', 'link']);
+    const bad = await call(o.headers, 'PATCH', `/lodging/properties/${p.id}`, {
+      version: 2,
+      patch: { gallery: [{ id: 'v', name: 'Video', items: [{ kind: 'video', url: foreign }] }] },
+    });
+    expect(bad.statusCode, bad.body).toBe(400);
+    expect(bad.json()).toMatchObject({ error: { details: { reason: 'VIDEO_NOT_UPLOADED' } } });
+    // The cover is checked on the merged property: a new gallery without the stored cover photo
+    // (and no new cover) is refused, never stored with a stale cover.
+    const stale = await call(o.headers, 'PATCH', `/lodging/properties/${p.id}`, {
+      version: 2,
+      patch: { gallery: [{ id: 'v', name: 'Video', items: [{ kind: 'video', url: own }] }] },
+    });
+    expect(stale.statusCode, stale.body).toBe(400);
+    expect(stale.json()).toMatchObject({
+      error: {
+        code: 'VALIDATION_FAILED',
+        details: {
+          issues: expect.arrayContaining([expect.objectContaining({ path: 'galleryCover' })]),
+        },
+      },
+    });
+  });
+
   it('refuses a sell-mode change while a future booking exists', async () => {
     const o = await signup();
     const p = await create(o.headers, villa());

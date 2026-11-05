@@ -1,4 +1,4 @@
-import { Policies } from '@agent-sales/contracts';
+import { type GalleryFolder, type GalleryItem, Policies } from '@agent-sales/contracts';
 import type { schema } from '@agent-sales/db';
 import type { WorkspaceId } from '@agent-sales/shared';
 
@@ -23,6 +23,48 @@ export const pgCode = (e: unknown): string | undefined =>
 const price = (sell: number | null, cost: number | null) =>
   sell === null || cost === null ? null : { sell, cost };
 
+/** Id and name of the folder a flat (pre-0066) gallery reads as; migration 0066 uses this name. */
+export const LEGACY_FOLDER_ID = 'legacy';
+export const LEGACY_FOLDER_NAME = 'Ảnh chung';
+const KINDS = new Set<string>(['image', 'video', 'link']);
+const rec = (v: unknown): Record<string, unknown> =>
+  v !== null && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+const text = (v: unknown): string => (typeof v === 'string' ? v : '');
+
+/** Rapiz photos and videos are host-relative `/media/…` paths; older rows name a former host. */
+function toItem(raw: unknown): GalleryItem[] {
+  const r = rec(raw);
+  const kind = text(r['kind']);
+  const url = text(r['url']);
+  if (!KINDS.has(kind) || !url) return [];
+  return [
+    {
+      kind,
+      url: kind === 'link' ? url : toMediaPath(url),
+      caption: text(r['caption']),
+    } as GalleryItem,
+  ];
+}
+
+/**
+ * The stored gallery as folders. A flat `[{url, caption}]` list (a row written before 0066, or by
+ * a later run of `lodging_copy_accommodations()`) reads as one "Ảnh chung" folder.
+ */
+export function toGallery(raw: unknown): GalleryFolder[] {
+  if (!Array.isArray(raw)) return [];
+  if (!raw.some((f) => 'items' in rec(f))) {
+    const items = raw.flatMap((g) => toItem({ ...rec(g), kind: 'image' }));
+    return items.length ? [{ id: LEGACY_FOLDER_ID, name: LEGACY_FOLDER_NAME, items }] : [];
+  }
+  return raw.flatMap((f) => {
+    const r = rec(f);
+    const id = text(r['id']);
+    const name = text(r['name']);
+    if (!id || !name) return [];
+    return [{ id, name, items: (Array.isArray(r['items']) ? r['items'] : []).flatMap(toItem) }];
+  });
+}
+
 export function toProperty(r: PropertyRow): PropertyRecord {
   return {
     id: r.id,
@@ -42,8 +84,8 @@ export function toProperty(r: PropertyRow): PropertyRecord {
     layout: r.layout.map((l) => ({ name: l.name, beds: l.beds ?? '', note: l.note ?? '' })),
     // Rows copied by 0041 carry only some policy keys; the contract fills the rest with ''.
     policies: Policies.parse(r.policies),
-    // Rapiz photos are host-relative `/media/…` paths; older rows name a former public host.
-    gallery: r.gallery.map((g) => ({ url: toMediaPath(g.url), caption: g.caption ?? '' })),
+    gallery: toGallery(r.gallery),
+    galleryCover: r.galleryCover ? toMediaPath(r.galleryCover) : '',
     internalNote: r.internalNote,
     surcharges: {
       extraAdult: price(r.extraAdultSell, r.extraAdultCost),
@@ -75,7 +117,16 @@ export function propertyValues(ws: WorkspaceId, p: PropertyRecord) {
     amenities: p.amenities,
     layout: p.layout,
     policies: { ...p.policies },
-    gallery: p.gallery.map((g) => ({ ...g, url: toMediaPath(g.url) })),
+    gallery: p.gallery.map((f) => ({
+      id: f.id,
+      name: f.name,
+      items: f.items.map((i) => ({
+        kind: i.kind,
+        url: i.kind === 'link' ? i.url : toMediaPath(i.url),
+        caption: i.caption,
+      })),
+    })),
+    galleryCover: p.galleryCover ? toMediaPath(p.galleryCover) : '',
     internalNote: p.internalNote,
     extraAdultSell: p.surcharges.extraAdult?.sell ?? null,
     extraAdultCost: p.surcharges.extraAdult?.cost ?? null,

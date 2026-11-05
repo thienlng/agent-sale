@@ -56,23 +56,37 @@ function fieldsOf(p: PropertyRecord): PropertyFieldsOut {
     layout: p.layout,
     policies: p.policies,
     gallery: p.gallery,
+    galleryCover: p.galleryCover,
     internalNote: p.internalNote,
   };
 }
 
 /**
  * Gallery photos that are Rapiz objects (a `/media/…` path, or such a URL on any host) must be
- * this workspace's product pictures; external https links stay allowed.
+ * this workspace's product pictures, and every uploaded video must be this workspace's
+ * (`/media/lodging/<ws>/…`); external https photos and video links stay allowed.
  */
-function assertOwnGallery(ws: WorkspaceId, gallery: readonly { url: string }[] | undefined): void {
-  gallery?.forEach((g, i) => {
-    const path = mediaPath(g.url);
-    if (path && !path.startsWith(`/media/products/${ws}/`))
-      throw new LodgingError('VALIDATION_FAILED', 'Gallery photo is not one of this business', {
-        reason: 'IMAGE_NOT_UPLOADED',
-        field: `gallery[${i}].url`,
-      });
-  });
+function assertOwnGallery(
+  ws: WorkspaceId,
+  gallery: readonly { items: readonly { kind: string; url: string }[] }[] | undefined,
+): void {
+  gallery?.forEach((folder, f) =>
+    folder.items.forEach((item, i) => {
+      if (item.kind === 'link') return;
+      const path = mediaPath(item.url);
+      const field = `gallery[${f}].items[${i}].url`;
+      if (item.kind === 'video' && !path?.startsWith(`/media/lodging/${ws}/`))
+        throw new LodgingError('VALIDATION_FAILED', 'Gallery video is not one of this business', {
+          reason: 'VIDEO_NOT_UPLOADED',
+          field,
+        });
+      if (item.kind === 'image' && path && !path.startsWith(`/media/products/${ws}/`))
+        throw new LodgingError('VALIDATION_FAILED', 'Gallery photo is not one of this business', {
+          reason: 'IMAGE_NOT_UPLOADED',
+          field,
+        });
+    }),
+  );
 }
 
 function validationError(issues: z.core.$ZodIssue[]): LodgingError {
