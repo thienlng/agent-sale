@@ -42,7 +42,7 @@ Personas: **Shop owner** (Owner), **Sales manager**, **Sales staff**, **Bot conf
 | BOT-07 | **FAQ/Information**: CRUD, Excel/CSV import (with sample file, per-row error reporting), Excel export | P0 | Answerable immediately after adding (< 30s to index) |
 | BOT-08 | Documents: upload PDF/DOCX/TXT, crawl URL | P1 | Show index status (processing/done/error) |
 | BOT-09 | **Bot products** = selected from the operational catalog + product-specific instructions | P0 | [+] A single catalog (Preny splits it into 2 places → bot products are missing from the order form) |
-| BOT-10 | Image library: albums, image/video upload, quota per plan | P0 | The bot can send images by album; max 30 images/turn |
+| BOT-10 | Image library: albums, image/video upload, quota per plan | P0 | Lodging: photos, MP4 videos (≤ 25 MB) and video links in folders; the bot sends a folder 8 photos at a time and offers the rest (T-192); retail image library unchanged |
 | BOT-11 | Quick messages: shortcut `@xxx`, content, images; search | P0 | Typing `@` in the inbox shows suggestions |
 | BOT-12 | Basic settings: name, avatar, color, language, model tier, **reply schedule** | P0 | |
 | BOT-13 | Advanced settings: all 17 settings (see [06 §6](06-ai-engine.md)) with character limits (classification 2000, fallback 1000) and form-of-address preview | P0 | |
