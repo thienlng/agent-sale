@@ -24,7 +24,7 @@ Status: approved by the owner in chat, 2026-11-05. Builds on T-160 (lodging cale
 - A target without packages works exactly as today. Existing data needs no backfill to keep working.
 - Surcharges per extra person stay on the property (one shared level). Ruling: per-unit surcharges make a multi-unit quote ambiguous (which unit's extra guest?) for little value; adding them later is a column, not a redesign.
 
-## Data model (migration 0067, expand-only)
+## Data model (migrations 0067 and 0068, expand-only)
 
 `lodging_units` gains:
 
@@ -58,14 +58,16 @@ New table `lodging_packages`:
 
 `lodging_rates` gains `package_id uuid null` (FK → packages, cascade). `lodging_booking_units` gains `package_id uuid null` (FK → packages, set null). A whole booking of a whole-mode property already has one booking-unit row (the whole unit); its package is stored there. A whole rental of a rooms property stores a whole-target package on every row (same id), so the booking's package is read from any row.
 
-Rollback: `packages/db/sql/rollback-0067-lodging-units-packages.sql` drops the new table and columns; the runbook gets the same section as 0066.
+`lodging_bot_hold_drafts` gains `package_ids uuid[] not null default '{}'` in a separate migration 0068 (0067 was already applied on the dev database, and the runner refuses a changed checksum).
+
+Rollback: `packages/db/sql/rollback-0067-lodging-units-packages.sql` reverses 0067 and 0068: each target's full-package rates become plain rates and the other package rates are deleted, then the new table and columns are dropped. The runbook section "Rolling back T-193 (migration 0067)" deletes both `schema_migrations` rows before a redeploy.
 
 ## Contracts
 
 - `UnitInput` / `UnitDto` gain `category`, `view`, `areaM2`, `description`, `amenities`, `maxGuests`, `gallery`, `galleryCover` (all with defaults on input). The cover rule and the `IMAGE_NOT_UPLOADED` / `VIDEO_NOT_UPLOADED` media checks of the property gallery apply to every unit gallery (error `field` = `units[u].gallery[f].items[i].url`). Limits per unit: 20 folders, 200 items (same as a property).
 - `PackageDto {id, unitId|null, name, bedrooms, standardAdults, standardChildren, maxGuests|null, sortOrder}`; `PropertyDto.packages: PackageDto[]`.
 - `PutRatesRequest` gains `packages: PackageInput[]` (default `[]`; `id` optional for new ones; a new package is referenced by its rates through a client key `key`, see below). Rates and packages are replaced together and validated as a whole, because a rate can point at a package created in the same request:
-  - `PackageInput {id?, key, unitId|null, name, bedrooms, standardAdults, standardChildren?, maxGuests?}` where `key` is a client string (≤ 40) unique in the request; `WeekdayRate` and the override inputs gain `packageKey: string | null` (default null). The server maps keys to ids (existing id when `id` is given, else a new uuid).
+  - `PackageInput {id?, key, unitId|null, name, bedrooms, standardAdults, standardChildren?, maxGuests?}` where `key` is a client string (≤ 40) unique in the request; `WeekdayRate` gains `packageKey: string | null` (default null). The server maps keys to ids (existing id when `id` is given, else a new uuid).
   - Overrides keep their own routes; their inputs gain `packageId: uuid | null` (default null).
 - `RateDto` gains `packageId`. `StaySelection` gains `packageIds: uuid[]` (default `[]`). `QuoteDto` gains `packages: {target: uuid|null, packageId, name}[]` (the packages the quote used) and the warning `package_unavailable`. Booking DTOs, the calendar segments and the availability options carry the package name(s).
 
@@ -76,33 +78,34 @@ For each rental target (whole property, or each active unit):
 - **No packages:** unchanged (weekdays 1–7 priced exactly once by rates with `package_id` null).
 - **With packages:** every rate of that target must name one of its packages (a rate with `package_id` null on such a target is refused). The **full package** (most bedrooms; ties → the later `sort_order`) prices every weekday exactly once. Every other package prices each weekday **at most** once; a weekday it does not price is "not sold" that day.
 - Overrides never overlap per (target, package). An override of a package may also cover a weekday that package does not sell: the override wins for its dates.
-- A package's target must exist and be active (whole-property packages only on a property whose whole rental is offered). At most 10 packages per target. Bedrooms strictly differ between packages of one target.
+- A new package's target must exist and be active (whole-property packages only on a property whose whole rental is offered); an inactive room keeps the packages it had, and they may be sent back without rates. A kept package may not change its target (a move is a delete plus a create). Coverage is checked for the active targets plus every target priced in the request. At most 10 packages per target. Bedrooms strictly differ between packages of one target.
 
 ## Quote (domain `quote.ts`)
 
-- Each priced target of the selection gets a package when it has packages: the one in `packageIds` for that target, else **auto**: the package with the fewest bedrooms whose own maximum (or, when it has none, its standard party) holds the party and that prices every night of the stay; when none holds the party, the full package. Auto only looks at the party when the selection has a single target with packages; otherwise it picks the full package for each target.
+- Each priced target of the selection gets a package when it has packages: the one in `packageIds` for that target, else **auto**: the package with the fewest bedrooms whose own maximum (or, when it has none, its standard party) holds the party and that prices every night of the stay; when none holds the party, the full package. Auto only looks at the party for a **single package target**: the selection prices exactly one target and that target has packages (a room with packages next to a room without is not one). Otherwise it picks the full package for each target.
 - A package chosen explicitly that does not price a night → that night is `missing_rate` and the warning `package_unavailable` is added (staff may enter a manual price as today).
 - The night price of a target with a package is `priceNight(rules, target, night, packageId)`.
-- The standard party of a whole rental with a package is the package's standard; of a single unit with a package, the package's standard; otherwise as today (units' capacities, or the property's standard for a whole rental). `over_max` uses the package's `maxGuests` when the selection is one package target, else the selected units' `maxGuests` sum when every selected unit has one, and the property's `maxGuests` always.
+- The standard party of a whole rental with a whole-target package is the package's standard; of a room selection, the sum per room of its package's standard, else of the room's capacity; otherwise as today (the property's standard for a whole rental). `over_max` uses the package's `maxGuests` for a whole rental with a package, else the sum per room of its package's (or the room's) `maxGuests` when every contribution is set, and the property's `maxGuests` always.
 - The quote lists the packages it used.
 
 ## Availability, calendar and bookings
 
 - `freeOptions` keeps its selections; each option's quote auto-picks packages. An option on a single package target also returns `alternatives: {packageId, name, bedrooms, totalSell|null, fits}[]` for the target's other packages, so staff and the bot can offer a bigger package.
-- Booking create/edit accept `packageIds`; changing the package re-quotes like a change of rooms. The calendar bar and the quick view show the package name ("Nguyên căn · 5PN").
+- Booking create/edit accept `packageIds`; changing the package re-quotes like a change of rooms. On an edit, `packageIds` omitted = keep the stored packages, `[]` = automatic, otherwise explicit. A kept package is re-picked automatically when the units change, or when it no longer prices every night or holds the party (`package_unavailable` / `over_max`). A checked-in stay cannot change its package; blocks ignore `packageIds`. The web omits `packageIds` unless staff changed a select.
+- Deleting a package (a `PUT rates` without it) deletes its rates, date-range prices included; bookings keep their total and lose the package link. When a target gets its first packages, its stored package-less date-range prices move onto the full package in the same write. The calendar bar and the quick view show the package name ("Nguyên căn · 5PN").
 - Event payloads are unchanged.
 
 ## Bot
 
-- Catalog (`accommodation`): each unit carries `category`, `view`, `areaM2`, `description`, `amenities`, `maxGuests`, its own `albums` (same shape as the property's, ids usable in `send_message albumId` / `videoId`), and its weekday sell prices per package; a target with packages lists `packages: {name, bedrooms, standard, max, weekdaySell: (number|null)[7]}` (null = not sold that weekday). Sell prices only, never cost.
-- `send_message` resolves `albumId` / `videoId` across the property's and its units' folders (ids are uuids, unique).
-- `check_availability` options carry the auto package name and `alternatives` with their totals.
+- Catalog (`accommodation`): each unit carries `category`, `view`, `areaM2`, `description`, `amenities`, `maxGuests`, its own `albums` (same shape as the property's, ids usable in `send_message albumId` / `videoId`), and its weekday sell prices per package; a target with packages lists `packages: {name, bedrooms, standardAdults, standardChildren, maxGuests, weekdaySell: (number|null)[7]}` (index 0 = Monday, null = not sold that weekday; fewest bedrooms first); weekday `rates` are the full package's, and a date-range price of a package carries `packageName`. Sell prices only, never cost.
+- `send_message` resolves `albumId` / `videoId` across the property's and its units' folders: album ids stay `a:<product>:<folder index>`, the property's folders at 0–19 and the units' from 20 on (≤ 40), so a unit folder never shifts a property album id.
+- `check_availability` options carry the auto package name (null when the quote picked packages for several targets) and `alternatives` with their totals.
 - `prepare_hold` gains `packages?: {room?: string, package: string}[]` (room omitted = the whole property); unknown names come back as a problem listing the valid ones. The hold summary names the package.
-- Prompt `sales-agent@21`: present units by their view and description; when a villa has packages, quote the package that fits the party, and say a bigger one exists with its price when asked or when it is cheap to mention; send a unit's own album when the customer asks about that unit. Evals cover: package auto-pick, "not sold that day" upgrade, unit album choice.
+- Prompt `sales-agent@21`: present units by their view and description; when a villa has packages, quote the package that fits the party, and say a bigger one exists with its price when asked or when it is cheap to mention; send a unit's own album when the customer asks about that unit. Evals: `hotel-aura-package-autopick` (6 adults on a Saturday get 5PN, because 4PN is not sold that day) and `hotel-resort-bungalow-album` (the bungalow's own album). The draft stores the package ids and the confirm books exactly those; a package deleted meanwhile answers `price_changed`.
 
 ## Web
 
-- **Rooms tab → "Đơn vị cho thuê"** (rooms mode): a list of unit cards (cover, name, category, view, standard/max party, "từ" lowest weekday sell). The add / reorder / deactivate actions stay. Clicking a card opens the **unit page** `/app/properties/$propertyId/units/$unitId` (lazy route) with tabs **Thông tin** (name, category, view, area, beds, standard adults/children, max, description, amenities, active), **Giá** (that unit's rows of the rates matrix, with its packages) and **Ảnh & video** (the T-192 folder UI on the unit's gallery). Saving Thông tin / Ảnh sends the full unit list (`PUT units`); saving Giá sends the full rates + packages (`PUT rates`), keeping other targets as loaded.
+- **Rooms tab → "Đơn vị cho thuê"** (rooms mode): a list of unit cards (cover, name, category, view, standard/max party, "từ" lowest weekday sell). Add (a dialog, then the new unit's page), move earlier/later, deactivate and delete save at once with `PUT units`, sending every unit with all its fields. Clicking a card opens the **unit page** `/app/properties/$propertyId/units/$unitId` (lazy route) with tabs **Thông tin** (name, category, view, area, beds, standard adults/children, max, description, amenities, active), **Giá** (that unit's rows of the rates matrix, with its packages) and **Ảnh & video** (the T-192 folder UI on the unit's gallery). Saving Thông tin / Ảnh sends the full unit list (`PUT units`); saving Giá sends the full rates + packages (`PUT rates`), keeping other targets as loaded.
 - **Giá tab** (property): a target with packages shows one row pair (sell / cost) per package, labelled with the package name, ordered by bedrooms descending; an empty cell of a non-full package means "not sold" and shows a dash placeholder "Không bán". A "Gói phòng" section above the matrix adds, edits (name, bedrooms, standard adults/children, max) and removes packages of the whole property (whole mode) — on the unit page, of that unit. Date-range prices get a package select when the target has packages.
 - **Booking forms / Tìm trống**: a package select per target with packages (default: the quote's auto pick); the quote breakdown names it; Tìm trống shows the package name and the alternatives' totals.
 - Vietnamese strings in `packages/i18n` (vi + en). Layout verified with screenshots at 1440 px and 390 px. The initial bundle stays under the 250 KB budget (the unit page is a lazy route).

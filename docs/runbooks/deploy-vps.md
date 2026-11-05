@@ -130,6 +130,18 @@ RAPIZ_TAG=<T-192-or-later sha> docker compose --env-file .env run --rm --no-deps
 
 It keeps image items only, folder order then item order, captions kept; videos, links and folder names are dropped. It changes nothing else and can run again. Before deploying T-192 or later again, let 0066 run again: `docker compose exec postgres psql -U rapiz_owner -d rapiz -c "delete from schema_migrations where name = '0066_lodging_media_folders.sql'"`.
 
+### Rolling back T-193 (migration 0067)
+
+Migration 0067 adds unit details, the `lodging_packages` table and `package_id` on rates and booking units; 0068 adds `package_ids` on bot hold drafts. Releases before T-193 read every weekday rate of a target as its price, so once a target has packages they would see several prices per weekday (or none). Before `./deploy.sh rollback` to a release before T-193 (and after an automatic rollback to one), run the reverse SQL. It reverses **both 0067 and 0068** and ships in the T-193 (or later) image, so read it from that tag:
+
+```bash
+RAPIZ_TAG=<T-193-or-later sha> docker compose --env-file .env run --rm --no-deps -T migrate \
+  cat packages/db/sql/rollback-0067-lodging-units-packages.sql |
+  docker compose --env-file .env exec -T postgres psql -U rapiz_owner -d rapiz -v ON_ERROR_STOP=1
+```
+
+It turns each target's full-package rates (most bedrooms; a tie goes to the later sort order) into plain rates and deletes the other package rates, then drops the package columns of rates, booking units and hold drafts, the `lodging_packages` table and the unit detail columns. Unit details, unit galleries and packages are lost; bookings, their units and totals stay. It can run again and does not touch `schema_migrations`. Before deploying T-193 or later again, delete **both** rows so 0067 and 0068 run again: `docker compose exec postgres psql -U rapiz_owner -d rapiz -c "delete from schema_migrations where name in ('0067_lodging_units_packages.sql', '0068_lodging_bot_hold_draft_packages.sql')"`. Rolling back past T-192 as well: run this section first, then the 0066 one.
+
 ### Restore
 
 ```bash
