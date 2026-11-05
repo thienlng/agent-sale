@@ -21,7 +21,7 @@ import { tenantPolicies, workspaces } from './workspace.js';
  * Lodging v2 tables (migration 0041, T-160): properties → units → rates → bookings, with one
  * `lodging_unit_nights` row per occupied unit-night as the anti-double-booking key. Money is
  * bigint VND read as JS numbers; nights are local calendar dates ('YYYY-MM-DD' strings).
- * CHECK constraints live in the SQL migrations only (0041, 0042, 0043); 0066 reshapes `gallery` into folders.
+ * CHECK constraints live in the SQL migrations only (0041, 0042, 0043, 0067); 0066 reshapes `gallery` into folders.
  */
 const money = (name: string) => bigint(name, { mode: 'number' });
 const night = (name: string) => date(name, { mode: 'string' });
@@ -34,6 +34,7 @@ const workspaceRef = () =>
 export type LodgingSellMode = 'whole' | 'rooms';
 export type LodgingPropertyStatus = 'active' | 'paused';
 export type LodgingUnitKind = 'whole' | 'room';
+export type LodgingUnitCategory = 'room' | 'bungalow' | 'house' | 'other';
 export type LodgingRateKind = 'weekday' | 'override';
 export type LodgingBookingKind = 'stay' | 'block';
 export type LodgingBookingStatus =
@@ -120,6 +121,18 @@ export const lodgingUnits = pgTable(
     capacityChildren: integer('capacity_children').notNull().default(0),
     active: boolean('active').notNull().default(true),
     sortOrder: integer('sort_order').notNull().default(0),
+    /** Unit details (0067, T-193); `category` is ignored for the `whole` unit. */
+    category: text('category').notNull().default('room').$type<LodgingUnitCategory>(),
+    view: text('view').notNull().default(''),
+    areaM2: integer('area_m2'),
+    description: text('description').notNull().default(''),
+    amenities: jsonb('amenities').$type<string[]>().notNull().default([]),
+    /** Null: no hard maximum for this unit. */
+    maxGuests: integer('max_guests'),
+    /** The unit's own media folders, same shape as the property's (0066). */
+    gallery: jsonb('gallery').$type<LodgingGalleryFolderJson[]>().notNull().default([]),
+    /** '' = automatic cover; else the url of an image item. */
+    galleryCover: text('gallery_cover').notNull().default(''),
   },
   (t) => [
     foreignKey({
@@ -129,6 +142,43 @@ export const lodgingUnits = pgTable(
     }).onDelete('cascade'),
     unique('lodging_units_ws_id').on(t.workspaceId, t.id),
     ...tenantPolicies('lodging_units'),
+  ],
+);
+
+/**
+ * A bedroom package (0067, T-193): a priced variant of one rental target, `unitId` null = the
+ * whole property. Name unique per (property, target) case-insensitively (expression index
+ * `lodging_packages_name_unique`, SQL only).
+ */
+export const lodgingPackages = pgTable(
+  'lodging_packages',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: workspaceRef(),
+    propertyId: uuid('property_id').notNull(),
+    /** Null: the whole property; otherwise one unit. */
+    unitId: uuid('unit_id'),
+    name: text('name').notNull(),
+    bedrooms: integer('bedrooms').notNull(),
+    standardAdults: integer('standard_adults').notNull(),
+    standardChildren: integer('standard_children').notNull().default(0),
+    maxGuests: integer('max_guests'),
+    sortOrder: integer('sort_order').notNull().default(0),
+  },
+  (t) => [
+    foreignKey({
+      name: 'lodging_packages_property_fk',
+      columns: [t.workspaceId, t.propertyId],
+      foreignColumns: [lodgingProperties.workspaceId, lodgingProperties.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'lodging_packages_unit_fk',
+      columns: [t.workspaceId, t.unitId],
+      foreignColumns: [lodgingUnits.workspaceId, lodgingUnits.id],
+    }).onDelete('cascade'),
+    unique('lodging_packages_ws_id').on(t.workspaceId, t.id),
+    index('lodging_packages_property_idx').on(t.propertyId),
+    ...tenantPolicies('lodging_packages'),
   ],
 );
 
@@ -152,6 +202,8 @@ export const lodgingRates = pgTable(
     sell: money('sell').notNull(),
     cost: money('cost').notNull(),
     minNights: integer('min_nights'),
+    /** Null: the target's price without packages; otherwise a package of the same target (0067). */
+    packageId: uuid('package_id'),
   },
   (t) => [
     foreignKey({
@@ -164,7 +216,15 @@ export const lodgingRates = pgTable(
       columns: [t.workspaceId, t.unitId],
       foreignColumns: [lodgingUnits.workspaceId, lodgingUnits.id],
     }).onDelete('cascade'),
+    foreignKey({
+      name: 'lodging_rates_package_fk',
+      columns: [t.workspaceId, t.packageId],
+      foreignColumns: [lodgingPackages.workspaceId, lodgingPackages.id],
+    }).onDelete('cascade'),
     index('lodging_rates_property_idx').on(t.workspaceId, t.propertyId),
+    index('lodging_rates_package_idx')
+      .on(t.workspaceId, t.packageId)
+      .where(sql`${t.packageId} is not null`),
     ...tenantPolicies('lodging_rates'),
   ],
 );
@@ -258,6 +318,8 @@ export const lodgingBookingUnits = pgTable(
     workspaceId: uuid('workspace_id').notNull(),
     bookingId: uuid('booking_id').notNull(),
     unitId: uuid('unit_id').notNull(),
+    /** The package sold for this unit (0067); null when none. Deleting the package clears it. */
+    packageId: uuid('package_id'),
   },
   (t) => [
     primaryKey({ columns: [t.workspaceId, t.bookingId, t.unitId] }),
@@ -271,6 +333,15 @@ export const lodgingBookingUnits = pgTable(
       columns: [t.workspaceId, t.unitId],
       foreignColumns: [lodgingUnits.workspaceId, lodgingUnits.id],
     }),
+    // SQL: `on delete set null (package_id)`, which Drizzle cannot express; keep workspace_id.
+    foreignKey({
+      name: 'lodging_booking_units_package_fk',
+      columns: [t.workspaceId, t.packageId],
+      foreignColumns: [lodgingPackages.workspaceId, lodgingPackages.id],
+    }),
+    index('lodging_booking_units_package_idx')
+      .on(t.workspaceId, t.packageId)
+      .where(sql`${t.packageId} is not null`),
     ...tenantPolicies('lodging_booking_units'),
   ],
 );
