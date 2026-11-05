@@ -1,4 +1,4 @@
-import type { BookingDetail, UpdateBookingRequest } from '@agent-sales/contracts';
+import type { BookingDetail, QuoteDto, UpdateBookingRequest } from '@agent-sales/contracts';
 import { type FormEvent, useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -18,8 +18,9 @@ import {
   choiceIds,
   choiceOf,
   type PackageChoice,
-  packageTargets,
+  quoteChoice,
   sameIdSet,
+  selectTargets,
 } from '../lib/package-choice';
 import { type PartyValue, type PriceFields, toParty } from '../lib/party';
 import { BookingErrorAlert } from './booking-error-alert';
@@ -56,7 +57,9 @@ export function storedManualTotal(b: BookingDetail): number | null {
  * A manual price never silently survives a change of dates/rooms/guests: staff must type a
  * new one or explicitly choose the calculated price.
  * Packages: `packageIds` is sent only when staff changed a package select (omitted = the server
- * keeps the booking's packages; a change of rooms without a choice picks them automatically).
+ * keeps the booking's packages while they fit, else re-picks; a change of rooms without a choice
+ * picks them automatically). The preview asks the server for that same rule (`keepPackageIds`)
+ * and shows the packages its quote used, so it prices what the save will store.
  */
 export function BookingEditForm({
   booking,
@@ -101,8 +104,12 @@ export function BookingEditForm({
     () => choiceOf(property.data, booking.packageIds),
     [property.data, booking.packageIds],
   );
-  const targets = stay ? packageTargets(property.data, whole, unitIds) : [];
-  const packageIds = choiceIds(choice ?? (unitsChanged ? {} : stored), targets);
+  // Set below from the live quote; the selects follow the targets it priced (see selectTargets).
+  const [liveQuote, setLiveQuote] = useState<QuoteDto | undefined>(undefined);
+  const targets = stay ? selectTargets(property.data, whole, unitIds, liveQuote) : [];
+  const packageIds = choice === null ? [] : choiceIds(choice, targets);
+  // Untouched selects and the same rooms: the save keeps the booking's packages while they fit.
+  const keepPackageIds = choice === null && !unitsChanged ? booking.packageIds : [];
   const packagesChanged =
     stay && choice !== null && (unitsChanged || !sameIdSet(packageIds, booking.packageIds));
   const stayChanged =
@@ -120,6 +127,7 @@ export function BookingEditForm({
     manualRequired && !useAuto && (!manualTouched || price.manualTotal === null);
 
   const packageKey = packageIds.join(',');
+  const keepKey = keepPackageIds.join(',');
   const body = useMemo(
     () =>
       block
@@ -132,10 +140,15 @@ export function BookingEditForm({
             unitIds,
             party,
             packageIds: packageKey ? packageKey.split(',') : [],
+            keepPackageIds: keepKey ? keepKey.split(',') : [],
           }),
-    [block, booking.propertyId, checkIn, checkOut, whole, unitIds, party, packageKey],
+    [block, booking.propertyId, checkIn, checkOut, whole, unitIds, party, packageKey, keepKey],
   );
   const quote = useQuote(useDebouncedValue(stayChanged ? body : null, 300));
+  const live = stayChanged ? quote.data : undefined;
+  if (live !== liveQuote) setLiveQuote(live);
+  // What the selects show: staff's choice, else the packages the live quote used.
+  const shownChoice = choice ?? (live ? quoteChoice(live) : unitsChanged ? {} : stored);
 
   const invalid =
     !isStayRange(checkIn, checkOut) ||
@@ -213,7 +226,7 @@ export function BookingEditForm({
             <PackagePicker
               property={property.data}
               targets={targets}
-              choice={choice ?? (unitsChanged ? {} : stored)}
+              choice={shownChoice}
               quote={stayChanged ? quote.data : (booking.quote ?? undefined)}
               onChange={setChoice}
             />

@@ -66,6 +66,17 @@ const quoteOf = (packageIds: string[] = []): QuoteDto => {
   };
 };
 
+/**
+ * The stub server's pick: explicit packages, else the kept ones while they fit — a kept 4PN
+ * does not sell the stay's nights, so the server re-picks 5PN, as `quoteKeepingPackages`.
+ */
+const serverPick = (body: Record<string, unknown> | undefined): string[] | undefined => {
+  const explicit = body?.['packageIds'] as string[] | undefined;
+  if (explicit?.length) return explicit;
+  const keep = body?.['keepPackageIds'] as string[] | undefined;
+  return keep?.includes(P4.id) ? [] : keep;
+};
+
 function stubApi(extra: Record<string, { status: number; body: unknown }> = {}) {
   const calls: Array<{ key: string; body: Record<string, unknown> | undefined }> = [];
   vi.stubGlobal('fetch', async (input: string, init: RequestInit = {}) => {
@@ -74,7 +85,7 @@ function stubApi(extra: Record<string, { status: number; body: unknown }> = {}) 
     calls.push({ key, body });
     const reply =
       key === 'POST /lodging/quote'
-        ? { status: 200, body: quoteOf(body?.['packageIds'] as string[] | undefined) }
+        ? { status: 200, body: quoteOf(serverPick(body)) }
         : key === 'GET /lodging/properties'
           ? { status: 200, body: { data: [] } }
           : key === `GET /lodging/properties/${PROP}`
@@ -187,6 +198,50 @@ describe('booking package select', () => {
       expect(calls.filter((c) => c.key.startsWith('PATCH')).at(-1)?.body).toEqual({
         version: stored().version,
         packageIds: [P6.id],
+        party: { adults: 8, childAges: [] },
+      }),
+    );
+  });
+
+  it('previews an edit of an auto-picked package as the save prices it (kept while it fits, else re-picked)', async () => {
+    // Auto-picked 4PN on a weekday; staff moves the stay onto nights 4PN does not sell.
+    const sold4 = (): BookingDetail => ({
+      ...stored(),
+      packageIds: [P4.id],
+      packageNames: ['4PN'],
+      quote: {
+        ...quoteOf([P5.id]),
+        totalSell: 24_000_000,
+        packages: [{ target: null, packageId: P4.id, name: '4PN' }],
+      },
+      totalSell: 24_000_000,
+    });
+    const calls = stubApi({
+      [`GET /lodging/bookings/${BK}`]: { status: 200, body: sold4() },
+      [`PATCH /lodging/bookings/${BK}`]: { status: 200, body: sold4() },
+    });
+    const user = userEvent.setup();
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    await user.click(await within(sheet).findByRole('button', { name: 'Sửa' }));
+    const out = within(sheet).getByLabelText('Trả phòng');
+    await user.clear(out);
+    await user.type(out, '2099-11-08');
+
+    const select = within(sheet).getByRole('combobox', { name: 'Gói' });
+    await waitFor(() => expect(select).toHaveTextContent('5PN'));
+    expect(within(sheet).getByTestId('quote-total')).toHaveTextContent('27.000.000');
+    expect(within(sheet).queryByText(/Gói đã chọn không bán một số đêm/)).toBeNull();
+    expect(within(sheet).queryByLabelText('Giá thủ công')).toBeNull();
+    const preview = calls.filter((c) => c.key === 'POST /lodging/quote').at(-1)?.body;
+    expect(preview).toMatchObject({ checkOut: '2099-11-08', keepPackageIds: [P4.id] });
+    expect(preview).not.toHaveProperty('packageIds');
+
+    await user.click(within(sheet).getByRole('button', { name: 'Lưu' }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.key.startsWith('PATCH'))?.body).toEqual({
+        version: stored().version,
+        checkOut: '2099-11-08',
         party: { adults: 8, childAges: [] },
       }),
     );

@@ -2,6 +2,7 @@ import type {
   BookingSource,
   CreateBookingRequest,
   NightNoteDto,
+  QuoteDto,
   QuoteRequest,
 } from '@agent-sales/contracts';
 import { useMemo, useState } from 'react';
@@ -10,7 +11,7 @@ import type { z } from 'zod';
 import { useQuote } from '../api/calendar';
 import { useProperty } from '../api/properties';
 import { isStayRange } from '../lib/format';
-import { choiceIds, type PackageChoice, packageTargets } from '../lib/package-choice';
+import { choiceIds, type PackageChoice, selectTargets } from '../lib/package-choice';
 import { EMPTY_PARTY, type PartyValue, type PriceFields, toParty } from '../lib/party';
 import { useDebouncedValue } from './use-debounced-value';
 
@@ -85,6 +86,8 @@ export function quoteBody(d: {
   party: PartyValue;
   /** Chosen packages; sent only when there are some (the server default is auto). */
   packageIds?: readonly string[];
+  /** A booking edit without chosen packages: the booking's packages, kept while they fit. */
+  keepPackageIds?: readonly string[];
 }): z.input<typeof QuoteRequest> | null {
   const party = toParty(d.party);
   if (!d.propertyId || !party || !isStayRange(d.checkIn, d.checkOut)) return null;
@@ -97,6 +100,9 @@ export function quoteBody(d: {
     checkOut: d.checkOut,
     party,
     ...(d.packageIds?.length ? { packageIds: [...d.packageIds] } : {}),
+    ...(!d.packageIds?.length && d.keepPackageIds?.length
+      ? { keepPackageIds: [...d.keepPackageIds] }
+      : {}),
   };
 }
 
@@ -154,15 +160,21 @@ export function createRequest(
 
 /**
  * Draft state of the create form with a live quote debounced by 300 ms. `packageTargets` are
- * the targets of the selection that have packages (one select each); `packageIds` the chosen
+ * the targets of the selection that have packages (one select each; once quoted, the ones the
+ * quote priced); `packageIds` the chosen
  * ones (stays only), sent with the quote and the create request.
  */
 export function useBookingDraft(initial: BookingCreateInitial | undefined) {
   const [draft, setDraft] = useState(() => draftFrom(initial));
   const property = useProperty(draft.propertyId || undefined);
+  // The latest quote of this property, set below: the selects follow the targets it priced.
+  const [liveQuote, setLiveQuote] = useState<QuoteDto | undefined>(undefined);
   const targets = useMemo(
-    () => (draft.kind === 'block' ? [] : packageTargets(property.data, draft.whole, draft.unitIds)),
-    [draft.kind, property.data, draft.whole, draft.unitIds],
+    () =>
+      draft.kind === 'block'
+        ? []
+        : selectTargets(property.data, draft.whole, draft.unitIds, liveQuote),
+    [draft.kind, property.data, draft.whole, draft.unitIds, liveQuote],
   );
   const packageIds = useMemo(
     () => choiceIds(draft.packageChoice, targets),
@@ -180,6 +192,8 @@ export function useBookingDraft(initial: BookingCreateInitial | undefined) {
   );
   const debounced = useDebouncedValue(body, 300);
   const quote = useQuote(debounced);
+  const live = debounced?.propertyId === draft.propertyId ? quote.data : undefined;
+  if (live !== liveQuote) setLiveQuote(live);
   const patch = (p: Partial<BookingDraft>) => setDraft((d) => ({ ...d, ...p }));
   return {
     draft,

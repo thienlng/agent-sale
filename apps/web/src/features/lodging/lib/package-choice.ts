@@ -1,4 +1,4 @@
-import type { PropertyDto } from '@agent-sales/contracts';
+import type { PropertyDto, QuoteDto } from '@agent-sales/contracts';
 
 import { targetPackages } from './units-model';
 
@@ -24,6 +24,28 @@ export function packageTargets(
   if (p.sellMode === 'whole' || has(null)) return has(null) ? [null] : [];
   const wholePriced = p.rates.some((r) => r.kind === 'weekday' && r.unitId === null);
   return wholePriced ? [] : rooms.filter((u) => u.active && has(u.id)).map((u) => u.id);
+}
+
+/**
+ * The package selects of a stay: once a quote exists, the targets it priced with packages (the
+ * server decides per night, e.g. a whole-target override on a rooms property); before the first
+ * quote, `packageTargets`. A previous selection's quote (kept while the next one loads) is
+ * trimmed to the selected rooms.
+ */
+export function selectTargets(
+  p: PropertyDto | undefined,
+  whole: boolean,
+  unitIds: readonly string[],
+  quote: QuoteDto | undefined,
+): (string | null)[] {
+  if (!quote) return packageTargets(p, whole, unitIds);
+  const used = [...new Set(quote.packages.map((k) => k.target))];
+  return whole ? used : used.filter((t) => t !== null && unitIds.includes(t));
+}
+
+/** The packages a quote used, as a choice per target. */
+export function quoteChoice(quote: QuoteDto): PackageChoice {
+  return Object.fromEntries(quote.packages.map((k) => [targetKey(k.target), k.packageId]));
 }
 
 /** The chosen package ids of the shown targets (a target without a choice is auto-picked). */

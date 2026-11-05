@@ -1,4 +1,4 @@
-import type { PackageDto } from '@agent-sales/contracts';
+import type { PackageDto, QuoteDto } from '@agent-sales/contracts';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -8,7 +8,15 @@ import {
   weekdayRate,
 } from '@/testing/lodging-factories';
 
-import { choiceIds, choiceOf, packageOptions, packageTargets, sameIdSet } from './package-choice';
+import {
+  choiceIds,
+  choiceOf,
+  packageOptions,
+  packageTargets,
+  quoteChoice,
+  sameIdSet,
+  selectTargets,
+} from './package-choice';
 import { fullPackageOf, lowestWeekdaySell, unitsWith } from './units-model';
 
 const pkg = (over: Partial<PackageDto>): PackageDto => ({
@@ -65,6 +73,36 @@ describe('packageTargets', () => {
     expect(packageTargets(rooms, true, [])).toEqual([LODGING_IDS.r1]);
     const wholePriced = { ...rooms, rates: [...rooms.rates, weekdayRate({ unitId: null })] };
     expect(packageTargets(wholePriced, true, [])).toEqual([]);
+  });
+});
+
+describe('selectTargets', () => {
+  const quote = (packages: QuoteDto['packages']): QuoteDto => ({
+    nights: [],
+    surcharges: [],
+    totalSell: null,
+    totalCost: null,
+    warnings: [],
+    takenBy: [],
+    packages,
+  });
+
+  it('falls back to packageTargets before the first quote', () => {
+    expect(selectTargets(rooms, true, [], undefined)).toEqual([LODGING_IDS.r1]);
+  });
+
+  it('follows the targets the quote priced with packages', () => {
+    // A whole-target override (e.g. Tết) prices the whole rental on the whole target only.
+    const whole = quote([{ target: null, packageId: P6.id, name: '6PN' }]);
+    expect(selectTargets(rooms, true, [], whole)).toEqual([null]);
+    expect(selectTargets(rooms, true, [], quote([]))).toEqual([]);
+  });
+
+  it("trims a previous selection's quote to the selected rooms", () => {
+    const q = quote([{ target: LODGING_IDS.r1, packageId: R1.id, name: '2PN' }]);
+    expect(selectTargets(rooms, false, [LODGING_IDS.r2], q)).toEqual([]);
+    expect(selectTargets(rooms, false, [LODGING_IDS.r1], q)).toEqual([LODGING_IDS.r1]);
+    expect(quoteChoice(q)).toEqual({ [LODGING_IDS.r1]: R1.id });
   });
 });
 
