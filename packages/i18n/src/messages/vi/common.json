@@ -263,6 +263,12 @@
       "currency": "đ"
     }
   },
+  "lightbox": {
+    "open": "Xem lớn {{label}}",
+    "position": "{{n}} / {{total}}",
+    "previous": "Ảnh trước",
+    "next": "Ảnh sau"
+  },
   "playground": {
     "title": "Chat thử",
     "subtitle": "Đóng vai khách hàng. Tin nhắn không gửi ra kênh nào.",

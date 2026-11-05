@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -186,21 +186,46 @@ describe('TestChat', () => {
       expect(screen.getAllByAltText('Ảnh đính kèm')).toHaveLength(2);
     });
 
-    it('renders the pictures the bot sends and falls back to the label when broken', async () => {
+    it('shows the bot pictures as an album that opens large and steps through them', async () => {
       setup({
         ...reply,
-        images: [{ url: 'https://cdn.shop.vn/giay.jpg', label: 'Giày Oxford' }],
+        images: [
+          { url: 'https://cdn.shop.vn/giay.jpg', label: 'Giày Oxford' },
+          { url: 'https://cdn.shop.vn/dep.jpg', label: 'Dép da' },
+        ],
       });
       await userEvent.type(screen.getByLabelText('Nhập tin nhắn của bạn'), 'cho xem anh{Enter}');
       const img = await screen.findByAltText('Giày Oxford');
-      const link = img.closest('a');
-      expect(link).toHaveAttribute('href', 'https://cdn.shop.vn/giay.jpg');
-      expect(link).toHaveAttribute('target', '_blank');
-      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+      expect(img.closest('a')).toBeNull();
       expect(img).toHaveAttribute('loading', 'lazy');
       expect(img).toHaveAttribute('referrerpolicy', 'no-referrer');
-      fireEvent.error(img);
-      expect(screen.getByRole('link', { name: 'Giày Oxford' })).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Xem lớn Giày Oxford' }));
+      const dialog = await screen.findByRole('dialog');
+      expect(within(dialog).getByText('1 / 2')).toBeInTheDocument();
+      expect(within(dialog).getByRole('img', { name: 'Giày Oxford' })).toHaveAttribute(
+        'src',
+        'https://cdn.shop.vn/giay.jpg',
+      );
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Ảnh sau' }));
+      expect(within(dialog).getByRole('img', { name: 'Dép da' })).toBeInTheDocument();
+      fireEvent.keyDown(dialog, { key: 'ArrowRight' });
+      expect(within(dialog).getByText('1 / 2')).toBeInTheDocument();
+      fireEvent.pointerDown(within(dialog).getByRole('img', { name: 'Giày Oxford' }), {
+        clientX: 200,
+      });
+      fireEvent.pointerUp(within(dialog).getByRole('img', { name: 'Giày Oxford' }), {
+        clientX: 100,
+      });
+      expect(within(dialog).getByText('2 / 2')).toBeInTheDocument();
+    });
+
+    it('falls back to the label inside the tile when a bot picture is broken', async () => {
+      setup({ ...reply, images: [{ url: 'https://cdn.shop.vn/giay.jpg', label: 'Giày Oxford' }] });
+      await userEvent.type(screen.getByLabelText('Nhập tin nhắn của bạn'), 'cho xem anh{Enter}');
+      fireEvent.error(await screen.findByAltText('Giày Oxford'));
+      expect(screen.getByRole('button', { name: 'Xem lớn Giày Oxford' })).toHaveTextContent(
+        'Giày Oxford',
+      );
     });
 
     it('clears images and revokes object URLs on reset', async () => {

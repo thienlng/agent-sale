@@ -263,6 +263,12 @@
       "currency": "₫"
     }
   },
+  "lightbox": {
+    "open": "View {{label}} large",
+    "position": "{{n}} / {{total}}",
+    "previous": "Previous picture",
+    "next": "Next picture"
+  },
   "playground": {
     "title": "Test chat",
     "subtitle": "Play the customer. Nothing is sent to any channel.",
