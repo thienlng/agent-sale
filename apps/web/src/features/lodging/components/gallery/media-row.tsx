@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 import { hostOf } from '../../lib/gallery-model';
-import { ItemMenu, type ItemMenuProps, Preview } from './media-tile';
+import { ItemMenu, type ItemMenuProps, linkKind, Preview } from './media-tile';
 
 const numberClass = (early: boolean) =>
   cn(
@@ -60,7 +60,7 @@ export function MediaRow({
       ? t('lodging.media.number', { n: number ?? 0 })
       : item.kind === 'video'
         ? t('lodging.media.videoBadge')
-        : `${t('lodging.media.linkBadge')} · ${hostOf(item.url)}`;
+        : `${linkKind(item.url, t('lodging.media.linkBadge'))} · ${hostOf(item.url)}`;
   return (
     <li
       ref={setNodeRef}
@@ -95,7 +95,7 @@ export function MediaRow({
         className="relative size-12 shrink-0 cursor-zoom-in overflow-hidden rounded-md border bg-muted focus-visible:outline-2 focus-visible:outline-ring sm:size-14"
         onClick={onOpen}
       >
-        <Preview item={item} label={label} />
+        <Preview item={item} label={label} compact />
         <span
           className={cn(
             numberClass(early),

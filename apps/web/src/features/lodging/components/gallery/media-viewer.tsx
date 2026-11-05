@@ -7,9 +7,11 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import { Textarea } from '@/components/ui/textarea';
 
 import { hostOf } from '../../lib/gallery-model';
+import { videoLinkOf } from '../../lib/video-link';
 
 /**
- * Large view of one folder item: the photo (or playable video, or link card), its caption
+ * Large view of one folder item: the photo (or playable video, a YouTube/Drive player, or a link
+ * card), its caption
  * editable in place, ‹ › and the arrow keys to step through the folder in its order.
  */
 export function MediaViewer({
@@ -35,6 +37,7 @@ export function MediaViewer({
   const { t } = useTranslation();
   const item = index !== null ? items[index] : undefined;
   const count = items.length;
+  const video = item?.kind === 'link' ? videoLinkOf(item.url) : null;
   const step = (by: number) => {
     if (index === null || count < 2) return;
     onIndexChange((index + by + count) % count);
@@ -77,16 +80,25 @@ export function MediaViewer({
                   className="max-h-[65vh] w-full bg-black"
                 />
               )}
-              {item.kind === 'link' && (
+              {item.kind === 'link' && video && (
+                // 16:9, never taller than the photos' 65vh.
+                <div className="aspect-video w-full max-w-[calc(65vh*16/9)] bg-black">
+                  <iframe
+                    key={video.embed}
+                    src={video.embed}
+                    title={labels[index]}
+                    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                    allowFullScreen
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    className="size-full border-0"
+                  />
+                </div>
+              )}
+              {item.kind === 'link' && !video && (
                 <div className="grid justify-items-center gap-3 p-8 text-center">
                   <Link2 className="size-8 text-muted-foreground" aria-hidden />
                   <p className="text-sm break-all">{item.url}</p>
-                  <Button asChild size="sm" variant="outline">
-                    <a href={item.url} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink aria-hidden />
-                      {t('lodging.media.openLink', { host: hostOf(item.url) })}
-                    </a>
-                  </Button>
+                  <OpenLink url={item.url} />
                 </div>
               )}
               {count > 1 && (
@@ -114,6 +126,12 @@ export function MediaViewer({
                 </>
               )}
             </div>
+            {item.kind === 'link' && video && (
+              <div className="flex min-w-0 items-center justify-between gap-3">
+                <p className="min-w-0 truncate text-xs text-muted-foreground">{item.url}</p>
+                <OpenLink url={item.url} />
+              </div>
+            )}
             {canEdit ? (
               <label className="grid gap-1.5 text-sm font-medium">
                 {t('lodging.media.caption')}
@@ -133,5 +151,17 @@ export function MediaViewer({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function OpenLink({ url }: { url: string }) {
+  const { t } = useTranslation();
+  return (
+    <Button asChild size="sm" variant="outline" className="shrink-0">
+      <a href={url} target="_blank" rel="noopener noreferrer">
+        <ExternalLink aria-hidden />
+        {t('lodging.media.openLink', { host: hostOf(url) })}
+      </a>
+    </Button>
   );
 }

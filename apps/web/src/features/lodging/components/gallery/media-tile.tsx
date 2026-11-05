@@ -17,6 +17,7 @@ import {
 import { cn } from '@/lib/utils';
 
 import { hostOf } from '../../lib/gallery-model';
+import { type VideoLink, videoLinkOf } from '../../lib/video-link';
 
 /** Every tile badge: one text size and line height. */
 const BADGE = 'inline-flex items-center rounded px-1.5 text-xs leading-5 tabular-nums';
@@ -24,7 +25,78 @@ const BADGE = 'inline-flex items-center rounded px-1.5 text-xs leading-5 tabular
 export const clock = (seconds: number) =>
   `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 
-export function Preview({ item, label }: { item: GalleryItem; label: string }) {
+/** A video link's provider name (a brand, the same in every language). */
+const PROVIDER_LABEL = { youtube: 'YouTube', drive: 'Google Drive' } as const;
+
+/** What a link is in the list view: its provider ("YouTube", "Google Drive") or "Link". */
+export function linkKind(url: string, linkBadge: string): string {
+  const video = videoLinkOf(url);
+  return video ? PROVIDER_LABEL[video.provider] : linkBadge;
+}
+
+/** The round play mark over a video link's picture. */
+function PlayMark({ small }: { small: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'absolute top-1/2 left-1/2 grid -translate-1/2 place-items-center rounded-full bg-black/70 text-white',
+        small ? 'size-6' : 'size-11',
+      )}
+    >
+      <Play className={cn('fill-current', small ? 'size-3' : 'size-5')} />
+    </span>
+  );
+}
+
+/**
+ * A YouTube or Drive link as a video: the YouTube thumbnail (or a dark Drive placeholder) with a
+ * play mark; on a grid tile also its title and the provider ("YouTube", "Google Drive"). `compact` (the list's thumbnail) shows no text.
+ */
+function VideoLinkPreview({
+  item,
+  video,
+  label,
+  compact,
+}: {
+  item: GalleryItem;
+  video: VideoLink;
+  label: string;
+  compact: boolean;
+}) {
+  return (
+    <div className="absolute inset-0 overflow-hidden bg-neutral-900 text-white">
+      {video.provider === 'youtube' ? (
+        <img
+          src={video.thumbnail}
+          alt={label}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          // hqdefault is 4:3 with black bars above and below a 16:9 video: zoom them away.
+          className="absolute inset-0 size-full scale-[1.34] object-cover"
+        />
+      ) : null}
+      <PlayMark small={compact} />
+      {!compact && (
+        <div className="absolute inset-x-0 bottom-0 grid bg-linear-to-t from-black/80 to-transparent px-2 pt-6 pb-1.5 text-xs">
+          {item.caption && <span className="truncate font-medium">{item.caption}</span>}
+          <span className="truncate text-white/80">{PROVIDER_LABEL[video.provider]}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function Preview({
+  item,
+  label,
+  compact = false,
+}: {
+  item: GalleryItem;
+  label: string;
+  /** The list view's small thumbnail: pictures only, no text. */
+  compact?: boolean;
+}) {
   const [seconds, setSeconds] = useState<number | null>(null);
   if (item.kind === 'image')
     return (
@@ -57,6 +129,8 @@ export function Preview({ item, label }: { item: GalleryItem; label: string }) {
         </span>
       </>
     );
+  const video = videoLinkOf(item.url);
+  if (video) return <VideoLinkPreview item={item} video={video} label={label} compact={compact} />;
   return (
     <div className="absolute inset-0 grid place-content-center justify-items-center gap-1 p-2 text-center text-xs text-muted-foreground">
       <Link2 className="size-6" aria-hidden />
@@ -209,14 +283,16 @@ export function MediaTile({
         <span
           className={cn(
             BADGE,
-            'h-7 min-w-7 justify-center rounded-[min(var(--radius-md),12px)] bg-background/90 font-semibold',
+            'h-7 min-w-7 justify-center overflow-hidden rounded-[min(var(--radius-md),12px)] bg-background/90 font-semibold',
           )}
         >
-          {number !== null
-            ? number
-            : item.kind === 'video'
-              ? t('lodging.media.videoBadge')
-              : t('lodging.media.linkBadge')}
+          {/* A long provider name ("Google Drive") ends in "…" on a narrow phone tile. */}
+          <span className="truncate">
+            {number ??
+              (item.kind === 'video' || videoLinkOf(item.url)
+                ? t('lodging.media.videoBadge')
+                : t('lodging.media.linkBadge'))}
+          </span>
         </span>
         {canEdit && (
           <div className="flex items-center gap-1">

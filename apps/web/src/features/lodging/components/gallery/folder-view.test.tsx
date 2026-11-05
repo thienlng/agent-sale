@@ -31,6 +31,8 @@ const VIDEO = {
   url: '/media/lodging/0192f0a0-0000-7000-8000-000000000001/0192f0a0-0000-7000-8000-0000000000cc.mp4',
   caption: 'Tour',
 };
+const YT = 'dQw4w9WgXcQ';
+const DRIVE = '1AbCdEfGhIjKlMnOpQrStUvWxYz012345';
 /** Photo 1, a video, then photos 2..10. */
 const rooms: GalleryFolder = {
   id: 'rooms',
@@ -111,25 +113,92 @@ describe('FolderView', () => {
     expect(current().gallery[0]?.items).toHaveLength(9);
   });
 
-  it('adds a video link only when it is https', async () => {
+  it('adds a pasted video link as https and refuses what is not a link', async () => {
     const user = userEvent.setup();
     start();
     await user.click(screen.getByRole('button', { name: 'Thêm link video' }));
     const dialog = await screen.findByRole('dialog');
-    await user.type(within(dialog).getByLabelText('Link (https)'), 'http://youtu.be/x');
+    const field = within(dialog).getByLabelText('Link video');
+    await user.type(field, 'not a link');
     await user.click(within(dialog).getByRole('button', { name: 'Thêm' }));
-    expect(within(dialog).getByText('Nhập link bắt đầu bằng https://')).toBeInTheDocument();
-    await user.clear(within(dialog).getByLabelText('Link (https)'));
-    await user.type(within(dialog).getByLabelText('Link (https)'), 'https://youtu.be/x');
+    expect(
+      within(dialog).getByText('Dán link video, ví dụ youtu.be/… hoặc drive.google.com/…'),
+    ).toBeInTheDocument();
+    await user.clear(field);
+    // No scheme: stored with https://.
+    await user.type(field, `youtu.be/${YT}`);
     await user.type(within(dialog).getByLabelText('Tiêu đề'), 'Flycam');
     await user.click(within(dialog).getByRole('button', { name: 'Thêm' }));
     await waitFor(() =>
       expect(current().gallery[0]?.items.at(-1)).toEqual({
         kind: 'link',
-        url: 'https://youtu.be/x',
+        url: `https://youtu.be/${YT}`,
         caption: 'Flycam',
       }),
     );
+    // http:// is upgraded.
+    await user.click(screen.getByRole('button', { name: 'Thêm link video' }));
+    const again = await screen.findByRole('dialog');
+    await user.type(
+      within(again).getByLabelText('Link video'),
+      `http://drive.google.com/file/d/${DRIVE}/view`,
+    );
+    await user.click(within(again).getByRole('button', { name: 'Thêm' }));
+    await waitFor(() =>
+      expect(current().gallery[0]?.items.at(-1)).toEqual({
+        kind: 'link',
+        url: `https://drive.google.com/file/d/${DRIVE}/view`,
+        caption: '',
+      }),
+    );
+  });
+
+  it('shows YouTube and Drive links as videos and plays them in the large view', async () => {
+    const user = userEvent.setup();
+    const links: GalleryFolder = {
+      id: 'rooms',
+      name: 'Phòng ngủ',
+      items: [
+        { kind: 'link', url: `https://www.youtube.com/watch?v=${YT}`, caption: 'Flycam' },
+        { kind: 'link', url: `https://drive.google.com/file/d/${DRIVE}/view`, caption: '' },
+        { kind: 'link', url: 'https://www.tiktok.com/@villa/video/1', caption: 'TikTok' },
+      ],
+    };
+    render(<Harness initial={{ gallery: [links, outdoor], galleryCover: '' }} />);
+    const tiles = screen.getAllByTestId('media-tile');
+    expect(within(tiles[0]!).getByRole('img', { name: 'Flycam' })).toHaveAttribute(
+      'src',
+      `https://i.ytimg.com/vi/${YT}/hqdefault.jpg`,
+    );
+    // Badged as videos, with the title and the provider at the bottom.
+    expect(within(tiles[0]!).getByText('Video')).toBeInTheDocument();
+    expect(within(tiles[0]!).getByText('YouTube')).toBeInTheDocument();
+    expect(within(tiles[1]!).getByText('Video')).toBeInTheDocument();
+    expect(within(tiles[1]!).getByText('Google Drive')).toBeInTheDocument();
+    expect(within(tiles[2]!).queryByRole('img')).not.toBeInTheDocument();
+    expect(within(tiles[2]!).getByText('Link')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Xem lớn Flycam' }));
+    const dialog = await screen.findByRole('dialog');
+    const player = within(dialog).getByTitle('Flycam');
+    expect(player.tagName).toBe('IFRAME');
+    expect(player).toHaveAttribute('src', `https://www.youtube-nocookie.com/embed/${YT}`);
+    expect(player).toHaveAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+    expect(within(dialog).getByRole('link', { name: 'Mở link (www.youtube.com)' })).toHaveAttribute(
+      'href',
+      `https://www.youtube.com/watch?v=${YT}`,
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'Mục sau' }));
+    expect(within(dialog).getByTitle('drive.google.com')).toHaveAttribute(
+      'src',
+      `https://drive.google.com/file/d/${DRIVE}/preview`,
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'Mục sau' }));
+    // Any other link keeps the link card.
+    expect(dialog.querySelector('iframe')).toBeNull();
+    expect(
+      within(dialog).getByRole('link', { name: 'Mở link (www.tiktok.com)' }),
+    ).toBeInTheDocument();
   });
 
   it('uploads picked photos into the open folder', async () => {

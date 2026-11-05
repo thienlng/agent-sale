@@ -13,7 +13,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-/** "Thêm link video": an https link (YouTube, Drive, TikTok…) and an optional title. */
+import { normalizeLinkInput } from '../../lib/video-link';
+
+/**
+ * "Thêm link video": a video link (YouTube, Drive, TikTok…) and an optional title. A pasted
+ * `youtu.be/…` or `http://…` link is stored as https (the contract only takes https links).
+ */
 export function LinkDialog({
   open,
   onOpenChange,
@@ -35,13 +40,14 @@ export function LinkDialog({
       setTried(false);
     }
   }, [open]);
-  const valid = PublicHttpsUrl.safeParse(url).success;
+  const link = normalizeLinkInput(url);
+  const valid = link !== null && PublicHttpsUrl.safeParse(link).success;
   const submit = (e: FormEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setTried(true);
-    if (!valid) return;
-    onAdd({ kind: 'link', url: url.trim(), caption: caption.trim() });
+    if (!valid || link === null) return;
+    onAdd({ kind: 'link', url: link, caption: caption.trim() });
     onOpenChange(false);
   };
   return (
@@ -55,11 +61,13 @@ export function LinkDialog({
             <Label htmlFor={`${id}-url`}>{t('lodging.media.linkUrl')}</Label>
             <Input
               id={`${id}-url`}
-              type="url"
+              type="text"
               inputMode="url"
+              autoComplete="off"
+              spellCheck={false}
               value={url}
               maxLength={2000}
-              placeholder="https://youtu.be/…"
+              placeholder="youtu.be/… · drive.google.com/…"
               aria-invalid={tried && !valid ? true : undefined}
               aria-describedby={tried && !valid ? `${id}-url-error` : undefined}
               onChange={(e) => setUrl(e.target.value)}
