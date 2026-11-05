@@ -12,6 +12,7 @@ const option = (warnings: QuoteWarning[]): FreeOption => {
     totalSell: 9_000_000,
     totalCost: 1,
     warnings,
+    packages: [],
   };
   return {
     property: { id: 'p1', code: 'A17', name: 'Villa', sellMode: 'whole' } as PropertyRecord,
@@ -20,6 +21,8 @@ const option = (warnings: QuoteWarning[]): FreeOption => {
     units: [],
     quote,
     fits: !warnings.includes('over_max') && !warnings.includes('over_standard'),
+    packages: [],
+    alternatives: [],
   };
 };
 

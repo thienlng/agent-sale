@@ -16,9 +16,12 @@ import type { LodgingEventType } from '../api/lodging.events.js';
 import { nextStatus, type Action } from '../domain/booking-status.js';
 import { LodgingError } from '../domain/lodging.errors.js';
 import { localToday, nightsBetween } from '../domain/nights.js';
-import { quoteStay, resolveUnits } from '../domain/quote.js';
+import { resolveUnits } from '../domain/quote.js';
 import {
+  bookingPackageIds,
   expireHolds,
+  quoteSelection,
+  unitPackagesOf,
   loadContext,
   keptTotals,
   manualTotalForEdit,
@@ -202,8 +205,9 @@ export class BookingService {
 
   /**
    * Edits a booking. Holds, confirmed stays and active blocks change freely; a checked-in stay
-   * only moves its check-out and corrects its price. Only a change of dates, units or party
-   * re-prices the stay; any other edit keeps the stored quote and nights. Units and nights are
+   * only moves its check-out and corrects its price. Only a change of dates, units, packages or
+   * party re-prices the stay (a stay re-priced without `packageIds` keeps its packages while its
+   * units stay, else they are picked automatically); any other edit keeps the stored quote and nights. Units and nights are
    * re-taken in the same transaction, so a conflict leaves the old nights in place.
    */
   async update(
@@ -232,6 +236,11 @@ export class BookingService {
         !inHouse &&
         (whole !== b.whole ||
           (!whole && req.unitIds !== undefined && !sameSet(req.unitIds, b.unitIds)));
+      const storedPackages = bookingPackageIds(b);
+      const packagesChanged =
+        b.kind === 'stay' &&
+        req.packageIds !== undefined &&
+        !sameSet(req.packageIds, storedPackages);
       const partyChanged =
         party.adults !== b.adults ||
         party.childAges.length !== b.childAges.length ||
@@ -265,18 +274,25 @@ export class BookingService {
           adjustment,
           adjustmentReason: req.adjustmentReason ?? b.adjustmentReason,
         };
-        if (retake || partyChanged) {
+        if (retake || partyChanged || packagesChanged) {
           // The stay itself changed: price it at today's rates (or the manual price staff chose).
-          const quote = quoteStay(ctx.property, ctx.units, ctx.rates, {
+          const stay = {
             whole,
             unitIds,
             checkIn,
             checkOut,
             adults: party.adults,
             childAges: party.childAges,
-          });
+          };
+          const kept = unitsChanged ? [] : storedPackages;
+          const quote = quoteSelection(ctx, stay, req.packageIds, kept);
           const manual = manualTotalForEdit(b, req.manualTotalSell);
-          next = { ...next, quote, ...totals(quote, manual, adjustment) };
+          next = {
+            ...next,
+            quote,
+            unitPackages: unitPackagesOf(quote, whole, unitIds),
+            ...totals(quote, manual, adjustment),
+          };
         } else {
           // Same stay: keep the agreed quote; only a new adjustment or manual price moves the total.
           next = { ...next, ...keptTotals(b, req.manualTotalSell, adjustment) };
@@ -298,6 +314,7 @@ export class BookingService {
             checkIn: b.checkIn,
             checkOut: b.checkOut,
             unitIds: b.unitIds,
+            packageIds: storedPackages,
             totalSell: b.totalSell,
             quote: b.quote,
           },
@@ -369,17 +386,13 @@ export class BookingService {
     base: BookingBase,
     now: Date,
   ): Promise<BookingRecord> {
-    const quote = quoteStay(ctx.property, ctx.units, ctx.rates, {
-      whole: input.whole,
-      unitIds: base.unitIds,
-      checkIn: input.checkIn,
-      checkOut: input.checkOut,
-      adults: input.party.adults,
-      childAges: input.party.childAges,
-    });
+    const { whole, checkIn, checkOut, party } = input;
+    const stay = { whole, unitIds: base.unitIds, checkIn, checkOut, ...party };
+    const quote = quoteSelection(ctx, stay, input.packageIds, []);
     const holdMinutes = input.status === 'hold' ? (await tx.settings()).holdMinutes : null;
     return {
       ...base,
+      unitPackages: unitPackagesOf(quote, input.whole, base.unitIds),
       kind: 'stay',
       status: input.status,
       adults: input.party.adults,

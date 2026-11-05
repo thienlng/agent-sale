@@ -2,7 +2,9 @@ import { ProductDto } from '@agent-sales/contracts';
 import { workspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
 
+import { auraPackages, auraRates } from '../__tests__/factories/packages.js';
 import { override, weekday } from '../__tests__/factories/rate-rules.js';
+import { unitDetails } from '../__tests__/factories/units.js';
 import { LodgingUnavailableError } from '../domain/lodging.errors.js';
 import type { RateRule } from '../domain/rates.js';
 import { LodgingBotCatalog } from './bot-catalog.js';
@@ -86,6 +88,7 @@ function property(over: Partial<PropertyRecord> = {}): PropertyRecord {
 }
 
 const wholeUnit = (pid = A17_ID): UnitRecord => ({
+  ...unitDetails(),
   id: `${pid.slice(0, -2)}ff`,
   propertyId: pid,
   kind: 'whole',
@@ -106,6 +109,7 @@ const a17Rates = (): RateRule[] => [
 ];
 
 const room = (id: string, name: string, sortOrder: number, active = true): UnitRecord => ({
+  ...unitDetails(),
   id,
   propertyId: R01_ID,
   kind: 'room',
@@ -185,6 +189,22 @@ describe('toBotProduct', () => {
     const dto = toBotProduct(property({ internalNote: secret }), [wholeUnit()], a17Rates(), today);
     expect(dto).not.toBeNull();
     expect(JSON.stringify(dto)).not.toContain('owner is difficult');
+  });
+
+  it('sells a villa with packages at its full package weekday prices (T-193)', () => {
+    const acc = toBotProduct(
+      property(),
+      [wholeUnit()],
+      auraRates(),
+      today,
+      auraPackages,
+    )?.accommodation;
+    expect(acc?.rates).toEqual([
+      { days: [1, 2, 3, 4], amount: 10_000_000 },
+      { days: [5], amount: 12_000_000 },
+      { days: [6], amount: 18_000_000 },
+      { days: [7], amount: 12_000_000 },
+    ]);
   });
 
   it('skips a property whose weekdays are not all priced', () => {
@@ -321,6 +341,7 @@ function storeWith(opts: {
         (p) => (!f.ids || f.ids.includes(p.id)) && (!f.activeOnly || p.status === 'active'),
       ),
     units: async (ids: string[]) => opts.units.filter((u) => ids.includes(u.propertyId)),
+    packages: async () => [],
     ratesByProperty: async (ids: string[]) => {
       opts.rateReads?.push(ids);
       return new Map(ids.map((id) => [id, opts.rates.get(id) ?? []]));

@@ -35,6 +35,7 @@ import {
   toBotOption,
   validParty,
   type FailCode,
+  packagesOfProperty,
   type SoldContext,
 } from './bot-hold-support.js';
 import { toBotProduct } from './bot-product.js';
@@ -135,7 +136,13 @@ export class LodgingBotHolds implements LodgingBotFacade {
         const selection = { whole, unitIds };
         try {
           resolved = resolveUnits(property, units, selection);
-          quote = quoteStay(property, units, rates, { ...selection, ...stayOf(input) });
+          quote = quoteStay(
+            property,
+            units,
+            rates,
+            { ...selection, ...stayOf(input) },
+            packagesOfProperty(ctx, property.id),
+          );
         } catch (error) {
           if (!(error instanceof LodgingError)) throw error;
           problems.push('not_available');
@@ -279,11 +286,13 @@ export class LodgingBotHolds implements LodgingBotFacade {
     let resolved: string[];
     try {
       resolved = resolveUnits(property, units, draft);
-      quote = quoteStay(property, units, ctx.ratesOf.get(property.id) ?? [], {
-        whole: draft.whole,
-        unitIds: draft.unitIds,
-        ...stayOf(draft),
-      });
+      quote = quoteStay(
+        property,
+        units,
+        ctx.ratesOf.get(property.id) ?? [],
+        { whole: draft.whole, unitIds: draft.unitIds, ...stayOf(draft) },
+        packagesOfProperty(ctx, property.id),
+      );
     } catch (error) {
       if (error instanceof LodgingError) throw new HoldNotConfirmable('not_available', draft);
       throw error;
@@ -301,6 +310,8 @@ export class LodgingBotHolds implements LodgingBotFacade {
           propertyId: draft.propertyId,
           whole: draft.whole,
           unitIds: draft.unitIds,
+          // Auto-picked again by the booking quote, as in the summary the customer saw.
+          packageIds: [],
           checkIn: draft.checkIn,
           checkOut: draft.checkOut,
           status: 'hold',
@@ -372,9 +383,18 @@ export class LodgingBotHolds implements LodgingBotFacade {
     const pids = props.map((p) => p.id);
     const units = pids.length ? await tx.units(pids) : [];
     const ratesOf = pids.length ? await tx.ratesByProperty(pids) : new Map();
+    const packages = await tx.packages(pids);
     const today = localToday(now);
-    const sold = props.filter((p) => toBotProduct(p, units, ratesOf.get(p.id) ?? [], today));
-    return { sold, units, ratesOf };
+    const sold = props.filter((p) =>
+      toBotProduct(
+        p,
+        units,
+        ratesOf.get(p.id) ?? [],
+        today,
+        packages.filter((pk) => pk.propertyId === p.id),
+      ),
+    );
+    return { sold, units, ratesOf, packages };
   }
 
   /** Free options of the sold properties, as the bot sees them (a min-stay breach is flagged). */

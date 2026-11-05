@@ -9,6 +9,7 @@ import type {
   BookingRecord,
   BotHoldDraftRecord,
   LodgingTx,
+  PackageRecord,
   PropertyRecord,
   UnitRecord,
 } from './ports/lodging-store.js';
@@ -41,12 +42,17 @@ export class HoldNotConfirmable extends Error {
   }
 }
 
-/** The properties a bot sells, with their units and rates (one query each). */
+/** The properties a bot sells, with their units, rates and packages (one query each). */
 export interface SoldContext {
   sold: PropertyRecord[];
   units: UnitRecord[];
   ratesOf: Awaited<ReturnType<LodgingTx['ratesByProperty']>>;
+  packages: PackageRecord[];
 }
+
+/** The packages of one property. */
+export const packagesOfProperty = (ctx: SoldContext, propertyId: string): PackageRecord[] =>
+  ctx.packages.filter((pk) => pk.propertyId === propertyId);
 
 export const tidy = (text: string | undefined, max: number) =>
   (text ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
@@ -114,14 +120,19 @@ export function validParty(adults: number, childAges: unknown): boolean {
 
 /**
  * The longest minimum stay of the date-range prices the option uses on the asked nights (whole
- * target and its rooms), or null when the stay is long enough.
+ * target and its rooms, each with the package the quote picked), or null when the stay is long
+ * enough.
  */
 export function requiredNights(o: FreeOption, rates: RateRule[]): number | null {
   if (!o.quote.warnings.includes('min_nights')) return null;
   const targets: (string | null)[] = [null, ...o.unitIds];
+  const packageOf = (t: string | null) =>
+    o.quote.packages.find((pk) => pk.target === t)?.packageId ?? null;
   let most = 0;
   for (const n of o.quote.nights) {
-    for (const t of targets) most = Math.max(most, priceNight(rates, t, n.date)?.minNights ?? 0);
+    for (const t of targets) {
+      most = Math.max(most, priceNight(rates, t, n.date, packageOf(t))?.minNights ?? 0);
+    }
   }
   return most || null;
 }

@@ -4,7 +4,7 @@ import {
   type ProductDto,
 } from '@agent-sales/contracts';
 
-import type { RateRule } from '../domain/rates.js';
+import { fullPackage, type DomainPackage, type RateRule } from '../domain/rates.js';
 import type { PropertyRecord, UnitRecord } from './ports/lodging-store.js';
 import { currentUnits } from './property-support.js';
 
@@ -20,10 +20,24 @@ const NOT_PROVIDED = '(not provided)';
 
 type WeekdayRow = { days: number[]; amount: number };
 
-/** Weekday rules of one target (null = whole property) as `{days, amount}` rows, sell prices only. */
-function weekdayRows(rules: RateRule[], unitId: string | null): WeekdayRow[] {
+/**
+ * Weekday rules of one target (null = whole property) as `{days, amount}` rows, sell prices only;
+ * a target with packages shows its full package's prices.
+ */
+function weekdayRows(
+  rules: RateRule[],
+  unitId: string | null,
+  packages: DomainPackage[],
+): WeekdayRow[] {
+  const packageId = fullPackage(packages, unitId)?.id ?? null;
   return rules
-    .filter((r) => r.kind === 'weekday' && r.unitId === unitId && r.weekdays.length)
+    .filter(
+      (r) =>
+        r.kind === 'weekday' &&
+        r.unitId === unitId &&
+        r.packageId === packageId &&
+        r.weekdays.length,
+    )
     .map((r) => ({ days: [...r.weekdays].sort((a, b) => a - b), amount: r.sell }))
     .sort((a, b) => (a.days[0] ?? 0) - (b.days[0] ?? 0));
 }
@@ -69,15 +83,16 @@ export function toBotProduct(
   units: UnitRecord[],
   rates: RateRule[],
   today: string,
+  packages: DomainPackage[] = [],
 ): ProductDto | null {
   const rooms =
     p.sellMode === 'rooms'
       ? currentUnits(p, units).filter((u) => u.active && u.kind === 'room')
       : [];
-  const roomRows = rooms.map((u) => ({ unit: u, rows: weekdayRows(rates, u.id) }));
+  const roomRows = rooms.map((u) => ({ unit: u, rows: weekdayRows(rates, u.id, packages) }));
   const priced = roomRows.filter((r) => coversWeek(r.rows));
 
-  const wholeRows = weekdayRows(rates, null);
+  const wholeRows = weekdayRows(rates, null, packages);
   // Without whole-place weekday rules, renting the whole place costs the sum of its active rooms
   // per night (as `quoteStay` prices it); a room without a price hides the property.
   const weekRates = coversWeek(wholeRows)
