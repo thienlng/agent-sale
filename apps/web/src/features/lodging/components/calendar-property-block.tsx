@@ -16,6 +16,7 @@ import { clockTime, dayMonth, formatShortVnd, formatVnd, weekdayLong } from '../
 import type { NoteFocus } from './booking-night-notes';
 import { STATUS_STYLE } from './booking-status-badge';
 import { BookingQuickView, CellTip, InternalNoteCard, NightNoteTip } from './calendar-quick-view';
+import { FitPackages } from './fit-packages';
 
 export interface CellHandlers {
   onCell: (cell: CellRef, mods: SelectModifiers) => void;
@@ -192,7 +193,10 @@ function UnitRow({
         const Icon = style.icon;
         const expiresSoon =
           s.holdExpiresAt !== null && new Date(s.holdExpiresAt).getTime() - now < HOLD_WARN_MS;
-        const label = s.kind === 'block' ? s.blockReason || s.code : `${s.guestName} · ${s.code}`;
+        const label =
+          s.kind === 'block'
+            ? s.blockReason || s.code
+            : [s.guestName, s.code, ...s.packageNames].join(' · ');
         const urgent = expiresSoon && s.status === 'hold';
         return (
           <div
@@ -429,6 +433,7 @@ export const PropertyBlock = memo(function PropertyBlock({
             : t('lodging.find.hold', { amount: formatVnd(fit.quote.totalSell) })}
         </Button>
       )}
+      {fits && fit && <FitPackages option={fit} />}
     </div>
   );
   const headerClassName = cn(fits && 'border-l-2 border-primary');

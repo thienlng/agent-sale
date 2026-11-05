@@ -6,10 +6,18 @@ import { useTranslation } from 'react-i18next';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Toggle } from '@/components/ui/toggle';
 import { cn } from '@/lib/utils';
 
 import { isStayRange, nightsBetween } from '../lib/format';
+import { type PackageChoice, packageOptions, targetKey } from '../lib/package-choice';
 
 /** A titled block of the booking sheet. */
 export function SheetSection({ title, children }: { title: string; children: ReactNode }) {
@@ -139,6 +147,60 @@ export function UnitPicker({
       {showError && !whole && unitIds.length === 0 && (
         <p className="text-xs text-destructive">{t('lodging.sheet.chooseUnit')}</p>
       )}
+    </div>
+  );
+}
+
+/**
+ * One package select per target of the selection that has packages ("Gói", or "Gói · B1" for a
+ * room). It shows the chosen package, else the one the quote picked; a change re-quotes.
+ */
+export function PackagePicker({
+  property,
+  targets,
+  choice,
+  quote,
+  onChange,
+}: {
+  property: PropertyDto | undefined;
+  targets: readonly (string | null)[];
+  choice: PackageChoice;
+  quote: QuoteDto | undefined;
+  onChange: (next: PackageChoice) => void;
+}) {
+  const { t } = useTranslation();
+  const id = useId();
+  if (!property || targets.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-2">
+      {targets.map((target) => {
+        const key = targetKey(target);
+        const unit = target ? property.units.find((u) => u.id === target) : undefined;
+        const value =
+          choice[key] ?? quote?.packages.find((k) => k.target === target)?.packageId ?? '';
+        const selectId = `${id}-${key || 'whole'}`;
+        return (
+          <div key={key} className="grid gap-1">
+            <Label htmlFor={selectId} className="text-xs">
+              {unit
+                ? t('lodging.sheet.packageOf', { name: unit.name })
+                : t('lodging.sheet.package')}
+            </Label>
+            <Select value={value} onValueChange={(v) => onChange({ ...choice, [key]: v })}>
+              <SelectTrigger id={selectId} size="sm" className="w-40">
+                <SelectValue placeholder={t('lodging.packages.selectPlaceholder')} />
+              </SelectTrigger>
+              <SelectContent>
+                {packageOptions(property, target).map((k) => (
+                  <SelectItem key={k.id} value={k.id}>
+                    {k.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        );
+      })}
     </div>
   );
 }

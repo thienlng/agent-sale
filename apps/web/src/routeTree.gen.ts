@@ -79,6 +79,7 @@ import { Route as AppBotsBotIdSettingsRouteImport } from './routes/app/bots/$bot
 import { Route as AppBotsBotIdActionsIndexRouteImport } from './routes/app/bots/$botId/actions.index'
 import { Route as AppBotsBotIdActionsActionIdRouteImport } from './routes/app/bots/$botId/actions.$actionId'
 import { Route as AppBotsBotIdActionsNewRouteImport } from './routes/app/bots/$botId/actions.new'
+import { Route as AppPropertiesPropertyIdUnitsUnitIdRouteImport } from './routes/app/properties/$propertyId_.units.$unitId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -438,6 +439,12 @@ const AppBotsBotIdActionsNewRoute = AppBotsBotIdActionsNewRouteImport.update({
   path: '/actions/new',
   getParentRoute: () => AppBotsBotIdRoute,
 } as any)
+const AppPropertiesPropertyIdUnitsUnitIdRoute =
+  AppPropertiesPropertyIdUnitsUnitIdRouteImport.update({
+    id: '/properties/$propertyId_/units/$unitId',
+    path: '/properties/$propertyId/units/$unitId',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -509,6 +516,7 @@ export interface FileRoutesByFullPath {
   '/app/bots/$botId/': typeof AppBotsBotIdIndexRoute
   '/app/bots/$botId/actions/$actionId': typeof AppBotsBotIdActionsActionIdRoute
   '/app/bots/$botId/actions/new': typeof AppBotsBotIdActionsNewRoute
+  '/app/properties/$propertyId/units/$unitId': typeof AppPropertiesPropertyIdUnitsUnitIdRoute
   '/app/bots/$botId/actions/': typeof AppBotsBotIdActionsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -575,6 +583,7 @@ export interface FileRoutesByTo {
   '/app/bots/$botId': typeof AppBotsBotIdIndexRoute
   '/app/bots/$botId/actions/$actionId': typeof AppBotsBotIdActionsActionIdRoute
   '/app/bots/$botId/actions/new': typeof AppBotsBotIdActionsNewRoute
+  '/app/properties/$propertyId/units/$unitId': typeof AppPropertiesPropertyIdUnitsUnitIdRoute
   '/app/bots/$botId/actions': typeof AppBotsBotIdActionsIndexRoute
 }
 export interface FileRoutesById {
@@ -648,6 +657,7 @@ export interface FileRoutesById {
   '/app/bots/$botId/': typeof AppBotsBotIdIndexRoute
   '/app/bots/$botId/actions/$actionId': typeof AppBotsBotIdActionsActionIdRoute
   '/app/bots/$botId/actions/new': typeof AppBotsBotIdActionsNewRoute
+  '/app/properties/$propertyId_/units/$unitId': typeof AppPropertiesPropertyIdUnitsUnitIdRoute
   '/app/bots/$botId/actions/': typeof AppBotsBotIdActionsIndexRoute
 }
 export interface FileRouteTypes {
@@ -722,6 +732,7 @@ export interface FileRouteTypes {
     | '/app/bots/$botId/'
     | '/app/bots/$botId/actions/$actionId'
     | '/app/bots/$botId/actions/new'
+    | '/app/properties/$propertyId/units/$unitId'
     | '/app/bots/$botId/actions/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -788,6 +799,7 @@ export interface FileRouteTypes {
     | '/app/bots/$botId'
     | '/app/bots/$botId/actions/$actionId'
     | '/app/bots/$botId/actions/new'
+    | '/app/properties/$propertyId/units/$unitId'
     | '/app/bots/$botId/actions'
   id:
     | '__root__'
@@ -860,6 +872,7 @@ export interface FileRouteTypes {
     | '/app/bots/$botId/'
     | '/app/bots/$botId/actions/$actionId'
     | '/app/bots/$botId/actions/new'
+    | '/app/properties/$propertyId_/units/$unitId'
     | '/app/bots/$botId/actions/'
   fileRoutesById: FileRoutesById
 }
@@ -1365,6 +1378,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBotsBotIdActionsNewRouteImport
       parentRoute: typeof AppBotsBotIdRoute
     }
+    '/app/properties/$propertyId_/units/$unitId': {
+      id: '/app/properties/$propertyId_/units/$unitId'
+      path: '/properties/$propertyId/units/$unitId'
+      fullPath: '/app/properties/$propertyId/units/$unitId'
+      preLoaderRoute: typeof AppPropertiesPropertyIdUnitsUnitIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -1514,6 +1534,7 @@ interface AppRouteChildren {
   AppOrdersIndexRoute: typeof AppOrdersIndexRoute
   AppProductsIndexRoute: typeof AppProductsIndexRoute
   AppPropertiesIndexRoute: typeof AppPropertiesIndexRoute
+  AppPropertiesPropertyIdUnitsUnitIdRoute: typeof AppPropertiesPropertyIdUnitsUnitIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -1545,6 +1566,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppOrdersIndexRoute: AppOrdersIndexRoute,
   AppProductsIndexRoute: AppProductsIndexRoute,
   AppPropertiesIndexRoute: AppPropertiesIndexRoute,
+  AppPropertiesPropertyIdUnitsUnitIdRoute:
+    AppPropertiesPropertyIdUnitsUnitIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

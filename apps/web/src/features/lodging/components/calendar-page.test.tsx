@@ -762,3 +762,55 @@ describe('CalendarPage notes, tags and quick view', () => {
     expect(screen.getByText('Ghi chú nội bộ')).toBeInTheDocument();
   });
 });
+
+describe('CalendarPage bedroom packages', () => {
+  const P5 = '0193a000-0000-7000-8000-000000000705';
+  const P4 = '0193a000-0000-7000-8000-000000000704';
+  const P6 = '0193a000-0000-7000-8000-000000000706';
+
+  it('names the package on the booking bar and in the quick view', async () => {
+    const withPackage = structuredClone(calendar);
+    const seg = withPackage.properties[0]?.rows[0]?.segments[0];
+    if (seg) seg.packageNames = ['5PN'];
+    stubApi({ 'GET /lodging/calendar': { status: 200, body: withPackage } });
+    const user = userEvent.setup();
+    renderPage();
+    const taken = await cell(/^A17, Thứ Sáu 06\/11, Đã đặt BK-0001/);
+    expect(screen.getByText('Anh Nam · BK-0001 · 5PN')).toBeInTheDocument();
+    await user.hover(taken);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Gói 5PN');
+  });
+
+  it('shows the picked package and the totals of the other packages in Tìm trống', async () => {
+    stubApi({
+      'POST /lodging/availability': {
+        status: 200,
+        body: {
+          options: [
+            {
+              propertyId: A17,
+              whole: true,
+              unitIds: [A17_UNIT],
+              fits: true,
+              quote: { ...quote, totalSell: 27_000_000 },
+              packages: [{ target: null, packageId: P5, name: '5PN' }],
+              alternatives: [
+                { packageId: P4, name: '4PN', bedrooms: 4, totalSell: null, fits: false },
+                { packageId: P6, name: '6PN', bedrooms: 6, totalSell: 30_000_000, fits: true },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await cell(/^A17, Thứ Hai 02\/11, trống/);
+    const find = screen.getByRole('search');
+    await user.type(within(find).getByLabelText('Nhận phòng'), '2026-11-13');
+    await user.type(within(find).getByLabelText('Trả phòng'), '2026-11-15');
+    await user.click(within(find).getByRole('button', { name: 'Tìm' }));
+    expect(await screen.findByText('Gói 5PN')).toBeInTheDocument();
+    expect(screen.getByText(/^Gói khác: 4PN không bán, 6PN 30\.000\.000/)).toBeInTheDocument();
+  });
+});

@@ -14,9 +14,23 @@ import { useQuote } from '../api/calendar';
 import { quoteBody } from '../hooks/use-booking-draft';
 import { useDebouncedValue } from '../hooks/use-debounced-value';
 import { isStayRange } from '../lib/format';
+import {
+  choiceIds,
+  choiceOf,
+  type PackageChoice,
+  packageTargets,
+  sameIdSet,
+} from '../lib/package-choice';
 import { type PartyValue, type PriceFields, toParty } from '../lib/party';
 import { BookingErrorAlert } from './booking-error-alert';
-import { SavingLabel, SheetSection, StayDates, TakenAlert, UnitPicker } from './booking-fields';
+import {
+  PackagePicker,
+  SavingLabel,
+  SheetSection,
+  StayDates,
+  TakenAlert,
+  UnitPicker,
+} from './booking-fields';
 import { PartyInput } from './party-input';
 import { QuoteBreakdown } from './quote-breakdown';
 import { TagInput } from './tag-input';
@@ -41,6 +55,8 @@ export function storedManualTotal(b: BookingDetail): number | null {
  * keeps it: only the adjustment or a new manual price moves the total.
  * A manual price never silently survives a change of dates/rooms/guests: staff must type a
  * new one or explicitly choose the calculated price.
+ * Packages: `packageIds` is sent only when staff changed a package select (omitted = the server
+ * keeps the booking's packages; a change of rooms without a choice picks them automatically).
  */
 export function BookingEditForm({
   booking,
@@ -77,12 +93,23 @@ export function BookingEditForm({
   const [manualTouched, setManualTouched] = useState(false);
   const [useAuto, setUseAuto] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // null = the package selects were not touched.
+  const [choice, setChoice] = useState<PackageChoice | null>(null);
 
+  const unitsChanged = whole !== booking.whole || (!whole && !sameSet(unitIds, booking.unitIds));
+  const stored = useMemo(
+    () => choiceOf(property.data, booking.packageIds),
+    [property.data, booking.packageIds],
+  );
+  const targets = stay ? packageTargets(property.data, whole, unitIds) : [];
+  const packageIds = choiceIds(choice ?? (unitsChanged ? {} : stored), targets);
+  const packagesChanged =
+    stay && choice !== null && (unitsChanged || !sameIdSet(packageIds, booking.packageIds));
   const stayChanged =
     checkIn !== booking.checkIn ||
     checkOut !== booking.checkOut ||
-    whole !== booking.whole ||
-    (!whole && !sameSet(unitIds, booking.unitIds)) ||
+    unitsChanged ||
+    packagesChanged ||
     party.adults !== booking.party.adults ||
     !sameList(party.childAges, booking.party.childAges);
   // A checked-in stay only moves its check-out; when it does, its price is shown (and a manual
@@ -92,12 +119,21 @@ export function BookingEditForm({
   const manualMissing =
     manualRequired && !useAuto && (!manualTouched || price.manualTotal === null);
 
+  const packageKey = packageIds.join(',');
   const body = useMemo(
     () =>
       block
         ? null
-        : quoteBody({ propertyId: booking.propertyId, checkIn, checkOut, whole, unitIds, party }),
-    [block, booking.propertyId, checkIn, checkOut, whole, unitIds, party],
+        : quoteBody({
+            propertyId: booking.propertyId,
+            checkIn,
+            checkOut,
+            whole,
+            unitIds,
+            party,
+            packageIds: packageKey ? packageKey.split(',') : [],
+          }),
+    [block, booking.propertyId, checkIn, checkOut, whole, unitIds, party, packageKey],
   );
   const quote = useQuote(useDebouncedValue(stayChanged ? body : null, 300));
 
@@ -115,10 +151,11 @@ export function BookingEditForm({
     if (checkOut !== booking.checkOut) out.checkOut = checkOut;
     if (!checkedIn) {
       if (checkIn !== booking.checkIn) out.checkIn = checkIn;
-      if (whole !== booking.whole || (!whole && !sameSet(unitIds, booking.unitIds))) {
+      if (unitsChanged) {
         out.whole = whole;
         out.unitIds = whole ? [] : unitIds;
       }
+      if (packagesChanged) out.packageIds = packageIds;
       if (note !== booking.note) out.note = note;
     }
     if (!block && !sameList(tags, booking.tags)) out.tags = tags;
@@ -170,6 +207,15 @@ export function BookingEditForm({
                 setUnitIds(n.unitIds);
               }}
               showError={submitted}
+            />
+          )}
+          {stay && (
+            <PackagePicker
+              property={property.data}
+              targets={targets}
+              choice={choice ?? (unitsChanged ? {} : stored)}
+              quote={stayChanged ? quote.data : (booking.quote ?? undefined)}
+              onChange={setChoice}
             />
           )}
           <TakenAlert quote={quote.data} />
@@ -224,6 +270,7 @@ export function BookingEditForm({
                     }
                   : null
               }
+              property={property.data}
               price={price}
               onPriceChange={(next) => {
                 if (next.manualTotal !== price.manualTotal) setManualTouched(true);

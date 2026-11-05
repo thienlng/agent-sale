@@ -10,58 +10,64 @@ import { FolderList } from './gallery/folder-list';
 import { FolderView } from './gallery/folder-view';
 import { TabSaveBar, useReportDirty, useTabDraft } from './property-tab-parts';
 
-const draftOf = (p: PropertyDto): GalleryDraft => ({
-  gallery: cloneGallery(p.gallery),
-  galleryCover: p.galleryCover,
+/** The editable copy of any gallery owner (a property or one of its units). */
+export const galleryDraftOf = (owner: {
+  gallery: PropertyDto['gallery'];
+  galleryCover: string;
+}): GalleryDraft => ({
+  gallery: cloneGallery(owner.gallery),
+  galleryCover: owner.galleryCover,
 });
 
-/**
- * "Ảnh & video" tab (T-192): the folder list, or the open folder (`folderId`, kept in the URL by
- * the route so Back works). One draft of every folder plus the cover, saved with one PATCH.
- */
-export function GalleryTab({
-  property: p,
-  canEdit,
-  onDirtyChange,
-  uploadImage,
-  folderId,
-  onFolderChange,
-}: {
-  property: PropertyDto;
+/** What a gallery owner does on save: `saved` takes the stored copy, `stale` drops the edits. */
+export type GallerySave = (
+  draft: GalleryDraft,
+  done: { saved: (next: GalleryDraft) => void; stale: () => void },
+) => void;
+
+export interface GalleryFormProps {
+  /** The stored gallery (memoised by the caller). */
+  base: GalleryDraft;
   canEdit: boolean;
+  pending: boolean;
+  onSave: GallerySave;
   onDirtyChange: (dirty: boolean) => void;
   uploadImage?: GalleryImageUpload | undefined;
   folderId?: string | undefined;
   onFolderChange: (folderId: string | undefined) => void;
-}) {
+}
+
+/**
+ * The T-192 folder UI for any gallery: the folder list, or the open folder (`folderId`, kept
+ * in the URL by the route so Back works). One draft of every folder plus the cover, handed to
+ * `onSave` as a whole.
+ */
+export function GalleryForm({
+  base,
+  canEdit,
+  pending,
+  onSave,
+  onDirtyChange,
+  uploadImage,
+  folderId,
+  onFolderChange,
+}: GalleryFormProps) {
   const { t } = useTranslation();
-  const base = useMemo(() => draftOf(p), [p]);
   const { draft, setDraft, dirty, discard } = useTabDraft(base);
   useReportDirty(dirty, onDirtyChange);
-  const update = useUpdateProperty();
-  const saveError = useSaveError();
   const change = (fn: (d: GalleryDraft) => GalleryDraft) => setDraft((d) => fn(d));
   const open = folderId ? draft.gallery.find((f) => f.id === folderId) : undefined;
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (update.isPending || !canEdit) return;
-    update.mutate(
-      {
-        id: p.id,
-        body: {
-          version: p.version,
-          patch: { gallery: draft.gallery, galleryCover: draft.galleryCover },
-        },
+    if (pending || !canEdit) return;
+    onSave(draft, {
+      saved: (next) => {
+        setDraft(next);
+        toast.success(t('lodging.editor.saved'), { duration: 3500 });
       },
-      {
-        onSuccess: (saved) => {
-          setDraft(draftOf(saved));
-          toast.success(t('lodging.editor.saved'), { duration: 3500 });
-        },
-        onError: (error) => saveError(error, { onStale: discard }),
-      },
-    );
+      stale: discard,
+    });
   };
 
   return (
@@ -80,10 +86,35 @@ export function GalleryTab({
       )}
       <TabSaveBar
         dirty={dirty}
-        pending={update.isPending}
+        pending={pending}
         canEdit={canEdit}
         label={t('lodging.media.save')}
       />
     </form>
   );
+}
+
+/** "Ảnh & video" tab of a property (T-192): its gallery, saved with one PATCH. */
+export function GalleryTab({
+  property: p,
+  ...rest
+}: { property: PropertyDto } & Omit<GalleryFormProps, 'base' | 'pending' | 'onSave'>) {
+  const base = useMemo(() => galleryDraftOf(p), [p]);
+  const update = useUpdateProperty();
+  const saveError = useSaveError();
+  const save: GallerySave = (draft, done) =>
+    update.mutate(
+      {
+        id: p.id,
+        body: {
+          version: p.version,
+          patch: { gallery: draft.gallery, galleryCover: draft.galleryCover },
+        },
+      },
+      {
+        onSuccess: (saved) => done.saved(galleryDraftOf(saved)),
+        onError: (error) => saveError(error, { onStale: done.stale }),
+      },
+    );
+  return <GalleryForm {...rest} base={base} pending={update.isPending} onSave={save} />;
 }

@@ -192,7 +192,12 @@ export function BookingView({
                 · {t('lodging.sheet.nights', { count: nightsBetween(b.checkIn, b.checkOut) })}
               </span>
             </p>
-            <p>{b.whole ? t('lodging.sheet.whole') : b.unitNames.join(', ')}</p>
+            <p>
+              {[
+                b.whole ? t('lodging.sheet.whole') : b.unitNames.join(', '),
+                ...b.packageNames,
+              ].join(' · ')}
+            </p>
             {b.status === 'hold' && b.holdExpiresAt && (
               <p className="text-warning">
                 {t('lodging.sheet.holdUntil', {

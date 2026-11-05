@@ -1,4 +1,4 @@
-import type { QuoteDto } from '@agent-sales/contracts';
+import type { PropertyDto, QuoteDto } from '@agent-sales/contracts';
 import { TriangleAlert } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -60,6 +60,34 @@ function QuoteLines({ quote }: { quote: QuoteDto }) {
       )}
     </>
   );
+}
+
+/** "Gói: 5PN" (or "Gói: B1 2PN, B3 3PN" for rooms) of the packages a quote used. */
+export function QuotePackages({
+  quote,
+  property,
+}: {
+  quote: QuoteDto;
+  property: PropertyDto | undefined;
+}) {
+  const { t } = useTranslation();
+  if (quote.packages.length === 0) return null;
+  const names = quote.packages.map((k) => {
+    const unit = k.target ? property?.units.find((u) => u.id === k.target) : undefined;
+    return unit ? `${unit.name} ${k.name}` : k.name;
+  });
+  return <p className="font-medium">{t('lodging.quote.packages', { names: names.join(', ') })}</p>;
+}
+
+/** The standard party the quote's warning names: the package's when one target has one. */
+function standardOf(
+  quote: QuoteDto | undefined,
+  property: PropertyDto | undefined,
+  fallback: { adults: number; children: number } | null,
+) {
+  const only = quote?.packages.length === 1 ? quote.packages[0] : undefined;
+  const k = only ? property?.packages.find((x) => x.id === only.packageId) : undefined;
+  return k ? { adults: k.standardAdults, children: k.standardChildren } : fallback;
 }
 
 /**
@@ -149,7 +177,8 @@ export function QuoteBreakdown({
   failed,
   checkIn,
   checkOut,
-  standard,
+  standard: propertyStandard,
+  property,
   price,
   onPriceChange,
   manualRequired = false,
@@ -162,6 +191,8 @@ export function QuoteBreakdown({
   checkIn: string;
   checkOut: string;
   standard: { adults: number; children: number } | null;
+  /** Names the packages per room and gives a package's standard party to the warning. */
+  property?: PropertyDto | undefined;
   price: PriceFields;
   onPriceChange: (next: PriceFields) => void;
   manualRequired?: boolean;
@@ -175,6 +206,7 @@ export function QuoteBreakdown({
     ? nightList(checkIn, checkOut).filter((n) => !priced.has(n))
     : [];
   const total = bookingTotal(quote, price);
+  const standard = standardOf(quote, property, propertyStandard);
 
   return (
     <div className="grid gap-3 text-sm">
@@ -184,6 +216,7 @@ export function QuoteBreakdown({
         </p>
       )}
       {failed && <p className="text-xs text-destructive">{t('lodging.quote.error')}</p>}
+      {quote && <QuotePackages quote={quote} property={property} />}
       {quote && <QuoteLines quote={quote} />}
       {quote?.warnings.map((w) => (
         <Alert key={w} className="border-warning/40 bg-warning-soft text-warning">

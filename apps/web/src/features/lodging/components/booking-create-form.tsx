@@ -31,7 +31,14 @@ import {
   validateDraft,
 } from '../hooks/use-booking-draft';
 import { BookingErrorAlert } from './booking-error-alert';
-import { SavingLabel, SheetSection, StayDates, TakenAlert, UnitPicker } from './booking-fields';
+import {
+  PackagePicker,
+  SavingLabel,
+  SheetSection,
+  StayDates,
+  TakenAlert,
+  UnitPicker,
+} from './booking-fields';
 import { existingNotes, NightNoteFields, noteNights, noteTargets } from './night-note-fields';
 import { PartyInput } from './party-input';
 import { QuoteBreakdown } from './quote-breakdown';
@@ -63,7 +70,7 @@ export function BookingCreateForm({
   const id = useId();
   const ws = useWorkspaceId();
   const qc = useQueryClient();
-  const { draft, patch, quote } = useBookingDraft(initial);
+  const { draft, patch, quote, packageTargets, packageIds } = useBookingDraft(initial);
   const properties = useProperties();
   const property = useProperty(draft.propertyId || undefined);
   const create = useCreateBooking();
@@ -122,10 +129,15 @@ export function BookingCreateForm({
     }
     if (Object.keys(errors).length > 0 || create.isPending) return;
     create.mutate(
-      createRequest(draft, clientRequestId, {
-        contactId: initial?.contactId ?? null,
-        conversationId: initial?.conversationId ?? null,
-      }),
+      createRequest(
+        draft,
+        clientRequestId,
+        {
+          contactId: initial?.contactId ?? null,
+          conversationId: initial?.conversationId ?? null,
+        },
+        packageIds,
+      ),
       {
         onSuccess: (booking) => {
           setClientRequestId(crypto.randomUUID());
@@ -160,7 +172,9 @@ export function BookingCreateForm({
             </Label>
             <Select
               value={draft.propertyId}
-              onValueChange={(propertyId) => patch({ propertyId, whole: true, unitIds: [] })}
+              onValueChange={(propertyId) =>
+                patch({ propertyId, whole: true, unitIds: [], packageChoice: {} })
+              }
             >
               <SelectTrigger
                 id={`${id}-property`}
@@ -196,6 +210,15 @@ export function BookingCreateForm({
             onChange={patch}
             showError={show('units')}
           />
+          {!noteMode && !block && (
+            <PackagePicker
+              property={p}
+              targets={packageTargets}
+              choice={draft.packageChoice}
+              quote={quote.data}
+              onChange={(packageChoice) => patch({ packageChoice })}
+            />
+          )}
           {!noteMode && <TakenAlert quote={quote.data} />}
         </SheetSection>
 
@@ -282,6 +305,7 @@ export function BookingCreateForm({
                 checkIn={draft.checkIn}
                 checkOut={draft.checkOut}
                 standard={p ? { adults: p.standardAdults, children: p.standardChildren } : null}
+                property={p}
                 price={draft}
                 onPriceChange={patch}
               />

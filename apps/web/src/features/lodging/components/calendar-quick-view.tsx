@@ -77,6 +77,9 @@ export function BookingQuickView({
             {s.guestName} · {s.code} · {status}
           </span>
           <span className="tabular-nums">{s.guestPhone || t('lodging.sheet.noGuestPhone')}</span>
+          {s.packageNames.length > 0 && (
+            <span>{t('lodging.cal.quickPackage', { names: s.packageNames.join(', ') })}</span>
+          )}
           <span className="tabular-nums">
             {t('lodging.sheet.guests', {
               adults: s.party.adults,
