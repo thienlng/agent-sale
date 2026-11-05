@@ -336,7 +336,15 @@ export const StaySelection = z.object({
   /** Chosen packages, at most one per target; a target with packages not listed is auto-picked. */
   packageIds: z.array(z.uuid()).max(100).default([]),
 });
-export const QuoteRequest = StaySelection.extend({ party: Party });
+export const QuoteRequest = StaySelection.extend({
+  party: Party,
+  /**
+   * A booking edit's preview (T-193): the packages the booking was sold with, kept while they
+   * still fit and otherwise auto-picked, the rule the edit's save applies when `packageIds` is
+   * omitted. Used only when `packageIds` is empty.
+   */
+  keepPackageIds: z.array(z.uuid()).max(100).optional(),
+});
 export type QuoteRequest = z.infer<typeof QuoteRequest>;
 export const QuoteNight = z.object({
   date: IsoNight,

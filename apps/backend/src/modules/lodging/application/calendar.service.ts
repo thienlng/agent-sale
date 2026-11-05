@@ -15,7 +15,13 @@ import { addNights, localToday, nightsBetween, nightToUtcMs } from '../domain/ni
 import { quoteStay, resolveUnits } from '../domain/quote.js';
 import { priceFull, type DomainPackage, type RateRule } from '../domain/rates.js';
 import { freeOptions } from './availability.js';
-import { bookingPackageIds, expireHolds, loadContext, toQuoteDto } from './booking-support.js';
+import {
+  bookingPackageIds,
+  expireHolds,
+  loadContext,
+  quoteKeepingPackages,
+  toQuoteDto,
+} from './booking-support.js';
 import { LodgingAccess } from './lodging-access.js';
 import {
   LODGING_STORE,
@@ -96,7 +102,11 @@ export class CalendarService {
     @Inject(LodgingAccess) private readonly access: LodgingAccess,
   ) {}
 
-  /** Quote for one selection; `takenBy` lists the bookings already on those nights. */
+  /**
+   * Quote for one selection; `takenBy` lists the bookings already on those nights. Without
+   * explicit `packageIds`, `keepPackageIds` keeps a booking's packages while they fit, exactly
+   * as the booking edit prices it (`quoteKeepingPackages`), so its preview matches the save.
+   */
   async quote(ws: WorkspaceId, req: QuoteRequest): Promise<QuoteDto> {
     await this.access.assertHotel(ws);
     return this.store.run(ws, async (tx) => {
@@ -111,7 +121,10 @@ export class CalendarService {
         childAges: req.party.childAges,
         packageIds: req.packageIds,
       };
-      const quote = quoteStay(ctx.property, ctx.units, ctx.rates, input, ctx.packages);
+      const quote =
+        req.packageIds.length === 0 && req.keepPackageIds?.length
+          ? quoteKeepingPackages(ctx, input, req.keepPackageIds)
+          : quoteStay(ctx.property, ctx.units, ctx.rates, input, ctx.packages);
       const unitIds = resolveUnits(ctx.property, ctx.units, input);
       const taken = await tx.takenNights(unitIds, req.checkIn, req.checkOut);
       return toQuoteDto(quote, [...new Set(taken.map((t) => t.code))].sort());

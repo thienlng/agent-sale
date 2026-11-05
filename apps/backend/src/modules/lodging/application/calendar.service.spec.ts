@@ -262,4 +262,55 @@ describe('CalendarService with bedroom packages (T-193)', () => {
     expect(q.totalSell).toBe(30_000_000);
     expect(q.packages).toEqual([{ target: null, packageId: 'pk6', name: '6PN' }]);
   });
+
+  describe('keepPackageIds (a booking edit preview, as the save prices it)', () => {
+    const villaStay = (adults: number, checkIn: string, checkOut: string) => ({
+      propertyId: VILLA,
+      whole: true,
+      unitIds: [],
+      packageIds: [],
+      checkIn,
+      checkOut,
+      party: { adults, childAges: [] },
+    });
+
+    it('keeps the stored package while it still fits', async () => {
+      // Mon→Wed, 6 guests: 4PN fits and prices every night.
+      const q = await withAura().calendar.quote(ws, {
+        ...villaStay(6, '2026-11-30', '2026-12-02'),
+        keepPackageIds: ['pk6'],
+      });
+      expect(q.packages).toEqual([{ target: null, packageId: 'pk6', name: '6PN' }]);
+      expect(q.totalSell).toBe(20_000_000);
+    });
+
+    it('re-picks when the stored package leaves a night unpriced', async () => {
+      // An auto-picked 4PN moved onto a Saturday: the save re-picks 5PN, so does the preview.
+      const q = await withAura().calendar.quote(ws, {
+        ...villaStay(6, '2026-12-04', '2026-12-06'),
+        keepPackageIds: ['pk4'],
+      });
+      expect(q.packages).toEqual([{ target: null, packageId: 'pk5', name: '5PN' }]);
+      expect(q.warnings).not.toContain('package_unavailable');
+      expect(q.totalSell).toBe(27_000_000);
+    });
+
+    it('re-picks when the party outgrows the stored package', async () => {
+      const q = await withAura().calendar.quote(ws, {
+        ...villaStay(11, '2026-11-30', '2026-12-02'),
+        keepPackageIds: ['pk4'],
+      });
+      expect(q.packages).toEqual([{ target: null, packageId: 'pk5', name: '5PN' }]);
+      expect(q.warnings).not.toContain('over_max');
+    });
+
+    it('is ignored when explicit packages are sent', async () => {
+      const q = await withAura().calendar.quote(ws, {
+        ...villaStay(6, '2026-12-04', '2026-12-06'),
+        packageIds: ['pk6'],
+        keepPackageIds: ['pk4'],
+      });
+      expect(q.packages).toEqual([{ target: null, packageId: 'pk6', name: '6PN' }]);
+    });
+  });
 });
