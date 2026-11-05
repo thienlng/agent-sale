@@ -3,7 +3,7 @@ import { workspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
 
 import { auraPackages, auraRates } from '../__tests__/factories/packages.js';
-import { override, weekday } from '../__tests__/factories/rate-rules.js';
+import { forPackage, override, weekday } from '../__tests__/factories/rate-rules.js';
 import { unitDetails } from '../__tests__/factories/units.js';
 import { LodgingUnavailableError } from '../domain/lodging.errors.js';
 import type { RateRule } from '../domain/rates.js';
@@ -324,6 +324,66 @@ describe('toBotProduct', () => {
     expect(p2).toMatchObject({ category: 'room', view: '', areaM2: null, maxGuests: null });
     expect(dto.accommodation?.packages).toBeUndefined();
     expect(JSON.stringify(dto)).not.toMatch(/70000[123]/);
+  });
+
+  it('starts the price range at the cheapest package of the place and of its rooms (T-193)', () => {
+    const villa = toBotProduct(property(), [wholeUnit()], auraRates(), today, auraPackages);
+    // 4PN Mon–Thu (8 M) is the cheapest stay, below 6PN's 10 M.
+    expect(villa?.priceMin).toBe(8_000_000);
+    expect(villa?.priceMax).toBe(18_000_000);
+
+    const p = property({ id: R01_ID, code: 'R01', sellMode: 'rooms', layout: [] });
+    const packages = [
+      { ...auraPackages[0]!, id: 'b2', unitId: P1, name: '2PN', bedrooms: 2 },
+      { ...auraPackages[1]!, id: 'b1', unitId: P1, name: '1PN', bedrooms: 1 },
+    ];
+    const rates = [
+      forPackage('b2', weekday(P1, [1, 2, 3, 4, 5, 6, 7], 2_000_000)),
+      forPackage('b1', weekday(P1, [1, 2, 3, 4, 5], 700_000)),
+      weekday(P2, [1, 2, 3, 4, 5, 6, 7], 900_000),
+    ];
+    const rooms = toBotProduct(p, [room(P1, 'P1', 0), room(P2, 'P2', 1)], rates, today, packages);
+    expect(rooms?.priceMin).toBe(700_000);
+  });
+
+  it('never carries a cost price with packages, unit details, date-range prices and surcharges (T-193)', () => {
+    // Every cost differs from every sell price, so a leaked cost shows up as its digits.
+    const leaks = [7_100_001, 7_100_002, 7_100_003, 7_100_004, 7_100_005, 7_100_006, 7_100_007];
+    const tet = {
+      ...override(null, '2027-02-05', '2027-02-08', 25_000_000, 'Tết'),
+      packageId: 'pk5',
+      cost: leaks[0]!,
+    };
+    const villa = toBotProduct(
+      property(),
+      [wholeUnit()],
+      [...auraRates().map((r, i) => ({ ...r, cost: leaks[1]! + i * 10 })), tet],
+      today,
+      auraPackages,
+    );
+    const p = property({ id: R01_ID, code: 'R01', sellMode: 'rooms', layout: [] });
+    const unit = { ...room(P1, 'Bungalow 1', 0), view: 'đồi', areaM2: 40, maxGuests: 4 };
+    const roomRates = [
+      forPackage('b2', weekday(P1, [1, 2, 3, 4, 5, 6, 7], 2_000_000, leaks[2])),
+      forPackage('b1', weekday(P1, [1, 2, 3, 4, 5], 1_200_000, leaks[3])),
+      weekday(P2, [1, 2, 3, 4, 5, 6, 7], 900_000, leaks[4]),
+      { ...override(P1, '2027-02-05', '2027-02-08', 3_000_000, 'Tết'), cost: leaks[5]! },
+    ];
+    const roomPackages = [
+      { ...auraPackages[0]!, id: 'b2', unitId: P1, name: '2PN', bedrooms: 2 },
+      { ...auraPackages[1]!, id: 'b1', unitId: P1, name: '1PN', bedrooms: 1 },
+    ];
+    const rooms = toBotProduct(p, [unit, room(P2, 'P2', 1)], roomRates, today, roomPackages);
+    expect(villa?.accommodation?.packages).toHaveLength(3);
+    expect(rooms?.accommodation?.units?.[0]?.packages).toHaveLength(2);
+    expect(rooms?.accommodation?.overrides).toHaveLength(1);
+    for (const dto of [villa, rooms]) {
+      const json = JSON.stringify(dto);
+      for (const cost of [...leaks, ...COSTS]) expect(json).not.toContain(String(cost));
+      for (let i = 0; i < auraRates().length; i += 1)
+        expect(json).not.toContain(String(leaks[1]! + i * 10));
+      expect(json).not.toMatch(/"cost"/i);
+    }
   });
 
   it('skips a property whose weekdays are not all priced', () => {

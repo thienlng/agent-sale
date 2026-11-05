@@ -166,7 +166,16 @@ export function toBotProduct(
       : [];
   if (!coversWeek(weekRates)) return null;
 
-  const amounts = [...weekRates, ...priced.flatMap((r) => r.rows)].map((r) => r.amount);
+  const wholePackages = packageRows(rates, null, packages);
+  // "From" prices count every package sold (a smaller package is often the cheapest stay).
+  const packageAmounts = [
+    ...(wholePackages ?? []),
+    ...priced.flatMap((r) => packageRows(rates, r.unit.id, packages) ?? []),
+  ].flatMap((pk) => pk.weekdaySell.filter((v): v is number => v !== null));
+  const amounts = [
+    ...[...weekRates, ...priced.flatMap((r) => r.rows)].map((r) => r.amount),
+    ...packageAmounts,
+  ];
   const roomNames = new Map(rooms.map((u) => [u.id, u.name]));
   const packageNames = new Map(packages.map((pk) => [pk.id, pk.name]));
   const overrides = rates
@@ -200,7 +209,6 @@ export function toBotProduct(
     beds: l.beds.trim().slice(0, 500) || NOT_PROVIDED,
   }));
   const albums = toAlbums(p.gallery);
-  const wholePackages = packageRows(rates, null, packages);
   // The flat photo list older readers know: every folder's photos in order, captioned by the
   // folder name when the owner left the caption empty (the image allowlist needs a label).
   const gallery = p.gallery
