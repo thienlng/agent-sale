@@ -2283,6 +2283,7 @@
       "costLabel": "Giá nhập {{row}} {{day}}",
       "priceKind": "Loại giá",
       "missing": "{{row}}: thiếu giá bán {{days}}",
+      "missingHint": "Ngày nào gói này không bán (ví dụ T7 chỉ bán gói lớn hơn) thì thêm Gói phòng ở trên và để trống ngày đó ở gói nhỏ.",
       "surchargesTitle": "Phụ thu",
       "surchargesHint": "Mỗi người mỗi đêm, khi vượt số khách tiêu chuẩn. Để trống = không phụ thu.",
       "extraAdult": "Phụ thu người lớn",
@@ -2481,7 +2482,7 @@
       }
     },
     "units": {
-      "intro": "Mỗi đơn vị (phòng, bungalow, nhà) có giá, ảnh và mô tả riêng. Thuê nguyên căn sẽ lấy mọi đơn vị đang bán.",
+      "intro": "Mỗi đơn vị (phòng, bungalow, nhà) có giá, ảnh và mô tả riêng. Thuê nguyên căn sẽ lấy mọi đơn vị đang bán. Combo theo số phòng ngủ của cùng một căn (4PN, 5PN…) không phải đơn vị riêng: dùng Gói phòng trong tab Giá.",
       "inactiveHint": "Có {{count}} đơn vị đang tắt: không bán, không hiện trên lịch. Bật lại để bán.",
       "noActive": "Chưa có đơn vị nào đang bán. Bot và lịch chưa thấy căn hộ này.",
       "category": {

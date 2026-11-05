@@ -150,6 +150,11 @@ export function RatesMatrix({
                           days: missing.map(day).join(', '),
                         })}
                       </p>
+                      {!row.packageKey && (
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {t('lodging.rates.missingHint')}
+                        </p>
+                      )}
                     </td>
                   </tr>
                 )}

@@ -2289,6 +2289,7 @@
       "costLabel": "Cost price {{row}} {{day}}",
       "priceKind": "Price type",
       "missing": "{{row}}: sell price missing for {{days}}",
+      "missingHint": "If this row is not sold on some day (e.g. Saturday only sells a bigger package), add bedroom packages above and leave that day empty on the smaller one.",
       "surchargesTitle": "Surcharges",
       "surchargesHint": "Per person per night above the standard guests. Empty = no surcharge.",
       "extraAdult": "Extra adult",
@@ -2494,7 +2495,7 @@
       }
     },
     "units": {
-      "intro": "Each unit (room, bungalow, house) has its own prices, photos and description. A whole rental takes every unit on sale.",
+      "intro": "Each unit (room, bungalow, house) has its own prices, photos and description. A whole rental takes every unit on sale. Bedroom combos of one place (4BR, 5BR…) are not separate units: use bedroom packages in the Prices tab.",
       "inactiveHint": "{{count}} units are off: not sold and hidden from the calendar. Turn them on to sell.",
       "noActive": "No unit is on sale. The bot and the calendar cannot see this property yet.",
       "category": {
