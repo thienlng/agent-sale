@@ -14,7 +14,7 @@ import { BOT_FACADE, type BotFacade, withinReplySchedule } from '../../../bot/ap
 import { CONVERSATION_FACADE, type ConversationFacade } from '../../api/conversation.facade.js';
 import type { PlaygroundRequest } from '@agent-sales/contracts';
 import { BOT_IMAGE_VISION, IMAGE_FETCHER, type ImageFetcher } from '../ports/image-fetcher.js';
-import { toTimedReplyTurns } from './reply-turns.js';
+import { sentBotMediaUrls, toTimedReplyTurns } from './reply-turns.js';
 import {
   errorClass,
   fallbackText,
@@ -311,6 +311,8 @@ export class MetaInboxProcessor {
           ...(finishing ? {} : { shouldInterrupt: () => this.shouldInterrupt(turn, delivery) }),
           ...(resume.carry ? { carry: resume.carry } : {}),
           turnTimes: history.times,
+          // Every stored message (a re-run's history hides the interrupted run's bot messages).
+          sentMediaUrls: sentBotMediaUrls(context.messages, new Date()),
         },
       );
     };

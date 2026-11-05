@@ -261,3 +261,80 @@ describe('MetaInboxProcessor — send details (fix round 1)', () => {
     expect(keys()).toEqual(['bot:p3:s1']);
   });
 });
+
+describe('MetaInboxProcessor — albums and videos (T-192)', () => {
+  const photos = Array.from({ length: 10 }, (_, i) => ({
+    id: `a:villa:0:${i}`,
+    url: `https://img.example.com/p${i}.jpg`,
+    label: `p${i}`,
+  }));
+  const video = {
+    id: 'v:villa:1:0',
+    url: 'https://rapiz.test/media/lodging/tour.mp4',
+    label: 'Tour',
+  };
+
+  it('sends up to 8 pictures as one album message', async () => {
+    const { ai, channels, keys, run } = setup();
+    ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
+      await options.sink!.send({ text: 'Dạ ảnh phòng ngủ ạ', images: photos });
+      return answer('');
+    });
+    await run(job('a1', 'cho xem phòng ngủ'));
+    expect(keys()).toEqual(['bot:a1:s1', 'bot:a1:s1:img']);
+    expect(vi.mocked(channels.deliver).mock.calls[1]![3].attachments).toEqual(
+      photos.slice(0, 8).map((p) => ({ type: 'image', url: p.url })),
+    );
+  });
+
+  it('sends a video as its own message after the text and pictures', async () => {
+    const { ai, channels, keys, run } = setup();
+    let result: { delivered: number; complete?: boolean } | undefined;
+    ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
+      result = await options.sink!.send({ text: 'Dạ video ạ', images: pics, videos: [video] });
+      return answer('');
+    });
+    await run(job('a2', 'có video không'));
+    expect(keys()).toEqual(['bot:a2:s1', 'bot:a2:s1:img', 'bot:a2:s1:vid']);
+    expect(vi.mocked(channels.deliver).mock.calls[2]![3]).toEqual({
+      text: '',
+      attachments: [{ type: 'video', url: video.url }],
+    });
+    expect(result).toEqual({ delivered: 3, complete: true });
+  });
+
+  it('keeps the text when Meta rejects the video, and reports the send incomplete', async () => {
+    const { ai, channels, keys, run } = setup();
+    vi.mocked(channels.deliver)
+      .mockResolvedValueOnce({ externalId: 'x1', status: 'sent', failureCode: null })
+      .mockResolvedValueOnce({
+        externalId: null,
+        status: 'failed',
+        failureCode: 'provider_rejected',
+      });
+    let result: { delivered: number; complete?: boolean } | undefined;
+    ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
+      result = await options.sink!.send({ text: 'Dạ video ạ', images: [], videos: [video] });
+      return answer('');
+    });
+    await run(job('a3', 'gửi video'));
+    expect(keys()).toEqual(['bot:a3:s1', 'bot:a3:s1:vid']);
+    expect(result).toEqual({ delivered: 1, complete: false });
+  });
+
+  it('passes the attachment URLs the bot already sent to the next turn', async () => {
+    const { ai, run } = setup();
+    ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
+      await options.sink!.send({ images: pics });
+      return answer('');
+    });
+    await run(job('a4', 'cho xem ảnh'));
+    let seen: readonly string[] | undefined;
+    ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
+      seen = options.sentMediaUrls;
+      return answer('Dạ đây ạ');
+    });
+    await run(job('a5', 'xem thêm'));
+    expect(seen).toEqual(pics.map((p) => p.url));
+  });
+});

@@ -16,7 +16,8 @@ export {
 
 /** Spec §7: at least this long between two consecutive sends (each `send_message` and the final answer). */
 export const SEND_GAP_MS = 800;
-const MAX_BOT_IMAGES = 3;
+/** T-192 (ADR-026): one album of up to 8 pictures per message (Meta accepts 10). */
+export const MAX_BOT_IMAGES = 8;
 const MAX_TEXT_CHARS = 2000;
 
 /** Clock of the send pacing; injectable so tests can use fake timers or a recorder. */
@@ -37,7 +38,8 @@ export type DeliveryStop = 'takeover' | 'failed' | 'newer';
  * The outbound side of one customer turn: the agent's `send_message` calls (through `sink()`) and
  * the final answer go out in order through the same reserve → deliver → record path, paced, and
  * stop for good after a takeover, an undelivered message or (unless told to finish) a newer
- * customer message. Keys: `<key>:s<n>` (+ `:t2`… bubbles, `:img` album) per send, `<key>` for the final.
+ * customer message. Keys: `<key>:s<n>` (+ `:t2`… bubbles, `:img` album, `:vid` video) per send,
+ * `<key>` for the final.
  */
 export class ReplyDelivery {
   /** The first message committed in this turn (any status): later ones are follow-ups. */
@@ -110,8 +112,9 @@ export class ReplyDelivery {
   }
 
   /**
-   * One `send_message` call: its text bubbles, then its pictures as one album. With quick replies
-   * the album goes first, so the buttons stay on the last message Messenger shows.
+   * One `send_message` call: its text bubbles, then its pictures as one album, then its video as
+   * its own message. With quick replies the album goes first, so the buttons stay on the last
+   * message Messenger shows.
    */
   private async sendMessage(
     message: OutgoingMessage,
@@ -126,8 +129,10 @@ export class ReplyDelivery {
     const text = message.text?.trim();
     const key = `${this.turn.key}:s${n}`;
     const images = message.images.length > 0;
-    // Complete: every bubble and (when there are pictures) the album or a single picture went out.
+    const video = message.videos?.[0];
+    // Complete: every bubble, the album (or a single picture) and the video went out.
     let picturesOut = !images;
+    let videoOut = !video;
     const album = async () => {
       const before = this.delivered;
       await this.sendImages(message.images, `${key}:img`);
@@ -142,6 +147,11 @@ export class ReplyDelivery {
         if (text) await this.sendText(text, key, message.quickReplies);
         if (!this.stop && images && !(text && (await this.stopForNewer()))) await album();
       }
+      if (video && !this.stop && !(await this.stopForNewer())) {
+        const before = this.delivered;
+        await this.sendVideo(video.url, `${key}:vid`);
+        videoOut = this.delivered > before;
+      }
     } catch (error) {
       this.stop = 'failed';
       if (!this.attempted) this.failure = error;
@@ -151,7 +161,7 @@ export class ReplyDelivery {
     } finally {
       this.lastSendAt = this.deps.pacing.now();
     }
-    return { delivered: this.delivered, complete: !this.stop && picturesOut };
+    return { delivered: this.delivered, complete: !this.stop && picturesOut && videoOut };
   }
 
   private async stopForNewer(): Promise<boolean> {
@@ -275,8 +285,8 @@ export class ReplyDelivery {
     const urls = [...new Set(images.map((i) => i.url))].slice(0, MAX_BOT_IMAGES);
     if (!urls.length) return;
     const commit = async (list: readonly string[], idempotencyKey: string) => {
-      const result = await this.deps.inbox.commitBotImages(job.workspaceId, conversationId, {
-        urls: list,
+      const result = await this.deps.inbox.commitBotAttachments(job.workspaceId, conversationId, {
+        attachments: list.map((url) => ({ type: 'image' as const, url })),
         idempotencyKey,
       });
       if (result) {
@@ -305,6 +315,33 @@ export class ReplyDelivery {
           `Meta inbox event ${job.id}: image ${index + 1} not sent (${errorClass(error)})`,
         );
       }
+    }
+  }
+
+  /**
+   * One video as its own message (Meta fetches it by URL, at most 25 MB). Best effort like the
+   * pictures: a failed send is recorded and logged (status or code only), never thrown; a takeover
+   * stops the turn.
+   */
+  private async sendVideo(url: string, key: string): Promise<void> {
+    const { job, conversationId } = this.turn;
+    try {
+      const result = await this.deps.inbox.commitBotAttachments(job.workspaceId, conversationId, {
+        attachments: [{ type: 'video', url }],
+        idempotencyKey: key,
+      });
+      if (!result) {
+        this.stop = 'takeover';
+        return;
+      }
+      this.committed(result);
+      if (result.status === 'sent') this.delivered++;
+      else
+        this.deps.logger.warn(
+          `Meta inbox event ${job.id}: the video was not delivered (${result.failureCode ?? result.status})`,
+        );
+    } catch (error) {
+      this.deps.logger.warn(`Meta inbox event ${job.id}: video not sent (${errorClass(error)})`);
     }
   }
 }
