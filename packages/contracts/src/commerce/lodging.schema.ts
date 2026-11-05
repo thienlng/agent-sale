@@ -56,7 +56,8 @@ export const AccommodationDetails = z
     gallery: z.array(Image).max(30),
     /**
      * Lodging media folders (T-192): filled only by the lodging bot product; older commerce rows
-     * have none. `gallery` keeps the flat photo list for them.
+     * have none and a commerce product save refuses them (ALBUMS_LODGING_ONLY). `gallery` keeps
+     * the flat photo list for them.
      */
     albums: z.array(GalleryFolder).max(GALLERY_MAX_FOLDERS).optional(),
     notes: text(3000).default(''),

@@ -38,6 +38,7 @@ import {
   CommerceUnavailableError,
   ExternalSourceLockedError,
   ImageNotUploadedError,
+  AlbumsLodgingOnlyError,
 } from '../domain/commerce.errors.js';
 import { lockedChange } from '../domain/external-lock.js';
 import { ownImageProblem } from '../domain/own-image.js';
@@ -202,11 +203,15 @@ export class CatalogService {
     @Inject(PRODUCT_IMAGE_STORAGE) private readonly images: PublicObjectStorage,
   ) {}
 
-  /** Pictures are files Rapiz stored for this workspace; links are refused, kept ones included. */
+  /**
+   * Pictures are files Rapiz stored for this workspace; links are refused, kept ones included.
+   * Media folders are refused outright: only the lodging bot product carries them.
+   */
   #assertOwnImages(ws: WorkspaceId, input: ReturnType<typeof UpsertProductSchema.parse>): void {
     input.imageUrls.forEach((url, i) => {
       if (ownImageProblem(url, ws, this.images)) throw new ImageNotUploadedError(`imageUrls[${i}]`);
     });
+    if (input.accommodation?.albums !== undefined) throw new AlbumsLodgingOnlyError();
     input.accommodation?.gallery.forEach((g, i) => {
       if (ownImageProblem(g.url, ws, this.images))
         throw new ImageNotUploadedError(`gallery[${i}].url`);

@@ -150,4 +150,29 @@ describe('CatalogService image rule', () => {
       ((await reason(() => service().createProduct(WS, ok))) as unknown as Error).message,
     ).toBe('store reached');
   });
+  it('refuses accommodation albums: only the lodging bot product carries them (T-192)', async () => {
+    const withAlbums = product({
+      accommodation: {
+        ...accommodation([{ url: own, caption: 'ok' }]),
+        albums: [
+          {
+            id: 'f1',
+            name: 'Phòng ngủ',
+            items: [{ kind: 'link', url: 'https://drive.example.com/x', caption: '' }],
+          },
+        ],
+      },
+    });
+    for (const run of [
+      () => service().createProduct(WS, withAlbums),
+      () => service().updateProduct(WS, OTHER, withAlbums),
+    ]) {
+      const err = await reason(run);
+      expect(err?.code).toBe('VALIDATION_FAILED');
+      expect(err?.details).toEqual({
+        reason: 'ALBUMS_LODGING_ONLY',
+        field: 'accommodation.albums',
+      });
+    }
+  });
 });
