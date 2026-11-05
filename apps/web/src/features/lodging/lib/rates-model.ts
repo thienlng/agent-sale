@@ -75,15 +75,6 @@ export function ratesDraftOf(p: PropertyDto, wholeName: string): RatesDraft {
   };
 }
 
-/** Copies the cell of `fromDay` into every day up to `toDay` (ISO, inclusive). */
-export function fillDays(row: RateRow, fromDay: number, toDay: number): RateRow {
-  const source = row.cells[fromDay - 1] ?? { sell: 0, cost: 0 };
-  return {
-    ...row,
-    cells: row.cells.map((c, i) => (i + 1 > fromDay && i + 1 <= toDay ? { ...source } : c)),
-  };
-}
-
 /** Weekdays (ISO) without a sell price in a row that must be complete; [] when fine. */
 export function missingDays(row: RateRow): number[] {
   const empty = WEEKDAYS.filter((d) => !row.cells[d - 1]?.sell);

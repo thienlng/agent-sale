@@ -25,7 +25,7 @@ afterEach(() => {
 
 const a17 = summaryFixture({
   today: 'occupied',
-  area: 'Sân golf Tam Đảo',
+  address: 'Lô D33 Sân Golf Tam Đảo, Phú Thọ',
   weekdaySell: [13_200_000, 13_200_000, 13_200_000, 13_200_000, 15_400_000, 17_600_000, 15_400_000],
 });
 const h1 = summaryFixture({
@@ -141,7 +141,7 @@ describe('PropertiesPage list view', () => {
       'Ảnh',
       'Mã',
       'Tên',
-      'Khu vực',
+      'Địa chỉ',
       'Kiểu bán',
       'Tiêu chuẩn',
       'T2–T5',
@@ -151,7 +151,7 @@ describe('PropertiesPage list view', () => {
     ]);
     const a17Row = within(table).getByRole('row', { name: /A17/ });
     expect(within(a17Row).getByRole('link', { name: 'Villa A17 Vinpearl' })).toBeInTheDocument();
-    expect(within(a17Row).getByText('Sân golf Tam Đảo')).toBeInTheDocument();
+    expect(within(a17Row).getByText('Lô D33 Sân Golf Tam Đảo, Phú Thọ')).toBeInTheDocument();
     expect(within(a17Row).getByText('Nguyên căn')).toBeInTheDocument();
     expect(within(a17Row).getByText('24 NL + 8 TE')).toBeInTheDocument();
     expect(within(a17Row).getByText('13,2tr')).toBeInTheDocument();

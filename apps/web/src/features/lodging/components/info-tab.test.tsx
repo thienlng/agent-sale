@@ -53,7 +53,11 @@ function Harness() {
 
 describe('InfoTab', () => {
   it('drops the edits after STALE_VERSION and saves the reloaded data next time', async () => {
-    const theirs = propertyFixture({ name: 'Villa A17 (chủ đổi)', area: 'Hạ Long', version: 2 });
+    const theirs = propertyFixture({
+      name: 'Villa A17 (chủ đổi)',
+      address: 'Bãi Cháy, Hạ Long',
+      version: 2,
+    });
     const calls = stubSequence({
       [`GET ${path}`]: [
         { status: 200, body: propertyFixture() },
@@ -76,16 +80,19 @@ describe('InfoTab', () => {
     await waitFor(() =>
       expect(screen.getByLabelText('Tên căn hộ')).toHaveValue('Villa A17 (chủ đổi)'),
     );
-    expect(screen.getByLabelText('Khu vực')).toHaveValue('Hạ Long');
+    expect(screen.getByLabelText('Địa chỉ')).toHaveValue('Bãi Cháy, Hạ Long');
 
     await userEvent.click(screen.getByRole('button', { name: 'Lưu' }));
     await waitFor(() => expect(calls.filter((c) => c.key === `PATCH ${path}`)).toHaveLength(2));
     const second = calls.filter((c) => c.key === `PATCH ${path}`)[1]?.body as {
       version: number;
-      patch: { name: string; area: string };
+      patch: { name: string; address: string };
     };
     expect(second.version).toBe(2);
-    expect(second.patch).toMatchObject({ name: 'Villa A17 (chủ đổi)', area: 'Hạ Long' });
+    expect(second.patch).toMatchObject({
+      name: 'Villa A17 (chủ đổi)',
+      address: 'Bãi Cháy, Hạ Long',
+    });
   });
 
   it('tells a taken code from a sell-mode refusal by the error details', async () => {

@@ -173,10 +173,7 @@ export function InfoTab({
         {text('code', 20)}
         {text('name', 200)}
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {text('area', 200)}
-        {text('address', 500)}
-      </div>
+      {text('address', 500)}
       <Field id={`${id}-description`} label={t('lodging.info.description')}>
         <Textarea
           id={`${id}-description`}

@@ -61,7 +61,7 @@ export function PropertiesTable({
             <TableHead className="w-16">{t('lodging.places.col.photo')}</TableHead>
             <TableHead>{t('lodging.places.col.code')}</TableHead>
             <TableHead>{t('lodging.places.col.name')}</TableHead>
-            <TableHead>{t('lodging.places.col.area')}</TableHead>
+            <TableHead>{t('lodging.places.col.address')}</TableHead>
             <TableHead>{t('lodging.places.col.sellMode')}</TableHead>
             <TableHead>{t('lodging.places.col.standard')}</TableHead>
             {PRICE_COLUMNS.map((c) => (
@@ -120,7 +120,9 @@ export function PropertiesTable({
                     )}
                   </span>
                 </TableCell>
-                <TableCell className="text-muted-foreground">{p.area}</TableCell>
+                <TableCell className="max-w-56 truncate text-muted-foreground" title={p.address}>
+                  {p.address}
+                </TableCell>
                 <TableCell>
                   <Badge variant="secondary">{t(`lodging.sellMode.${p.sellMode}`)}</Badge>
                 </TableCell>

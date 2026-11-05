@@ -2,14 +2,14 @@ import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { MoneyInput } from '@/components/money-input';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-import { fillDays, type RateRow, WEEKDAYS } from '../lib/rates-model';
+import { type RateRow, WEEKDAYS } from '../lib/rates-model';
 
 /**
  * Weekday price table: one row per target (whole place / room), one column per day
- * T2…CN, each cell a sell input over a smaller cost input. Rows that miss a price show
+ * T2…CN, each cell a sell input over a smaller cost input; a narrow column names the
+ * two lines ("Giá bán" / "Giá nhập") so the second line is not read as a duplicate. Rows that miss a price show
  * the days right under the row, and their empty sell inputs are marked invalid.
  */
 export function RatesMatrix({
@@ -44,17 +44,20 @@ export function RatesMatrix({
 
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full min-w-[920px] border-collapse text-sm">
+      <table className="w-full min-w-[1000px] border-collapse text-sm">
         <thead className="bg-muted/40 text-xs text-muted-foreground">
           <tr>
             <th scope="col" className="w-48 px-3 py-2 text-left font-medium">
               {t('lodging.rates.target')}
             </th>
+            <th scope="col" className="w-20 px-1.5 py-2">
+              <span className="sr-only">{t('lodging.rates.priceKind')}</span>
+            </th>
             {WEEKDAYS.map((d) => (
               <th
                 key={d}
                 scope="col"
-                className={cn('px-1.5 py-2 text-center font-medium', d >= 6 && 'bg-muted/60')}
+                className={cn('py-2 pr-3.5 pl-1.5 text-right font-medium', d >= 6 && 'bg-muted/60')}
               >
                 {day(d)}
               </th>
@@ -69,30 +72,14 @@ export function RatesMatrix({
               <Fragment key={row.unitId ?? 'whole'}>
                 <tr className={cn('border-t align-top', row.inactive && 'text-muted-foreground')}>
                   <th scope="row" className="px-3 py-2 text-left font-medium">
-                    <span className="block break-words">{label(row)}</span>
-                    {!disabled && (
-                      <span className="mt-1.5 flex flex-wrap gap-1">
-                        <Button
-                          type="button"
-                          size="xs"
-                          variant="ghost"
-                          aria-label={t('lodging.rates.fillWeekdays', { row: row.name })}
-                          onClick={() => setRow(i, fillDays(row, 1, 4))}
-                        >
-                          {t('lodging.rates.fillWeekdaysShort')}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="xs"
-                          variant="ghost"
-                          aria-label={t('lodging.rates.fillWeekend', { row: row.name })}
-                          onClick={() => setRow(i, fillDays(row, 5, 7))}
-                        >
-                          {t('lodging.rates.fillWeekendShort')}
-                        </Button>
-                      </span>
-                    )}
+                    <span className="flex min-h-8 items-center break-words">{label(row)}</span>
                   </th>
+                  <td className="px-1.5 py-2 text-xs text-muted-foreground" aria-hidden>
+                    <span className="flex h-8 items-center font-medium text-foreground">
+                      {t('lodging.rates.sell')}
+                    </span>
+                    <span className="mt-1 flex h-7 items-center">{t('lodging.rates.cost')}</span>
+                  </td>
                   {WEEKDAYS.map((d) => {
                     const cell = row.cells[d - 1] ?? { sell: 0, cost: 0 };
                     const invalid = missing.includes(d);
@@ -106,7 +93,7 @@ export function RatesMatrix({
                           disabled={disabled}
                           value={cell.sell}
                           onValueChange={(sell) => setCell(i, d, { sell })}
-                          className="h-8 px-2 text-sm"
+                          className="h-8 bg-background px-2 text-sm"
                         />
                         <MoneyInput
                           aria-label={t('lodging.rates.costLabel', { row: row.name, day: day(d) })}
@@ -118,7 +105,7 @@ export function RatesMatrix({
                           disabled={disabled}
                           value={cell.cost}
                           onValueChange={(cost) => setCell(i, d, { cost })}
-                          className="mt-1 h-7 px-2 text-xs text-muted-foreground"
+                          className="mt-1 h-7 bg-background px-2 text-xs text-muted-foreground"
                         />
                       </td>
                     );
@@ -126,7 +113,7 @@ export function RatesMatrix({
                 </tr>
                 {missing.length > 0 && (
                   <tr>
-                    <td colSpan={8} className="px-3 pb-2">
+                    <td colSpan={9} className="px-3 pb-2">
                       <p id={errorId} className="text-xs text-destructive">
                         {t('lodging.rates.missing', {
                           row: row.name,

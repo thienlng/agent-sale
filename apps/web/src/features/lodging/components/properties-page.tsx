@@ -200,7 +200,7 @@ function PropertyCard({
             <span className="break-words">{p.name}</span>
           </Link>
         </h2>
-        {p.area && <p className="text-xs text-muted-foreground">{p.area}</p>}
+        {p.address && <p className="text-xs text-muted-foreground">{p.address}</p>}
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
           <Badge variant="secondary">{t(`lodging.sellMode.${p.sellMode}`)}</Badge>
           <span className="tabular-nums text-muted-foreground">

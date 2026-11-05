@@ -103,8 +103,10 @@ export function Field({
           'aria-describedby': describedBy,
         })
       : children;
+  // content-start: in a row next to a taller field (one with a hint), the label and input
+  // stay at the top instead of the stretched grid spreading them apart.
   return (
-    <div className={className ?? 'grid gap-1.5'}>
+    <div className={className ?? 'grid content-start gap-1.5'}>
       <Label htmlFor={id}>{label}</Label>
       {control}
       {hint && !error && (
