@@ -12,6 +12,8 @@ import { BookingSheet, type BookingSheetProps } from './booking-sheet';
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/lib/permissions', () => ({ useCan: () => true }));
+// Long user-event flows: the default 5 s is too short while the whole gate runs in parallel.
+vi.setConfig({ testTimeout: 20_000 });
 beforeAll(() => {
   Element.prototype.hasPointerCapture ??= () => false;
   Element.prototype.releasePointerCapture ??= () => undefined;

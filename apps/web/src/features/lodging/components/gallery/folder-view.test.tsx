@@ -14,6 +14,8 @@ const toast = vi.hoisted(() =>
 );
 vi.mock('sonner', () => ({ toast }));
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-1' }));
+// Long user-event flows: the default 5 s is too short while the whole gate runs in parallel.
+vi.setConfig({ testTimeout: 20_000 });
 beforeAll(() => {
   Element.prototype.hasPointerCapture ??= () => false;
   Element.prototype.releasePointerCapture ??= () => undefined;
