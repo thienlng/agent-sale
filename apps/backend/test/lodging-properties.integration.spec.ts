@@ -407,6 +407,35 @@ describe('lodging v2 properties over HTTP', () => {
     });
   });
 
+  it('lets only catalog managers of the business upload a video', async () => {
+    const o = await signup();
+    const analyst = await member(o.ws, 'analyst');
+    const stranger = await signup();
+    const boundary = '----rapiz-video-test';
+    const payload = Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="v.mp4"\r\n` +
+          'Content-Type: video/mp4\r\n\r\n',
+      ),
+      Buffer.from([0, 0, 0, 0x18]),
+      Buffer.from('ftypisom'),
+      Buffer.alloc(16, 1),
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]);
+    const upload = (h: Headers) =>
+      app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          method: 'POST',
+          url: '/api/v1/lodging/media/videos',
+          payload,
+          headers: { ...h, 'content-type': `multipart/form-data; boundary=${boundary}` },
+        });
+    expect((await upload(analyst)).statusCode).toBe(403);
+    expect((await upload(stranger.in(o.ws))).statusCode).toBe(404);
+  });
+
   it('refuses a sell-mode change while a future booking exists', async () => {
     const o = await signup();
     const p = await create(o.headers, villa());

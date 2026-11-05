@@ -52,3 +52,10 @@ describe('S3PublicObjectStorage.isPublicUrlUnder', () => {
     ).toBe(false);
   });
 });
+
+describe('S3PublicObjectStorage request timeout', () => {
+  it('defaults to 15 s and accepts a longer timeout for large uploads', () => {
+    expect(configured().requestTimeoutMs).toBe(15_000);
+    expect(new S3PublicObjectStorage({ requestTimeoutMs: 120_000 }).requestTimeoutMs).toBe(120_000);
+  });
+});

@@ -17,6 +17,8 @@ export interface PublicObjectStorage {
 
 /** Generic S3-compatible public-read bucket; never falls back to host disk. */
 export class S3PublicObjectStorage implements PublicObjectStorage {
+  /** Per-request timeout of the S3 client; uploads of large files (lodging videos) need more. */
+  readonly requestTimeoutMs: number;
   readonly #client: S3Client | null;
 
   constructor(
@@ -26,8 +28,10 @@ export class S3PublicObjectStorage implements PublicObjectStorage {
       publicUrl?: string | undefined;
       accessKey?: string | undefined;
       secretKey?: string | undefined;
+      requestTimeoutMs?: number | undefined;
     },
   ) {
+    this.requestTimeoutMs = options.requestTimeoutMs ?? 15_000;
     this.#client =
       options.endpoint &&
       options.bucket &&
@@ -40,7 +44,7 @@ export class S3PublicObjectStorage implements PublicObjectStorage {
             forcePathStyle: true,
             credentials: { accessKeyId: options.accessKey, secretAccessKey: options.secretKey },
             maxAttempts: 1,
-            requestHandler: { requestTimeout: 15_000 },
+            requestHandler: { requestTimeout: this.requestTimeoutMs },
           })
         : null;
   }
