@@ -192,6 +192,13 @@ describe('migration 0067 lodging units and packages', () => {
     expect(await rows(sql`select * from lodging_packages order by id`)).toEqual(before);
   });
 
+  it('gives bot hold drafts an empty package list by default', async () => {
+    const [col] = await rows<{ column_default: string; is_nullable: string }>(sql`
+      select column_default, is_nullable from information_schema.columns
+      where table_name = 'lodging_bot_hold_drafts' and column_name = 'package_ids'`);
+    expect(col).toEqual({ column_default: "'{}'::uuid[]", is_nullable: 'NO' });
+  });
+
   it('forces tenant row-level security on lodging_packages', async () => {
     const [table] = await rows<{ relrowsecurity: boolean; relforcerowsecurity: boolean }>(sql`
       select relrowsecurity, relforcerowsecurity from pg_class where relname = 'lodging_packages'`);
@@ -215,6 +222,7 @@ describe('rollback SQL for migration 0067', () => {
     expect(await rows(sql`select to_regclass('lodging_packages') as t`)).toEqual([{ t: null }]);
     expect(await columns('lodging_rates')).not.toContain('package_id');
     expect(await columns('lodging_booking_units')).not.toContain('package_id');
+    expect(await columns('lodging_bot_hold_drafts')).not.toContain('package_ids');
     const unitColumns = await columns('lodging_units');
     for (const c of [
       'category',

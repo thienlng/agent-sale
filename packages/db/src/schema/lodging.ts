@@ -457,6 +457,11 @@ export const lodgingBotHoldDrafts = pgTable(
     guestPhone: text('guest_phone').notNull(),
     note: text('note').notNull().default(''),
     quoteHash: text('quote_hash').notNull(),
+    /** The packages of the hold summary (T-193); confirm books exactly these. */
+    packageIds: uuid('package_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
     createdAt: ts('created_at').notNull().defaultNow(),
     expiresAt: ts('expires_at').notNull(),
   },
