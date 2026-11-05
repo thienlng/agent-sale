@@ -37,7 +37,13 @@ const rooms: GalleryFolder = {
 };
 const outdoor: GalleryFolder = { id: 'out', name: 'Ngoài trời', items: [] };
 
-function Harness({ initial }: { initial: GalleryDraft }) {
+function Harness({
+  initial,
+  uploadImage = async () => 'https://cdn.example.com/new.jpg',
+}: {
+  initial: GalleryDraft;
+  uploadImage?: (file: File) => Promise<string>;
+}) {
   const [draft, setDraft] = useState(initial);
   const folder = draft.gallery.find((f) => f.id === 'rooms');
   if (!folder) return null;
@@ -49,7 +55,7 @@ function Harness({ initial }: { initial: GalleryDraft }) {
         canEdit
         onChange={(fn) => setDraft((d) => fn(d))}
         onBack={() => {}}
-        uploadImage={async () => 'https://cdn.example.com/new.jpg'}
+        uploadImage={uploadImage}
       />
       <output data-testid="draft">{JSON.stringify(draft)}</output>
     </>
@@ -148,5 +154,29 @@ describe('FolderView', () => {
       ),
     );
     expect(current().gallery[0]?.items).toHaveLength(11);
+  });
+
+  it('takes a file drop on a full property without opening it, toasts and uploads nothing', () => {
+    const uploadImage = vi.fn(async () => 'https://cdn.example.com/new.jpg');
+    const full: GalleryFolder = {
+      id: 'rooms',
+      name: 'Phòng ngủ',
+      items: Array.from({ length: 200 }, (_, i) => img(i + 1)),
+    };
+    render(
+      <Harness
+        initial={{ gallery: [full, outdoor], galleryCover: '' }}
+        uploadImage={uploadImage}
+      />,
+    );
+    const zone = screen.getByTestId('media-drop-zone');
+    const file = new File(['x'], 'pool.jpg', { type: 'image/jpeg' });
+    const dataTransfer = { types: ['Files'], files: [file], dropEffect: 'copy' };
+    // A drag whose effect is 'none' never gets a drop event in a real browser.
+    expect(fireEvent.dragOver(zone, { dataTransfer })).toBe(false);
+    expect(dataTransfer.dropEffect).toBe('copy');
+    expect(fireEvent.drop(zone, { dataTransfer })).toBe(false);
+    expect(toast.error).toHaveBeenCalledWith('Căn hộ đã đủ 200 mục');
+    expect(uploadImage).not.toHaveBeenCalled();
   });
 });

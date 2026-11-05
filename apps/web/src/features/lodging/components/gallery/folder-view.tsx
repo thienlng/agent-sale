@@ -245,6 +245,7 @@ export function FolderView({
         </div>
       )}
       <div
+        data-testid="media-drop-zone"
         className={cn(
           'rounded-lg border border-dashed p-2',
           dragging && 'border-primary bg-accent',
@@ -253,8 +254,9 @@ export function FolderView({
         onDragOver={(e) => {
           if (!e.dataTransfer.types.includes('Files')) return;
           e.preventDefault();
-          if (canEdit && !full) setDragging(true);
-          else e.dataTransfer.dropEffect = 'none';
+          // Read-only refuses the drop outright; a full property still takes it, to say why.
+          if (!canEdit) e.dataTransfer.dropEffect = 'none';
+          else if (!full) setDragging(true);
         }}
         onDragLeave={(e) => {
           // Moving between children fires dragleave on the zone; only leaving it counts.
