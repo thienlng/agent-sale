@@ -1944,7 +1944,8 @@
       "quickTotal": "Tổng {{amount}}",
       "quickNoPrice": "Chưa có giá",
       "editNightNote": "Sửa ghi chú",
-      "addNightNote": "Thêm ghi chú"
+      "addNightNote": "Thêm ghi chú",
+      "quickPackage": "Gói {{names}}"
     },
     "find": {
       "title": "Tìm trống",
@@ -1958,7 +1959,11 @@
       "free": "Còn trống",
       "hold": "Giữ chỗ · {{amount}}",
       "holdNoPrice": "Giữ chỗ",
-      "error": "Không tìm được. Thử lại."
+      "error": "Không tìm được. Thử lại.",
+      "package": "Gói {{name}}",
+      "alternatives": "Gói khác",
+      "alternative": "{{name}} {{amount}}",
+      "alternativeNotSold": "{{name}} không bán"
     },
     "party": {
       "adults": "Người lớn",
@@ -2047,7 +2052,9 @@
       "nightNotesLoadError": "Không tải được ghi chú ngày.",
       "botLabel": "Bot tạo",
       "botHoldHint": "Bot đã giữ chỗ theo yêu cầu khách — gọi xác nhận rồi bấm Xác nhận",
-      "botCreated": "Bot tạo booking này từ hội thoại với khách."
+      "botCreated": "Bot tạo booking này từ hội thoại với khách.",
+      "package": "Gói",
+      "packageOf": "Gói · {{name}}"
     },
     "quote": {
       "date": "Ngày",
@@ -2073,8 +2080,10 @@
         "min_nights": "Chưa đủ số đêm tối thiểu của ngày đặc biệt",
         "over_max": "Vượt sức chứa tối đa của căn hộ",
         "over_standard": "Vượt tiêu chuẩn {{adults}} người lớn + {{children}} trẻ",
-        "child_ages_missing": "Nhập tuổi từng trẻ để tính phụ thu"
-      }
+        "child_ages_missing": "Nhập tuổi từng trẻ để tính phụ thu",
+        "package_unavailable": "Gói đã chọn không bán một số đêm — chọn gói khác hoặc nhập giá thủ công"
+      },
+      "packages": "Gói: {{names}}"
     },
     "history": {
       "system": "Hệ thống",
@@ -2196,7 +2205,7 @@
       "back": "Tất cả căn hộ",
       "tabs": {
         "info": "Thông tin",
-        "rooms": "Phòng",
+        "rooms": "Đơn vị cho thuê",
         "rates": "Giá",
         "policies": "Chính sách",
         "gallery": "Ảnh & video"
@@ -2469,6 +2478,72 @@
         "pickup": "Cần xe đón",
         "kids": "Có trẻ nhỏ",
         "company": "Đoàn công ty"
+      }
+    },
+    "units": {
+      "intro": "Mỗi đơn vị (phòng, bungalow, nhà) có giá, ảnh và mô tả riêng. Thuê nguyên căn sẽ lấy mọi đơn vị đang bán.",
+      "inactiveHint": "Có {{count}} đơn vị đang tắt: không bán, không hiện trên lịch. Bật lại để bán.",
+      "noActive": "Chưa có đơn vị nào đang bán. Bot và lịch chưa thấy căn hộ này.",
+      "category": {
+        "room": "Phòng",
+        "bungalow": "Bungalow",
+        "house": "Nhà",
+        "other": "Khác"
+      },
+      "standard": "Tiêu chuẩn {{count}}",
+      "max": "Tối đa {{count}}",
+      "from": "từ {{amount}}",
+      "noPrice": "Chưa có giá",
+      "noPhoto": "Chưa có ảnh",
+      "inactive": "Đang tắt",
+      "activeLabel": "Bán {{name}}",
+      "add": "Thêm đơn vị",
+      "addTitle": "Thêm đơn vị cho thuê",
+      "addDescription": "Đặt tên và loại, rồi nhập chi tiết, giá và ảnh ở trang của đơn vị.",
+      "addSubmit": "Thêm và mở",
+      "limit": "Tối đa {{count}} đơn vị.",
+      "menu": "Tuỳ chọn cho {{name}}",
+      "moveUp": "Đưa lên trước",
+      "moveDown": "Đưa ra sau",
+      "remove": "Xoá đơn vị",
+      "removeTitle": "Xoá {{name}}?",
+      "removeDescription": "Giá, gói phòng và ảnh của đơn vị này cũng bị xoá. Đơn vị đã có booking thì chỉ tắt được.",
+      "removeConfirm": "Xoá",
+      "keep": "Giữ lại",
+      "needOne": "Cần ít nhất một đơn vị.",
+      "removeConflict": "Đơn vị đã có booking nên không xoá được. Hãy tắt thay vì xoá.",
+      "back": "Đơn vị cho thuê",
+      "notFound": "Không tìm thấy đơn vị này.",
+      "tabs": {
+        "info": "Thông tin",
+        "rates": "Giá",
+        "gallery": "Ảnh & video"
+      },
+      "name": "Tên",
+      "kind": "Loại",
+      "view": "View",
+      "viewPlaceholder": "VD: View đồi thông",
+      "area": "Diện tích (m²)",
+      "beds": "Giường",
+      "bedsPlaceholder": "VD: 1 giường đôi, 1 giường đơn",
+      "standardAdults": "Người lớn tiêu chuẩn",
+      "standardChildren": "Trẻ em tiêu chuẩn",
+      "standardHint": "Số khách đã gồm trong giá; khách thêm tính phụ thu của căn hộ.",
+      "maxGuests": "Tối đa khách",
+      "maxGuestsHint": "Để trống nếu không giới hạn.",
+      "description": "Mô tả",
+      "amenities": "Tiện ích riêng",
+      "amenitiesHint": "Mỗi dòng một tiện ích. Tiện ích chung của căn hộ nhập ở trang căn hộ.",
+      "status": "Đang bán",
+      "statusHint": "Tắt để ngừng bán: đơn vị không hiện trên lịch và bot không chào.",
+      "save": "Lưu thông tin",
+      "errors": {
+        "nameRequired": "Nhập tên đơn vị.",
+        "adultsInvalid": "Người lớn tiêu chuẩn từ 1 đến 100.",
+        "childrenInvalid": "Trẻ em tiêu chuẩn từ 0 đến 100.",
+        "maxInvalid": "Tối đa từ 1 đến 2000 khách, hoặc để trống.",
+        "areaInvalid": "Diện tích từ 1 đến 100000 m², hoặc để trống.",
+        "amenitiesInvalid": "Tối đa 40 tiện ích, mỗi dòng tối đa 200 ký tự."
       }
     }
   },

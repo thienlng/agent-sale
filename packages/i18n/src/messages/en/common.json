@@ -1949,7 +1949,8 @@
       "quickTotal": "Total {{amount}}",
       "quickNoPrice": "No price yet",
       "editNightNote": "Edit note",
-      "addNightNote": "Add note"
+      "addNightNote": "Add note",
+      "quickPackage": "Package {{names}}"
     },
     "find": {
       "title": "Find availability",
@@ -1963,7 +1964,11 @@
       "free": "Free",
       "hold": "Hold · {{amount}}",
       "holdNoPrice": "Hold",
-      "error": "Search failed. Try again."
+      "error": "Search failed. Try again.",
+      "package": "Package {{name}}",
+      "alternatives": "Other packages",
+      "alternative": "{{name}} {{amount}}",
+      "alternativeNotSold": "{{name}} not sold"
     },
     "party": {
       "adults": "Adults",
@@ -2052,7 +2057,9 @@
       "nightNotesLoadError": "Could not load the night notes.",
       "botLabel": "By bot",
       "botHoldHint": "The bot held this at the guest's request — call to confirm, then press Confirm",
-      "botCreated": "The bot made this booking from a guest conversation."
+      "botCreated": "The bot made this booking from a guest conversation.",
+      "package": "Package",
+      "packageOf": "Package · {{name}}"
     },
     "quote": {
       "date": "Date",
@@ -2078,8 +2085,10 @@
         "min_nights": "Below the minimum nights of a special day",
         "over_max": "Over the place's maximum capacity",
         "over_standard": "Over the standard of {{adults}} adults + {{children}} children",
-        "child_ages_missing": "Enter each child's age to calculate surcharges"
-      }
+        "child_ages_missing": "Enter each child's age to calculate surcharges",
+        "package_unavailable": "The chosen package is not sold on some nights — pick another package or enter a manual price"
+      },
+      "packages": "Package: {{names}}"
     },
     "history": {
       "system": "System",
@@ -2202,7 +2211,7 @@
       "back": "All places",
       "tabs": {
         "info": "Details",
-        "rooms": "Rooms",
+        "rooms": "Rental units",
         "rates": "Prices",
         "policies": "Policies",
         "gallery": "Photos & videos"
@@ -2482,6 +2491,72 @@
         "pickup": "Needs pick-up",
         "kids": "Young children",
         "company": "Company group"
+      }
+    },
+    "units": {
+      "intro": "Each unit (room, bungalow, house) has its own prices, photos and description. A whole rental takes every unit on sale.",
+      "inactiveHint": "{{count}} units are off: not sold and hidden from the calendar. Turn them on to sell.",
+      "noActive": "No unit is on sale. The bot and the calendar cannot see this property yet.",
+      "category": {
+        "room": "Room",
+        "bungalow": "Bungalow",
+        "house": "House",
+        "other": "Other"
+      },
+      "standard": "Standard {{count}}",
+      "max": "Max {{count}}",
+      "from": "from {{amount}}",
+      "noPrice": "No price yet",
+      "noPhoto": "No photo yet",
+      "inactive": "Off",
+      "activeLabel": "Sell {{name}}",
+      "add": "Add unit",
+      "addTitle": "Add a rental unit",
+      "addDescription": "Give it a name and a type, then enter its details, prices and photos on its page.",
+      "addSubmit": "Add and open",
+      "limit": "At most {{count}} units.",
+      "menu": "Options for {{name}}",
+      "moveUp": "Move earlier",
+      "moveDown": "Move later",
+      "remove": "Delete unit",
+      "removeTitle": "Delete {{name}}?",
+      "removeDescription": "Its prices, packages and photos are deleted too. A unit with bookings can only be turned off.",
+      "removeConfirm": "Delete",
+      "keep": "Keep",
+      "needOne": "At least one unit is needed.",
+      "removeConflict": "This unit has bookings and cannot be deleted. Turn it off instead.",
+      "back": "Rental units",
+      "notFound": "This unit was not found.",
+      "tabs": {
+        "info": "Details",
+        "rates": "Prices",
+        "gallery": "Photos & videos"
+      },
+      "name": "Name",
+      "kind": "Type",
+      "view": "View",
+      "viewPlaceholder": "E.g. pine hill view",
+      "area": "Area (m²)",
+      "beds": "Beds",
+      "bedsPlaceholder": "E.g. 1 double bed, 1 single bed",
+      "standardAdults": "Standard adults",
+      "standardChildren": "Standard children",
+      "standardHint": "Guests included in the price; extra guests pay the property surcharges.",
+      "maxGuests": "Max guests",
+      "maxGuestsHint": "Leave empty for no limit.",
+      "description": "Description",
+      "amenities": "Own amenities",
+      "amenitiesHint": "One amenity per line. Shared amenities go on the property page.",
+      "status": "On sale",
+      "statusHint": "Turn off to stop selling: the unit leaves the calendar and the bot stops offering it.",
+      "save": "Save details",
+      "errors": {
+        "nameRequired": "Enter the unit name.",
+        "adultsInvalid": "Standard adults from 1 to 100.",
+        "childrenInvalid": "Standard children from 0 to 100.",
+        "maxInvalid": "Max from 1 to 2000 guests, or leave empty.",
+        "areaInvalid": "Area from 1 to 100000 m², or leave empty.",
+        "amenitiesInvalid": "At most 40 amenities, 200 characters per line."
       }
     }
   },
