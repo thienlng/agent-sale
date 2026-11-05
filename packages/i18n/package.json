@@ -42,6 +42,10 @@
     "./notification": {
       "types": "./dist/notification.d.ts",
       "import": "./dist/notification.js"
+    },
+    "./lodging": {
+      "types": "./dist/lodging.d.ts",
+      "import": "./dist/lodging.js"
     }
   },
   "files": [

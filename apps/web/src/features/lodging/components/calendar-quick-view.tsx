@@ -36,10 +36,10 @@ export function CellTip({ content, children }: { content: ReactNode; children: R
  * carries the note, and the tooltip is the cell's description, so it would be read twice.
  */
 export function NightNoteTip({ text }: { text: string }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   return (
     <span aria-hidden className="whitespace-pre-wrap">
-      <span className="font-semibold">{t('lodging.cal.nightNote')}: </span>
+      <span className="font-semibold">{t('cal.nightNote')}: </span>
       {text}
     </span>
   );
@@ -60,8 +60,8 @@ export function BookingQuickView({
   nightNote: string | undefined;
   onEditNote?: () => void;
 }) {
-  const { t } = useTranslation();
-  const status = t(`lodging.bookingStatus.${s.status}`);
+  const { t } = useTranslation('lodging');
+  const status = t(`bookingStatus.${s.status}`);
   return (
     <>
       {s.kind === 'block' ? (
@@ -76,31 +76,31 @@ export function BookingQuickView({
           <span className="font-semibold">
             {s.guestName} · {s.code} · {status}
           </span>
-          <span className="tabular-nums">{s.guestPhone || t('lodging.sheet.noGuestPhone')}</span>
+          <span className="tabular-nums">{s.guestPhone || t('sheet.noGuestPhone')}</span>
           {s.packageNames.length > 0 && (
-            <span>{t('lodging.cal.quickPackage', { names: s.packageNames.join(', ') })}</span>
+            <span>{t('cal.quickPackage', { names: s.packageNames.join(', ') })}</span>
           )}
           <span className="tabular-nums">
-            {t('lodging.sheet.guests', {
+            {t('sheet.guests', {
               adults: s.party.adults,
               children: s.party.childAges.length,
             })}
           </span>
           <span className="tabular-nums">
             {s.totalSell === null
-              ? t('lodging.cal.quickNoPrice')
-              : t('lodging.cal.quickTotal', { amount: formatVnd(s.totalSell) })}
+              ? t('cal.quickNoPrice')
+              : t('cal.quickTotal', { amount: formatVnd(s.totalSell) })}
           </span>
           {s.status === 'hold' && s.holdExpiresAt && (
             <span className="tabular-nums">
-              {t('lodging.sheet.holdUntil', {
+              {t('sheet.holdUntil', {
                 time: `${clockTime(s.holdExpiresAt)} ${localDayMonth(s.holdExpiresAt)}`,
               })}
             </span>
           )}
           {s.tags.length > 0 && (
             <span>
-              <span className="font-semibold">{t('lodging.tags.label')}: </span>
+              <span className="font-semibold">{t('tags.label')}: </span>
               {s.tags.join(' · ')}
             </span>
           )}
@@ -121,7 +121,7 @@ export function BookingQuickView({
             }}
           >
             <Pencil className="size-3" />
-            {t(nightNote ? 'lodging.cal.editNightNote' : 'lodging.cal.addNightNote')}
+            {t(nightNote ? 'cal.editNightNote' : 'cal.addNightNote')}
           </button>
         </span>
       )}
@@ -142,7 +142,7 @@ export function InternalNoteCard({
   note: string;
   children: ReactNode;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const [open, setOpen] = useState(false);
   const noteId = useId();
   return (
@@ -152,7 +152,7 @@ export function InternalNoteCard({
           {children}
           <button
             type="button"
-            aria-label={t('lodging.cal.internalNote', { code })}
+            aria-label={t('cal.internalNote', { code })}
             aria-expanded={open}
             aria-describedby={noteId}
             className="mr-1 shrink-0 rounded-sm p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
@@ -166,9 +166,7 @@ export function InternalNoteCard({
         </div>
       </HoverCardTrigger>
       <HoverCardContent side="right" align="start" className="grid w-72 gap-1">
-        <p className="text-xs font-medium text-muted-foreground">
-          {t('lodging.cal.internalNoteTitle')}
-        </p>
+        <p className="text-xs font-medium text-muted-foreground">{t('cal.internalNoteTitle')}</p>
         <p className="text-sm whitespace-pre-wrap">{note}</p>
       </HoverCardContent>
     </HoverCard>

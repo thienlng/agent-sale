@@ -25,7 +25,8 @@ import { Field, intOrNull } from './property-tab-parts';
 
 /** "Thêm căn hộ": code, name, sell mode and standard guests; then opens the editor. */
 export function PropertyCreateDialog({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
+  const { t: tc } = useTranslation();
   const id = useId();
   const navigate = useNavigate();
   const create = useCreateProperty();
@@ -42,7 +43,7 @@ export function PropertyCreateDialog({ onClose }: { onClose: () => void }) {
     children: (intOrNull(children) ?? -1) < 0,
   };
   const show = (key: keyof typeof errors) =>
-    submitted && errors[key] ? t('lodging.places.required') : undefined;
+    submitted && errors[key] ? t('places.required') : undefined;
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -58,17 +59,17 @@ export function PropertyCreateDialog({ onClose }: { onClose: () => void }) {
       },
       {
         onSuccess: (p) => {
-          toast.success(t('lodging.places.created', { code: p.code }), { duration: 3500 });
+          toast.success(t('places.created', { code: p.code }), { duration: 3500 });
           onClose();
           void navigate({ to: '/app/properties/$propertyId', params: { propertyId: p.id } });
         },
         onError: (error) =>
           toast.error(
             error instanceof ApiClientError && error.code === 'CONFLICT'
-              ? t('lodging.places.codeTaken')
+              ? t('places.codeTaken')
               : error instanceof ApiClientError && error.code === 'VALIDATION_FAILED'
-                ? t('lodging.places.error')
-                : errorMessage(t, error),
+                ? t('places.error')
+                : errorMessage(tc, error),
           ),
       },
     );
@@ -78,15 +79,15 @@ export function PropertyCreateDialog({ onClose }: { onClose: () => void }) {
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{t('lodging.places.createTitle')}</DialogTitle>
-          <DialogDescription>{t('lodging.places.createDescription')}</DialogDescription>
+          <DialogTitle>{t('places.createTitle')}</DialogTitle>
+          <DialogDescription>{t('places.createDescription')}</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} noValidate className="grid gap-4">
           <div className="grid gap-4 sm:grid-cols-[8rem_minmax(0,1fr)]">
             <Field
               id={`${id}-code`}
-              label={t('lodging.places.code')}
-              hint={t('lodging.places.codeHint')}
+              label={t('places.code')}
+              hint={t('places.codeHint')}
               error={show('code')}
             >
               <Input
@@ -98,7 +99,7 @@ export function PropertyCreateDialog({ onClose }: { onClose: () => void }) {
                 onChange={(e) => setCode(e.target.value)}
               />
             </Field>
-            <Field id={`${id}-name`} label={t('lodging.places.name')} error={show('name')}>
+            <Field id={`${id}-name`} label={t('places.name')} error={show('name')}>
               <Input
                 id={`${id}-name`}
                 value={name}
@@ -109,18 +110,16 @@ export function PropertyCreateDialog({ onClose }: { onClose: () => void }) {
             </Field>
           </div>
           <fieldset className="grid gap-2">
-            <legend className="mb-1 text-sm font-medium">{t('lodging.places.sellMode')}</legend>
+            <legend className="mb-1 text-sm font-medium">{t('places.sellMode')}</legend>
             <RadioGroup value={sellMode} onValueChange={(v) => setSellMode(v as SellMode)}>
               {(['whole', 'rooms'] as const).map((mode) => (
                 <div key={mode} className="flex items-start gap-2">
                   <RadioGroupItem id={`${id}-${mode}`} value={mode} className="mt-0.5" />
                   <Label htmlFor={`${id}-${mode}`} className="grid gap-0.5 font-normal">
-                    <span className="font-medium">{t(`lodging.sellMode.${mode}`)}</span>
+                    <span className="font-medium">{t(`sellMode.${mode}`)}</span>
                     <span className="text-xs text-muted-foreground">
                       {t(
-                        mode === 'whole'
-                          ? 'lodging.places.sellModeWholeHint'
-                          : 'lodging.places.sellModeRoomsHint',
+                        mode === 'whole' ? 'places.sellModeWholeHint' : 'places.sellModeRoomsHint',
                       )}
                     </span>
                   </Label>
@@ -129,11 +128,7 @@ export function PropertyCreateDialog({ onClose }: { onClose: () => void }) {
             </RadioGroup>
           </fieldset>
           <div className="grid grid-cols-2 gap-4">
-            <Field
-              id={`${id}-adults`}
-              label={t('lodging.places.standardAdults')}
-              error={show('adults')}
-            >
+            <Field id={`${id}-adults`} label={t('places.standardAdults')} error={show('adults')}>
               <Input
                 id={`${id}-adults`}
                 type="number"
@@ -144,7 +139,7 @@ export function PropertyCreateDialog({ onClose }: { onClose: () => void }) {
             </Field>
             <Field
               id={`${id}-children`}
-              label={t('lodging.places.standardChildren')}
+              label={t('places.standardChildren')}
               error={show('children')}
             >
               <Input
@@ -158,7 +153,7 @@ export function PropertyCreateDialog({ onClose }: { onClose: () => void }) {
           </div>
           <DialogFooter>
             <Button type="submit" disabled={create.isPending}>
-              <SavingLabel saving={create.isPending}>{t('lodging.places.submit')}</SavingLabel>
+              <SavingLabel saving={create.isPending}>{t('places.submit')}</SavingLabel>
             </Button>
           </DialogFooter>
         </form>

@@ -15,9 +15,13 @@ const Search = z.object({ conversation: z.uuid().optional().catch(undefined) });
 
 export const Route = createFileRoute('/app/inbox')({
   validateSearch: Search,
-  // The customer drawer of the sales panel shows the KiotViet badge and field hint. A failed load
-  // shows raw keys there instead of the error page.
-  loader: () => loadNamespace('integration').catch(() => undefined),
+  // The customer drawer of the sales panel shows the KiotViet badge and field hint, and a hotel's
+  // panel lists the conversation's bookings. A failed load shows raw keys there instead of the
+  // error page.
+  loader: () =>
+    Promise.allSettled([loadNamespace('integration'), loadNamespace('lodging')]).then(
+      () => undefined,
+    ),
   component: InboxRoute,
 });
 function InboxRoute() {

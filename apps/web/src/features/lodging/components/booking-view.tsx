@@ -61,7 +61,7 @@ export function BookingView({
   bookingId: string;
   focusNote?: NoteFocus | undefined;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const booking = useBooking(bookingId);
   const change = useChangeBookingStatus();
   const [editing, setEditing] = useState(false);
@@ -72,7 +72,7 @@ export function BookingView({
 
   if (booking.isPending)
     return (
-      <div className="grid gap-3 px-4" role="status" aria-label={t('lodging.loading')}>
+      <div className="grid gap-3 px-4" role="status" aria-label={t('loading')}>
         <Skeleton className="h-6 w-40" />
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-40 w-full" />
@@ -83,9 +83,9 @@ export function BookingView({
       <div className="px-4">
         <Alert variant="destructive">
           <AlertDescription className="flex items-center gap-2">
-            {t('lodging.sheet.loadError')}
+            {t('sheet.loadError')}
             <Button size="xs" variant="outline" onClick={() => void booking.refetch()}>
-              {t('lodging.sheet.retry')}
+              {t('sheet.retry')}
             </Button>
           </AlertDescription>
         </Alert>
@@ -98,7 +98,7 @@ export function BookingView({
       { id: b.id, body: { version: b.version, action, reason: why } },
       {
         onSuccess: (next) => {
-          toast.success(t('lodging.sheet.statusChanged', { code: next.code }), { duration: 3500 });
+          toast.success(t('sheet.statusChanged', { code: next.code }), { duration: 3500 });
           setCancelOpen(false);
           setReason('');
         },
@@ -125,12 +125,12 @@ export function BookingView({
                   <TooltipTrigger asChild>
                     <span tabIndex={0}>
                       <Button size="sm" disabled>
-                        {t(`lodging.sheet.action.${a}`)}
+                        {t(`sheet.action.${a}`)}
                       </Button>
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {t('lodging.sheet.checkInTooEarly', { date: dayMonth(b.checkIn) })}
+                    {t('sheet.checkInTooEarly', { date: dayMonth(b.checkIn) })}
                   </TooltipContent>
                 </Tooltip>
               ) : (
@@ -141,14 +141,14 @@ export function BookingView({
                   disabled={change.isPending}
                   onClick={() => run(a)}
                 >
-                  {t(`lodging.sheet.action.${a}`)}
+                  {t(`sheet.action.${a}`)}
                 </Button>
               ),
             )}
           {EDITABLE.has(b.status) && !editing && (
             <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
               <Pencil aria-hidden />
-              {t('lodging.sheet.edit')}
+              {t('sheet.edit')}
             </Button>
           )}
           {actions.includes('cancel') && (
@@ -163,7 +163,7 @@ export function BookingView({
                 setCancelOpen(true);
               }}
             >
-              {t('lodging.sheet.action.cancel')}
+              {t('sheet.action.cancel')}
             </Button>
           )}
         </div>
@@ -184,23 +184,20 @@ export function BookingView({
       ) : (
         <div className="grid flex-1 content-start gap-5 overflow-y-auto px-4 py-4 text-sm">
           {byBot && <BotBookingBanner booking={b} />}
-          <SheetSection title={t('lodging.sheet.sectionDates')}>
+          <SheetSection title={t('sheet.sectionDates')}>
             <p className="tabular-nums">
               {weekdayShort(t, b.checkIn)} {dayMonth(b.checkIn)} → {weekdayShort(t, b.checkOut)}{' '}
               {dayMonth(b.checkOut)}{' '}
               <span className="text-muted-foreground">
-                · {t('lodging.sheet.nights', { count: nightsBetween(b.checkIn, b.checkOut) })}
+                · {t('sheet.nights', { count: nightsBetween(b.checkIn, b.checkOut) })}
               </span>
             </p>
             <p>
-              {[
-                b.whole ? t('lodging.sheet.whole') : b.unitNames.join(', '),
-                ...b.packageNames,
-              ].join(' · ')}
+              {[b.whole ? t('sheet.whole') : b.unitNames.join(', '), ...b.packageNames].join(' · ')}
             </p>
             {b.status === 'hold' && b.holdExpiresAt && (
               <p className="text-warning">
-                {t('lodging.sheet.holdUntil', {
+                {t('sheet.holdUntil', {
                   time: `${clockTime(b.holdExpiresAt)} ${localDayMonth(b.holdExpiresAt)}`,
                 })}
               </p>
@@ -210,23 +207,20 @@ export function BookingView({
             )}
           </SheetSection>
           {b.kind === 'stay' && (
-            <SheetSection title={t('lodging.sheet.sectionGuest')}>
+            <SheetSection title={t('sheet.sectionGuest')}>
               <p className="font-medium">{b.guestName}</p>
               <p className="tabular-nums text-muted-foreground">
-                {b.guestPhone || t('lodging.sheet.noGuestPhone')}
+                {b.guestPhone || t('sheet.noGuestPhone')}
               </p>
               <p className="tabular-nums">
-                {t('lodging.sheet.guests', {
+                {t('sheet.guests', {
                   adults: b.party.adults,
                   children: b.party.childAges.length,
                 })}
                 {b.party.childAges.length > 0 &&
-                  ` (${t('lodging.sheet.childAgesList', { ages: b.party.childAges.join(', ') })})`}
+                  ` (${t('sheet.childAgesList', { ages: b.party.childAges.join(', ') })})`}
                 {b.source && (
-                  <span className="text-muted-foreground">
-                    {' '}
-                    · {t(`lodging.source.${b.source}`)}
-                  </span>
+                  <span className="text-muted-foreground"> · {t(`source.${b.source}`)}</span>
                 )}
               </p>
               {b.conversationId && !byBot && (
@@ -235,7 +229,7 @@ export function BookingView({
             </SheetSection>
           )}
           {b.kind === 'stay' && (
-            <SheetSection title={t('lodging.sheet.sectionPrice')}>
+            <SheetSection title={t('sheet.sectionPrice')}>
               <QuoteSummary
                 quote={b.quote}
                 adjustment={b.adjustment}
@@ -245,15 +239,15 @@ export function BookingView({
             </SheetSection>
           )}
           {(b.note || b.tags.length > 0) && (
-            <SheetSection title={t('lodging.sheet.sectionNote')}>
+            <SheetSection title={t('sheet.sectionNote')}>
               <TagChips tags={b.tags} />
               {b.note && <p className="whitespace-pre-wrap">{b.note}</p>}
             </SheetSection>
           )}
           <BookingNightNotes booking={b} focus={focusNote} />
-          <SheetSection title={t('lodging.sheet.sectionHistory')}>
+          <SheetSection title={t('sheet.sectionHistory')}>
             {b.history.length === 0 ? (
-              <p className="text-muted-foreground">{t('lodging.history.empty')}</p>
+              <p className="text-muted-foreground">{t('history.empty')}</p>
             ) : (
               <ol className="grid gap-1.5">
                 {b.history.map((h, i) => {
@@ -265,10 +259,10 @@ export function BookingView({
                         {formatDateTime(h.at)}
                       </span>
                       <span className="font-medium">
-                        {t(`lodging.history.action.${key}`, { defaultValue: key })}
+                        {t(`history.action.${key}`, { defaultValue: key })}
                       </span>
                       <span className="text-muted-foreground">
-                        {h.actorName ?? t('lodging.history.system')}
+                        {h.actorName ?? t('history.system')}
                       </span>
                       {why && <span className="w-full text-muted-foreground">{why}</span>}
                     </li>
@@ -283,19 +277,19 @@ export function BookingView({
       <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('lodging.sheet.cancelTitle', { code: b.code })}</AlertDialogTitle>
-            <AlertDialogDescription>{t('lodging.sheet.cancelDescription')}</AlertDialogDescription>
+            <AlertDialogTitle>{t('sheet.cancelTitle', { code: b.code })}</AlertDialogTitle>
+            <AlertDialogDescription>{t('sheet.cancelDescription')}</AlertDialogDescription>
           </AlertDialogHeader>
           <Textarea
-            aria-label={t('lodging.sheet.cancelReason')}
-            placeholder={t('lodging.sheet.cancelReason')}
+            aria-label={t('sheet.cancelReason')}
+            placeholder={t('sheet.cancelReason')}
             maxLength={300}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
           />
           {change.error && <BookingErrorAlert error={change.error} onReload={reload} />}
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('lodging.sheet.keep')}</AlertDialogCancel>
+            <AlertDialogCancel>{t('sheet.keep')}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={!reason.trim() || change.isPending}
@@ -304,7 +298,7 @@ export function BookingView({
                 run('cancel', reason.trim());
               }}
             >
-              {t('lodging.sheet.action.cancel')}
+              {t('sheet.action.cancel')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -314,12 +308,12 @@ export function BookingView({
 }
 
 function ConversationButton({ conversationId }: { conversationId: string }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   return (
     <Button asChild size="sm" variant="outline" className="w-fit bg-background">
       <Link to="/app/inbox" search={{ conversation: conversationId }}>
         <MessageCircle aria-hidden />
-        {t('lodging.sheet.conversation')}
+        {t('sheet.conversation')}
       </Link>
     </Button>
   );
@@ -331,11 +325,11 @@ function ConversationButton({ conversationId }: { conversationId: string }) {
  * staff read what the guest asked before calling.
  */
 function BotBookingBanner({ booking: b }: { booking: BookingDetail }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const pending = botHoldPending(b);
   return (
     <section
-      aria-label={t('lodging.sheet.botLabel')}
+      aria-label={t('sheet.botLabel')}
       className={
         pending
           ? 'flex flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning-soft px-3 py-2.5'
@@ -348,7 +342,7 @@ function BotBookingBanner({ booking: b }: { booking: BookingDetail }) {
           aria-hidden
         />
         <span className={pending ? 'font-medium text-foreground' : undefined}>
-          {pending ? t('lodging.sheet.botHoldHint') : t('lodging.sheet.botCreated')}
+          {pending ? t('sheet.botHoldHint') : t('sheet.botCreated')}
         </span>
       </p>
       {b.conversationId && <ConversationButton conversationId={b.conversationId} />}
@@ -358,10 +352,10 @@ function BotBookingBanner({ booking: b }: { booking: BookingDetail }) {
 
 /** Header line of the view: code, status badge and property. */
 export function BookingViewTitle({ bookingId }: { bookingId: string }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const booking = useBooking(bookingId);
   const b = booking.data;
-  if (!b) return <span>{t('lodging.sheet.viewDescription')}</span>;
+  if (!b) return <span>{t('sheet.viewDescription')}</span>;
   return (
     <span className="flex flex-wrap items-center gap-2">
       <span className="tabular-nums">{b.code}</span>

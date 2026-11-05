@@ -56,7 +56,7 @@ export const packageInputOf = (k: PackageDraft): PackageInput => ({
 export type PackageField =
   'name' | 'bedrooms' | 'standardAdults' | 'standardChildren' | 'maxGuests';
 
-/** Problem codes per field; each maps to `lodging.packages.errors.<code>`. */
+/** Problem codes per field; each maps to `packages.errors.<code>` (lodging namespace). */
 export type PackageProblems = Partial<Record<PackageField, string>>;
 
 const inRange = (v: number | null, min: number, max: number) =>

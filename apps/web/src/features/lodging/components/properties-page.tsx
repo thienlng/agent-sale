@@ -64,7 +64,7 @@ function useUnpricedRooms(properties: PropertySummary[] | undefined) {
  * user), with today's state and a "Thêm căn hộ" dialog.
  */
 export function PropertiesPage() {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const properties = useProperties();
   const canManage = useCan('catalog.manage');
   const [creating, setCreating] = useState(false);
@@ -75,31 +75,31 @@ export function PropertiesPage() {
     <div className="flex min-w-0 flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">{t('lodging.propertiesTitle')}</h1>
-          <p className="text-sm text-muted-foreground">{t('lodging.places.intro')}</p>
+          <h1 className="text-xl font-semibold">{t('propertiesTitle')}</h1>
+          <p className="text-sm text-muted-foreground">{t('places.intro')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ToggleGroup
             type="single"
             variant="outline"
             size="sm"
-            aria-label={t('lodging.places.view')}
+            aria-label={t('places.view')}
             value={view}
             onValueChange={(v) => (v === 'cards' || v === 'list') && setView(v)}
           >
-            <ToggleGroupItem value="cards" aria-label={t('lodging.places.viewCards')}>
+            <ToggleGroupItem value="cards" aria-label={t('places.viewCards')}>
               <LayoutGrid aria-hidden />
-              <span className="max-sm:sr-only">{t('lodging.places.viewCards')}</span>
+              <span className="max-sm:sr-only">{t('places.viewCards')}</span>
             </ToggleGroupItem>
-            <ToggleGroupItem value="list" aria-label={t('lodging.places.viewList')}>
+            <ToggleGroupItem value="list" aria-label={t('places.viewList')}>
               <List aria-hidden />
-              <span className="max-sm:sr-only">{t('lodging.places.viewList')}</span>
+              <span className="max-sm:sr-only">{t('places.viewList')}</span>
             </ToggleGroupItem>
           </ToggleGroup>
           {canManage && (
             <Button onClick={() => setCreating(true)}>
               <Plus aria-hidden />
-              {t('lodging.places.add')}
+              {t('places.add')}
             </Button>
           )}
         </div>
@@ -108,7 +108,7 @@ export function PropertiesPage() {
         <div
           className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
           role="status"
-          aria-label={t('lodging.loading')}
+          aria-label={t('loading')}
         >
           {Array.from({ length: 6 }, (_, i) => (
             <Skeleton key={i} className="h-64 rounded-xl" />
@@ -118,21 +118,21 @@ export function PropertiesPage() {
         <Alert variant="destructive">
           <CircleAlert aria-hidden />
           <AlertDescription className="flex flex-wrap items-center gap-2">
-            {t('lodging.loadError')}
+            {t('loadError')}
             <Button size="xs" variant="outline" onClick={() => void properties.refetch()}>
-              {t('lodging.retry')}
+              {t('retry')}
             </Button>
           </AlertDescription>
         </Alert>
       ) : properties.data.length === 0 ? (
         <div className="grid justify-items-center gap-2 rounded-lg border border-dashed px-4 py-10 text-center">
           <House className="size-6 text-muted-foreground" aria-hidden />
-          <p className="font-medium">{t('lodging.places.empty')}</p>
-          <p className="text-sm text-muted-foreground">{t('lodging.places.emptyHint')}</p>
+          <p className="font-medium">{t('places.empty')}</p>
+          <p className="text-sm text-muted-foreground">{t('places.emptyHint')}</p>
           {canManage && (
             <Button size="sm" onClick={() => setCreating(true)}>
               <Plus aria-hidden />
-              {t('lodging.places.add')}
+              {t('places.add')}
             </Button>
           )}
         </div>
@@ -163,7 +163,7 @@ function PropertyCard({
   property: PropertySummary;
   warning: PropertyWarning | undefined;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const cover = galleryCoverUrl(p);
   const titleId = `property-${p.id}-title`;
   const rooms = p.units.filter((u) => u.kind === 'room' && u.active).length;
@@ -183,7 +183,7 @@ function PropertyCard({
           <div className="grid size-full place-items-center text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <ImageOff className="size-4" aria-hidden />
-              {t('lodging.places.noPhoto')}
+              {t('places.noPhoto')}
             </span>
           </div>
         )}
@@ -202,22 +202,22 @@ function PropertyCard({
         </h2>
         {p.address && <p className="text-xs text-muted-foreground">{p.address}</p>}
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
-          <Badge variant="secondary">{t(`lodging.sellMode.${p.sellMode}`)}</Badge>
+          <Badge variant="secondary">{t(`sellMode.${p.sellMode}`)}</Badge>
           <span className="tabular-nums text-muted-foreground">
-            {t('lodging.cal.capacity', { adults: p.standardAdults, children: p.standardChildren })}
+            {t('cal.capacity', { adults: p.standardAdults, children: p.standardChildren })}
           </span>
           {p.sellMode === 'rooms' && (
             <span className="tabular-nums text-muted-foreground">
-              · {t('lodging.cal.rooms', { count: rooms })}
+              · {t('cal.rooms', { count: rooms })}
             </span>
           )}
         </div>
         <div className="mt-auto flex flex-wrap gap-1.5 pt-1">
           {p.status === 'paused' ? (
-            <Badge variant="outline">{t('lodging.places.paused')}</Badge>
+            <Badge variant="outline">{t('places.paused')}</Badge>
           ) : (
             <Badge variant="outline" className={TODAY_STYLE[p.today]}>
-              {t(`lodging.places.today.${p.today}`)}
+              {t(`places.today.${p.today}`)}
             </Badge>
           )}
         </div>
@@ -225,7 +225,7 @@ function PropertyCard({
           <p className="flex items-start gap-1.5 rounded-md bg-warning/10 p-2 text-xs text-warning">
             <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
             <span>
-              {t(`lodging.places.${warning}`)} {t('lodging.places.botHidden')}
+              {t(`places.${warning}`)} {t('places.botHidden')}
             </span>
           </p>
         )}

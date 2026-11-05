@@ -43,7 +43,7 @@ export function StayDates({
   disableCheckIn?: boolean;
   showError: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
   const valid = isStayRange(checkIn, checkOut);
   return (
@@ -51,7 +51,7 @@ export function StayDates({
       <div className="flex flex-wrap items-end gap-2">
         <div className="grid gap-1">
           <Label htmlFor={`${id}-in`} className="text-xs">
-            {t('lodging.sheet.checkIn')}
+            {t('sheet.checkIn')}
           </Label>
           <Input
             id={`${id}-in`}
@@ -65,7 +65,7 @@ export function StayDates({
         </div>
         <div className="grid gap-1">
           <Label htmlFor={`${id}-out`} className="text-xs">
-            {t('lodging.sheet.checkOut')}
+            {t('sheet.checkOut')}
           </Label>
           <Input
             id={`${id}-out`}
@@ -79,13 +79,11 @@ export function StayDates({
         </div>
         {valid && (
           <span className="pb-1.5 text-sm tabular-nums text-muted-foreground">
-            {t('lodging.sheet.nights', { count: nightsBetween(checkIn, checkOut) })}
+            {t('sheet.nights', { count: nightsBetween(checkIn, checkOut) })}
           </span>
         )}
       </div>
-      {showError && !valid && (
-        <p className="text-xs text-destructive">{t('lodging.sheet.invalidRange')}</p>
-      )}
+      {showError && !valid && <p className="text-xs text-destructive">{t('sheet.invalidRange')}</p>}
     </div>
   );
 }
@@ -104,7 +102,7 @@ export function UnitPicker({
   onChange: (next: { whole: boolean; unitIds: string[] }) => void;
   showError: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   if (!property) return null;
   const rooms =
     property.sellMode === 'rooms'
@@ -114,7 +112,7 @@ export function UnitPicker({
     'h-7 rounded-full border border-border px-3 text-xs data-[state=on]:border-primary data-[state=on]:bg-primary-soft data-[state=on]:text-primary-strong';
   return (
     <div className="grid gap-1">
-      <span className="text-xs font-medium">{t('lodging.sheet.units')}</span>
+      <span className="text-xs font-medium">{t('sheet.units')}</span>
       <div className="flex flex-wrap gap-1.5">
         <Toggle
           size="sm"
@@ -123,7 +121,7 @@ export function UnitPicker({
           disabled={rooms.length === 0}
           onPressedChange={() => onChange({ whole: true, unitIds: [] })}
         >
-          {t('lodging.sheet.whole')}
+          {t('sheet.whole')}
         </Toggle>
         {rooms.map((u) => {
           const on = !whole && unitIds.includes(u.id);
@@ -145,7 +143,7 @@ export function UnitPicker({
         })}
       </div>
       {showError && !whole && unitIds.length === 0 && (
-        <p className="text-xs text-destructive">{t('lodging.sheet.chooseUnit')}</p>
+        <p className="text-xs text-destructive">{t('sheet.chooseUnit')}</p>
       )}
     </div>
   );
@@ -168,7 +166,7 @@ export function PackagePicker({
   quote: QuoteDto | undefined;
   onChange: (next: PackageChoice) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
   if (!property || targets.length === 0) return null;
   return (
@@ -182,13 +180,11 @@ export function PackagePicker({
         return (
           <div key={key} className="grid gap-1">
             <Label htmlFor={selectId} className="text-xs">
-              {unit
-                ? t('lodging.sheet.packageOf', { name: unit.name })
-                : t('lodging.sheet.package')}
+              {unit ? t('sheet.packageOf', { name: unit.name }) : t('sheet.package')}
             </Label>
             <Select value={value} onValueChange={(v) => onChange({ ...choice, [key]: v })}>
               <SelectTrigger id={selectId} size="sm" className="w-40">
-                <SelectValue placeholder={t('lodging.packages.selectPlaceholder')} />
+                <SelectValue placeholder={t('packages.selectPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {packageOptions(property, target).map((k) => (
@@ -207,14 +203,12 @@ export function PackagePicker({
 
 /** Bookings already on the chosen nights (from the live quote). */
 export function TakenAlert({ quote }: { quote: QuoteDto | undefined }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   if (!quote?.takenBy.length) return null;
   return (
     <Alert variant="destructive">
       <CircleAlert aria-hidden />
-      <AlertDescription>
-        {t('lodging.sheet.takenBy', { codes: quote.takenBy.join(', ') })}
-      </AlertDescription>
+      <AlertDescription>{t('sheet.takenBy', { codes: quote.takenBy.join(', ') })}</AlertDescription>
     </Alert>
   );
 }

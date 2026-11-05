@@ -57,8 +57,8 @@ type Translate = ReturnType<typeof useTranslation>['t'];
 
 /** What a tile is called in menus and announcements: "Ảnh 3", a video's caption, a link's host. */
 function itemLabel(t: Translate, item: GalleryItem, number: number | null): string {
-  if (item.kind === 'image') return t('lodging.media.number', { n: number ?? 0 });
-  if (item.kind === 'video') return item.caption || t('lodging.media.videoBadge');
+  if (item.kind === 'image') return t('media.number', { n: number ?? 0 });
+  if (item.kind === 'video') return item.caption || t('media.videoBadge');
   return item.caption || hostOf(item.url);
 }
 
@@ -78,7 +78,7 @@ export function FolderView({
   onBack: () => void;
   uploadImage?: GalleryImageUpload | undefined;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
@@ -106,16 +106,16 @@ export function FolderView({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
   const announcements: Announcements = {
-    onDragStart: ({ active }) => t('lodging.media.dragStart', { label: labelOf(active.id) }),
+    onDragStart: ({ active }) => t('media.dragStart', { label: labelOf(active.id) }),
     onDragOver: ({ active, over }) =>
       over
-        ? t('lodging.media.dragOver', { label: labelOf(active.id), position: positionOf(over.id) })
+        ? t('media.dragOver', { label: labelOf(active.id), position: positionOf(over.id) })
         : undefined,
     onDragEnd: ({ active, over }) =>
       over
-        ? t('lodging.media.dragEnd', { label: labelOf(active.id), position: positionOf(over.id) })
+        ? t('media.dragEnd', { label: labelOf(active.id), position: positionOf(over.id) })
         : undefined,
-    onDragCancel: ({ active }) => t('lodging.media.dragCancel', { label: labelOf(active.id) }),
+    onDragCancel: ({ active }) => t('media.dragCancel', { label: labelOf(active.id) }),
   };
   // Positions change after any structural edit, so the selection (by index) is cleared.
   const edit = (fn: (d: GalleryDraft) => GalleryDraft) => {
@@ -149,7 +149,7 @@ export function FolderView({
             onClick={onBack}
           >
             <ChevronLeft aria-hidden />
-            {t('lodging.media.back')}
+            {t('media.back')}
           </Button>
           <h2 className="min-w-0 text-base font-semibold break-words">{folder.name}</h2>
         </div>
@@ -161,7 +161,7 @@ export function FolderView({
               accept={MEDIA_ACCEPT}
               multiple
               hidden
-              aria-label={t('lodging.media.add')}
+              aria-label={t('media.add')}
               data-testid="media-file-input"
               onChange={(e) => {
                 const files = Array.from(e.target.files ?? []);
@@ -177,7 +177,7 @@ export function FolderView({
               onClick={() => inputRef.current?.click()}
             >
               <ImagePlus aria-hidden />
-              {t('lodging.media.add')}
+              {t('media.add')}
             </Button>
             <Button
               type="button"
@@ -187,22 +187,22 @@ export function FolderView({
               onClick={() => setLinkOpen(true)}
             >
               <Link2 aria-hidden />
-              {t('lodging.media.addLink')}
+              {t('media.addLink')}
             </Button>
           </div>
         )}
       </div>
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          {t('lodging.media.help', { count: BOT_ALBUM_PAGE_SIZE })}
+          {t('media.help', { count: BOT_ALBUM_PAGE_SIZE })}
         </p>
         <ViewToggle value={view} onChange={setView} />
       </div>
       {canEdit && (
         <p className="text-xs text-muted-foreground tabular-nums">
           {full
-            ? t('lodging.media.full', { max: GALLERY_MAX_ITEMS })
-            : t('lodging.media.remaining', { count: remaining })}
+            ? t('media.full', { max: GALLERY_MAX_ITEMS })
+            : t('media.remaining', { count: remaining })}
         </p>
       )}
       {entries.length > 0 && (
@@ -210,9 +210,7 @@ export function FolderView({
           {entries.map((e) => (
             <li key={e.id} className="flex items-center gap-2">
               <Loader2 className="size-4 animate-spin" aria-hidden />
-              <span className="min-w-0 truncate">
-                {t('lodging.media.uploading', { name: e.name })}
-              </span>
+              <span className="min-w-0 truncate">{t('media.uploading', { name: e.name })}</span>
               {e.kind === 'video' && (
                 <progress max={1} value={e.progress} aria-label={e.name} className="h-1.5 w-24" />
               )}
@@ -253,14 +251,12 @@ export function FolderView({
           e.preventDefault();
           setDragging(false);
           if (!canEdit) return;
-          if (full) toast.error(t('lodging.media.full', { max: GALLERY_MAX_ITEMS }));
+          if (full) toast.error(t('media.full', { max: GALLERY_MAX_ITEMS }));
           else void upload(Array.from(e.dataTransfer.files));
         }}
       >
         {folder.items.length === 0 ? (
-          <p className="p-6 text-center text-sm text-muted-foreground">
-            {t('lodging.media.dropHere')}
-          </p>
+          <p className="p-6 text-center text-sm text-muted-foreground">{t('media.dropHere')}</p>
         ) : (
           <DndContext
             sensors={sensors}
@@ -268,7 +264,7 @@ export function FolderView({
             onDragEnd={onDragEnd}
             accessibility={{
               announcements,
-              screenReaderInstructions: { draggable: t('lodging.media.dragInstructions') },
+              screenReaderInstructions: { draggable: t('media.dragInstructions') },
             }}
           >
             {view === 'grid' ? (
@@ -380,12 +376,12 @@ export function FolderView({
         onOpenChange={(open) => {
           if (!open) setCaptioning(null);
         }}
-        title={t('lodging.media.editCaption')}
-        label={t('lodging.media.caption')}
-        placeholder={t('lodging.media.captionPlaceholder')}
+        title={t('media.editCaption')}
+        label={t('media.caption')}
+        placeholder={t('media.captionPlaceholder')}
         initial={captioning !== null ? (folder.items[captioning]?.caption ?? '') : ''}
         maxLength={300}
-        submitLabel={t('lodging.media.apply')}
+        submitLabel={t('media.apply')}
         onSubmit={(value) => {
           const index = captioning;
           setCaptioning(null);

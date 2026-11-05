@@ -86,7 +86,7 @@ export function OverrideDialog({
   lockedTarget?: string | null | undefined;
   onClose: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
   const [d, setD] = useState(() => draftOf(p, rate, lockedTarget));
   const [submitted, setSubmitted] = useState(false);
@@ -123,7 +123,7 @@ export function OverrideDialog({
         overlaps(d.dateFrom, d.dateTo, r.dateFrom, r.dateTo),
     );
   const err = (bad: boolean, key: string) => (submitted && bad ? t(key) : undefined);
-  const required = 'lodging.places.required';
+  const required = 'places.required';
   const set = (patch: Partial<OverrideDraft>) => setD((v) => ({ ...v, ...patch }));
 
   const submit = (e: FormEvent) => {
@@ -143,7 +143,7 @@ export function OverrideDialog({
     };
     const done = {
       onSuccess: () => {
-        toast.success(t('lodging.overrides.saved'), { duration: 3500 });
+        toast.success(t('overrides.saved'), { duration: 3500 });
         onClose();
       },
       onError: (error: unknown) => saveError(error),
@@ -156,32 +156,26 @@ export function OverrideDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>
-            {t(rate ? 'lodging.overrides.dialogEdit' : 'lodging.overrides.dialogAdd')}
-          </DialogTitle>
-          <DialogDescription>{t('lodging.overrides.hint')}</DialogDescription>
+          <DialogTitle>{t(rate ? 'overrides.dialogEdit' : 'overrides.dialogAdd')}</DialogTitle>
+          <DialogDescription>{t('overrides.hint')}</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} noValidate className="grid gap-3">
           <Field
             id={`${id}-label`}
-            label={t('lodging.overrides.label')}
+            label={t('overrides.label')}
             error={err(errors.label, required)}
           >
             <Input
               id={`${id}-label`}
               value={d.label}
               maxLength={100}
-              placeholder={t('lodging.overrides.labelPlaceholder')}
+              placeholder={t('overrides.labelPlaceholder')}
               aria-invalid={(submitted && errors.label) || undefined}
               onChange={(e) => set({ label: e.target.value })}
             />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field
-              id={`${id}-from`}
-              label={t('lodging.overrides.from')}
-              error={err(errors.from, required)}
-            >
+            <Field id={`${id}-from`} label={t('overrides.from')} error={err(errors.from, required)}>
               <Input
                 id={`${id}-from`}
                 type="date"
@@ -192,11 +186,8 @@ export function OverrideDialog({
             </Field>
             <Field
               id={`${id}-to`}
-              label={t('lodging.overrides.to')}
-              error={
-                err(errors.to, 'lodging.overrides.rangeInvalid') ??
-                err(overlap, 'lodging.overrides.overlap')
-              }
+              label={t('overrides.to')}
+              error={err(errors.to, 'overrides.rangeInvalid') ?? err(overlap, 'overrides.overlap')}
             >
               <Input
                 id={`${id}-to`}
@@ -210,7 +201,7 @@ export function OverrideDialog({
           </div>
           {rooms.length > 0 && lockedTarget === undefined && (
             <div className="grid gap-1.5">
-              <Label htmlFor={`${id}-target`}>{t('lodging.overrides.target')}</Label>
+              <Label htmlFor={`${id}-target`}>{t('overrides.target')}</Label>
               <Select
                 value={d.target}
                 onValueChange={(target) =>
@@ -224,7 +215,7 @@ export function OverrideDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={WHOLE}>{t('lodging.rates.whole')}</SelectItem>
+                  <SelectItem value={WHOLE}>{t('rates.whole')}</SelectItem>
                   {rooms.map((u) => (
                     <SelectItem key={u.id} value={u.id}>
                       {u.name}
@@ -237,7 +228,7 @@ export function OverrideDialog({
           {targetPackages.length > 0 && (
             <Field
               id={`${id}-package`}
-              label={t('lodging.packages.select')}
+              label={t('packages.select')}
               error={err(errors.package, required)}
             >
               <Select value={d.packageId} onValueChange={(v) => set({ packageId: v })}>
@@ -246,7 +237,7 @@ export function OverrideDialog({
                   className="w-full"
                   aria-invalid={(submitted && errors.package) || undefined}
                 >
-                  <SelectValue placeholder={t('lodging.packages.selectPlaceholder')} />
+                  <SelectValue placeholder={t('packages.selectPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {targetPackages.map((k) => (
@@ -259,11 +250,7 @@ export function OverrideDialog({
             </Field>
           )}
           <div className="grid grid-cols-2 gap-3">
-            <Field
-              id={`${id}-sell`}
-              label={t('lodging.rates.sell')}
-              error={err(errors.sell, required)}
-            >
+            <Field id={`${id}-sell`} label={t('rates.sell')} error={err(errors.sell, required)}>
               <MoneyInput
                 id={`${id}-sell`}
                 value={d.sell}
@@ -271,7 +258,7 @@ export function OverrideDialog({
                 onValueChange={(sell) => set({ sell })}
               />
             </Field>
-            <Field id={`${id}-cost`} label={t('lodging.rates.cost')}>
+            <Field id={`${id}-cost`} label={t('rates.cost')}>
               <MoneyInput
                 id={`${id}-cost`}
                 value={d.cost}
@@ -281,9 +268,9 @@ export function OverrideDialog({
           </div>
           <Field
             id={`${id}-min`}
-            label={t('lodging.overrides.minNights')}
-            hint={t('lodging.overrides.minNightsHint')}
-            error={err(errors.min, 'lodging.overrides.minInvalid')}
+            label={t('overrides.minNights')}
+            hint={t('overrides.minNightsHint')}
+            error={err(errors.min, 'overrides.minInvalid')}
           >
             <Input
               id={`${id}-min`}
@@ -299,10 +286,10 @@ export function OverrideDialog({
           </Field>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
-              {t('lodging.overrides.keep')}
+              {t('overrides.keep')}
             </Button>
             <Button type="submit" disabled={pending}>
-              <SavingLabel saving={pending}>{t('lodging.overrides.save')}</SavingLabel>
+              <SavingLabel saving={pending}>{t('overrides.save')}</SavingLabel>
             </Button>
           </DialogFooter>
         </form>

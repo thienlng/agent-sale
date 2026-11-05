@@ -39,11 +39,11 @@ export function useDirtyTabs<K extends string>() {
 
 /** The "unsaved" dot of a tab trigger. */
 export function UnsavedMark() {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   return (
     <>
       <span aria-hidden className="size-1.5 rounded-full bg-primary" />
-      <span className="sr-only">{t('lodging.editor.unsavedMark')}</span>
+      <span className="sr-only">{t('editor.unsavedMark')}</span>
     </>
   );
 }
@@ -53,7 +53,7 @@ export function UnsavedMark() {
  * A change of the search only (e.g. opening a gallery folder) is not leaving the page.
  */
 export function LeaveGuard({ dirty }: { dirty: boolean }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const blocker = useBlocker({
     shouldBlockFn: ({ current, next }) => dirty && current.pathname !== next.pathname,
     enableBeforeUnload: () => dirty,
@@ -63,15 +63,15 @@ export function LeaveGuard({ dirty }: { dirty: boolean }) {
     <Dialog open={blocker.status === 'blocked'} onOpenChange={(o) => !o && blocker.reset?.()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{t('lodging.editor.leaveTitle')}</DialogTitle>
-          <DialogDescription>{t('lodging.editor.leaveDescription')}</DialogDescription>
+          <DialogTitle>{t('editor.leaveTitle')}</DialogTitle>
+          <DialogDescription>{t('editor.leaveDescription')}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="ghost" onClick={() => blocker.reset?.()}>
-            {t('lodging.editor.stay')}
+            {t('editor.stay')}
           </Button>
           <Button variant="destructive" onClick={() => blocker.proceed?.()}>
-            {t('lodging.editor.leave')}
+            {t('editor.leave')}
           </Button>
         </DialogFooter>
       </DialogContent>

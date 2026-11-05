@@ -27,10 +27,10 @@ const PRICE_COLUMNS = [
 
 /** One price, or the min–max range when the weekdays of a group differ. */
 function PriceCell({ prices, days }: { prices: (number | null)[]; days: readonly number[] }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const values = days.map((d) => prices[d] ?? null);
   if (values.some((v) => v === null))
-    return <span className="text-muted-foreground">{t('lodging.places.noPrice')}</span>;
+    return <span className="text-muted-foreground">{t('places.noPrice')}</span>;
   const numbers = values as number[];
   const min = Math.min(...numbers);
   const max = Math.max(...numbers);
@@ -52,24 +52,24 @@ export function PropertiesTable({
   warnings: Map<string, PropertyWarning>;
   todayStyle: Record<PropertySummary['today'], string>;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   return (
     <div className="min-w-0 rounded-xl border bg-card">
       <Table className="min-w-[56rem]">
         <TableHeader>
           <TableRow>
-            <TableHead className="w-16">{t('lodging.places.col.photo')}</TableHead>
-            <TableHead>{t('lodging.places.col.code')}</TableHead>
-            <TableHead>{t('lodging.places.col.name')}</TableHead>
-            <TableHead>{t('lodging.places.col.address')}</TableHead>
-            <TableHead>{t('lodging.places.col.sellMode')}</TableHead>
-            <TableHead>{t('lodging.places.col.standard')}</TableHead>
+            <TableHead className="w-16">{t('places.col.photo')}</TableHead>
+            <TableHead>{t('places.col.code')}</TableHead>
+            <TableHead>{t('places.col.name')}</TableHead>
+            <TableHead>{t('places.col.address')}</TableHead>
+            <TableHead>{t('places.col.sellMode')}</TableHead>
+            <TableHead>{t('places.col.standard')}</TableHead>
             {PRICE_COLUMNS.map((c) => (
               <TableHead key={c.key} className="text-right">
-                {t(`lodging.places.col.${c.key}`)}
+                {t(`places.col.${c.key}`)}
               </TableHead>
             ))}
-            <TableHead>{t('lodging.places.col.today')}</TableHead>
+            <TableHead>{t('places.col.today')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -95,7 +95,7 @@ export function PropertiesTable({
                     ) : (
                       <span className="grid size-full place-items-center text-muted-foreground">
                         <ImageOff className="size-4" aria-hidden />
-                        <span className="sr-only">{t('lodging.places.noPhoto')}</span>
+                        <span className="sr-only">{t('places.noPhoto')}</span>
                       </span>
                     )}
                   </div>
@@ -111,10 +111,10 @@ export function PropertiesTable({
                       {p.name}
                     </Link>
                     {warning && (
-                      <span className="text-warning" title={t(`lodging.places.${warning}`)}>
+                      <span className="text-warning" title={t(`places.${warning}`)}>
                         <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                         <span className="sr-only">
-                          {t(`lodging.places.${warning}`)} {t('lodging.places.botHidden')}
+                          {t(`places.${warning}`)} {t('places.botHidden')}
                         </span>
                       </span>
                     )}
@@ -124,10 +124,10 @@ export function PropertiesTable({
                   {p.address}
                 </TableCell>
                 <TableCell>
-                  <Badge variant="secondary">{t(`lodging.sellMode.${p.sellMode}`)}</Badge>
+                  <Badge variant="secondary">{t(`sellMode.${p.sellMode}`)}</Badge>
                 </TableCell>
                 <TableCell className="tabular-nums text-muted-foreground">
-                  {t('lodging.cal.capacity', {
+                  {t('cal.capacity', {
                     adults: p.standardAdults,
                     children: p.standardChildren,
                   })}
@@ -139,10 +139,10 @@ export function PropertiesTable({
                 ))}
                 <TableCell>
                   {p.status === 'paused' ? (
-                    <Badge variant="outline">{t('lodging.places.paused')}</Badge>
+                    <Badge variant="outline">{t('places.paused')}</Badge>
                   ) : (
                     <Badge variant="outline" className={todayStyle[p.today]}>
-                      {t(`lodging.places.today.${p.today}`)}
+                      {t(`places.today.${p.today}`)}
                     </Badge>
                   )}
                 </TableCell>

@@ -44,14 +44,14 @@ export function CalendarMobile({
   /** A full night opens the booking that takes it. */
   onOpenBooking: (bookingId: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const first = nights[0];
   if (!first) return null;
   const lead = isoWeekday(first) - 1;
   const legend: Array<[NightState, string]> = [
-    ['free', t('lodging.cal.legendFree')],
-    ['partial', t('lodging.cal.legendPartial')],
-    ['taken', t('lodging.cal.legendTaken')],
+    ['free', t('cal.legendFree')],
+    ['partial', t('cal.legendPartial')],
+    ['taken', t('cal.legendTaken')],
   ];
   return (
     <div className="grid gap-3">
@@ -77,7 +77,7 @@ export function CalendarMobile({
             <CardContent className="grid gap-3 px-3">
               <div className="grid grid-cols-7 gap-1 text-center text-[11px] text-muted-foreground">
                 {Array.from({ length: 7 }, (_, i) => (
-                  <span key={i}>{t(`lodging.weekdayShort.${i + 1}`)}</span>
+                  <span key={i}>{t(`weekdayShort.${i + 1}`)}</span>
                 ))}
                 {Array.from({ length: lead }, (_, i) => (
                   <span key={`lead-${i}`} />
@@ -108,7 +108,7 @@ export function CalendarMobile({
               {onCreate && (
                 <Button variant="outline" className="h-11" onClick={() => onCreate(p.id)}>
                   <Plus aria-hidden />
-                  {t('lodging.cal.createBooking')}
+                  {t('cal.createBooking')}
                 </Button>
               )}
             </CardContent>

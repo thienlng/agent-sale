@@ -60,7 +60,7 @@ const amenityList = (text: string) =>
     .filter(Boolean);
 
 type UnitField = 'name' | 'adults' | 'children' | 'max' | 'area' | 'amenities';
-/** Problem per field; each maps to `lodging.units.errors.<code>`. */
+/** Problem per field; each maps to `units.errors.<code>` (lodging namespace). */
 type UnitErrors = Partial<Record<UnitField, string>>;
 
 const inRange = (raw: string, min: number, max: number) => {
@@ -98,7 +98,7 @@ export function UnitInfoTab({
   canEdit: boolean;
   onDirtyChange: (dirty: boolean) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
   const base = useMemo(() => infoOf(unit), [unit]);
   const { draft: d, setDraft, dirty, discard } = useTabDraft(base);
@@ -109,7 +109,7 @@ export function UnitInfoTab({
   const errors = validateUnitInfo(d);
   const set = (patch: Partial<UnitInfoDraft>) => setDraft((v) => ({ ...v, ...patch }));
   const err = (key: UnitField) =>
-    submitted && errors[key] ? t(`lodging.units.errors.${errors[key]}`) : undefined;
+    submitted && errors[key] ? t(`units.errors.${errors[key]}`) : undefined;
   const invalid = (key: UnitField) => (submitted && errors[key] ? true : undefined);
 
   const submit = (e: FormEvent) => {
@@ -136,10 +136,10 @@ export function UnitInfoTab({
           const next = saved.units.find((u) => u.id === unit.id);
           if (next) setDraft(infoOf(next));
           setSubmitted(false);
-          toast.success(t('lodging.editor.saved'), { duration: 3500 });
+          toast.success(t('editor.saved'), { duration: 3500 });
         },
         onError: (error) =>
-          saveError(error, { onStale: discard, conflict: () => t('lodging.units.removeConflict') }),
+          saveError(error, { onStale: discard, conflict: () => t('units.removeConflict') }),
       },
     );
   };
@@ -147,7 +147,7 @@ export function UnitInfoTab({
   const text = (key: 'name' | 'view' | 'beds', max: number, placeholder?: string) => (
     <Field
       id={`${id}-${key}`}
-      label={t(`lodging.units.${key}`)}
+      label={t(`units.${key}`)}
       error={key === 'name' ? err('name') : undefined}
     >
       <Input
@@ -185,7 +185,7 @@ export function UnitInfoTab({
     <form onSubmit={submit} noValidate className="grid max-w-3xl gap-5">
       <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_12rem]">
         {text('name', 100)}
-        <Field id={`${id}-category`} label={t('lodging.units.kind')}>
+        <Field id={`${id}-category`} label={t('units.kind')}>
           <Select
             value={d.category}
             disabled={!canEdit}
@@ -197,7 +197,7 @@ export function UnitInfoTab({
             <SelectContent>
               {UnitCategoryEnum.options.map((k) => (
                 <SelectItem key={k} value={k}>
-                  {t(`lodging.units.category.${k}`)}
+                  {t(`units.category.${k}`)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -205,21 +205,21 @@ export function UnitInfoTab({
         </Field>
       </div>
       <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_12rem]">
-        {text('view', 200, t('lodging.units.viewPlaceholder'))}
-        {count('area', t('lodging.units.area'), 1)}
+        {text('view', 200, t('units.viewPlaceholder'))}
+        {count('area', t('units.area'), 1)}
       </div>
-      {text('beds', 500, t('lodging.units.bedsPlaceholder'))}
+      {text('beds', 500, t('units.bedsPlaceholder'))}
       <div className="grid gap-1.5">
         <div className="grid gap-4 sm:grid-cols-3">
-          {count('adults', t('lodging.units.standardAdults'), 1)}
-          {count('children', t('lodging.units.standardChildren'), 0)}
-          {count('max', t('lodging.units.maxGuests'), 1)}
+          {count('adults', t('units.standardAdults'), 1)}
+          {count('children', t('units.standardChildren'), 0)}
+          {count('max', t('units.maxGuests'), 1)}
         </div>
         <p className="text-xs text-muted-foreground">
-          {t('lodging.units.standardHint')} {t('lodging.units.maxGuestsHint')}
+          {t('units.standardHint')} {t('units.maxGuestsHint')}
         </p>
       </div>
-      <Field id={`${id}-description`} label={t('lodging.units.description')}>
+      <Field id={`${id}-description`} label={t('units.description')}>
         <Textarea
           id={`${id}-description`}
           rows={4}
@@ -231,8 +231,8 @@ export function UnitInfoTab({
       </Field>
       <Field
         id={`${id}-amenities`}
-        label={t('lodging.units.amenities')}
-        hint={t('lodging.units.amenitiesHint')}
+        label={t('units.amenities')}
+        hint={t('units.amenitiesHint')}
         error={err('amenities')}
       >
         <Textarea
@@ -252,15 +252,15 @@ export function UnitInfoTab({
           onCheckedChange={(active) => set({ active })}
         />
         <div className="grid gap-0.5">
-          <Label htmlFor={`${id}-active`}>{t('lodging.units.status')}</Label>
-          <p className="text-xs text-muted-foreground">{t('lodging.units.statusHint')}</p>
+          <Label htmlFor={`${id}-active`}>{t('units.status')}</Label>
+          <p className="text-xs text-muted-foreground">{t('units.statusHint')}</p>
         </div>
       </div>
       <TabSaveBar
         dirty={dirty}
         pending={replace.isPending}
         canEdit={canEdit}
-        label={t('lodging.units.save')}
+        label={t('units.save')}
       />
     </form>
   );

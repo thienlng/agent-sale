@@ -46,7 +46,7 @@ export function CalendarGrid({
   selection: CalendarSelection | null;
   handlers: CellHandlers;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const grid = useRef<HTMLDivElement>(null);
   const weekend = useMemo(() => nights.map((n) => isoWeekday(n) >= 6), [nights]);
   const labels = useMemo(() => nightLabels(properties, nights), [properties, nights]);
@@ -96,7 +96,7 @@ export function CalendarGrid({
     <div
       ref={grid}
       role="grid"
-      aria-label={t('lodging.cal.gridLabel')}
+      aria-label={t('cal.gridLabel')}
       className="max-h-[calc(100svh-14rem)] min-h-64 overflow-auto rounded-lg border border-border bg-background select-none"
       onKeyDown={onKeyDown}
       onFocus={onFocus}
@@ -111,7 +111,7 @@ export function CalendarGrid({
               role="columnheader"
               className="sticky left-0 z-[7] flex items-end bg-background px-2 pb-1 text-xs font-medium text-muted-foreground"
             >
-              {t('lodging.cal.property')}
+              {t('cal.property')}
             </div>
             {nights.map((night, i) => (
               <div
@@ -145,7 +145,7 @@ export function CalendarGrid({
               role="rowheader"
               className="sticky left-0 z-[7] bg-background px-2 py-1 text-xs font-medium tabular-nums"
             >
-              {t('lodging.cal.occupancy', { pct: occ.pct })}
+              {t('cal.occupancy', { pct: occ.pct })}
             </div>
             {nights.map((night, i) => {
               const taken = occ.taken[i] ?? 0;
@@ -153,7 +153,7 @@ export function CalendarGrid({
                 <div
                   key={night}
                   role="gridcell"
-                  aria-label={t('lodging.cal.occupancyNight', { taken, total: occ.total })}
+                  aria-label={t('cal.occupancyNight', { taken, total: occ.total })}
                   className={cn(
                     'flex flex-col justify-center gap-0.5 border-l border-border px-1 py-1',
                     weekend[i] && 'bg-muted',

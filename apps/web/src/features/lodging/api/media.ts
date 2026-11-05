@@ -23,8 +23,8 @@ export function useUploadLodgingVideo() {
 export function videoUploadErrorKey(error: unknown) {
   const reason = error instanceof ApiClientError ? error.details?.['reason'] : undefined;
   if (reason === 'VIDEO_TOO_LARGE' || (error instanceof ApiClientError && error.status === 413))
-    return 'lodging.media.videoTooLarge' as const;
-  if (reason === 'INVALID_VIDEO') return 'lodging.media.videoInvalid' as const;
-  if (reason === 'MEDIA_STORAGE_UNAVAILABLE') return 'lodging.media.storageUnavailable' as const;
-  return 'lodging.media.uploadFailed' as const;
+    return 'media.videoTooLarge' as const;
+  if (reason === 'INVALID_VIDEO') return 'media.videoInvalid' as const;
+  if (reason === 'MEDIA_STORAGE_UNAVAILABLE') return 'media.storageUnavailable' as const;
+  return 'media.uploadFailed' as const;
 }

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { HotelOnly } from '@/features/lodging/components/hotel-only';
 import { PropertyEditor } from '@/features/lodging/components/property-editor';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
+import { loadNamespace } from '@/lib/i18n';
 
 import { useLodgingImageUpload } from '../-components/use-lodging-image-upload';
 
@@ -18,6 +19,7 @@ const Search = z.object({
 });
 
 export const Route = createFileRoute('/app/properties/$propertyId')({
+  loader: () => loadNamespace('lodging'),
   validateSearch: Search,
   component: function PropertyRoute() {
     const workspace = useCurrentWorkspace();

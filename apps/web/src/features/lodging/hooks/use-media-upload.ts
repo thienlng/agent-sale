@@ -32,7 +32,7 @@ export function useMediaUpload({
   remaining: number;
   onItems: (items: GalleryItem[]) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const uploadVideo = useUploadLodgingVideo();
   const [entries, setEntries] = useState<UploadEntry[]>([]);
   const seq = useRef(0);
@@ -45,12 +45,12 @@ export function useMediaUpload({
   const upload = useCallback(
     async (files: File[]) => {
       const notMp4 = files.filter((f) => f.type.startsWith('video/') && f.type !== 'video/mp4');
-      if (notMp4.length) toast.error(t('lodging.media.videoInvalid'));
+      if (notMp4.length) toast.error(t('media.videoInvalid'));
       const supported = files.filter((f) => IMAGE_TYPES.includes(f.type) || f.type === 'video/mp4');
       const accepted = supported.slice(0, Math.max(0, room.current - inFlight.current));
       inFlight.current += accepted.length;
       const skipped = files.length - notMp4.length - accepted.length;
-      if (skipped > 0) toast.warning(t('lodging.media.skipped', { count: skipped }));
+      if (skipped > 0) toast.warning(t('media.skipped', { count: skipped }));
       for (const file of accepted) {
         const id = ++seq.current;
         const kind = file.type === 'video/mp4' ? 'video' : 'image';
@@ -58,14 +58,14 @@ export function useMediaUpload({
         try {
           if (kind === 'video') {
             if (file.size > LODGING_VIDEO_MAX_BYTES)
-              throw new GalleryUploadError(t('lodging.media.videoTooLarge'));
+              throw new GalleryUploadError(t('media.videoTooLarge'));
             const stored = await uploadVideo(file, (progress) =>
               setEntries((all) => all.map((e) => (e.id === id ? { ...e, progress } : e))),
             );
             room.current -= 1;
             onItems([{ kind: 'video', url: stored.url, caption: '' }]);
           } else {
-            if (!uploadImage) throw new GalleryUploadError(t('lodging.media.uploadFailed'));
+            if (!uploadImage) throw new GalleryUploadError(t('media.uploadFailed'));
             const url = await uploadImage(file);
             room.current -= 1;
             onItems([{ kind: 'image', url, caption: '' }]);

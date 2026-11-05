@@ -169,7 +169,7 @@ export function ItemMenu({
   onCaption,
   onRemove,
 }: ItemMenuProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
@@ -177,28 +177,28 @@ export function ItemMenu({
           type="button"
           size="icon-sm"
           variant="secondary"
-          aria-label={t('lodging.media.itemMenu', { label })}
+          aria-label={t('media.itemMenu', { label })}
         >
           <MoreVertical aria-hidden />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem disabled={first} onSelect={onUp}>
-          {t('lodging.media.up')}
+          {t('media.up')}
         </DropdownMenuItem>
         <DropdownMenuItem disabled={last} onSelect={onDown}>
-          {t('lodging.media.down')}
+          {t('media.down')}
         </DropdownMenuItem>
         <DropdownMenuItem disabled={!canMove} onSelect={onMove}>
-          {t('lodging.media.moveTo')}
+          {t('media.moveTo')}
         </DropdownMenuItem>
         {canSetCover && (
-          <DropdownMenuItem onSelect={onCover}>{t('lodging.media.setCover')}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={onCover}>{t('media.setCover')}</DropdownMenuItem>
         )}
-        <DropdownMenuItem onSelect={onCaption}>{t('lodging.media.editCaption')}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={onCaption}>{t('media.editCaption')}</DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onSelect={onRemove}>
-          {t('lodging.media.remove')}
+          {t('media.remove')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -252,7 +252,7 @@ export function MediaTile({
   onRemove: () => void;
   onOpen: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     disabled: !canEdit,
@@ -273,7 +273,7 @@ export function MediaTile({
       {/* The whole tile opens the large view; the top bar's controls sit above this button. */}
       <button
         type="button"
-        aria-label={t('lodging.media.view', { label })}
+        aria-label={t('media.view', { label })}
         title={item.caption || undefined}
         className="absolute inset-0 cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
         onClick={onOpen}
@@ -290,8 +290,8 @@ export function MediaTile({
           <span className="truncate">
             {number ??
               (item.kind === 'video' || videoLinkOf(item.url)
-                ? t('lodging.media.videoBadge')
-                : t('lodging.media.linkBadge'))}
+                ? t('media.videoBadge')
+                : t('media.linkBadge'))}
           </span>
         </span>
         {canEdit && (
@@ -304,7 +304,7 @@ export function MediaTile({
               )}
             >
               <Checkbox
-                aria-label={t('lodging.media.select', { label })}
+                aria-label={t('media.select', { label })}
                 checked={selected}
                 onCheckedChange={(v) => onSelect(v === true)}
                 className="bg-background"
@@ -314,7 +314,7 @@ export function MediaTile({
               type="button"
               size="icon-sm"
               variant="secondary"
-              aria-label={t('lodging.media.dragHandle', { label })}
+              aria-label={t('media.dragHandle', { label })}
               className="cursor-grab touch-none active:cursor-grabbing"
               {...attributes}
               {...listeners}
@@ -342,11 +342,11 @@ export function MediaTile({
         <div className="pointer-events-none absolute inset-x-1 bottom-1 flex flex-col items-start gap-1">
           {showEarlyLabel && (
             <span className={cn(BADGE, 'bg-primary font-medium text-primary-foreground')}>
-              {t('lodging.media.botFirst')}
+              {t('media.botFirst')}
             </span>
           )}
           {isCover && (
-            <span className={cn(BADGE, 'bg-background/90')}>{t('lodging.media.coverTitle')}</span>
+            <span className={cn(BADGE, 'bg-background/90')}>{t('media.coverTitle')}</span>
           )}
         </div>
       )}

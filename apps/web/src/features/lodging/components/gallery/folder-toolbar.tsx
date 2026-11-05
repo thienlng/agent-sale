@@ -19,13 +19,13 @@ export function ViewToggle({
   value: ViewMode;
   onChange: (view: ViewMode) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   return (
     <ToggleGroup
       type="single"
       variant="outline"
       size="sm"
-      aria-label={t('lodging.media.viewMode')}
+      aria-label={t('media.viewMode')}
       className="shrink-0"
       value={value}
       onValueChange={(v) => {
@@ -34,10 +34,10 @@ export function ViewToggle({
         onChange(v);
       }}
     >
-      <ToggleGroupItem value="grid" aria-label={t('lodging.media.viewGrid')}>
+      <ToggleGroupItem value="grid" aria-label={t('media.viewGrid')}>
         <LayoutGrid aria-hidden />
       </ToggleGroupItem>
-      <ToggleGroupItem value="list" aria-label={t('lodging.media.viewList')}>
+      <ToggleGroupItem value="list" aria-label={t('media.viewList')}>
         <List aria-hidden />
       </ToggleGroupItem>
     </ToggleGroup>
@@ -58,24 +58,24 @@ export function SelectionBar({
   onRemove: () => void;
   onClear: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   return (
     <div
       role="toolbar"
-      aria-label={t('lodging.media.selected', { count })}
+      aria-label={t('media.selected', { count })}
       className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/50 p-2 text-sm"
     >
-      <span className="font-medium">{t('lodging.media.selected', { count })}</span>
+      <span className="font-medium">{t('media.selected', { count })}</span>
       <Button type="button" size="sm" variant="outline" disabled={!canMove} onClick={onMove}>
         <FolderInput aria-hidden />
-        {t('lodging.media.moveTo')}
+        {t('media.moveTo')}
       </Button>
       <Button type="button" size="sm" variant="outline" onClick={onRemove}>
         <Trash2 aria-hidden />
-        {t('lodging.media.remove')}
+        {t('media.remove')}
       </Button>
       <Button type="button" size="sm" variant="ghost" onClick={onClear}>
-        {t('lodging.media.clearSelection')}
+        {t('media.clearSelection')}
       </Button>
     </div>
   );

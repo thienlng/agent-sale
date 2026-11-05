@@ -52,7 +52,7 @@ export function GalleryForm({
   folderId,
   onFolderChange,
 }: GalleryFormProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const { draft, setDraft, dirty, discard } = useTabDraft(base);
   useReportDirty(dirty, onDirtyChange);
   const change = (fn: (d: GalleryDraft) => GalleryDraft) => setDraft((d) => fn(d));
@@ -64,7 +64,7 @@ export function GalleryForm({
     onSave(draft, {
       saved: (next) => {
         setDraft(next);
-        toast.success(t('lodging.editor.saved'), { duration: 3500 });
+        toast.success(t('editor.saved'), { duration: 3500 });
       },
       stale: discard,
     });
@@ -84,12 +84,7 @@ export function GalleryForm({
       ) : (
         <FolderList draft={draft} canEdit={canEdit} onChange={change} onOpen={onFolderChange} />
       )}
-      <TabSaveBar
-        dirty={dirty}
-        pending={pending}
-        canEdit={canEdit}
-        label={t('lodging.media.save')}
-      />
+      <TabSaveBar dirty={dirty} pending={pending} canEdit={canEdit} label={t('media.save')} />
     </form>
   );
 }

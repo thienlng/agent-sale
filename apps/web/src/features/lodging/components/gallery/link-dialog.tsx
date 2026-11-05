@@ -28,7 +28,7 @@ export function LinkDialog({
   onOpenChange: (open: boolean) => void;
   onAdd: (item: GalleryItem) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
   const [url, setUrl] = useState('');
   const [caption, setCaption] = useState('');
@@ -55,10 +55,10 @@ export function LinkDialog({
       <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
         <form noValidate onSubmit={submit} className="grid gap-4">
           <DialogHeader>
-            <DialogTitle>{t('lodging.media.addLink')}</DialogTitle>
+            <DialogTitle>{t('media.addLink')}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-2">
-            <Label htmlFor={`${id}-url`}>{t('lodging.media.linkUrl')}</Label>
+            <Label htmlFor={`${id}-url`}>{t('media.linkUrl')}</Label>
             <Input
               id={`${id}-url`}
               type="text"
@@ -74,12 +74,12 @@ export function LinkDialog({
             />
             {tried && !valid && (
               <p id={`${id}-url-error`} className="text-xs text-destructive">
-                {t('lodging.media.linkUrlInvalid')}
+                {t('media.linkUrlInvalid')}
               </p>
             )}
           </div>
           <div className="grid gap-2">
-            <Label htmlFor={`${id}-caption`}>{t('lodging.media.linkCaption')}</Label>
+            <Label htmlFor={`${id}-caption`}>{t('media.linkCaption')}</Label>
             <Input
               id={`${id}-caption`}
               value={caption}
@@ -88,7 +88,7 @@ export function LinkDialog({
             />
           </div>
           <DialogFooter>
-            <Button type="submit">{t('lodging.media.linkAdd')}</Button>
+            <Button type="submit">{t('media.linkAdd')}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

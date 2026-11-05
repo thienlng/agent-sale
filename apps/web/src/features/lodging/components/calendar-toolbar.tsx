@@ -47,7 +47,7 @@ export function CalendarToolbar({
   onlyFree: boolean;
   onOnlyFree: (next: boolean) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -55,18 +55,18 @@ export function CalendarToolbar({
         <Button
           variant="outline"
           size="icon-sm"
-          aria-label={t('lodging.cal.prev')}
+          aria-label={t('cal.prev')}
           onClick={() => onShift(-1)}
         >
           <ChevronLeft />
         </Button>
         <Button variant="outline" size="sm" onClick={() => onShift(0)}>
-          {t('lodging.cal.today')}
+          {t('cal.today')}
         </Button>
         <Button
           variant="outline"
           size="icon-sm"
-          aria-label={t('lodging.cal.next')}
+          aria-label={t('cal.next')}
           onClick={() => onShift(1)}
         >
           <ChevronRight />
@@ -80,21 +80,21 @@ export function CalendarToolbar({
           type="single"
           variant="outline"
           size="sm"
-          aria-label={t('lodging.cal.range')}
+          aria-label={t('cal.range')}
           value={String(nights)}
           onValueChange={(v) => v && onNights(v === '31' ? 31 : 14)}
         >
-          <ToggleGroupItem value="14">{t('lodging.cal.twoWeeks')}</ToggleGroupItem>
-          <ToggleGroupItem value="31">{t('lodging.cal.month')}</ToggleGroupItem>
+          <ToggleGroupItem value="14">{t('cal.twoWeeks')}</ToggleGroupItem>
+          <ToggleGroupItem value="31">{t('cal.month')}</ToggleGroupItem>
         </ToggleGroup>
       )}
       {areas.length > 1 && (
         <Select value={area || ALL} onValueChange={(v) => onArea(v === ALL ? '' : v)}>
-          <SelectTrigger size="sm" aria-label={t('lodging.cal.area')} className="w-40">
+          <SelectTrigger size="sm" aria-label={t('cal.area')} className="w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>{t('lodging.cal.allAreas')}</SelectItem>
+            <SelectItem value={ALL}>{t('cal.allAreas')}</SelectItem>
             {areas.map((a) => (
               <SelectItem key={a} value={a}>
                 {a}
@@ -106,7 +106,7 @@ export function CalendarToolbar({
       <div className="flex items-center gap-2">
         <Switch id={`${id}-free`} checked={onlyFree} onCheckedChange={onOnlyFree} />
         <Label htmlFor={`${id}-free`} className="text-sm font-normal">
-          {t('lodging.cal.onlyFree')}
+          {t('cal.onlyFree')}
         </Label>
       </div>
     </div>

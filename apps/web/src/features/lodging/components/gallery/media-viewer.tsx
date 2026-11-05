@@ -34,7 +34,7 @@ export function MediaViewer({
   onClose: () => void;
   onCaptionChange: (index: number, caption: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const item = index !== null ? items[index] : undefined;
   const count = items.length;
   const video = item?.kind === 'link' ? videoLinkOf(item.url) : null;
@@ -58,7 +58,7 @@ export function MediaViewer({
             <div className="flex items-baseline gap-2 pr-8">
               <DialogTitle className="min-w-0 truncate">{labels[index]}</DialogTitle>
               <DialogDescription className="shrink-0 tabular-nums">
-                {t('lodging.media.position', { n: index + 1, total: count })}
+                {t('media.position', { n: index + 1, total: count })}
               </DialogDescription>
             </div>
             <div className="relative grid min-h-48 place-items-center overflow-hidden rounded-lg bg-muted">
@@ -107,7 +107,7 @@ export function MediaViewer({
                     type="button"
                     size="icon"
                     variant="secondary"
-                    aria-label={t('lodging.media.previous')}
+                    aria-label={t('media.previous')}
                     className="absolute top-1/2 left-2 -translate-y-1/2 rounded-full"
                     onClick={() => step(-1)}
                   >
@@ -117,7 +117,7 @@ export function MediaViewer({
                     type="button"
                     size="icon"
                     variant="secondary"
-                    aria-label={t('lodging.media.next')}
+                    aria-label={t('media.next')}
                     className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full"
                     onClick={() => step(1)}
                   >
@@ -134,7 +134,7 @@ export function MediaViewer({
             )}
             {canEdit ? (
               <label className="grid gap-1.5 text-sm font-medium">
-                {t('lodging.media.caption')}
+                {t('media.caption')}
                 <Textarea
                   rows={2}
                   maxLength={300}
@@ -155,12 +155,12 @@ export function MediaViewer({
 }
 
 function OpenLink({ url }: { url: string }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   return (
     <Button asChild size="sm" variant="outline" className="shrink-0">
       <a href={url} target="_blank" rel="noopener noreferrer">
         <ExternalLink aria-hidden />
-        {t('lodging.media.openLink', { host: hostOf(url) })}
+        {t('media.openLink', { host: hostOf(url) })}
       </a>
     </Button>
   );

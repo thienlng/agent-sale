@@ -79,7 +79,7 @@ function UnitRow({
   room,
   ...p
 }: RowProps & { row: CalendarRowData; propertyId: string; room: boolean }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const taken = takenByNight(row, p.nights);
   const prices = new Map(row.prices.map((n) => [n.night, n.sell]));
   const now = Date.now();
@@ -102,8 +102,7 @@ function UnitRow({
         const date = dayMonth(night);
         const sell = prices.get(night) ?? null;
         const note = p.noteOf(night);
-        const withNote = (base: string) =>
-          note ? t('lodging.cal.cellNote', { base, text: note }) : base;
+        const withNote = (base: string) => (note ? t('cal.cellNote', { base, text: note }) : base);
         return (
           <div
             key={night}
@@ -140,11 +139,11 @@ function UnitRow({
                   data-c={i}
                   className={cellClass}
                   aria-label={withNote(
-                    t('lodging.cal.cellTaken', {
+                    t('cal.cellTaken', {
                       unit: p.label,
                       day,
                       date,
-                      status: t(`lodging.bookingStatus.${seg.status}`),
+                      status: t(`bookingStatus.${seg.status}`),
                       code: seg.code,
                     }),
                   )}
@@ -168,8 +167,8 @@ function UnitRow({
                   )}
                   aria-label={withNote(
                     sell === null
-                      ? t('lodging.cal.cellNoPrice', { unit: p.label, day, date })
-                      : t('lodging.cal.cellFree', {
+                      ? t('cal.cellNoPrice', { unit: p.label, day, date })
+                      : t('cal.cellFree', {
                           unit: p.label,
                           day,
                           date,
@@ -220,9 +219,9 @@ function UnitRow({
                 urgent && 'font-semibold text-destructive',
               )}
             >
-              {t(`lodging.bookingStatus.${s.status}`)}
+              {t(`bookingStatus.${s.status}`)}
               {s.status === 'hold' && s.holdExpiresAt
-                ? ` · ${t('lodging.cal.holdExpires', { time: clockTime(s.holdExpiresAt) })}`
+                ? ` · ${t('cal.holdExpires', { time: clockTime(s.holdExpiresAt) })}`
                 : ''}
             </span>
             {s.note && <StickyNote data-marker="note" className="size-3 shrink-0" />}
@@ -244,7 +243,7 @@ function UnitRow({
 
 /** Property row of a `rooms` property: whole-place price when every room is free, else "free/total". */
 function RoomsSummaryRow({ property, ...p }: RowProps & { property: CalendarPropertyData }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const takenRows = property.rows.map((row) => takenByNight(row, p.nights));
   const prices = new Map(property.wholePrices.map((n) => [n.night, n.sell]));
   const total = property.rows.length;
@@ -268,8 +267,7 @@ function RoomsSummaryRow({ property, ...p }: RowProps & { property: CalendarProp
         const ref: CellRef = { propertyId: property.id, unitId: null, night, room: false };
         const allFree = free === total && total > 0;
         const note = p.noteOf(night);
-        const withNote = (base: string) =>
-          note ? t('lodging.cal.cellNote', { base, text: note }) : base;
+        const withNote = (base: string) => (note ? t('cal.cellNote', { base, text: note }) : base);
         return (
           <div
             key={night}
@@ -296,8 +294,8 @@ function RoomsSummaryRow({ property, ...p }: RowProps & { property: CalendarProp
                   )}
                   aria-label={withNote(
                     sell === null
-                      ? t('lodging.cal.cellNoPrice', { unit: p.label, day, date })
-                      : t('lodging.cal.cellFree', {
+                      ? t('cal.cellNoPrice', { unit: p.label, day, date })
+                      : t('cal.cellFree', {
                           unit: p.label,
                           day,
                           date,
@@ -324,7 +322,7 @@ function RoomsSummaryRow({ property, ...p }: RowProps & { property: CalendarProp
                       : 'bg-primary-soft text-primary-strong',
                   )}
                   aria-label={withNote(
-                    t('lodging.cal.cellPartial', { unit: p.label, day, date, free, total }),
+                    t('cal.cellPartial', { unit: p.label, day, date, free, total }),
                   )}
                   onClick={() => p.handlers.onToggle(property.id)}
                 >
@@ -366,7 +364,7 @@ export const PropertyBlock = memo(function PropertyBlock({
   selection,
   handlers,
 }: PropertyBlockProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const searching = fit !== undefined;
   const fits = Boolean(fit?.fits);
   const inRange = (night: string) =>
@@ -380,7 +378,7 @@ export const PropertyBlock = memo(function PropertyBlock({
     (unitId: string | null): NoteOf =>
     (night) =>
       notes.get(`${unitId ?? ''}|${night}`);
-  const capacity = t('lodging.cal.capacity', {
+  const capacity = t('cal.capacity', {
     adults: property.standardAdults,
     children: property.standardChildren,
   });
@@ -392,7 +390,7 @@ export const PropertyBlock = memo(function PropertyBlock({
       </div>
       <div className="text-xs tabular-nums text-muted-foreground">
         {capacity}
-        {rooms && ` · ${t('lodging.cal.rooms', { count: property.rows.length })}`}
+        {rooms && ` · ${t('cal.rooms', { count: property.rows.length })}`}
       </div>
     </div>
   );
@@ -401,7 +399,7 @@ export const PropertyBlock = memo(function PropertyBlock({
       type="button"
       className="flex w-full min-w-0 items-center text-left hover:bg-muted/60"
       aria-expanded={expanded}
-      aria-label={t('lodging.cal.expand', { code: property.code })}
+      aria-label={t('cal.expand', { code: property.code })}
       onClick={() => handlers.onToggle(property.id)}
     >
       <ChevronRight
@@ -429,8 +427,8 @@ export const PropertyBlock = memo(function PropertyBlock({
           onClick={() => handlers.onHold?.(fit)}
         >
           {fit.quote.totalSell === null
-            ? t('lodging.find.holdNoPrice')
-            : t('lodging.find.hold', { amount: formatVnd(fit.quote.totalSell) })}
+            ? t('find.holdNoPrice')
+            : t('find.hold', { amount: formatVnd(fit.quote.totalSell) })}
         </Button>
       )}
       {fits && fit && <FitPackages option={fit} />}

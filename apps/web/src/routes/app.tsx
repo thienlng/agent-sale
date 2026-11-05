@@ -58,7 +58,7 @@ export const Route = createFileRoute('/app')({
         navCounts={{
           '/app/bookings': {
             count: pendingHolds,
-            label: t('lodging.list.pendingBotHolds', { count: pendingHolds }),
+            label: t('nav.pendingBotHolds', { count: pendingHolds }),
           },
         }}
       >

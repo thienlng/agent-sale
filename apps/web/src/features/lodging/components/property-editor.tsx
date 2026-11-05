@@ -43,7 +43,7 @@ export function PropertyEditor({
   /** The tab to open first (e.g. "Đơn vị cho thuê" when coming back from a unit page). */
   initialTab?: PropertyTabKey | undefined;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const property = useProperty(propertyId);
   const canEdit = useCan('catalog.manage');
   const [tab, setTab] = useState<TabKey>(folderId ? 'gallery' : (initialTab ?? 'info'));
@@ -56,10 +56,10 @@ export function PropertyEditor({
         <CircleAlert aria-hidden />
         <AlertDescription className="flex flex-wrap items-center gap-2">
           {property.error instanceof ApiClientError && property.error.status === 404
-            ? t('lodging.editor.notFound')
-            : t('lodging.loadError')}
+            ? t('editor.notFound')
+            : t('loadError')}
           <Button size="xs" variant="outline" onClick={() => void property.refetch()}>
-            {t('lodging.retry')}
+            {t('retry')}
           </Button>
         </AlertDescription>
       </Alert>
@@ -78,7 +78,7 @@ export function PropertyEditor({
         <Button asChild size="sm" variant="ghost" className="-ml-2">
           <Link to="/app/properties">
             <ChevronLeft aria-hidden />
-            {t('lodging.editor.back')}
+            {t('editor.back')}
           </Link>
         </Button>
       </div>
@@ -86,8 +86,8 @@ export function PropertyEditor({
         <h1 className="text-xl font-semibold">
           <span className="tabular-nums">{p.code}</span> · {p.name}
         </h1>
-        <Badge variant="secondary">{t(`lodging.sellMode.${p.sellMode}`)}</Badge>
-        {p.status === 'paused' && <Badge variant="outline">{t('lodging.places.paused')}</Badge>}
+        <Badge variant="secondary">{t(`sellMode.${p.sellMode}`)}</Badge>
+        {p.status === 'paused' && <Badge variant="outline">{t('places.paused')}</Badge>}
       </div>
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
         <TabsList
@@ -96,7 +96,7 @@ export function PropertyEditor({
         >
           {tabs.map((key) => (
             <TabsTrigger key={key} value={key} className="flex-none px-3">
-              {t(`lodging.editor.tabs.${key}`)}
+              {t(`editor.tabs.${key}`)}
               {dirtyTabs.has(key) && <UnsavedMark />}
             </TabsTrigger>
           ))}

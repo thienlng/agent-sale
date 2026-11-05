@@ -27,7 +27,7 @@ export function FindAvailabilityBar({
   onSearch: (body: AvailabilityRequest) => void;
   onClear: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
@@ -55,14 +55,14 @@ export function FindAvailabilityBar({
   return (
     <form
       role="search"
-      aria-label={t('lodging.find.title')}
+      aria-label={t('find.title')}
       onSubmit={submit}
       className="grid gap-1 rounded-lg border border-border bg-card p-2"
     >
       <div className="flex flex-wrap items-end gap-2">
         <div className="grid gap-1">
           <Label htmlFor={`${id}-in`} className="text-xs">
-            {t('lodging.find.checkIn')}
+            {t('find.checkIn')}
           </Label>
           <Input
             id={`${id}-in`}
@@ -75,7 +75,7 @@ export function FindAvailabilityBar({
         </div>
         <div className="grid gap-1">
           <Label htmlFor={`${id}-out`} className="text-xs">
-            {t('lodging.find.checkOut')}
+            {t('find.checkOut')}
           </Label>
           <Input
             id={`${id}-out`}
@@ -90,16 +90,16 @@ export function FindAvailabilityBar({
         <PartyInput value={party} onChange={setParty} compact />
         <Button type="submit" size="sm" className="h-8">
           <Search aria-hidden />
-          {t('lodging.find.search')}
+          {t('find.search')}
         </Button>
         {active && (
           <Button type="button" variant="ghost" size="sm" className="h-8" onClick={clear}>
             <X aria-hidden />
-            {t('lodging.find.clear')}
+            {t('find.clear')}
           </Button>
         )}
       </div>
-      {invalid && <p className="text-xs text-destructive">{t('lodging.find.invalid')}</p>}
+      {invalid && <p className="text-xs text-destructive">{t('find.invalid')}</p>}
       {status && (
         <p role="status" className="text-xs text-muted-foreground">
           {status}

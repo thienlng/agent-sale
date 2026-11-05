@@ -31,8 +31,8 @@ export function RatesMatrix({
   disabled: boolean;
   onChange: (key: string, cells: RateCell[]) => void;
 }) {
-  const { t } = useTranslation();
-  const day = (d: number) => t(`lodging.weekdayShort.${d}`);
+  const { t } = useTranslation('lodging');
+  const day = (d: number) => t(`weekdayShort.${d}`);
   const setCell = (row: RateRow, d: number, patch: Partial<RateCell>) =>
     onChange(
       row.key,
@@ -41,12 +41,12 @@ export function RatesMatrix({
   const severalTargets = new Set(rows.map((r) => r.unitId)).size > 1;
   const targetLabel = (row: RateRow) =>
     row.wholeOptional
-      ? t('lodging.rates.wholeOptional')
+      ? t('rates.wholeOptional')
       : row.inactive
-        ? t('lodging.rates.roomInactive', { name: row.name })
+        ? t('rates.roomInactive', { name: row.name })
         : row.name;
   const subLabel = (row: RateRow) =>
-    [severalTargets ? targetLabel(row) : '', row.full ? t('lodging.packages.full') : '']
+    [severalTargets ? targetLabel(row) : '', row.full ? t('packages.full') : '']
       .filter(Boolean)
       .join(' · ');
 
@@ -56,10 +56,10 @@ export function RatesMatrix({
         <thead className="bg-muted/40 text-xs text-muted-foreground">
           <tr>
             <th scope="col" className="w-48 px-3 py-2 text-left font-medium">
-              {t('lodging.rates.target')}
+              {t('rates.target')}
             </th>
             <th scope="col" className="w-20 px-1.5 py-2">
-              <span className="sr-only">{t('lodging.rates.priceKind')}</span>
+              <span className="sr-only">{t('rates.priceKind')}</span>
             </th>
             {WEEKDAYS.map((d) => (
               <th
@@ -86,7 +86,7 @@ export function RatesMatrix({
                     {row.packageKey ? (
                       <>
                         <span className="flex min-h-8 items-center break-words">
-                          {row.packageName || t('lodging.packages.unnamed')}
+                          {row.packageName || t('packages.unnamed')}
                         </span>
                         {sub && (
                           <span className="mt-1 flex min-h-7 items-center text-xs font-normal text-muted-foreground">
@@ -102,9 +102,9 @@ export function RatesMatrix({
                   </th>
                   <td className="px-1.5 py-2 text-xs text-muted-foreground" aria-hidden>
                     <span className="flex h-8 items-center font-medium text-foreground">
-                      {t('lodging.rates.sell')}
+                      {t('rates.sell')}
                     </span>
-                    <span className="mt-1 flex h-7 items-center">{t('lodging.rates.cost')}</span>
+                    <span className="mt-1 flex h-7 items-center">{t('rates.cost')}</span>
                   </td>
                   {WEEKDAYS.map((d) => {
                     const cell = row.cells[d - 1] ?? { sell: 0, cost: 0 };
@@ -112,25 +112,23 @@ export function RatesMatrix({
                     return (
                       <td key={d} className={cn('px-1.5 py-2', d >= 6 && 'bg-muted/30')}>
                         <MoneyInput
-                          aria-label={t('lodging.rates.sellLabel', { row: title, day: day(d) })}
+                          aria-label={t('rates.sellLabel', { row: title, day: day(d) })}
                           aria-invalid={invalid || undefined}
                           aria-describedby={invalid ? errorId : undefined}
-                          placeholder={
-                            notSold ? t('lodging.packages.notSold') : t('lodging.rates.sell')
-                          }
+                          placeholder={notSold ? t('packages.notSold') : t('rates.sell')}
                           disabled={disabled}
                           value={cell.sell}
                           onValueChange={(sell) => setCell(row, d, { sell })}
                           className="h-8 bg-background px-2 text-sm"
                         />
                         <MoneyInput
-                          aria-label={t('lodging.rates.costLabel', { row: title, day: day(d) })}
+                          aria-label={t('rates.costLabel', { row: title, day: day(d) })}
                           placeholder={
                             cell.sell
                               ? new Intl.NumberFormat('vi-VN').format(cell.sell)
                               : notSold
                                 ? '—'
-                                : t('lodging.rates.cost')
+                                : t('rates.cost')
                           }
                           disabled={disabled}
                           value={cell.cost}
@@ -145,14 +143,14 @@ export function RatesMatrix({
                   <tr>
                     <td colSpan={9} className="px-3 pb-2">
                       <p id={errorId} className="text-xs text-destructive">
-                        {t('lodging.rates.missing', {
+                        {t('rates.missing', {
                           row: title,
                           days: missing.map(day).join(', '),
                         })}
                       </p>
                       {!row.packageKey && (
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          {t('lodging.rates.missingHint')}
+                          {t('rates.missingHint')}
                         </p>
                       )}
                     </td>

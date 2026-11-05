@@ -17,12 +17,12 @@ export function MoveDialog({
   folders: readonly GalleryFolder[];
   onPick: (folderId: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm" aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle>{t('lodging.media.moveTitle')}</DialogTitle>
+          <DialogTitle>{t('media.moveTitle')}</DialogTitle>
         </DialogHeader>
         {folders.length ? (
           <ul className="grid gap-1">
@@ -41,7 +41,7 @@ export function MoveDialog({
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-muted-foreground">{t('lodging.media.noOtherFolder')}</p>
+          <p className="text-sm text-muted-foreground">{t('media.noOtherFolder')}</p>
         )}
       </DialogContent>
     </Dialog>

@@ -48,7 +48,7 @@ import { CoverImage } from './cover-image';
  * every unit sent back with all of its fields). Units switched off stay listed, marked "Đang tắt".
  */
 export function RoomsTab({ property: p, canEdit }: { property: PropertyDto; canEdit: boolean }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const navigate = useNavigate();
   const units = roomUnits(p);
   const replace = useReplaceUnits();
@@ -63,10 +63,10 @@ export function RoomsTab({ property: p, canEdit }: { property: PropertyDto; canE
       { id: p.id, body: { version: p.version, units: next } },
       {
         onSuccess: (saved) => {
-          toast.success(t('lodging.editor.saved'), { duration: 3500 });
+          toast.success(t('editor.saved'), { duration: 3500 });
           onSaved?.(saved);
         },
-        onError: (error) => saveError(error, { conflict: () => t('lodging.units.removeConflict') }),
+        onError: (error) => saveError(error, { conflict: () => t('units.removeConflict') }),
       },
     );
   };
@@ -80,18 +80,16 @@ export function RoomsTab({ property: p, canEdit }: { property: PropertyDto; canE
 
   return (
     <div className="grid gap-4">
-      <p className="text-sm text-muted-foreground">{t('lodging.units.intro')}</p>
+      <p className="text-sm text-muted-foreground">{t('units.intro')}</p>
       {units.length > 0 && inactive === units.length ? (
         <Alert variant="destructive">
           <TriangleAlert aria-hidden />
-          <AlertDescription>{t('lodging.units.noActive')}</AlertDescription>
+          <AlertDescription>{t('units.noActive')}</AlertDescription>
         </Alert>
       ) : inactive > 0 ? (
         <Alert>
           <TriangleAlert aria-hidden />
-          <AlertDescription>
-            {t('lodging.units.inactiveHint', { count: inactive })}
-          </AlertDescription>
+          <AlertDescription>{t('units.inactiveHint', { count: inactive })}</AlertDescription>
         </Alert>
       ) : null}
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
@@ -124,16 +122,16 @@ export function RoomsTab({ property: p, canEdit }: { property: PropertyDto; canE
             onClick={() => setAdding(true)}
           >
             <Plus aria-hidden />
-            {t('lodging.units.add')}
+            {t('units.add')}
           </Button>
           {units.length >= MAX_UNITS && (
             <span className="text-xs text-muted-foreground">
-              {t('lodging.units.limit', { count: MAX_UNITS })}
+              {t('units.limit', { count: MAX_UNITS })}
             </span>
           )}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">{t('lodging.editor.readOnly')}</p>
+        <p className="text-sm text-muted-foreground">{t('editor.readOnly')}</p>
       )}
       {adding && (
         <AddUnitDialog
@@ -156,12 +154,12 @@ export function RoomsTab({ property: p, canEdit }: { property: PropertyDto; canE
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {t('lodging.units.removeTitle', { name: removing?.name ?? '' })}
+              {t('units.removeTitle', { name: removing?.name ?? '' })}
             </AlertDialogTitle>
-            <AlertDialogDescription>{t('lodging.units.removeDescription')}</AlertDialogDescription>
+            <AlertDialogDescription>{t('units.removeDescription')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('lodging.units.keep')}</AlertDialogCancel>
+            <AlertDialogCancel>{t('units.keep')}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={() => {
@@ -170,7 +168,7 @@ export function RoomsTab({ property: p, canEdit }: { property: PropertyDto; canE
                 if (id) save(inputs().filter((u) => u.id !== id));
               }}
             >
-              {t('lodging.units.removeConfirm')}
+              {t('units.removeConfirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -181,10 +179,10 @@ export function RoomsTab({ property: p, canEdit }: { property: PropertyDto; canE
 
 /** "Tiêu chuẩn 2 · Tối đa 4" of a unit (the max only when it has one). */
 export function partyLine(t: TFunction, u: UnitDto): string {
-  const standard = t('lodging.units.standard', { count: u.capacityAdults + u.capacityChildren });
+  const standard = t('units.standard', { count: u.capacityAdults + u.capacityChildren });
   return u.maxGuests === null
     ? standard
-    : `${standard} · ${t('lodging.units.max', { count: u.maxGuests })}`;
+    : `${standard} · ${t('units.max', { count: u.maxGuests })}`;
 }
 
 function UnitCard({
@@ -208,7 +206,7 @@ function UnitCard({
   onMove: (delta: -1 | 1) => void;
   onRemove: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const cover = galleryCoverUrl(u);
   const from = lowestWeekdaySell(p, u.id);
   const titleId = `unit-${u.id}-title`;
@@ -233,7 +231,7 @@ function UnitCard({
           <div className="grid size-full place-items-center text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <ImageOff className="size-4" aria-hidden />
-              {t('lodging.units.noPhoto')}
+              {t('units.noPhoto')}
             </span>
           </div>
         )}
@@ -250,23 +248,21 @@ function UnitCard({
             </Link>
           </h3>
           <span className="flex shrink-0 gap-1">
-            {!u.active && <Badge variant="outline">{t('lodging.units.inactive')}</Badge>}
-            <Badge variant="secondary">{t(`lodging.units.category.${u.category}`)}</Badge>
+            {!u.active && <Badge variant="outline">{t('units.inactive')}</Badge>}
+            <Badge variant="secondary">{t(`units.category.${u.category}`)}</Badge>
           </span>
         </div>
         {u.view && <p className="text-xs text-muted-foreground">{u.view}</p>}
         <p className="text-xs tabular-nums text-muted-foreground">{partyLine(t, u)}</p>
         <div className="mt-auto flex items-center justify-between gap-2 border-t pt-2">
           <span className="text-sm font-medium tabular-nums">
-            {from === null
-              ? t('lodging.units.noPrice')
-              : t('lodging.units.from', { amount: formatVnd(from) })}
+            {from === null ? t('units.noPrice') : t('units.from', { amount: formatVnd(from) })}
           </span>
           {canEdit && (
             // Above the card link, so the switch and the menu do not open the unit page.
             <span className="relative z-10 flex items-center gap-1">
               <Switch
-                aria-label={t('lodging.units.activeLabel', { name: u.name })}
+                aria-label={t('units.activeLabel', { name: u.name })}
                 checked={u.active}
                 disabled={busy}
                 onCheckedChange={onActive}
@@ -278,17 +274,17 @@ function UnitCard({
                     size="icon-sm"
                     variant="ghost"
                     disabled={busy}
-                    aria-label={t('lodging.units.menu', { name: u.name })}
+                    aria-label={t('units.menu', { name: u.name })}
                   >
                     <MoreVertical aria-hidden />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem disabled={first} onSelect={() => onMove(-1)}>
-                    {t('lodging.units.moveUp')}
+                    {t('units.moveUp')}
                   </DropdownMenuItem>
                   <DropdownMenuItem disabled={last} onSelect={() => onMove(1)}>
-                    {t('lodging.units.moveDown')}
+                    {t('units.moveDown')}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -296,7 +292,7 @@ function UnitCard({
                     disabled={first && last}
                     onSelect={onRemove}
                   >
-                    {t('lodging.units.remove')}
+                    {t('units.remove')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { HotelOnly } from '@/features/lodging/components/hotel-only';
 import { UnitPage } from '@/features/lodging/components/unit-page';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
+import { loadNamespace } from '@/lib/i18n';
 
 import { useLodgingImageUpload } from '../-components/use-lodging-image-upload';
 
@@ -13,6 +14,7 @@ const Search = z.object({ folder: z.string().max(40).optional().catch(undefined)
 
 /** A rental unit of a property (T-193); a lazy chunk (autoCodeSplitting) off the shell. */
 export const Route = createFileRoute('/app/properties/$propertyId_/units/$unitId')({
+  loader: () => loadNamespace('lodging'),
   validateSearch: Search,
   component: function UnitRoute() {
     const workspace = useCurrentWorkspace();

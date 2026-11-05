@@ -55,11 +55,11 @@ export function PackagesSection({
   disabled: boolean;
   onChange: (next: PackageDraft[]) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
   const [added, setAdded] = useState<string | null>(null);
   const [removing, setRemoving] = useState<PackageDraft | null>(null);
-  const label = (field: PackageField) => t(`lodging.packages.${field}`);
+  const label = (field: PackageField) => t(`packages.${field}`);
   const set = (key: string, patch: Partial<PackageDraft>) =>
     onChange(packages.map((k) => (k.key === key ? { ...k, ...patch } : k)));
   const remove = (k: PackageDraft) => onChange(packages.filter((o) => o.key !== k.key));
@@ -75,8 +75,8 @@ export function PackagesSection({
     <section className="grid gap-3">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h2 className="text-base font-semibold">{t('lodging.packages.title')}</h2>
-          <p className="text-xs text-muted-foreground">{t('lodging.packages.hint')}</p>
+          <h2 className="text-base font-semibold">{t('packages.title')}</h2>
+          <p className="text-xs text-muted-foreground">{t('packages.hint')}</p>
         </div>
         {!disabled && (
           <Button
@@ -84,16 +84,16 @@ export function PackagesSection({
             size="sm"
             variant="outline"
             disabled={full}
-            title={full ? t('lodging.packages.limit', { count: MAX_PACKAGES }) : undefined}
+            title={full ? t('packages.limit', { count: MAX_PACKAGES }) : undefined}
             onClick={add}
           >
             <Plus aria-hidden />
-            {t('lodging.packages.add')}
+            {t('packages.add')}
           </Button>
         )}
       </div>
       {packages.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('lodging.packages.empty')}</p>
+        <p className="text-sm text-muted-foreground">{t('packages.empty')}</p>
       ) : (
         <div className="rounded-lg border">
           <div
@@ -115,9 +115,7 @@ export function PackagesSection({
             {packages.map((k, i) => {
               const fieldId = (f: PackageField) => `${id}-${i}-${f}`;
               const issues = problems.get(k.key) ?? {};
-              const messages = Object.values(issues).map((code) =>
-                t(`lodging.packages.errors.${code}`),
-              );
+              const messages = Object.values(issues).map((code) => t(`packages.errors.${code}`));
               const errorId = `${id}-${i}-error`;
               const invalid = (f: PackageField) => (issues[f] ? true : undefined);
               const describe = (f: PackageField) => (issues[f] ? errorId : undefined);
@@ -133,7 +131,7 @@ export function PackagesSection({
                       maxLength={50}
                       autoFocus={k.key === added}
                       disabled={disabled}
-                      placeholder={t('lodging.packages.namePlaceholder')}
+                      placeholder={t('packages.namePlaceholder')}
                       aria-invalid={invalid('name')}
                       aria-describedby={describe('name')}
                       onChange={(e) => set(k.key, { name: e.target.value })}
@@ -147,8 +145,8 @@ export function PackagesSection({
                       size="icon-sm"
                       variant="ghost"
                       className="absolute top-1.5 right-2 sm:static sm:col-start-6 sm:row-start-1 sm:self-center"
-                      aria-label={t('lodging.packages.remove', {
-                        name: k.name.trim() || t('lodging.packages.unnamed'),
+                      aria-label={t('packages.remove', {
+                        name: k.name.trim() || t('packages.unnamed'),
                       })}
                       onClick={() => (k.id && overridesOf(k.id) > 0 ? setRemoving(k) : remove(k))}
                     >
@@ -193,14 +191,14 @@ export function PackagesSection({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {t('lodging.packages.removeTitle', { name: removing?.name.trim() ?? '' })}
+              {t('packages.removeTitle', { name: removing?.name.trim() ?? '' })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {t('lodging.packages.removeDescription', { count: removingOverrides })}
+              {t('packages.removeDescription', { count: removingOverrides })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('lodging.packages.keep')}</AlertDialogCancel>
+            <AlertDialogCancel>{t('packages.keep')}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={() => {
@@ -208,7 +206,7 @@ export function PackagesSection({
                 setRemoving(null);
               }}
             >
-              {t('lodging.packages.removeConfirm')}
+              {t('packages.removeConfirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

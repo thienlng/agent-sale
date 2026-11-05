@@ -44,7 +44,7 @@ export function UnitPage({
   folderId?: string | undefined;
   onFolderChange?: ((folderId: string | undefined) => void) | undefined;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const property = useProperty(propertyId);
   const canEdit = useCan('catalog.manage');
   const [tab, setTab] = useState<TabKey>(folderId ? 'gallery' : 'info');
@@ -62,7 +62,7 @@ export function UnitPage({
       <Alert variant="destructive">
         <CircleAlert aria-hidden />
         <AlertDescription className="flex flex-wrap items-center gap-2">
-          {missing ? t('lodging.units.notFound') : t('lodging.loadError')}
+          {missing ? t('units.notFound') : t('loadError')}
           {missing && p ? (
             <Button asChild size="xs" variant="outline">
               <Link
@@ -70,12 +70,12 @@ export function UnitPage({
                 params={{ propertyId }}
                 search={{ tab: 'rooms' }}
               >
-                {t('lodging.units.back')}
+                {t('units.back')}
               </Link>
             </Button>
           ) : (
             <Button size="xs" variant="outline" onClick={() => void property.refetch()}>
-              {t('lodging.retry')}
+              {t('retry')}
             </Button>
           )}
         </AlertDescription>
@@ -90,7 +90,7 @@ export function UnitPage({
           <Link to="/app/properties/$propertyId" params={{ propertyId }} search={{ tab: 'rooms' }}>
             <ChevronLeft aria-hidden />
             <span className="truncate">
-              <span className="tabular-nums">{p.code}</span> · {t('lodging.units.back')}
+              <span className="tabular-nums">{p.code}</span> · {t('units.back')}
             </span>
           </Link>
         </Button>
@@ -98,8 +98,8 @@ export function UnitPage({
       <div className="grid gap-1">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h1 className="text-xl font-semibold break-words">{unit.name}</h1>
-          <Badge variant="secondary">{t(`lodging.units.category.${unit.category}`)}</Badge>
-          {!unit.active && <Badge variant="outline">{t('lodging.units.inactive')}</Badge>}
+          <Badge variant="secondary">{t(`units.category.${unit.category}`)}</Badge>
+          {!unit.active && <Badge variant="outline">{t('units.inactive')}</Badge>}
         </div>
         <p className="text-sm text-muted-foreground">
           {[p.name, unit.view, partyLine(t, unit)].filter(Boolean).join(' · ')}
@@ -112,7 +112,7 @@ export function UnitPage({
         >
           {TABS.map((key) => (
             <TabsTrigger key={key} value={key} className="flex-none px-3">
-              {t(`lodging.units.tabs.${key}`)}
+              {t(`units.tabs.${key}`)}
               {dirtyTabs.has(key) && <UnsavedMark />}
             </TabsTrigger>
           ))}

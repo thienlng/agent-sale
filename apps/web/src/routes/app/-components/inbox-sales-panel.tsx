@@ -194,7 +194,7 @@ export function InboxSalesPanel({
       {slots.tags}
       <NotesBlock conversation={c} />
       {industry === 'hotel' ? (
-        <PanelBlock title={t('lodging.conv.title')}>
+        <PanelBlock title={t('conv.title', { ns: 'lodging' })}>
           <ConversationBookings
             conversationId={c.id}
             contactId={c.contactId ?? null}

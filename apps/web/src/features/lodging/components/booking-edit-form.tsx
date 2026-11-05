@@ -70,7 +70,7 @@ export function BookingEditForm({
   onDone: () => void;
   onReload: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
   const update = useUpdateBooking();
   const property = useProperty(booking.propertyId);
@@ -189,7 +189,7 @@ export function BookingEditForm({
       { id: booking.id, body: out },
       {
         onSuccess: (b) => {
-          toast.success(t('lodging.sheet.saved', { code: b.code }), { duration: 3500 });
+          toast.success(t('sheet.saved', { code: b.code }), { duration: 3500 });
           onDone();
         },
       },
@@ -199,7 +199,7 @@ export function BookingEditForm({
   return (
     <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col" noValidate>
       <div className="grid flex-1 gap-5 overflow-y-auto px-4 pb-4">
-        <SheetSection title={t('lodging.sheet.sectionDates')}>
+        <SheetSection title={t('sheet.sectionDates')}>
           <StayDates
             checkIn={checkIn}
             checkOut={checkOut}
@@ -234,12 +234,12 @@ export function BookingEditForm({
           <TakenAlert quote={quote.data} />
         </SheetSection>
         {stay && (
-          <SheetSection title={t('lodging.sheet.sectionGuest')}>
+          <SheetSection title={t('sheet.sectionGuest')}>
             <PartyInput value={party} onChange={setParty} />
             <div className="grid grid-cols-2 gap-2">
               <div className="grid gap-1">
                 <Label htmlFor={`${id}-name`} className="text-xs">
-                  {t('lodging.sheet.guestName')}
+                  {t('sheet.guestName')}
                 </Label>
                 <Input
                   id={`${id}-name`}
@@ -249,12 +249,12 @@ export function BookingEditForm({
                   onChange={(e) => setGuestName(e.target.value)}
                 />
                 {submitted && !guestName.trim() && (
-                  <p className="text-xs text-destructive">{t('lodging.sheet.required')}</p>
+                  <p className="text-xs text-destructive">{t('sheet.required')}</p>
                 )}
               </div>
               <div className="grid gap-1">
                 <Label htmlFor={`${id}-phone`} className="text-xs">
-                  {t('lodging.sheet.guestPhone')}
+                  {t('sheet.guestPhone')}
                 </Label>
                 <Input
                   id={`${id}-phone`}
@@ -268,7 +268,7 @@ export function BookingEditForm({
           </SheetSection>
         )}
         {priced && (
-          <SheetSection title={t('lodging.sheet.sectionPrice')}>
+          <SheetSection title={t('sheet.sectionPrice')}>
             <QuoteBreakdown
               quote={stayChanged ? quote.data : (booking.quote ?? undefined)}
               loading={quote.isFetching}
@@ -296,10 +296,10 @@ export function BookingEditForm({
           </SheetSection>
         )}
         {(!checkedIn || !block) && (
-          <SheetSection title={t('lodging.sheet.sectionNote')}>
+          <SheetSection title={t('sheet.sectionNote')}>
             {!checkedIn && (
               <Textarea
-                aria-label={t('lodging.sheet.note')}
+                aria-label={t('sheet.note')}
                 rows={2}
                 maxLength={2000}
                 value={note}
@@ -313,10 +313,10 @@ export function BookingEditForm({
       </div>
       <div className="flex justify-end gap-2 border-t border-border px-4 py-3">
         <Button type="button" variant="ghost" onClick={onDone}>
-          {t('lodging.sheet.cancelEdit')}
+          {t('sheet.cancelEdit')}
         </Button>
         <Button type="submit" disabled={update.isPending || (submitted && invalid)}>
-          <SavingLabel saving={update.isPending}>{t('lodging.sheet.save')}</SavingLabel>
+          <SavingLabel saving={update.isPending}>{t('sheet.save')}</SavingLabel>
         </Button>
       </div>
     </form>

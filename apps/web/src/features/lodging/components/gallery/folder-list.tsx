@@ -49,7 +49,7 @@ export function FolderList({
   onChange: (update: (d: GalleryDraft) => GalleryDraft) => void;
   onOpen: (folderId: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   // null id = a new folder.
   const [naming, setNaming] = useState<{ id: string | null } | null>(null);
   const [deleting, setDeleting] = useState<GalleryFolder | null>(null);
@@ -58,11 +58,11 @@ export function FolderList({
   const countLabel = (f: GalleryFolder) => {
     const c = folderCounts(f);
     const parts = [
-      c.images ? t('lodging.media.photos', { count: c.images }) : '',
-      c.videos ? t('lodging.media.videos', { count: c.videos }) : '',
-      c.links ? t('lodging.media.links', { count: c.links }) : '',
+      c.images ? t('media.photos', { count: c.images }) : '',
+      c.videos ? t('media.videos', { count: c.videos }) : '',
+      c.links ? t('media.links', { count: c.links }) : '',
     ].filter(Boolean);
-    return parts.length ? parts.join(' · ') : t('lodging.media.emptyFolder');
+    return parts.length ? parts.join(' · ') : t('media.emptyFolder');
   };
   const remove = (f: GalleryFolder) => {
     if (f.items.length) setDeleting(f);
@@ -71,17 +71,17 @@ export function FolderList({
 
   return (
     <div className="grid gap-4">
-      <p className="text-sm text-muted-foreground">{t('lodging.media.hint')}</p>
+      <p className="text-sm text-muted-foreground">{t('media.hint')}</p>
       {/* Same bordered row, inset and 48px thumbnail as the folder rows, so both columns line up. */}
       <section
-        aria-label={t('lodging.media.coverTitle')}
+        aria-label={t('media.coverTitle')}
         className="flex items-center gap-3 rounded-lg border p-2 text-sm"
       >
         <div className="relative grid size-12 shrink-0 place-items-center overflow-hidden rounded-md bg-muted">
           {cover ? (
             <img
               src={cover}
-              alt={t('lodging.media.coverTitle')}
+              alt={t('media.coverTitle')}
               referrerPolicy="no-referrer"
               className="absolute inset-0 size-full object-cover"
             />
@@ -90,13 +90,13 @@ export function FolderList({
           )}
         </div>
         <div className="grid min-w-0 justify-items-start">
-          <span className="font-medium">{t('lodging.media.coverTitle')}</span>
+          <span className="font-medium">{t('media.coverTitle')}</span>
           <span className="text-xs text-muted-foreground">
             {!cover
-              ? t('lodging.media.noCover')
+              ? t('media.noCover')
               : draft.galleryCover
-                ? t('lodging.media.coverChosen')
-                : t('lodging.media.coverAuto')}
+                ? t('media.coverChosen')
+                : t('media.coverAuto')}
           </span>
           {canEdit && draft.galleryCover && (
             <Button
@@ -106,14 +106,14 @@ export function FolderList({
               className="-ml-2"
               onClick={() => onChange((d) => setCover(d, ''))}
             >
-              {t('lodging.media.coverReset')}
+              {t('media.coverReset')}
             </Button>
           )}
         </div>
       </section>
       {draft.gallery.length === 0 ? (
         <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-          {t('lodging.media.empty')}
+          {t('media.empty')}
         </p>
       ) : (
         <ul className="divide-y rounded-lg border">
@@ -123,7 +123,7 @@ export function FolderList({
               <li key={f.id} className="flex items-center gap-3 p-2">
                 <button
                   type="button"
-                  aria-label={t('lodging.media.open', { name: f.name })}
+                  aria-label={t('media.open', { name: f.name })}
                   className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   onClick={() => onOpen(f.id)}
                 >
@@ -152,30 +152,30 @@ export function FolderList({
                         type="button"
                         size="icon-sm"
                         variant="ghost"
-                        aria-label={t('lodging.media.folderMenu', { name: f.name })}
+                        aria-label={t('media.folderMenu', { name: f.name })}
                       >
                         <MoreVertical aria-hidden />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onSelect={() => setNaming({ id: f.id })}>
-                        {t('lodging.media.rename')}
+                        {t('media.rename')}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         disabled={i === 0}
                         onSelect={() => onChange((d) => moveFolder(d, f.id, -1))}
                       >
-                        {t('lodging.media.up')}
+                        {t('media.up')}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         disabled={i === draft.gallery.length - 1}
                         onSelect={() => onChange((d) => moveFolder(d, f.id, 1))}
                       >
-                        {t('lodging.media.down')}
+                        {t('media.down')}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem variant="destructive" onSelect={() => remove(f)}>
-                        {t('lodging.media.deleteFolder')}
+                        {t('media.deleteFolder')}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -194,11 +194,11 @@ export function FolderList({
             onClick={() => setNaming({ id: null })}
           >
             <FolderPlus aria-hidden />
-            {t('lodging.media.newFolder')}
+            {t('media.newFolder')}
           </Button>
           {!canAddFolder(draft) && (
             <span className="text-xs text-muted-foreground">
-              {t('lodging.media.folderLimit', { max: GALLERY_MAX_FOLDERS })}
+              {t('media.folderLimit', { max: GALLERY_MAX_FOLDERS })}
             </span>
           )}
         </div>
@@ -208,16 +208,16 @@ export function FolderList({
         onOpenChange={(open) => {
           if (!open) setNaming(null);
         }}
-        title={renaming ? t('lodging.media.renameTitle') : t('lodging.media.newFolder')}
-        label={t('lodging.media.folderName')}
+        title={renaming ? t('media.renameTitle') : t('media.newFolder')}
+        label={t('media.folderName')}
         initial={renaming?.name ?? ''}
         maxLength={100}
-        submitLabel={renaming ? t('lodging.media.apply') : t('lodging.media.createFolder')}
+        submitLabel={renaming ? t('media.apply') : t('media.createFolder')}
         validate={(value) =>
           !value.trim()
-            ? t('lodging.media.nameRequired')
+            ? t('media.nameRequired')
             : nameTaken(draft, value, renaming?.id)
-              ? t('lodging.media.nameTaken')
+              ? t('media.nameTaken')
               : null
         }
         onSubmit={(value) => {
@@ -235,14 +235,14 @@ export function FolderList({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {t('lodging.media.deleteFolderTitle', { name: deleting?.name ?? '' })}
+              {t('media.deleteFolderTitle', { name: deleting?.name ?? '' })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {t('lodging.media.deleteFolderBody', { count: deleting?.items.length ?? 0 })}
+              {t('media.deleteFolderBody', { count: deleting?.items.length ?? 0 })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('lodging.media.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel>{t('media.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 const id = deleting?.id;
@@ -250,7 +250,7 @@ export function FolderList({
                 if (id) onChange((d) => deleteFolder(d, id));
               }}
             >
-              {t('lodging.media.confirmDelete')}
+              {t('media.confirmDelete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

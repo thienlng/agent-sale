@@ -26,17 +26,17 @@ const unpriced = (quote: QuoteDto, n: QuoteDto['nights'][number]) =>
 
 /** Nightly table and surcharges of a quote. */
 function QuoteLines({ quote }: { quote: QuoteDto }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   return (
     <>
       {quote.nights.length > 0 && (
         <table className="w-full text-[13px] tabular-nums">
           <thead className="text-xs text-muted-foreground">
             <tr>
-              <th className="py-1 text-left font-normal">{t('lodging.quote.date')}</th>
-              <th className="py-1 text-left font-normal">{t('lodging.quote.weekday')}</th>
-              <th className="py-1 text-left font-normal">{t('lodging.quote.label')}</th>
-              <th className="py-1 text-right font-normal">{t('lodging.quote.sell')}</th>
+              <th className="py-1 text-left font-normal">{t('quote.date')}</th>
+              <th className="py-1 text-left font-normal">{t('quote.weekday')}</th>
+              <th className="py-1 text-left font-normal">{t('quote.label')}</th>
+              <th className="py-1 text-right font-normal">{t('quote.sell')}</th>
             </tr>
           </thead>
           <tbody>
@@ -53,10 +53,10 @@ function QuoteLines({ quote }: { quote: QuoteDto }) {
       )}
       {quote.surcharges.length > 0 && (
         <div className="grid gap-1">
-          <p className="text-xs text-muted-foreground">{t('lodging.quote.surcharges')}</p>
+          <p className="text-xs text-muted-foreground">{t('quote.surcharges')}</p>
           {quote.surcharges.map((s) => (
             <div key={s.kind} className="flex justify-between gap-2 tabular-nums">
-              <span>{t(`lodging.quote.${s.kind}`, { persons: s.persons, nights: s.nights })}</span>
+              <span>{t(`quote.${s.kind}`, { persons: s.persons, nights: s.nights })}</span>
               <span>{formatVnd(s.sell)}</span>
             </div>
           ))}
@@ -74,13 +74,13 @@ export function QuotePackages({
   quote: QuoteDto;
   property: PropertyDto | undefined;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   if (quote.packages.length === 0) return null;
   const names = quote.packages.map((k) => {
     const unit = k.target ? property?.units.find((u) => u.id === k.target) : undefined;
     return unit ? `${unit.name} ${k.name}` : k.name;
   });
-  return <p className="font-medium">{t('lodging.quote.packages', { names: names.join(', ') })}</p>;
+  return <p className="font-medium">{t('quote.packages', { names: names.join(', ') })}</p>;
 }
 
 /** The standard party the quote's warning names: the package's when one target has one. */
@@ -145,14 +145,14 @@ export function QuoteSummary({
   adjustmentReason: string;
   totalSell: number | null;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   return (
     <div className="grid gap-3 text-sm">
       {quote && <QuoteLines quote={quote} />}
       {adjustment !== 0 && (
         <div className="flex justify-between gap-2 tabular-nums">
           <span>
-            {t('lodging.quote.adjustment')}
+            {t('quote.adjustment')}
             {adjustmentReason && (
               <span className="text-muted-foreground"> · {adjustmentReason}</span>
             )}
@@ -161,9 +161,9 @@ export function QuoteSummary({
         </div>
       )}
       <div className="flex items-baseline justify-between border-t border-border pt-2">
-        <span className="text-muted-foreground">{t('lodging.quote.total')}</span>
+        <span className="text-muted-foreground">{t('quote.total')}</span>
         <span className="text-lg font-semibold tabular-nums">
-          {totalSell === null ? t('lodging.quote.noTotal') : formatVnd(totalSell)}
+          {totalSell === null ? t('quote.noTotal') : formatVnd(totalSell)}
         </span>
       </div>
     </div>
@@ -203,7 +203,7 @@ export function QuoteBreakdown({
   useAuto?: boolean;
   onUseAutoChange?: (next: boolean) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
   const priced = new Set(quote?.nights.filter((n) => !unpriced(quote, n)).map((n) => n.date));
   const missing = quote?.warnings.includes('missing_rate')
@@ -216,17 +216,17 @@ export function QuoteBreakdown({
     <div className="grid gap-3 text-sm">
       {loading && !quote && (
         <p role="status" className="text-xs text-muted-foreground">
-          {t('lodging.quote.calculating')}
+          {t('quote.calculating')}
         </p>
       )}
-      {failed && <p className="text-xs text-destructive">{t('lodging.quote.error')}</p>}
+      {failed && <p className="text-xs text-destructive">{t('quote.error')}</p>}
       {quote && <QuotePackages quote={quote} property={property} />}
       {quote && <QuoteLines quote={quote} />}
       {quote?.warnings.map((w) => (
         <Alert key={w} className="border-warning/40 bg-warning-soft text-warning">
           <TriangleAlert aria-hidden />
           <AlertDescription className="text-warning">
-            {t(`lodging.quote.warning.${w}`, {
+            {t(`quote.warning.${w}`, {
               nights: missing.map(dayMonth).join(', '),
               adults: standard?.adults ?? 0,
               children: standard?.children ?? 0,
@@ -237,7 +237,7 @@ export function QuoteBreakdown({
 
       <div className="grid gap-1">
         <Label htmlFor={`${id}-manual`} className="text-xs">
-          {t('lodging.quote.manualTotal')}
+          {t('quote.manualTotal')}
         </Label>
         <Input
           id={`${id}-manual`}
@@ -254,20 +254,20 @@ export function QuoteBreakdown({
         />
         {manualRequired ? (
           <div className="grid gap-1.5">
-            <p className="text-xs text-destructive">{t('lodging.quote.manualRequired')}</p>
+            <p className="text-xs text-destructive">{t('quote.manualRequired')}</p>
             <Label className="text-xs font-normal">
               <Checkbox checked={useAuto} onCheckedChange={(v) => onUseAutoChange?.(v === true)} />
-              {t('lodging.quote.useAuto')}
+              {t('quote.useAuto')}
             </Label>
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground">{t('lodging.quote.manualHint')}</p>
+          <p className="text-xs text-muted-foreground">{t('quote.manualHint')}</p>
         )}
       </div>
       <div className="grid grid-cols-[8rem_1fr] gap-2">
         <div className="grid gap-1">
           <Label htmlFor={`${id}-adj`} className="text-xs">
-            {t('lodging.quote.adjustment')}
+            {t('quote.adjustment')}
           </Label>
           <AdjustmentInput
             id={`${id}-adj`}
@@ -277,7 +277,7 @@ export function QuoteBreakdown({
         </div>
         <div className="grid gap-1">
           <Label htmlFor={`${id}-reason`} className="text-xs">
-            {t('lodging.quote.adjustmentReason')}
+            {t('quote.adjustmentReason')}
           </Label>
           <Input
             id={`${id}-reason`}
@@ -289,9 +289,9 @@ export function QuoteBreakdown({
         </div>
       </div>
       <div className="flex items-baseline justify-between border-t border-border pt-2">
-        <span className="text-muted-foreground">{t('lodging.quote.total')}</span>
+        <span className="text-muted-foreground">{t('quote.total')}</span>
         <span className="text-lg font-semibold tabular-nums" data-testid="quote-total">
-          {total === null ? t('lodging.quote.noTotal') : formatVnd(total)}
+          {total === null ? t('quote.noTotal') : formatVnd(total)}
         </span>
       </div>
     </div>

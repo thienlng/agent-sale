@@ -50,17 +50,17 @@ export function MediaRow({
   onOpen: () => void;
   onCaptionChange: (caption: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     disabled: !canEdit,
   });
   const kind =
     item.kind === 'image'
-      ? t('lodging.media.number', { n: number ?? 0 })
+      ? t('media.number', { n: number ?? 0 })
       : item.kind === 'video'
-        ? t('lodging.media.videoBadge')
-        : `${linkKind(item.url, t('lodging.media.linkBadge'))} · ${hostOf(item.url)}`;
+        ? t('media.videoBadge')
+        : `${linkKind(item.url, t('media.linkBadge'))} · ${hostOf(item.url)}`;
   return (
     <li
       ref={setNodeRef}
@@ -77,7 +77,7 @@ export function MediaRow({
           type="button"
           size="icon-sm"
           variant="ghost"
-          aria-label={t('lodging.media.dragHandle', { label })}
+          aria-label={t('media.dragHandle', { label })}
           className="shrink-0 cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
           {...attributes}
           {...listeners}
@@ -91,7 +91,7 @@ export function MediaRow({
       </span>
       <button
         type="button"
-        aria-label={t('lodging.media.view', { label })}
+        aria-label={t('media.view', { label })}
         className="relative size-12 shrink-0 cursor-zoom-in overflow-hidden rounded-md border bg-muted focus-visible:outline-2 focus-visible:outline-ring sm:size-14"
         onClick={onOpen}
       >
@@ -109,7 +109,7 @@ export function MediaRow({
       <div className="grid min-w-0 flex-1 gap-1">
         {canEdit ? (
           <Input
-            aria-label={t('lodging.media.captionOf', { label })}
+            aria-label={t('media.captionOf', { label })}
             value={item.caption}
             maxLength={300}
             placeholder={folderName}
@@ -123,12 +123,12 @@ export function MediaRow({
           <span className="min-w-0 truncate">{kind}</span>
           {early && number === 1 && (
             <span className="rounded bg-primary px-1.5 leading-5 font-medium whitespace-nowrap text-primary-foreground">
-              {t('lodging.media.botFirst')}
+              {t('media.botFirst')}
             </span>
           )}
           {isCover && (
             <span className="rounded border px-1.5 leading-5 whitespace-nowrap">
-              {t('lodging.media.coverTitle')}
+              {t('media.coverTitle')}
             </span>
           )}
         </div>
@@ -137,7 +137,7 @@ export function MediaRow({
         <div className="flex shrink-0 flex-col items-center gap-1 sm:flex-row">
           <span className="grid size-7 place-items-center">
             <Checkbox
-              aria-label={t('lodging.media.select', { label })}
+              aria-label={t('media.select', { label })}
               checked={selected}
               onCheckedChange={(v) => onSelect(v === true)}
             />

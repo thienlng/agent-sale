@@ -37,7 +37,7 @@ export function AddUnitDialog({
   onClose: () => void;
   onAdd: (unit: UnitInput) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
   const [name, setName] = useState('');
   const [category, setCategory] = useState<UnitCategory>('room');
@@ -47,10 +47,9 @@ export function AddUnitDialog({
   const a = intOrNull(adults);
   const c = intOrNull(children || '0');
   const errors = {
-    name: !name.trim() ? t('lodging.units.errors.nameRequired') : undefined,
-    adults: a === null || a < 1 || a > 100 ? t('lodging.units.errors.adultsInvalid') : undefined,
-    children:
-      c === null || c < 0 || c > 100 ? t('lodging.units.errors.childrenInvalid') : undefined,
+    name: !name.trim() ? t('units.errors.nameRequired') : undefined,
+    adults: a === null || a < 1 || a > 100 ? t('units.errors.adultsInvalid') : undefined,
+    children: c === null || c < 0 || c > 100 ? t('units.errors.childrenInvalid') : undefined,
   };
   const show = (key: keyof typeof errors) => (submitted ? errors[key] : undefined);
   const submit = (e: FormEvent) => {
@@ -71,11 +70,11 @@ export function AddUnitDialog({
       <DialogContent className="sm:max-w-md">
         <form onSubmit={submit} noValidate className="grid gap-4">
           <DialogHeader>
-            <DialogTitle>{t('lodging.units.addTitle')}</DialogTitle>
-            <DialogDescription>{t('lodging.units.addDescription')}</DialogDescription>
+            <DialogTitle>{t('units.addTitle')}</DialogTitle>
+            <DialogDescription>{t('units.addDescription')}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_9rem]">
-            <Field id={`${id}-name`} label={t('lodging.units.name')} error={show('name')}>
+            <Field id={`${id}-name`} label={t('units.name')} error={show('name')}>
               <Input
                 id={`${id}-name`}
                 value={name}
@@ -85,7 +84,7 @@ export function AddUnitDialog({
                 onChange={(e) => setName(e.target.value)}
               />
             </Field>
-            <Field id={`${id}-category`} label={t('lodging.units.kind')}>
+            <Field id={`${id}-category`} label={t('units.kind')}>
               <Select value={category} onValueChange={(v) => setCategory(v as UnitCategory)}>
                 <SelectTrigger id={`${id}-category`} className="w-full">
                   <SelectValue />
@@ -93,7 +92,7 @@ export function AddUnitDialog({
                 <SelectContent>
                   {UnitCategoryEnum.options.map((k) => (
                     <SelectItem key={k} value={k}>
-                      {t(`lodging.units.category.${k}`)}
+                      {t(`units.category.${k}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -101,11 +100,7 @@ export function AddUnitDialog({
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Field
-              id={`${id}-adults`}
-              label={t('lodging.units.standardAdults')}
-              error={show('adults')}
-            >
+            <Field id={`${id}-adults`} label={t('units.standardAdults')} error={show('adults')}>
               <Input
                 id={`${id}-adults`}
                 type="number"
@@ -118,7 +113,7 @@ export function AddUnitDialog({
             </Field>
             <Field
               id={`${id}-children`}
-              label={t('lodging.units.standardChildren')}
+              label={t('units.standardChildren')}
               error={show('children')}
             >
               <Input
@@ -134,10 +129,10 @@ export function AddUnitDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
-              {t('lodging.media.cancel')}
+              {t('media.cancel')}
             </Button>
             <Button type="submit" disabled={pending}>
-              <SavingLabel saving={pending}>{t('lodging.units.addSubmit')}</SavingLabel>
+              <SavingLabel saving={pending}>{t('units.addSubmit')}</SavingLabel>
             </Button>
           </DialogFooter>
         </form>

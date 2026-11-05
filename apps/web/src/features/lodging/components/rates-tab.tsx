@@ -48,9 +48,9 @@ export function RatesTab({
   onDirtyChange: (dirty: boolean) => void;
   target?: string | null;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
-  const wholeName = t('lodging.rates.whole');
+  const wholeName = t('rates.whole');
   const base = useMemo(() => ratesDraftOf(p, wholeName), [p, wholeName]);
   const { draft, setDraft, dirty, discard } = useTabDraft<RatesDraft>(base);
   const [submitted, setSubmitted] = useState(false);
@@ -102,13 +102,13 @@ export function RatesTab({
   const finish = (saved: PropertyDto) => {
     setDraft(ratesDraftOf(saved, wholeName));
     setSubmitted(false);
-    toast.success(t('lodging.editor.saved'), { duration: 3500 });
+    toast.success(t('editor.saved'), { duration: 3500 });
   };
 
   const price = (key: 'extraAdult' | 'extraChild') => (
     <PriceInputs
       id={`${id}-${key}`}
-      label={t(`lodging.rates.${key}`)}
+      label={t(`rates.${key}`)}
       value={draft[key]}
       disabled={!canEdit}
       onChange={(v) => set({ [key]: v })}
@@ -129,8 +129,8 @@ export function RatesTab({
           />
         )}
         <section className="grid gap-2">
-          <h2 className="text-base font-semibold">{t('lodging.rates.weekdayTitle')}</h2>
-          <p className="text-xs text-muted-foreground">{t('lodging.rates.weekdayHint')}</p>
+          <h2 className="text-base font-semibold">{t('rates.weekdayTitle')}</h2>
+          <p className="text-xs text-muted-foreground">{t('rates.weekdayHint')}</p>
           <RatesMatrix
             rows={shownRows}
             errors={submitted ? errors.rows : new Map()}
@@ -141,12 +141,12 @@ export function RatesTab({
           />
           {submitted && errors.empty && (
             <p role="alert" className="text-xs text-destructive">
-              {t('lodging.rates.empty')}
+              {t('rates.empty')}
             </p>
           )}
           {submitted && filtered && hiddenMissing.length > 0 && (
             <p role="alert" className="text-xs text-destructive">
-              {t('lodging.rates.otherMissing', { rows: hiddenMissing.map(rowTitle).join(', ') })}
+              {t('rates.otherMissing', { rows: hiddenMissing.map(rowTitle).join(', ') })}
             </p>
           )}
         </section>
@@ -154,8 +154,8 @@ export function RatesTab({
           <>
             <section className="grid gap-3">
               <div>
-                <h2 className="text-base font-semibold">{t('lodging.rates.surchargesTitle')}</h2>
-                <p className="text-xs text-muted-foreground">{t('lodging.rates.surchargesHint')}</p>
+                <h2 className="text-base font-semibold">{t('rates.surchargesTitle')}</h2>
+                <p className="text-xs text-muted-foreground">{t('rates.surchargesHint')}</p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 {price('extraAdult')}
@@ -163,9 +163,9 @@ export function RatesTab({
               </div>
             </section>
             <section className="grid gap-3">
-              <h2 className="text-base font-semibold">{t('lodging.rates.childAgesTitle')}</h2>
+              <h2 className="text-base font-semibold">{t('rates.childAgesTitle')}</h2>
               <div className="flex flex-wrap gap-4">
-                <Field id={`${id}-free`} label={t('lodging.rates.childFreeBelow')}>
+                <Field id={`${id}-free`} label={t('rates.childFreeBelow')}>
                   <Input
                     id={`${id}-free`}
                     type="number"
@@ -180,10 +180,8 @@ export function RatesTab({
                 </Field>
                 <Field
                   id={`${id}-adult`}
-                  label={t('lodging.rates.childAdultFrom')}
-                  error={
-                    submitted && errors.childAges ? t('lodging.rates.childAgesInvalid') : undefined
-                  }
+                  label={t('rates.childAdultFrom')}
+                  error={submitted && errors.childAges ? t('rates.childAgesInvalid') : undefined}
                 >
                   <Input
                     id={`${id}-adult`}
@@ -201,12 +199,7 @@ export function RatesTab({
             </section>
           </>
         )}
-        <TabSaveBar
-          dirty={dirty}
-          pending={pending}
-          canEdit={canEdit}
-          label={t('lodging.rates.save')}
-        />
+        <TabSaveBar dirty={dirty} pending={pending} canEdit={canEdit} label={t('rates.save')} />
       </form>
       <OverridesSection property={p} canEdit={canEdit} target={target} />
     </div>
@@ -226,23 +219,23 @@ function PriceInputs({
   disabled: boolean;
   onChange: (value: PriceDraft) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   return (
     <fieldset className="grid gap-1.5">
       <legend className="mb-1.5 text-sm font-medium">{label}</legend>
       <div className="grid grid-cols-2 gap-2">
         <MoneyInput
           id={`${id}-sell`}
-          aria-label={`${label} · ${t('lodging.rates.sell')}`}
-          placeholder={t('lodging.rates.sell')}
+          aria-label={`${label} · ${t('rates.sell')}`}
+          placeholder={t('rates.sell')}
           disabled={disabled}
           value={value.sell}
           onValueChange={(sell) => onChange({ ...value, sell })}
         />
         <MoneyInput
           id={`${id}-cost`}
-          aria-label={`${label} · ${t('lodging.rates.cost')}`}
-          placeholder={t('lodging.rates.cost')}
+          aria-label={`${label} · ${t('rates.cost')}`}
+          placeholder={t('rates.cost')}
           disabled={disabled}
           value={value.cost}
           onValueChange={(cost) => onChange({ ...value, cost })}

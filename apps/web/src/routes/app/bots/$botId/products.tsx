@@ -10,8 +10,12 @@ import { BotProductsTable } from '@/features/commerce/components/bot-products-ta
 import { DataPageHeader } from '@/features/knowledge/components/data-page';
 import { BotProperties } from '@/features/lodging/components/bot-properties';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
+import { loadNamespace } from '@/lib/i18n';
 
 export const Route = createFileRoute('/app/bots/$botId/products')({
+  // Hotel bots list places from the lodging namespace; a failed load shows raw keys there
+  // instead of the error page (retail bots never read it).
+  loader: () => loadNamespace('lodging').catch(() => undefined),
   component: function ProductsPage() {
     const { botId } = Route.useParams();
     const workspace = useCurrentWorkspace();
@@ -26,10 +30,10 @@ export const Route = createFileRoute('/app/bots/$botId/products')({
 
 /** Hotel bots sell places ("Căn hộ & phòng"), read from the lodging module (T-160). */
 function HotelBotProperties({ botId }: { botId: string }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   return (
     <section className="flex min-w-0 flex-col gap-4">
-      <DataPageHeader title={t('lodging.bot.title')} subtitle={t('lodging.bot.subtitle')} />
+      <DataPageHeader title={t('bot.title')} subtitle={t('bot.subtitle')} />
       <BotProperties botId={botId} />
     </section>
   );

@@ -1,7 +1,8 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { Providers } from '@/app/providers';
+import { loadNamespace } from '@/lib/i18n';
 
 import { useMediaUpload } from './use-media-upload';
 
@@ -10,6 +11,8 @@ const toast = vi.hoisted(() =>
 );
 vi.mock('sonner', () => ({ toast }));
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-1' }));
+
+beforeAll(() => loadNamespace('lodging'));
 
 const photo = (name: string) => new File(['x'], name, { type: 'image/jpeg' });
 
