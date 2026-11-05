@@ -119,6 +119,8 @@ const packageKey = (name: string) => foldVietnamese(name).trim().toLowerCase();
  * against the packages of the targets `quote` (the automatic quote) prices; `unitId` null = the
  * whole property. A later choice for the same target wins. An unknown name, or a target the stay
  * does not price with packages, answers every valid name instead ('Bungalow 1: 2PN' for a room).
+ * A stay priced without any package ignores the asked names (a stale or invented package must not
+ * block a hold that has nothing to choose).
  */
 export function pickPackages(
   quote: Quote,
@@ -127,6 +129,7 @@ export function pickPackages(
   unitNames: ReadonlyMap<string, string>,
 ): { ids: string[] } | { valid: string[] } {
   const targets = quote.packages.map((pk) => pk.target);
+  if (targets.length === 0) return { ids: [] };
   const byTarget = new Map<string | null, string>();
   for (const a of asked) {
     const target = a.unitId ?? null;

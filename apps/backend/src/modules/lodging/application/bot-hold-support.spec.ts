@@ -92,4 +92,14 @@ describe('pickPackages (T-193)', () => {
       valid: ['5PN', '6PN'],
     });
   });
+
+  it('ignores the asked names when the stay is priced without any package', () => {
+    // A stale or invented package must not block a hold that has no package to choose.
+    expect(pickPackages(quote([]), packages, [{ unitId: null, name: '5PN' }], names)).toEqual({
+      ids: [],
+    });
+    expect(pickPackages(quote([]), [], [{ unitId: 'u1', name: '2PN' }], names)).toEqual({
+      ids: [],
+    });
+  });
 });
