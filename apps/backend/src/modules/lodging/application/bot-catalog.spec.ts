@@ -207,6 +207,125 @@ describe('toBotProduct', () => {
     ]);
   });
 
+  it('lists the packages of the whole property with their weekday sell prices (T-193)', () => {
+    const acc = toBotProduct(
+      property(),
+      [wholeUnit()],
+      auraRates(),
+      today,
+      auraPackages,
+    )?.accommodation;
+    expect(acc?.packages).toEqual([
+      {
+        name: '4PN',
+        bedrooms: 4,
+        standardAdults: 8,
+        standardChildren: 0,
+        maxGuests: 10,
+        weekdaySell: [8e6, 8e6, 8e6, 8e6, 10e6, null, 10e6],
+      },
+      {
+        name: '5PN',
+        bedrooms: 5,
+        standardAdults: 10,
+        standardChildren: 0,
+        maxGuests: 12,
+        weekdaySell: [9e6, 9e6, 9e6, 9e6, 11e6, 16e6, 11e6],
+      },
+      {
+        name: '6PN',
+        bedrooms: 6,
+        standardAdults: 12,
+        standardChildren: 0,
+        maxGuests: 16,
+        weekdaySell: [10e6, 10e6, 10e6, 10e6, 12e6, 18e6, 12e6],
+      },
+    ]);
+    expect(
+      toBotProduct(property(), [wholeUnit()], a17Rates(), today)?.accommodation?.packages,
+    ).toBeUndefined();
+    // A date-range price of a package names it.
+    const tet = {
+      ...override(null, '2027-02-05', '2027-02-08', 25_000_000, 'Tết'),
+      packageId: 'pk5',
+    };
+    const dated = toBotProduct(
+      property(),
+      [wholeUnit()],
+      [...auraRates(), tet],
+      today,
+      auraPackages,
+    );
+    expect(dated?.accommodation?.overrides?.[0]).toMatchObject({
+      amount: 25e6,
+      packageName: '5PN',
+    });
+  });
+
+  it('carries unit details, unit albums and unit packages of a rooms property (T-193)', () => {
+    const p = property({ id: R01_ID, code: 'R01', sellMode: 'rooms', layout: [] });
+    const hill = {
+      ...room(P1, 'Bungalow 1', 0),
+      category: 'bungalow' as const,
+      view: 'đồi thông',
+      areaM2: 45,
+      description: 'Bungalow gỗ, ban công nhìn ra đồi',
+      amenities: ['Bồn tắm', 'Ban công'],
+      maxGuests: 4,
+      gallery: [
+        {
+          id: '01890000-0000-7000-8000-0000000000f1',
+          name: 'Bungalow 1',
+          items: [
+            {
+              kind: 'image' as const,
+              url: 'https://cdn.example.com/b1/1.jpg',
+              caption: ' Ban công ',
+            },
+          ],
+        },
+      ],
+    };
+    const units = [hill, room(P2, 'P2', 1)];
+    const packages = [
+      { ...auraPackages[0]!, id: 'b2', unitId: P1, name: '2PN', bedrooms: 2, maxGuests: 4 },
+      { ...auraPackages[1]!, id: 'b1', unitId: P1, name: '1PN', bedrooms: 1, maxGuests: 2 },
+    ];
+    const rates = [
+      { ...weekday(P1, [1, 2, 3, 4, 5, 6, 7], 2_000_000, 700_001), packageId: 'b2' },
+      { ...weekday(P1, [1, 2, 3, 4, 5], 1_200_000, 700_002), packageId: 'b1' },
+      weekday(P2, [1, 2, 3, 4, 5, 6, 7], 900_000, 700_003),
+    ];
+    const dto = ProductDto.parse(toBotProduct(p, units, rates, today, packages));
+    const [b1, p2] = dto.accommodation!.units!;
+    expect(b1).toMatchObject({
+      name: 'Bungalow 1',
+      category: 'bungalow',
+      view: 'đồi thông',
+      areaM2: 45,
+      description: 'Bungalow gỗ, ban công nhìn ra đồi',
+      amenities: ['Bồn tắm', 'Ban công'],
+      maxGuests: 4,
+      weekdayRates: [{ days: [1, 2, 3, 4, 5, 6, 7], amount: 2_000_000 }],
+    });
+    expect(b1?.albums).toEqual([
+      {
+        id: '01890000-0000-7000-8000-0000000000f1',
+        name: 'Bungalow 1',
+        items: [{ kind: 'image', url: 'https://cdn.example.com/b1/1.jpg', caption: 'Ban công' }],
+      },
+    ]);
+    expect(b1?.packages?.map((k) => [k.name, k.weekdaySell])).toEqual([
+      ['1PN', [1.2e6, 1.2e6, 1.2e6, 1.2e6, 1.2e6, null, null]],
+      ['2PN', [2e6, 2e6, 2e6, 2e6, 2e6, 2e6, 2e6]],
+    ]);
+    expect(p2?.albums).toBeUndefined();
+    expect(p2?.packages).toBeUndefined();
+    expect(p2).toMatchObject({ category: 'room', view: '', areaM2: null, maxGuests: null });
+    expect(dto.accommodation?.packages).toBeUndefined();
+    expect(JSON.stringify(dto)).not.toMatch(/70000[123]/);
+  });
+
   it('skips a property whose weekdays are not all priced', () => {
     expect(toBotProduct(property(), [wholeUnit()], [], today)).toBeNull();
     const partial = [weekday(null, [1, 2, 3], 1_000_000)];

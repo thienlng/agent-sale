@@ -112,6 +112,8 @@ export const AccommodationDetails = z
           label: z.string(),
           amount: Amount,
           unitName: z.string().nullable(),
+          /** The bedroom package the price is for (T-193); absent for a target without packages. */
+          packageName: z.string().optional(),
         }),
       )
       .optional(),

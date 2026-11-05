@@ -156,6 +156,8 @@ export interface BotHoldDraftRecord {
   note: string;
   /** sha256 of the selection, party, guest and sell totals the customer saw. */
   quoteHash: string;
+  /** The packages of the summary (T-193); confirm books exactly these. */
+  packageIds: string[];
   createdAt: Date;
   expiresAt: Date;
 }

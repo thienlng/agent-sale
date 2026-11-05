@@ -2,8 +2,10 @@ import { createHash } from 'node:crypto';
 
 import type { BotAvailabilityOption, ConfirmBotHoldResult } from '../api/lodging.facade.js';
 import { weekdayLabel } from '../domain/hold-summary.js';
+import { foldVietnamese } from '@agent-sales/shared';
+
 import type { Quote } from '../domain/quote.js';
-import { priceNight, type RateRule } from '../domain/rates.js';
+import { packagesOf, priceNight, type DomainPackage, type RateRule } from '../domain/rates.js';
 import type { FreeOption, StayAsk } from './availability.js';
 import type {
   BookingRecord,
@@ -69,8 +71,8 @@ export function holdRequestId(draftId: string): string {
 }
 
 /**
- * sha256 of what the customer agreed to: selection, party, guest, note, the sell prices and the
- * quote warnings (a new min-stay rule or maximum also needs a new summary).
+ * sha256 of what the customer agreed to: selection, party, guest, note, the sell prices, the
+ * quote warnings (a new min-stay rule or maximum also needs a new summary) and the packages.
  */
 type Agreed = Pick<
   BotHoldDraftRecord,
@@ -103,9 +105,46 @@ export function quoteHash(d: Agreed, resolved: string[], q: Quote): string {
         q.surcharges.map((s) => [s.kind, s.persons, s.nights, s.sell]),
         q.totalSell,
         q.warnings,
+        // Appended only when set: a package-less draft keeps its pre-T-193 hash.
+        ...(q.packages.length ? [q.packages.map((p) => [p.target, p.packageId])] : []),
       ]),
     )
     .digest('hex');
+}
+
+const packageKey = (name: string) => foldVietnamese(name).trim().toLowerCase();
+
+/**
+ * The package ids of the names the customer chose (T-193), matched case- and accent-insensitively
+ * against the packages of the targets `quote` (the automatic quote) prices; `unitId` null = the
+ * whole property. A later choice for the same target wins. An unknown name, or a target the stay
+ * does not price with packages, answers every valid name instead ('Bungalow 1: 2PN' for a room).
+ */
+export function pickPackages(
+  quote: Quote,
+  packages: DomainPackage[],
+  asked: { unitId: string | null; name: string }[],
+  unitNames: ReadonlyMap<string, string>,
+): { ids: string[] } | { valid: string[] } {
+  const targets = quote.packages.map((pk) => pk.target);
+  const byTarget = new Map<string | null, string>();
+  for (const a of asked) {
+    const target = a.unitId ?? null;
+    const found = targets.includes(target)
+      ? packagesOf(packages, target).find((pk) => packageKey(pk.name) === packageKey(a.name))
+      : undefined;
+    if (!found) {
+      return {
+        valid: targets.flatMap((t) =>
+          packagesOf(packages, t)
+            .sort((x, y) => x.bedrooms - y.bedrooms)
+            .map((pk) => (t === null ? pk.name : `${unitNames.get(t) ?? ''}: ${pk.name}`)),
+        ),
+      };
+    }
+    byTarget.set(target, found.id);
+  }
+  return { ids: [...byTarget.values()] };
 }
 
 /** A readable party: 0–1000 adults, child ages 0–17, at least one guest. */
@@ -155,6 +194,13 @@ export function toBotOption(o: FreeOption, rates: RateRule[]): BotAvailabilityOp
     minNights,
     problems: o.quote.warnings.includes('min_nights') ? ['min_nights'] : [],
     totalSell: o.quote.totalSell,
+    package: o.packages.length === 1 ? (o.packages[0]?.name ?? null) : null,
+    alternatives: o.alternatives.map((a) => ({
+      package: a.name,
+      bedrooms: a.bedrooms,
+      totalSell: a.totalSell,
+      fits: a.fits,
+    })),
     nightly: o.quote.nights.map((n) => ({
       date: n.date,
       weekdayLabel: weekdayLabel(n.date),

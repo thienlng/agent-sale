@@ -25,7 +25,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
 import { LODGING_BOT_FACADE, type LodgingBotFacade } from '../src/modules/lodging/api/index.js';
-import { addNights, localToday } from '../src/modules/lodging/domain/nights.js';
+import { addNights, isoWeekday, localToday } from '../src/modules/lodging/domain/nights.js';
 import { signUpVerified } from './support/signup.js';
 
 /** Bot availability, hold drafts and the review state of bot holds (T-161) on a real Postgres. */
@@ -773,5 +773,168 @@ describe('bot holds', () => {
       tx.select().from(schema.lodgingBotHoldDrafts),
     );
     expect(own.map((r) => r.conversationId)).toEqual([conversationId]);
+  });
+});
+
+describe('bot holds with bedroom packages (T-193)', () => {
+  /** A Saturday at least a week ahead: 4PN is not sold on Saturdays. */
+  const saturday = (() => {
+    let n = 7;
+    while (isoWeekday(night(n)) !== 6) n += 1;
+    return n;
+  })();
+  const sixGuests = { adults: 6, childAges: [] as number[] };
+  const packages = [
+    { key: 'k6', unitId: null, name: '6PN', bedrooms: 6, standardAdults: 12, maxGuests: 16 },
+    { key: 'k5', unitId: null, name: '5PN', bedrooms: 5, standardAdults: 10, maxGuests: 12 },
+    { key: 'k4', unitId: null, name: '4PN', bedrooms: 4, standardAdults: 8, maxGuests: 10 },
+  ];
+  const week = (key: string, sell: number, saturdaySell: number | null) => [
+    { unitId: null, weekdays: [1, 2, 3, 4, 5, 7], sell, cost: 1_000_000, packageKey: key },
+    ...(saturdaySell === null
+      ? []
+      : [{ unitId: null, weekdays: [6], sell: saturdaySell, cost: 1_000_000, packageKey: key }]),
+  ];
+
+  async function aura(h: Headers): Promise<PropertyDto> {
+    const p = await ok(
+      await call(h, 'POST', '/lodging/properties', {
+        code: 'AURA',
+        name: 'Aura Villa',
+        sellMode: 'whole',
+        standardAdults: 12,
+        standardChildren: 0,
+        maxGuests: 20,
+      }),
+      PropertyDto,
+      201,
+    );
+    return ok(
+      await call(h, 'PUT', `/lodging/properties/${p.id}/rates`, {
+        version: p.version,
+        weekday: [
+          ...week('k6', 12_000_000, 18_000_000),
+          ...week('k5', 11_000_000, 16_000_000),
+          ...week('k4', 10_000_000, null),
+        ],
+        surcharges: { extraAdult: null, extraChild: null },
+        packages,
+      }),
+      PropertyDto,
+    );
+  }
+
+  const stay = (botId: string, propertyId: string, conversationId: string, over = {}) =>
+    holdInput(botId, propertyId, conversationId, {
+      checkIn: night(saturday),
+      checkOut: night(saturday + 1),
+      ...sixGuests,
+      ...over,
+    });
+
+  it('quotes the auto package with the alternatives, and holds exactly that package', async () => {
+    const o = await hotel();
+    const p = await aura(o.headers);
+    const check = await facade().checkAvailabilityForBot(o.ws, {
+      botId: o.botId,
+      propertyId: p.id,
+      checkIn: night(saturday),
+      checkOut: night(saturday + 1),
+      ...sixGuests,
+    });
+    expect(check.options[0]).toMatchObject({
+      code: 'AURA',
+      package: '5PN',
+      totalSell: 16_000_000,
+      alternatives: [
+        { package: '4PN', bedrooms: 4, totalSell: null, fits: true },
+        { package: '6PN', bedrooms: 6, totalSell: 18_000_000, fits: true },
+      ],
+    });
+    noSecrets(check);
+
+    const conversationId = newId();
+    const ready = await facade().prepareBotHold(o.ws, stay(o.botId, p.id, conversationId));
+    expect(ready.status).toBe('ready');
+    if (ready.status !== 'ready') return;
+    expect(ready.summary.split('\n')[0]).toBe('Giữ chỗ Aura Villa · Nguyên căn · gói 5PN');
+    expect(ready.summary).toContain('Tổng: 16.000.000đ');
+    const [draft] = await owner.db
+      .select()
+      .from(schema.lodgingBotHoldDrafts)
+      .where(eq(schema.lodgingBotHoldDrafts.conversationId, conversationId));
+    const p5 = p.packages.find((k) => k.name === '5PN')!.id;
+    expect(draft?.packageIds).toEqual([p5]);
+
+    const held = await facade().confirmBotHold(o.ws, { conversationId });
+    expect(held.status).toBe('held');
+    const list = await ok(
+      await call(o.headers, 'GET', '/lodging/bookings?view=holds&source=bot'),
+      BookingList,
+    );
+    expect(list.data[0]).toMatchObject({ packageIds: [p5], totalSell: 16_000_000 });
+  });
+
+  it('holds the package the customer chose by name, case-insensitively', async () => {
+    const o = await hotel();
+    const p = await aura(o.headers);
+    const conversationId = newId();
+    const ready = await facade().prepareBotHold(
+      o.ws,
+      stay(o.botId, p.id, conversationId, { packages: [{ unitId: null, name: ' 6pn ' }] }),
+    );
+    expect(ready.status).toBe('ready');
+    if (ready.status !== 'ready') return;
+    expect(ready.summary.split('\n')[0]).toBe('Giữ chỗ Aura Villa · Nguyên căn · gói 6PN');
+    expect(ready.summary).toContain('Tổng: 18.000.000đ');
+    // Confirm books the chosen package, not the auto pick (5PN).
+    expect((await facade().confirmBotHold(o.ws, { conversationId })).status).toBe('held');
+    const list = await ok(
+      await call(o.headers, 'GET', '/lodging/bookings?view=holds&source=bot'),
+      BookingList,
+    );
+    const p6 = p.packages.find((k) => k.name === '6PN')!.id;
+    expect(list.data[0]).toMatchObject({ packageIds: [p6], totalSell: 18_000_000 });
+  });
+
+  it('answers unknown_package with the valid names, and package_unavailable on an unsold night', async () => {
+    const o = await hotel();
+    const p = await aura(o.headers);
+    const unknown = await facade().prepareBotHold(
+      o.ws,
+      stay(o.botId, p.id, newId(), { packages: [{ unitId: null, name: '7PN' }] }),
+    );
+    expect(unknown).toEqual({
+      status: 'problems',
+      problems: ['unknown_package'],
+      alternatives: [],
+      validPackages: ['4PN', '5PN', '6PN'],
+    });
+    const unsold = await facade().prepareBotHold(
+      o.ws,
+      stay(o.botId, p.id, newId(), { packages: [{ unitId: null, name: '4PN' }] }),
+    );
+    expect(unsold).toMatchObject({ status: 'problems', problems: ['package_unavailable'] });
+  });
+
+  it('answers price_changed when a package of the summary was removed', async () => {
+    const o = await hotel();
+    const p = await aura(o.headers);
+    const conversationId = newId();
+    await facade().prepareBotHold(o.ws, stay(o.botId, p.id, conversationId));
+    await ok(
+      await call(o.headers, 'PUT', `/lodging/properties/${p.id}/rates`, {
+        version: p.version,
+        weekday: [...week('k6', 12_000_000, 18_000_000), ...week('k4', 10_000_000, null)],
+        surcharges: { extraAdult: null, extraChild: null },
+        packages: [packages[0], packages[2]].map((k) => ({
+          ...k,
+          id: p.packages.find((x) => x.name === k!.name)!.id,
+        })),
+      }),
+      PropertyDto,
+    );
+    const r = await facade().confirmBotHold(o.ws, { conversationId });
+    expect(r.status).toBe('price_changed');
   });
 });

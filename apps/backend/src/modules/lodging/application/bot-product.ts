@@ -4,7 +4,7 @@ import {
   type ProductDto,
 } from '@agent-sales/contracts';
 
-import { fullPackage, type DomainPackage, type RateRule } from '../domain/rates.js';
+import { fullPackage, packagesOf, type DomainPackage, type RateRule } from '../domain/rates.js';
 import type { PropertyRecord, UnitRecord } from './ports/lodging-store.js';
 import { currentUnits } from './property-support.js';
 
@@ -42,6 +42,69 @@ function weekdayRows(
     .sort((a, b) => (a.days[0] ?? 0) - (b.days[0] ?? 0));
 }
 
+type BotPackage = NonNullable<AccommodationDetails['packages']>[number];
+
+/**
+ * The packages of one target, fewest bedrooms first, with their weekday sell prices (index 0 =
+ * Monday; null = not sold that weekday). Undefined when the target has none.
+ */
+function packageRows(
+  rules: RateRule[],
+  target: string | null,
+  packages: DomainPackage[],
+): BotPackage[] | undefined {
+  const own = packagesOf(packages, target);
+  if (!own.length) return undefined;
+  return [...own]
+    .sort((a, b) => a.bedrooms - b.bedrooms)
+    .map((pk) => ({
+      name: pk.name,
+      bedrooms: pk.bedrooms,
+      standardAdults: pk.standardAdults,
+      standardChildren: pk.standardChildren,
+      maxGuests: pk.maxGuests,
+      weekdaySell: [1, 2, 3, 4, 5, 6, 7].map(
+        (day) =>
+          rules.find(
+            (r) =>
+              r.kind === 'weekday' &&
+              r.unitId === target &&
+              r.packageId === pk.id &&
+              r.weekdays.includes(day),
+          )?.sell ?? null,
+      ),
+    }));
+}
+
+/** A folder list as the bot reads it: at most 20 folders, captions trimmed. */
+const toAlbums = (gallery: PropertyRecord['gallery']) =>
+  gallery.slice(0, MAX_ALBUMS).map((f) => ({
+    id: f.id,
+    name: f.name,
+    items: f.items.map((i) => ({ ...i, caption: i.caption.trim().slice(0, 300) })),
+  }));
+
+/** One bookable room of a `rooms` property with its details, folders and packages (T-193). */
+function botUnit(unit: UnitRecord, rows: WeekdayRow[], rules: RateRule[], pkgs: DomainPackage[]) {
+  const albums = toAlbums(unit.gallery);
+  const packages = packageRows(rules, unit.id, pkgs);
+  return {
+    name: unit.name,
+    beds: unit.beds,
+    capacityAdults: unit.capacityAdults,
+    capacityChildren: unit.capacityChildren,
+    weekdayRates: rows,
+    category: unit.category,
+    view: unit.view.trim(),
+    areaM2: unit.areaM2,
+    description: unit.description.trim(),
+    amenities: unit.amenities.slice(0, MAX_AMENITIES),
+    maxGuests: unit.maxGuests,
+    ...(albums.length ? { albums } : {}),
+    ...(packages ? { packages } : {}),
+  };
+}
+
 /** Every ISO weekday 1..7 priced exactly once. */
 function coversWeek(rows: WeekdayRow[]): boolean {
   const days = rows.flatMap((r) => r.days);
@@ -75,7 +138,8 @@ const overrideLabel = (label: string, minNights: number | null): string =>
  * `today`, at most 20) and the surcharges. Sell prices only: no cost ever leaves this function.
  * `rates` are this property's rules; `units` may hold other properties' units too.
  * `albums` carries the media folders (photos, videos, links) for the bot's album and video ids;
- * `gallery` is their photos flattened.
+ * `gallery` is their photos flattened. Each room also carries its details and own folders; a
+ * target with bedroom packages lists them (`packages`, sell prices per weekday) (T-193).
  * Returns null when the property cannot be quoted (some weekday has no price).
  */
 export function toBotProduct(
@@ -104,6 +168,7 @@ export function toBotProduct(
 
   const amounts = [...weekRates, ...priced.flatMap((r) => r.rows)].map((r) => r.amount);
   const roomNames = new Map(rooms.map((u) => [u.id, u.name]));
+  const packageNames = new Map(packages.map((pk) => [pk.id, pk.name]));
   const overrides = rates
     .filter(
       (r): r is RateRule & { dateFrom: string; dateTo: string } =>
@@ -121,6 +186,9 @@ export function toBotProduct(
       label: overrideLabel(r.label, r.minNights),
       amount: r.sell,
       unitName: r.unitId === null ? null : (roomNames.get(r.unitId) ?? null),
+      ...(r.packageId && packageNames.has(r.packageId)
+        ? { packageName: packageNames.get(r.packageId) }
+        : {}),
     }));
 
   const layout =
@@ -131,11 +199,8 @@ export function toBotProduct(
     name: l.name.slice(0, 100),
     beds: l.beds.trim().slice(0, 500) || NOT_PROVIDED,
   }));
-  const albums = p.gallery.slice(0, MAX_ALBUMS).map((f) => ({
-    id: f.id,
-    name: f.name,
-    items: f.items.map((i) => ({ ...i, caption: i.caption.trim().slice(0, 300) })),
-  }));
+  const albums = toAlbums(p.gallery);
+  const wholePackages = packageRows(rates, null, packages);
   // The flat photo list older readers know: every folder's photos in order, captioned by the
   // folder name when the owner left the caption empty (the image allowlist needs a label).
   const gallery = p.gallery
@@ -182,15 +247,10 @@ export function toBotProduct(
       .slice(0, MAX_NOTES),
     ...(p.sellMode === 'rooms'
       ? {
-          units: priced.map(({ unit, rows }) => ({
-            name: unit.name,
-            beds: unit.beds,
-            capacityAdults: unit.capacityAdults,
-            capacityChildren: unit.capacityChildren,
-            weekdayRates: rows,
-          })),
+          units: priced.map(({ unit, rows }) => botUnit(unit, rows, rates, packages)),
         }
       : {}),
+    ...(wholePackages ? { packages: wholePackages } : {}),
     ...(overrides.length ? { overrides } : {}),
     surcharges: {
       extraAdult: p.surcharges.extraAdult?.sell ?? null,

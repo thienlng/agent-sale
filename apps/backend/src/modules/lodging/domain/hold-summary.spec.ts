@@ -77,4 +77,26 @@ describe('buildHoldSummary', () => {
       'Giữ trong 2 giờ, nhân viên sẽ gọi xác nhận.',
     ]);
   });
+
+  it('names the bedroom package of a whole villa (T-193)', () => {
+    const text = buildHoldSummary({ ...villa, packages: [{ unitName: null, name: '5PN' }] });
+    expect(text.split('\n')[0]).toBe('Giữ chỗ SKY VILLA A17 · Nguyên căn · gói 5PN');
+  });
+
+  it('names the package of each room that has one (T-193)', () => {
+    const rooms = {
+      ...villa,
+      propertyName: 'Resort Đồi',
+      whole: false,
+      unitNames: ['Bungalow 1', 'P2'],
+      packages: [{ unitName: 'Bungalow 1', name: '2PN' }],
+    };
+    expect(buildHoldSummary(rooms).split('\n')[0]).toBe(
+      'Giữ chỗ Resort Đồi · phòng Bungalow 1 (gói 2PN), P2',
+    );
+    const whole = { ...rooms, whole: true };
+    expect(buildHoldSummary(whole).split('\n')[0]).toBe(
+      'Giữ chỗ Resort Đồi · Nguyên căn · gói Bungalow 1: 2PN',
+    );
+  });
 });
