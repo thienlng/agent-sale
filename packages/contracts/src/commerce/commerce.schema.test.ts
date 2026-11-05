@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  AssistantUpsertProductRequest,
   OfferingDetails,
   OrderListQuery,
   OrderSummaryDto,
@@ -215,5 +216,62 @@ describe('product offerings', () => {
     });
     expect(both.success).toBe(false);
     expect(both.error?.issues[0]?.path).toEqual(['offering']);
+  });
+});
+
+describe('AssistantUpsertProductRequest (T-193)', () => {
+  const accommodation = {
+    rentalType: 'entire_property',
+    bedrooms: 1,
+    standardAdults: 2,
+    standardChildren: 0,
+    childAgeBelow: 6,
+    maxGuests: null,
+    roomLayout: [{ name: 'P1', beds: '1 giường đôi' }],
+    amenities: [],
+    rateBasis: 'night',
+    rates: [{ days: [1, 2, 3, 4, 5, 6, 7], amount: 1_000_000 }],
+    gallery: [],
+    overrides: [
+      {
+        dateFrom: '2027-02-05',
+        dateTo: '2027-02-08',
+        label: 'Tết',
+        amount: 2_000_000,
+        unitName: null,
+        packageName: '1PN',
+      },
+    ],
+    packages: [
+      {
+        name: '1PN',
+        bedrooms: 1,
+        standardAdults: 2,
+        standardChildren: 0,
+        maxGuests: null,
+        weekdaySell: [1, 1, 1, 1, 1, 1, 1],
+      },
+    ],
+  };
+
+  it('keeps a catalog accommodation and leaves out the lodging bot product fields', () => {
+    const out = AssistantUpsertProductRequest.parse({ ...base, accommodation });
+    expect(out.accommodation).toMatchObject({ rentalType: 'entire_property', bedrooms: 1 });
+    expect(out.accommodation).not.toHaveProperty('packages');
+    expect(out.accommodation?.overrides?.[0]).not.toHaveProperty('packageName');
+    expect(UpsertProductRequest.parse({ ...base, accommodation }).accommodation).toHaveProperty(
+      'packages',
+    );
+  });
+
+  it('applies the same product rules', () => {
+    const twice = { ...base, variants: [base.variants[0], base.variants[0]] };
+    expect(AssistantUpsertProductRequest.safeParse(twice).success).toBe(false);
+    expect(
+      AssistantUpsertProductRequest.safeParse({
+        ...base,
+        accommodation: { ...accommodation, bedrooms: 2 },
+      }).success,
+    ).toBe(false);
   });
 });
