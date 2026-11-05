@@ -539,6 +539,72 @@ describe('lodging rates with bedroom packages over HTTP (T-193)', () => {
   });
 });
 
+describe('package-less overrides when a target gets packages (T-193)', () => {
+  it('moves them onto the full package in the same write', async () => {
+    const o = await signup();
+    const p = await ok(
+      await call(o.headers, 'POST', '/lodging/properties', {
+        code: 'MOVE',
+        name: 'Villa MOVE',
+        sellMode: 'whole',
+        standardAdults: 12,
+        standardChildren: 0,
+      }),
+      PropertyDto,
+      201,
+    );
+    const plain = await ok(
+      await call(o.headers, 'PUT', `/lodging/properties/${p.id}/rates`, {
+        version: p.version,
+        weekday: [{ unitId: null, weekdays: [1, 2, 3, 4, 5, 6, 7], sell: 9_000_000, cost: 1 }],
+        surcharges: NO_SURCHARGES,
+      }),
+      PropertyDto,
+    );
+    const withTet = await ok(
+      await call(o.headers, 'POST', `/lodging/properties/${p.id}/overrides`, {
+        version: plain.version,
+        unitId: null,
+        dateFrom: night(30),
+        dateTo: night(32),
+        label: 'Tết',
+        sell: 25_000_000,
+        cost: 20_000_000,
+      }),
+      PropertyDto,
+      201,
+    );
+    const tetId = withTet.rates.find((r) => r.kind === 'override')?.id;
+    const packaged = await ok(
+      await call(o.headers, 'PUT', `/lodging/properties/${p.id}/rates`, {
+        version: withTet.version,
+        weekday: auraWeekday(),
+        surcharges: NO_SURCHARGES,
+        packages: auraPackages,
+      }),
+      PropertyDto,
+    );
+    const tet = packaged.rates.find((r) => r.id === tetId);
+    expect(tet).toMatchObject({
+      kind: 'override',
+      label: 'Tết',
+      packageId: packageId(packaged, '6PN'),
+    });
+    const q = await ok(
+      await call(o.headers, 'POST', '/lodging/quote', {
+        propertyId: p.id,
+        whole: true,
+        packageIds: [packageId(packaged, '6PN')],
+        checkIn: night(30),
+        checkOut: night(31),
+        party: { adults: 6, childAges: [] },
+      }),
+      QuoteDto,
+    );
+    expect(q.totalSell).toBe(25_000_000);
+  });
+});
+
 describe('lodging unit details over HTTP (T-193)', () => {
   it('stores and returns the new unit fields, and checks each unit gallery', async () => {
     const o = await signup();

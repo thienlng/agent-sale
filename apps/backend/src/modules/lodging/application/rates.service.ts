@@ -13,6 +13,7 @@ import {
   assertPackages,
   assertRateCoverage,
   assertRatePackage,
+  fullPackage,
   type RateRule,
 } from '../domain/rates.js';
 import { LodgingAccess } from './lodging-access.js';
@@ -109,7 +110,8 @@ export class RatesService {
    * every active room of a `rooms` property — must price the seven weekdays exactly once, or,
    * with packages, through its full package (`assertRateCoverage`). Rates name new packages by
    * `packageKey`. Stored overrides stay and are checked with the new set; an override of a
-   * removed package is deleted with it (cascade).
+   * removed package is deleted with it (cascade), and a package-less override of a target that
+   * now has packages moves onto that target's full package.
    */
   async putRates(
     ws: WorkspaceId,
@@ -153,18 +155,28 @@ export class RatesService {
         };
       });
       const kept = new Set(packages.map((pk) => pk.id));
-      const overrides = (await tx.rates([p.id])).filter(
-        (r) => r.kind === 'override' && (r.packageId === null || kept.has(r.packageId)),
-      );
+      // A package-less override of a target that now has packages moves onto its full package.
+      const moved: RateRule[] = [];
+      const overrides = (await tx.rates([p.id]))
+        .filter((r) => r.kind === 'override' && (r.packageId === null || kept.has(r.packageId)))
+        .map((r) => {
+          const full = r.packageId === null ? fullPackage(packages, r.unitId) : undefined;
+          if (!full) return r;
+          const next = { ...r, packageId: full.id };
+          moved.push(next);
+          return next;
+        });
       assertPackages(packages, [...targets]);
       assertRateCoverage([...rules, ...overrides], [...targets], packages);
       assertNoOverrideOverlap(overrides);
       await tx.replacePackages(p.id, packages);
       await tx.replaceWeekdayRates(p.id, rules);
+      for (const r of moved) await tx.updateOverride(p.id, r);
       const saved = await saveBumped(tx, { ...p, surcharges: input.surcharges });
       await tx.audit(actorId, 'lodging_property', p.id, 'lodging.property.rates_replaced', {
         rules: rules.length,
         packages: packages.length,
+        overridesMoved: moved.length,
       });
       return readProperty(tx, saved);
     });
