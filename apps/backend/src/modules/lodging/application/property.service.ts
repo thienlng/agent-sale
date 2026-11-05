@@ -1,4 +1,5 @@
 import {
+  hasGalleryImage,
   PropertyInput,
   type PropertyDto,
   type PropertySummary,
@@ -87,6 +88,19 @@ function assertOwnGallery(
         });
     }),
   );
+}
+
+/**
+ * A PATCH that replaces the gallery without naming a cover resets a stored cover that is no longer
+ * an image of the new gallery to automatic (''); an explicitly sent cover is still validated.
+ */
+function withFreshCover(
+  p: PropertyRecord,
+  patch: UpdatePropertyRequest['patch'],
+): UpdatePropertyRequest['patch'] {
+  if (patch.gallery === undefined || patch.galleryCover !== undefined || p.galleryCover === '')
+    return patch;
+  return hasGalleryImage(patch.gallery, p.galleryCover) ? patch : { ...patch, galleryCover: '' };
 }
 
 function validationError(issues: z.core.$ZodIssue[]): LodgingError {
@@ -234,7 +248,7 @@ export class PropertyService {
     assertOwnGallery(ws, input.patch.gallery);
     return this.store.run(ws, async (tx) => {
       const p = await lockForWrite(tx, id, input.version);
-      const merged = PropertyInput.safeParse({ ...fieldsOf(p), ...input.patch });
+      const merged = PropertyInput.safeParse({ ...fieldsOf(p), ...withFreshCover(p, input.patch) });
       if (!merged.success) throw validationError(merged.error.issues);
       const next = { ...p, ...merged.data };
       if (next.sellMode !== p.sellMode) await this.assertNoFutureBookings(tx, p.id);

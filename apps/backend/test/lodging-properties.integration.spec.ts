@@ -390,14 +390,24 @@ describe('lodging v2 properties over HTTP', () => {
     });
     expect(bad.statusCode, bad.body).toBe(400);
     expect(bad.json()).toMatchObject({ error: { details: { reason: 'VIDEO_NOT_UPLOADED' } } });
-    // The cover is checked on the merged property: a new gallery without the stored cover photo
-    // (and no new cover) is refused, never stored with a stale cover.
-    const stale = await call(o.headers, 'PATCH', `/lodging/properties/${p.id}`, {
-      version: 2,
-      patch: { gallery: [{ id: 'v', name: 'Video', items: [{ kind: 'video', url: own }] }] },
+    // A new gallery without the stored cover photo (and no new cover) resets the cover to
+    // automatic, never stores a stale cover.
+    const stale = await ok(
+      await call(o.headers, 'PATCH', `/lodging/properties/${p.id}`, {
+        version: 2,
+        patch: { gallery: [{ id: 'v', name: 'Video', items: [{ kind: 'video', url: own }] }] },
+      }),
+    );
+    expect(stale.version).toBe(3);
+    expect(stale.galleryCover).toBe('');
+    expect(stale.gallery[0]?.items.map((i) => i.url)).toEqual([own]);
+    // A cover sent explicitly is still checked against the merged gallery.
+    const explicit = await call(o.headers, 'PATCH', `/lodging/properties/${p.id}`, {
+      version: 3,
+      patch: { gallery, galleryCover: 'https://cdn.example.com/a17/other.jpg' },
     });
-    expect(stale.statusCode, stale.body).toBe(400);
-    expect(stale.json()).toMatchObject({
+    expect(explicit.statusCode, explicit.body).toBe(400);
+    expect(explicit.json()).toMatchObject({
       error: {
         code: 'VALIDATION_FAILED',
         details: {
@@ -405,6 +415,12 @@ describe('lodging v2 properties over HTTP', () => {
         },
       },
     });
+    // A cover-only PATCH that names no image of the stored gallery is refused too.
+    const coverOnly = await call(o.headers, 'PATCH', `/lodging/properties/${p.id}`, {
+      version: 3,
+      patch: { galleryCover: photo },
+    });
+    expect(coverOnly.statusCode, coverOnly.body).toBe(400);
   });
 
   it('lets only catalog managers of the business upload a video', async () => {

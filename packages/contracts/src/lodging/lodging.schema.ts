@@ -119,7 +119,8 @@ export const PropertyFields = z.object({
  * PATCH fields: every field optional and WITHOUT defaults, so omitted fields stay absent
  * and never overwrite stored values. A given `policies` / `layout` / `gallery` replaces the
  * stored value as a whole; `galleryCover` is checked against the merged gallery (inner item
- * defaults still apply to what is sent).
+ * defaults still apply to what is sent). A `gallery` sent without `galleryCover` resets a stored
+ * cover that is no longer one of its images to '' (the lodging service does it before this check).
  */
 export const PropertyPatchFields = z.object(propertyShape).partial();
 export type PropertyPatchFields = z.infer<typeof PropertyPatchFields>;
