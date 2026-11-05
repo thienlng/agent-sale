@@ -44,6 +44,48 @@ describe('MetaInboxProcessor — quick replies', () => {
     expect(sent).toEqual([undefined, undefined, buttons]);
   });
 
+  it('sends the album, then the video, then the text with the buttons last (T-192)', async () => {
+    const { ai, channels, keys, run } = setup();
+    const video = {
+      id: 'v:villa:1:0',
+      url: 'https://rapiz.test/media/lodging/tour.mp4',
+      label: 'Tour',
+    };
+    ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
+      await options.sink!.send({
+        text: 'Dạ em tóm tắt.\n\nTổng: 460.000đ',
+        images: pics,
+        videos: [video],
+        quickReplies: buttons,
+      });
+      return answer('');
+    });
+    await run(job('q5', 'chốt'));
+    expect(keys()).toEqual(['bot:q5:s1:img', 'bot:q5:s1:vid', 'bot:q5:s1', 'bot:q5:s1:t2']);
+    const sent = vi.mocked(channels.deliver).mock.calls.map((c) => c[3].quickReplies);
+    expect(sent).toEqual([undefined, undefined, undefined, buttons]);
+  });
+
+  it('sends a video without pictures before the text with the buttons (T-192)', async () => {
+    const { ai, keys, run } = setup();
+    const video = {
+      id: 'v:villa:1:0',
+      url: 'https://rapiz.test/media/lodging/tour.mp4',
+      label: 'Tour',
+    };
+    ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
+      await options.sink!.send({
+        text: 'Dạ video ạ',
+        images: [],
+        videos: [video],
+        quickReplies: buttons,
+      });
+      return answer('');
+    });
+    await run(job('q6', 'video'));
+    expect(keys()).toEqual(['bot:q6:s1:vid', 'bot:q6:s1']);
+  });
+
   it('keeps text first, then the album, when there are no quick replies', async () => {
     const { ai, keys, run } = setup();
     ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {

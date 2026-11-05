@@ -113,8 +113,8 @@ export class ReplyDelivery {
 
   /**
    * One `send_message` call: its text bubbles, then its pictures as one album, then its video as
-   * its own message. With quick replies the album goes first, so the buttons stay on the last
-   * message Messenger shows.
+   * its own message. With quick replies the album and the video go first, so the buttons stay on
+   * the last message Messenger shows. Only the first video of a send goes out.
    */
   private async sendMessage(
     message: OutgoingMessage,
@@ -138,19 +138,28 @@ export class ReplyDelivery {
       await this.sendImages(message.images, `${key}:img`);
       picturesOut = this.delivered > before;
     };
+    const clip = async (url: string) => {
+      const before = this.delivered;
+      await this.sendVideo(url, `${key}:vid`);
+      videoOut = this.delivered > before;
+    };
+    const videoCount = message.videos?.length ?? 0;
+    if (videoCount > 1)
+      this.deps.logger.debug(
+        `Meta inbox event ${this.turn.job.id}: ${videoCount} videos in one send, only the first goes out`,
+      );
     try {
-      if (text && images && message.quickReplies?.length) {
-        await album();
+      if (text && (images || video) && message.quickReplies?.length) {
+        // The buttons ride on the last message: album, then video, then the text.
+        if (images) await album();
+        if (video && !this.stop && !(images && (await this.stopForNewer()))) await clip(video.url);
         if (!this.stop && !(await this.stopForNewer()))
           await this.sendText(text, key, message.quickReplies);
       } else {
         if (text) await this.sendText(text, key, message.quickReplies);
         if (!this.stop && images && !(text && (await this.stopForNewer()))) await album();
-      }
-      if (video && !this.stop && !(await this.stopForNewer())) {
-        const before = this.delivered;
-        await this.sendVideo(video.url, `${key}:vid`);
-        videoOut = this.delivered > before;
+        if (video && !this.stop && !((text || images) && (await this.stopForNewer())))
+          await clip(video.url);
       }
     } catch (error) {
       this.stop = 'failed';
