@@ -35,6 +35,8 @@ export function InstallAppButton() {
         onClick={() => (ios ? setHelp(true) : void install())}
       >
         <Download className="size-4" aria-hidden />
+        {/* Phones get a short label: an arrow alone was easy to miss. */}
+        <span className="sm:hidden">{t('pwa.install.buttonShort')}</span>
         <span className="hidden sm:inline">{t('pwa.install.button')}</span>
       </Button>
       <Dialog open={help} onOpenChange={setHelp}>

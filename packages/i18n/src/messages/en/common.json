@@ -1999,6 +1999,7 @@
   "pwa": {
     "install": {
       "button": "Install app",
+      "buttonShort": "Install",
       "hint": "Install Rapiz on your home screen for quick access and notifications",
       "iosTitle": "Install Rapiz on iPhone",
       "iosIntro": "Safari has no install button. Follow these 3 steps:",

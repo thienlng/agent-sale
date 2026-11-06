@@ -1992,6 +1992,7 @@
   "pwa": {
     "install": {
       "button": "Cài ứng dụng",
+      "buttonShort": "Cài app",
       "hint": "Cài Rapiz lên màn hình chính để mở nhanh và nhận thông báo",
       "iosTitle": "Cài Rapiz lên iPhone",
       "iosIntro": "Safari không có nút cài tự động. Làm theo 3 bước sau:",
