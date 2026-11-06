@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { PublicImageUrl } from '../common/media.js';
+import { GALLERY_MAX_FOLDERS, GalleryFolder } from '../lodging/gallery.js';
 
 const Amount = z.number().int().min(0).max(1_000_000_000_000);
 const text = (max: number) => z.string().trim().max(max);
@@ -19,82 +20,145 @@ export const StayDate = z
     return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
   }, 'must be a real calendar date');
 
+/**
+ * A bedroom package of a rental target (T-193): a price variant of the whole property or of one
+ * unit. `weekdaySell[0]` is Monday … `[6]` Sunday, sell prices only; null = not sold that weekday.
+ */
+const AccommodationPackage = z.object({
+  name: z.string(),
+  bedrooms: z.number().int().min(1).max(100),
+  standardAdults: z.number().int().min(0).max(1000),
+  standardChildren: z.number().int().min(0).max(1000),
+  maxGuests: z.number().int().min(1).max(2000).nullable(),
+  weekdaySell: z.array(Amount.nullable()).length(7),
+});
+
+const UnitRow = z.object({
+  name: z.string(),
+  beds: z.string(),
+  capacityAdults: z.number().int().min(0),
+  capacityChildren: z.number().int().min(0),
+  weekdayRates: z.array(
+    z.object({ days: z.array(z.number().int().min(1).max(7)), amount: Amount }),
+  ),
+});
+const OverrideRow = z.object({
+  dateFrom: StayDate,
+  dateTo: StayDate,
+  label: z.string(),
+  amount: Amount,
+  unitName: z.string().nullable(),
+});
+/** The fields every accommodation carries, up to and including `gallery`. */
+const accommodationHead = {
+  /** `rooms` (T-160): a property rented per room; `roomLayout` may list fewer rows than bedrooms. */
+  rentalType: z.enum(['entire_property', 'rooms']),
+  /** Lodging v2 property code, e.g. `A17` (T-160). */
+  code: z.string().optional(),
+  bedrooms: z.number().int().min(1).max(100),
+  standardAdults: z.number().int().min(1).max(1000),
+  standardChildren: z.number().int().min(0).max(1000),
+  childAgeBelow: z.number().int().min(1).max(18),
+  maxGuests: z.number().int().min(1).max(2000).nullable(),
+  roomLayout: z
+    .array(z.object({ name: text(100).min(1), beds: text(500).min(1) }))
+    .min(1)
+    .max(100),
+  amenities: z.array(text(200).min(1)).max(50),
+  rateBasis: z.enum(['unconfirmed', 'night']),
+  /** ISO weekday: Monday=1, Sunday=7. Amounts are reference VND until basis is confirmed. */
+  rates: z
+    .array(
+      z.object({ days: z.array(z.number().int().min(1).max(7)).min(1).max(7), amount: Amount }),
+    )
+    .min(1)
+    .max(7)
+    .refine((rows) => {
+      const days = rows.flatMap((r) => r.days);
+      return days.length === 7 && new Set(days).size === 7;
+    }, 'each weekday must occur exactly once'),
+  checkInOut: text(500).default(''),
+  depositPolicy: text(1000).default(''),
+  cancellationPolicy: text(1000).default(''),
+  extraGuestPolicy: text(1000).default(''),
+  holidayPolicy: text(1000).default(''),
+  gallery: z.array(Image).max(30),
+};
+const accommodationTail = {
+  /** Lodging v2 (T-160): per person per night above the standard. */
+  surcharges: z
+    .object({
+      extraAdult: Amount.nullable(),
+      extraChild: Amount.nullable(),
+      childFreeBelow: z.number().int().min(0).max(18),
+      childAdultFrom: z.number().int().min(1).max(18),
+    })
+    .optional(),
+};
+const coversEveryBedroom = (v: { rentalType: string; roomLayout: unknown[]; bedrooms: number }) =>
+  v.rentalType !== 'entire_property' || v.roomLayout.length === v.bedrooms;
+const EVERY_BEDROOM = 'room layout must describe every bedroom';
+
 export const AccommodationDetails = z
   .object({
-    /** `rooms` (T-160): a property rented per room; `roomLayout` may list fewer rows than bedrooms. */
-    rentalType: z.enum(['entire_property', 'rooms']),
-    /** Lodging v2 property code, e.g. `A17` (T-160). */
-    code: z.string().optional(),
-    bedrooms: z.number().int().min(1).max(100),
-    standardAdults: z.number().int().min(1).max(1000),
-    standardChildren: z.number().int().min(0).max(1000),
-    childAgeBelow: z.number().int().min(1).max(18),
-    maxGuests: z.number().int().min(1).max(2000).nullable(),
-    roomLayout: z
-      .array(z.object({ name: text(100).min(1), beds: text(500).min(1) }))
-      .min(1)
-      .max(100),
-    amenities: z.array(text(200).min(1)).max(50),
-    rateBasis: z.enum(['unconfirmed', 'night']),
-    /** ISO weekday: Monday=1, Sunday=7. Amounts are reference VND until basis is confirmed. */
-    rates: z
-      .array(
-        z.object({ days: z.array(z.number().int().min(1).max(7)).min(1).max(7), amount: Amount }),
-      )
-      .min(1)
-      .max(7)
-      .refine((rows) => {
-        const days = rows.flatMap((r) => r.days);
-        return days.length === 7 && new Set(days).size === 7;
-      }, 'each weekday must occur exactly once'),
-    checkInOut: text(500).default(''),
-    depositPolicy: text(1000).default(''),
-    cancellationPolicy: text(1000).default(''),
-    extraGuestPolicy: text(1000).default(''),
-    holidayPolicy: text(1000).default(''),
-    gallery: z.array(Image).max(30),
+    ...accommodationHead,
+    /**
+     * Lodging media folders (T-192): filled only by the lodging bot product; older commerce rows
+     * have none and a commerce product save refuses them (ALBUMS_LODGING_ONLY). `gallery` keeps
+     * the flat photo list for them.
+     */
+    albums: z.array(GalleryFolder).max(GALLERY_MAX_FOLDERS).optional(),
     notes: text(3000).default(''),
     /** Lodging v2 (T-160): bookable rooms of a `rooms` property with their weekday rates. */
     units: z
       .array(
-        z.object({
-          name: z.string(),
-          beds: z.string(),
-          capacityAdults: z.number().int().min(0),
-          capacityChildren: z.number().int().min(0),
-          weekdayRates: z.array(
-            z.object({ days: z.array(z.number().int().min(1).max(7)), amount: Amount }),
-          ),
+        UnitRow.extend({
+          /** Unit details (T-193); absent on rows written before them. */
+          category: z.enum(['room', 'bungalow', 'house', 'other']).optional(),
+          view: z.string().optional(),
+          areaM2: z.number().int().min(1).max(100_000).nullable().optional(),
+          description: z.string().optional(),
+          amenities: z.array(z.string()).optional(),
+          maxGuests: z.number().int().min(1).max(2000).nullable().optional(),
+          /** The unit's own media folders; ids usable as `send_message` album / video ids. */
+          albums: z.array(GalleryFolder).max(GALLERY_MAX_FOLDERS).optional(),
+          /** The unit's bedroom packages; `weekdayRates` are its full package's prices. */
+          packages: z.array(AccommodationPackage).max(10).optional(),
         }),
       )
       .optional(),
+    /**
+     * Bedroom packages of the whole property (T-193); `rates` are then the full package's prices.
+     */
+    packages: z.array(AccommodationPackage).max(10).optional(),
     /** Lodging v2 (T-160): date-range prices; inclusive nights; `unitName` null = whole property. */
     overrides: z
       .array(
-        z.object({
-          dateFrom: StayDate,
-          dateTo: StayDate,
-          label: z.string(),
-          amount: Amount,
-          unitName: z.string().nullable(),
+        OverrideRow.extend({
+          /** The bedroom package the price is for (T-193); absent for a target without packages. */
+          packageName: z.string().optional(),
         }),
       )
       .optional(),
-    /** Lodging v2 (T-160): per person per night above the standard. */
-    surcharges: z
-      .object({
-        extraAdult: Amount.nullable(),
-        extraChild: Amount.nullable(),
-        childFreeBelow: z.number().int().min(0).max(18),
-        childAdultFrom: z.number().int().min(1).max(18),
-      })
-      .optional(),
+    ...accommodationTail,
   })
-  .refine(
-    (v) => v.rentalType !== 'entire_property' || v.roomLayout.length === v.bedrooms,
-    'room layout must describe every bedroom',
-  );
+  .refine(coversEveryBedroom, EVERY_BEDROOM);
 export type AccommodationDetails = z.infer<typeof AccommodationDetails>;
+
+/**
+ * `AccommodationDetails` without the fields only the lodging module's bot product fills (media
+ * folders, unit details, bedroom packages; T-192, T-193): the accommodation of a catalog product
+ * as the owner assistant writes it, so its `tool_describe` stays within the result limit.
+ */
+export const CatalogAccommodationDetails = z
+  .object({
+    ...accommodationHead,
+    notes: text(3000).default(''),
+    units: z.array(UnitRow).optional(),
+    overrides: z.array(OverrideRow).optional(),
+    ...accommodationTail,
+  })
+  .refine(coversEveryBedroom, EVERY_BEDROOM);
 
 export const StayParty = z
   .object({

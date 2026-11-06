@@ -13,7 +13,6 @@ import type { BotView } from '../../bot/api/index.js';
 import type { MessageSink, ReplyOptions } from '../api/reply-options.js';
 import { defaultFallbackMessage, defaultHandoffMessage } from '../domain/default-messages.js';
 import { normalizeReplyText } from '../domain/reply-text.js';
-import { productImages } from '../domain/image-allowlist.js';
 import { type ActionToolContext, playgroundConversationId, runActionTool } from './action-tools.js';
 import { CALCULATE_TOOL, calculateTool } from './calculator.js';
 import { type HoldToolContext, holdTools } from './hold-tools.js';
@@ -73,6 +72,8 @@ export function turnTools(opts: {
   holds?: HoldToolContext | null;
   /** Present only for a bot of a request industry: saas, education, spa (ADR-020). */
   requests?: RequestToolContext | null;
+  /** Attachment URLs already sent in this conversation (album paging). */
+  sentMediaUrls?: readonly string[];
 }): ToolSet {
   const { catalog, allowlist, actions } = opts;
   return mergeToolSets(
@@ -82,7 +83,7 @@ export function turnTools(opts: {
           runnable: catalogRunnableTools({
             ...catalog,
             onProducts: (products) => {
-              allowlist.add(productImages(products));
+              allowlist.addProducts(products);
               opts.onProducts?.(products);
             },
           }),
@@ -94,6 +95,7 @@ export function turnTools(opts: {
       allowlist,
       state: opts.output,
       sendMessage: opts.sendMessage,
+      ...(opts.sentMediaUrls ? { sentMediaUrls: opts.sentMediaUrls } : {}),
     }),
     opts.orders ? orderTools(opts.orders) : { definitions: [], runnable: [] },
     opts.holds ? holdTools(opts.holds) : { definitions: [], runnable: [] },

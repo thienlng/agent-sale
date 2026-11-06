@@ -89,6 +89,19 @@ export interface BotAvailabilityOption {
   problems: 'min_nights'[];
   /** Null when some night has no price. */
   totalSell: number | null;
+  /**
+   * The bedroom package the quote picked (T-193): the smallest one that fits the party and is
+   * sold every night; null when the option's target has no packages (or several targets have).
+   */
+  package: string | null;
+  /** The other packages of that target, fewest bedrooms first, quoted for the same stay. */
+  alternatives: {
+    package: string;
+    bedrooms: number;
+    /** Null when the package is not sold on one of the nights. */
+    totalSell: number | null;
+    fits: boolean;
+  }[];
   nightly: { date: string; weekdayLabel: string; label: string; sell: number }[];
   surcharges: {
     kind: 'extra_adult' | 'extra_child';
@@ -127,6 +140,11 @@ export interface PrepareBotHoldInput {
   guestName: string;
   guestPhone: string;
   note?: string;
+  /**
+   * Bedroom packages the customer chose by name (T-193), case-insensitive; `unitId` null = the
+   * whole property. Targets left out get the package the quote picks.
+   */
+  packages?: { unitId: string | null; name: string }[];
 }
 
 export type HoldProblem =
@@ -141,11 +159,21 @@ export type HoldProblem =
   | 'over_max'
   | 'missing_rate'
   | 'past_date'
-  | 'too_long';
+  | 'too_long'
+  /** A package name that is not one of the target's (`validPackages` lists them). */
+  | 'unknown_package'
+  /** The chosen package is not sold on some night of the stay. */
+  | 'package_unavailable';
 
 export type PrepareBotHoldResult =
   | { status: 'ready'; summary: string; holdMinutes: number }
-  | { status: 'problems'; problems: HoldProblem[]; alternatives: BotAvailabilityOption[] };
+  | {
+      status: 'problems';
+      problems: HoldProblem[];
+      alternatives: BotAvailabilityOption[];
+      /** With `unknown_package`: the package names of the stay's targets ('Bungalow 1: 2PN'). */
+      validPackages?: string[];
+    };
 
 export type ConfirmBotHoldResult =
   | { status: 'held'; code: string; holdExpiresAt: string }

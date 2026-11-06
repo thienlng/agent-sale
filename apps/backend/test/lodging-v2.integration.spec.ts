@@ -15,6 +15,7 @@ import type {
   PropertyRecord,
   UnitRecord,
 } from '../src/modules/lodging/application/ports/lodging-store.js';
+import { unitDetails } from '../src/modules/lodging/__tests__/factories/units.js';
 import { LodgingError } from '../src/modules/lodging/domain/lodging.errors.js';
 import { DrizzleLodgingStore } from '../src/modules/lodging/infrastructure/persistence/lodging.drizzle-store.js';
 
@@ -57,7 +58,14 @@ function property(over: Partial<PropertyRecord> = {}): PropertyRecord {
       houseRules: '',
       other: '',
     },
-    gallery: [{ url: 'https://media.rapiz.test/a17/0.jpg', caption: 'Hồ bơi' }],
+    gallery: [
+      {
+        id: 'pool',
+        name: 'Hồ bơi',
+        items: [{ kind: 'image', url: 'https://media.rapiz.test/a17/0.jpg', caption: 'Hồ bơi' }],
+      },
+    ],
+    galleryCover: '',
     internalNote: '',
     surcharges: { extraAdult: { sell: 300_000, cost: 200_000 }, extraChild: null },
     sortOrder: 0,
@@ -70,6 +78,7 @@ function property(over: Partial<PropertyRecord> = {}): PropertyRecord {
 
 function unit(propertyId: string, over: Partial<UnitRecord> = {}): UnitRecord {
   return {
+    ...unitDetails(),
     id: newId(),
     propertyId,
     kind: 'whole',
@@ -91,6 +100,7 @@ function booking(propertyId: string, unitIds: string[], over: Partial<BookingRec
     kind: 'stay',
     whole: true,
     unitIds,
+    unitPackages: {},
     status: 'confirmed',
     checkIn: '2027-01-08',
     checkOut: '2027-01-10',
@@ -108,6 +118,7 @@ function booking(propertyId: string, unitIds: string[], over: Partial<BookingRec
       totalSell: 13_000_000,
       totalCost: 12_000_000,
       warnings: [],
+      packages: [],
     },
     adjustment: 0,
     adjustmentReason: '',
@@ -180,6 +191,7 @@ describe('DrizzleLodgingStore', () => {
           sell: 12_000_000,
           cost: 11_000_000,
           minNights: null,
+          packageId: null,
         },
         {
           id: rateIds[1]!,
@@ -192,6 +204,7 @@ describe('DrizzleLodgingStore', () => {
           sell: 14_000_000,
           cost: 13_000_000,
           minNights: null,
+          packageId: null,
         },
       ]);
       await tx.insertOverride(p.id, {
@@ -205,6 +218,7 @@ describe('DrizzleLodgingStore', () => {
         sell: 20_000_000,
         cost: 18_000_000,
         minNights: 2,
+        packageId: null,
       });
     });
     const got = await store.run(ws, async (tx) => ({
@@ -222,6 +236,7 @@ describe('DrizzleLodgingStore', () => {
       dateFrom: '2027-02-10',
       dateTo: '2027-02-14',
       minNights: 2,
+      packageId: null,
       sell: 20_000_000,
     });
     const { p: bare } = await seedProperty(ws, { code: 'RT2' });
@@ -254,6 +269,7 @@ describe('DrizzleLodgingStore', () => {
       sell,
       cost: sell,
       minNights: null,
+      packageId: null,
     });
     await store.run(ws, async (tx) => {
       await tx.replaceWeekdayRates(p.id, [weekday([1, 2, 3, 4, 5, 6, 7], 1)]);
@@ -452,6 +468,7 @@ describe('DrizzleLodgingStore', () => {
         sell: 1,
         cost: 1,
         minNights: null,
+        packageId: null,
       });
     });
     await store.run(ws, (tx) => tx.replaceUnits(p.id, [{ ...u, name: 'Đổi tên' }]));

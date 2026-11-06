@@ -1,8 +1,13 @@
-import type { PropertyDto, UnitDto } from '@agent-sales/contracts';
+import type { PackageDto, PropertyDto, UnitDto } from '@agent-sales/contracts';
 
 import { LodgingError } from '../domain/lodging.errors.js';
-import type { RateRule } from '../domain/rates.js';
-import type { LodgingTx, PropertyRecord, UnitRecord } from './ports/lodging-store.js';
+import { fullPackage, type DomainPackage, type RateRule } from '../domain/rates.js';
+import type {
+  LodgingTx,
+  PackageRecord,
+  PropertyRecord,
+  UnitRecord,
+} from './ports/lodging-store.js';
 
 /**
  * Units of the property's current sell mode: the whole unit of a `whole` property, the rooms
@@ -18,28 +23,46 @@ export function toUnitDto({ propertyId: _p, ...u }: UnitRecord): UnitDto {
   return u;
 }
 
+export function toPackageDto({ propertyId: _p, ...pk }: PackageRecord): PackageDto {
+  return pk;
+}
+
+/** Every package of the property (rates may name any of them), by sort order. */
 export function toPropertyDto(
   p: PropertyRecord,
   units: UnitRecord[],
   rates: RateRule[],
+  packages: PackageRecord[] = [],
 ): PropertyDto {
   const { sortOrder: _sort, ...rest } = p;
-  return { ...rest, units: currentUnits(p, units).map(toUnitDto), rates };
+  return {
+    ...rest,
+    units: currentUnits(p, units).map(toUnitDto),
+    rates,
+    packages: packages.filter((pk) => pk.propertyId === p.id).map(toPackageDto),
+  };
 }
 
 /**
  * Whole-property sell price per ISO weekday (Monday first) from the weekday rates; overrides are
- * ignored. A room-sold property without a whole rate sums its active rooms; null when a weekday
- * is not fully priced.
+ * ignored. A target with packages is priced with its full package. A room-sold property without
+ * a whole rate sums its active rooms; null when a weekday is not fully priced.
  */
 export function weekdaySell(
   p: PropertyRecord,
   units: UnitRecord[],
   rates: RateRule[],
+  packages: DomainPackage[] = [],
 ): (number | null)[] {
   const weekdayRules = rates.filter((r) => r.kind === 'weekday');
-  const priceOf = (unitId: string | null, day: number) =>
-    weekdayRules.find((r) => r.unitId === unitId && r.weekdays.includes(day))?.sell ?? null;
+  const priceOf = (unitId: string | null, day: number) => {
+    const packageId = fullPackage(packages, unitId)?.id ?? null;
+    return (
+      weekdayRules.find(
+        (r) => r.unitId === unitId && r.packageId === packageId && r.weekdays.includes(day),
+      )?.sell ?? null
+    );
+  };
   const rooms = p.sellMode === 'rooms' ? currentUnits(p, units).filter((u) => u.active) : [];
   return [1, 2, 3, 4, 5, 6, 7].map((day) => {
     const whole = priceOf(null, day);
@@ -51,10 +74,11 @@ export function weekdaySell(
   });
 }
 
-/** The property with its units and rates, as the API returns it. */
+/** The property with its units, rates and packages, as the API returns it. */
 export async function readProperty(tx: LodgingTx, p: PropertyRecord): Promise<PropertyDto> {
-  const [units, rates] = [await tx.units([p.id]), await tx.rates([p.id])];
-  return toPropertyDto(p, units, rates);
+  const units = await tx.units([p.id]);
+  const rates = await tx.rates([p.id]);
+  return toPropertyDto(p, units, rates, await tx.packages([p.id]));
 }
 
 /**

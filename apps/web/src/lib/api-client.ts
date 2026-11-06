@@ -181,3 +181,83 @@ export async function apiBlob(path: string, workspaceId?: string): Promise<Blob 
   if (!res.ok) throw await toError(res);
   return res.blob();
 }
+
+export interface UploadProgress {
+  loaded: number;
+  total: number;
+}
+
+interface UploadInit {
+  file: Blob;
+  fileName: string;
+  workspaceId?: string | undefined;
+  onProgress?: ((progress: UploadProgress) => void) | undefined;
+  signal?: AbortSignal | undefined;
+}
+
+/** One XHR attempt (fetch reports no upload progress). Resolves with the raw answer. */
+function sendUpload(
+  path: string,
+  init: UploadInit,
+  scope: string | null,
+): Promise<{ status: number; statusText: string; body: string }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `/api/v1${path}`);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader('Accept', 'application/json');
+    if (accessToken) xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+    if (scope) xhr.setRequestHeader('X-Workspace-Id', scope);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) init.onProgress?.({ loaded: e.loaded, total: e.total });
+    };
+    xhr.onload = () =>
+      resolve({ status: xhr.status, statusText: xhr.statusText, body: xhr.responseText });
+    xhr.onerror = () => reject(new ApiClientError(0, 'NETWORK', 'Network error'));
+    xhr.onabort = () => reject(new DOMException('Upload aborted', 'AbortError'));
+    init.signal?.addEventListener('abort', () => xhr.abort(), { once: true });
+    const form = new FormData();
+    form.append('file', init.file, init.fileName);
+    xhr.send(form);
+  });
+}
+
+function uploadError(res: { status: number; statusText: string; body: string }): ApiClientError {
+  let json: unknown;
+  try {
+    json = JSON.parse(res.body);
+  } catch {
+    json = null;
+  }
+  const parsed = ErrorResponse.safeParse(json);
+  if (!parsed.success) return new ApiClientError(res.status, 'INTERNAL', res.statusText);
+  const e = parsed.data.error;
+  return new ApiClientError(res.status, e.code, e.message, e.traceId, e.details);
+}
+
+/**
+ * A multipart upload of one file (field `file`) with upload progress, e.g. a lodging video. Same
+ * headers, one silent refresh-and-retry on 401 and error envelope as `api()`.
+ */
+export async function apiUpload<T>(
+  path: string,
+  schema: z.ZodType<T>,
+  init: UploadInit,
+): Promise<T> {
+  const scope = init.workspaceId ?? workspaceId;
+  let res = await sendUpload(path, init, scope);
+  if (res.status === 401) {
+    if (await refreshSession()) res = await sendUpload(path, init, scope);
+    else {
+      accessToken = null;
+      onSessionExpired();
+    }
+  }
+  if (res.status < 200 || res.status >= 300) {
+    const error = uploadError(res);
+    if (res.status === 404 && scope && error.details?.['reason'] === 'workspace_access')
+      onWorkspaceLost(scope);
+    throw error;
+  }
+  return schema.parse(res.body ? JSON.parse(res.body) : null);
+}

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { PublicImageUrl } from '../common/media.js';
+import { Gallery, hasGalleryImage } from './gallery.js';
 
 /**
  * Lodging v2 (T-160, spec 2026-11-01-lodging-calendar): properties → units → rates →
@@ -17,6 +17,9 @@ export const PropertyStatus = z.enum(['active', 'paused']);
 export type PropertyStatus = z.infer<typeof PropertyStatus>;
 export const UnitKind = z.enum(['whole', 'room']);
 export type UnitKind = z.infer<typeof UnitKind>;
+/** What a unit is (T-193); ignored for the `whole` unit. */
+export const UnitCategory = z.enum(['room', 'bungalow', 'house', 'other']);
+export type UnitCategory = z.infer<typeof UnitCategory>;
 export const BookingKind = z.enum(['stay', 'block']);
 export type BookingKind = z.infer<typeof BookingKind>;
 export const BookingStatus = z.enum([
@@ -62,11 +65,6 @@ export const Policies = z.object({
   other: z.string().max(2000).default(''),
 });
 export type Policies = z.infer<typeof Policies>;
-/** Same rule as the commerce `Image`: a Rapiz `/media/…` path or an https link (no http:, javascript:, data:). */
-export const GalleryImage = z.object({
-  url: PublicImageUrl,
-  caption: z.string().trim().max(300).default(''),
-});
 
 /** Property field validators without defaults; shared by create (with defaults) and patch. */
 const propertyShape = {
@@ -92,7 +90,10 @@ const propertyShape = {
   amenities: z.array(z.string().trim().min(1).max(200)).max(80),
   layout: z.array(LayoutRoom).max(100),
   policies: Policies,
-  gallery: z.array(GalleryImage).max(30),
+  /** Media folders (T-192): photos, uploaded videos and video links, in the owner's order. */
+  gallery: Gallery,
+  /** '' = automatic (first image of the first folder that has one); else an image item's url. */
+  galleryCover: z.string().trim().max(2000),
   /** Staff-only note about the property (owner habits, keys…); never reaches the bot. */
   internalNote: z.string().trim().max(2000),
 };
@@ -114,19 +115,25 @@ export const PropertyFields = z.object({
   layout: propertyShape.layout.default([]),
   policies: propertyShape.policies.prefault({}),
   gallery: propertyShape.gallery.default([]),
+  galleryCover: propertyShape.galleryCover.default(''),
   internalNote: propertyShape.internalNote.default(''),
 });
 /**
  * PATCH fields: every field optional and WITHOUT defaults, so omitted fields stay absent
  * and never overwrite stored values. A given `policies` / `layout` / `gallery` replaces the
- * stored value as a whole (inner item defaults still apply to what is sent).
+ * stored value as a whole; `galleryCover` is checked against the merged gallery (inner item
+ * defaults still apply to what is sent). A `gallery` sent without `galleryCover` resets a stored
+ * cover that is no longer one of its images to '' (the lodging service does it before this check).
  */
 export const PropertyPatchFields = z.object(propertyShape).partial();
 export type PropertyPatchFields = z.infer<typeof PropertyPatchFields>;
 export const PropertyInput = PropertyFields.refine(
   (v) => v.childFreeBelow <= v.childAdultFrom,
   'childFreeBelow must not exceed childAdultFrom',
-);
+).refine((v) => v.galleryCover === '' || hasGalleryImage(v.gallery, v.galleryCover), {
+  message: 'galleryCover must be the url of an image in the gallery',
+  path: ['galleryCover'],
+});
 export type PropertyInput = z.input<typeof PropertyInput>;
 export const UpdatePropertyRequest = z.object({
   version: z.number().int().positive(),
@@ -136,6 +143,11 @@ export type UpdatePropertyRequest = z.infer<typeof UpdatePropertyRequest>;
 
 // ── Units ─────────────────────────────────────────────────────────────────────
 
+/**
+ * A unit's own details (T-193): `capacityAdults` / `capacityChildren` are its standard party
+ * (used by the quote), `maxGuests` its hard maximum (null = none), `gallery` its own media
+ * folders with the same limits and cover rule as the property's.
+ */
 export const UnitDto = z.object({
   id: z.uuid(),
   kind: UnitKind,
@@ -145,16 +157,39 @@ export const UnitDto = z.object({
   capacityChildren: z.number().int(),
   active: z.boolean(),
   sortOrder: z.number().int(),
+  category: UnitCategory,
+  view: z.string(),
+  areaM2: z.number().int().nullable(),
+  description: z.string(),
+  amenities: z.array(z.string()),
+  maxGuests: z.number().int().nullable(),
+  gallery: Gallery,
+  galleryCover: z.string(),
 });
 export type UnitDto = z.infer<typeof UnitDto>;
-export const UnitInput = z.object({
-  id: z.uuid().optional(),
-  name: z.string().trim().min(1).max(100),
-  beds: z.string().trim().max(500).default(''),
-  capacityAdults: z.number().int().min(1).max(100),
-  capacityChildren: z.number().int().min(0).max(100).default(0),
-  active: z.boolean().default(true),
-});
+export const UnitInput = z
+  .object({
+    id: z.uuid().optional(),
+    name: z.string().trim().min(1).max(100),
+    beds: z.string().trim().max(500).default(''),
+    capacityAdults: z.number().int().min(1).max(100),
+    capacityChildren: z.number().int().min(0).max(100).default(0),
+    active: z.boolean().default(true),
+    category: UnitCategory.default('room'),
+    view: z.string().trim().max(200).default(''),
+    areaM2: z.number().int().min(1).max(100_000).nullable().default(null),
+    description: z.string().trim().max(2000).default(''),
+    amenities: z.array(z.string().trim().min(1).max(200)).max(40).default([]),
+    maxGuests: z.number().int().min(1).max(2000).nullable().default(null),
+    gallery: Gallery.default([]),
+    /** '' = automatic (first image of the first folder that has one); else an image item's url. */
+    galleryCover: z.string().trim().max(2000).default(''),
+  })
+  .refine((v) => v.galleryCover === '' || hasGalleryImage(v.gallery, v.galleryCover), {
+    message: 'galleryCover must be the url of an image in the gallery',
+    path: ['galleryCover'],
+  });
+export type UnitInput = z.input<typeof UnitInput>;
 export const ReplaceUnitsRequest = z.object({
   version: z.number().int().positive(),
   units: z.array(UnitInput).min(1).max(100),
@@ -163,12 +198,44 @@ export type ReplaceUnitsRequest = z.infer<typeof ReplaceUnitsRequest>;
 
 // ── Rates ─────────────────────────────────────────────────────────────────────
 
-/** `unitId` null = the whole property; ISO weekdays Monday=1 … Sunday=7. */
+/**
+ * A bedroom package (T-193): a priced variant of one rental target, `unitId` null = the whole
+ * property. `key` is a client string unique in the request; rates point at it through
+ * `packageKey`. The server maps keys to ids (`id` when given, else a new uuid).
+ */
+export const PackageInput = z.object({
+  id: z.uuid().optional(),
+  key: z.string().min(1).max(40),
+  unitId: z.uuid().nullable(),
+  name: z.string().trim().min(1).max(50),
+  bedrooms: z.number().int().min(1).max(100),
+  standardAdults: z.number().int().min(1).max(1000),
+  standardChildren: z.number().int().min(0).max(1000).default(0),
+  maxGuests: z.number().int().min(1).max(2000).nullable().default(null),
+});
+export type PackageInput = z.input<typeof PackageInput>;
+export const PackageDto = z.object({
+  id: z.uuid(),
+  unitId: z.uuid().nullable(),
+  name: z.string(),
+  bedrooms: z.number().int(),
+  standardAdults: z.number().int(),
+  standardChildren: z.number().int(),
+  maxGuests: z.number().int().nullable(),
+  sortOrder: z.number().int(),
+});
+export type PackageDto = z.infer<typeof PackageDto>;
+
+/**
+ * `unitId` null = the whole property; ISO weekdays Monday=1 … Sunday=7. `packageKey` names a
+ * package of the same request (null = the target's price without packages).
+ */
 export const WeekdayRate = z.object({
   unitId: z.uuid().nullable(),
   weekdays: z.array(z.number().int().min(1).max(7)).min(1).max(7),
   sell: Vnd,
   cost: Vnd,
+  packageKey: z.string().min(1).max(40).nullable().default(null),
 });
 /** Per person per night above the standard. */
 export const Surcharges = z.object({
@@ -180,6 +247,8 @@ export const PutRatesRequest = z.object({
   version: z.number().int().positive(),
   weekday: z.array(WeekdayRate).min(1).max(800),
   surcharges: Surcharges,
+  /** Replaced together with the rates and validated as a whole. */
+  packages: z.array(PackageInput).max(200).default([]),
 });
 export type PutRatesRequest = z.infer<typeof PutRatesRequest>;
 /** Override field validators without defaults; shared by create (with defaults) and patch. */
@@ -191,11 +260,14 @@ const overrideShape = {
   sell: Vnd,
   cost: Vnd,
   minNights: z.number().int().min(1).max(60).nullable(),
+  /** A package of the same target (T-193); null = the target's price without packages. */
+  packageId: z.uuid().nullable(),
 };
 /** Date-range price; `dateFrom`..`dateTo` are inclusive nights. */
 export const OverrideInput = z.object({
   ...overrideShape,
   minNights: overrideShape.minNights.default(null),
+  packageId: overrideShape.packageId.default(null),
 });
 export type OverrideInput = z.infer<typeof OverrideInput>;
 /** POST body: the override plus the property version it was edited against. */
@@ -219,6 +291,7 @@ export const RateDto = z.object({
   sell: Vnd,
   cost: Vnd,
   minNights: z.number().int().nullable(),
+  packageId: z.uuid().nullable(),
 });
 export type RateDto = z.infer<typeof RateDto>;
 
@@ -226,6 +299,7 @@ export const PropertyDto = PropertyFields.extend({
   id: z.uuid(),
   units: z.array(UnitDto),
   rates: z.array(RateDto),
+  packages: z.array(PackageDto),
   surcharges: Surcharges,
   version: z.number().int(),
   createdAt: z.iso.datetime(),
@@ -259,8 +333,18 @@ export const StaySelection = z.object({
   unitIds: z.array(z.uuid()).max(100).default([]),
   checkIn: IsoNight,
   checkOut: IsoNight,
+  /** Chosen packages, at most one per target; a target with packages not listed is auto-picked. */
+  packageIds: z.array(z.uuid()).max(100).default([]),
 });
-export const QuoteRequest = StaySelection.extend({ party: Party });
+export const QuoteRequest = StaySelection.extend({
+  party: Party,
+  /**
+   * A booking edit's preview (T-193): the packages the booking was sold with, kept while they
+   * still fit and otherwise auto-picked, the rule the edit's save applies when `packageIds` is
+   * omitted. Used only when `packageIds` is empty.
+   */
+  keepPackageIds: z.array(z.uuid()).max(100).optional(),
+});
 export type QuoteRequest = z.infer<typeof QuoteRequest>;
 export const QuoteNight = z.object({
   date: IsoNight,
@@ -282,8 +366,16 @@ export const QuoteWarning = z.enum([
   'over_max',
   'over_standard',
   'child_ages_missing',
+  /** An explicitly chosen package does not price some night of the stay. */
+  'package_unavailable',
 ]);
 export type QuoteWarning = z.infer<typeof QuoteWarning>;
+export const QuotePackage = z.object({
+  target: z.uuid().nullable(),
+  packageId: z.uuid(),
+  name: z.string(),
+});
+export type QuotePackage = z.infer<typeof QuotePackage>;
 export const QuoteDto = z.object({
   nights: z.array(QuoteNight),
   surcharges: z.array(QuoteSurcharge),
@@ -292,6 +384,8 @@ export const QuoteDto = z.object({
   warnings: z.array(QuoteWarning),
   /** Booking codes occupying requested nights. */
   takenBy: z.array(z.string()),
+  /** Packages the quote used; `target` null = the whole property. */
+  packages: z.array(QuotePackage),
 });
 export type QuoteDto = z.infer<typeof QuoteDto>;
 
@@ -343,6 +437,11 @@ export const UpdateBookingRequest = z.object({
   checkOut: IsoNight.optional(),
   whole: z.boolean().optional(),
   unitIds: z.array(z.uuid()).max(100).optional(),
+  /**
+   * Omitted = keep the booking's packages; `[]` = pick them automatically; otherwise the chosen
+   * ones. A change re-prices the stay, so clients send it only when the package changed.
+   */
+  packageIds: z.array(z.uuid()).max(100).optional(),
   party: Party.optional(),
   guestName: z.string().trim().min(1).max(200).optional(),
   guestPhone: z.string().trim().max(30).optional(),
@@ -381,6 +480,9 @@ export const BookingDto = z.object({
   whole: z.boolean(),
   unitIds: z.array(z.uuid()),
   unitNames: z.array(z.string()),
+  /** Packages of the booking's units (T-193); empty when none. */
+  packageIds: z.array(z.uuid()),
+  packageNames: z.array(z.string()),
   status: BookingStatus,
   checkIn: IsoNight,
   checkOut: IsoNight,
@@ -463,6 +565,8 @@ export const CalendarSegment = z.object({
   totalSell: Vnd.nullable(),
   tags: z.array(z.string()),
   note: z.string(),
+  /** Package name(s) of the booking (T-193); empty when none, or from an older API. */
+  packageNames: z.array(z.string()).default([]),
 });
 export const CalendarRow = z.object({
   unitId: z.uuid(),
@@ -519,12 +623,24 @@ export const AvailabilityRequest = z.object({
   propertyIds: z.array(z.uuid()).max(200).optional(),
 });
 export type AvailabilityRequest = z.infer<typeof AvailabilityRequest>;
+export const AvailabilityAlternative = z.object({
+  packageId: z.uuid(),
+  name: z.string(),
+  bedrooms: z.number().int(),
+  totalSell: Vnd.nullable(),
+  fits: z.boolean(),
+});
+export type AvailabilityAlternative = z.infer<typeof AvailabilityAlternative>;
 export const AvailabilityOption = z.object({
   propertyId: z.uuid(),
   whole: z.boolean(),
   unitIds: z.array(z.uuid()),
   fits: z.boolean(),
   quote: QuoteDto,
+  /** Packages the option's quote auto-picked (same as `quote.packages`). */
+  packages: z.array(QuotePackage),
+  /** Other packages of a single package target, so a bigger one can be offered. */
+  alternatives: z.array(AvailabilityAlternative),
 });
 export const AvailabilityDto = z.object({ options: z.array(AvailabilityOption) });
 export type AvailabilityDto = z.infer<typeof AvailabilityDto>;

@@ -330,14 +330,18 @@ describe('ConversationFacade tenant and delivery contract', () => {
       idempotencyKey: 'bot:in1',
     });
     expect(reply?.status).toBe('sent');
-    const input = { urls: ['https://img.example.com/a.jpg'], idempotencyKey: 'bot:in1:img1' };
-    const first = await service.commitBotImages(ws, c.id, input);
-    const again = await service.commitBotImages(ws, c.id, input);
+    const url = 'https://img.example.com/a.jpg';
+    const input = {
+      attachments: [{ type: 'image' as const, url }],
+      idempotencyKey: 'bot:in1:img1',
+    };
+    const first = await service.commitBotAttachments(ws, c.id, input);
+    const again = await service.commitBotAttachments(ws, c.id, input);
     expect(first).toMatchObject({
       direction: 'outbound',
       sender: 'bot',
       text: '',
-      attachments: [{ type: 'image', url: input.urls[0] }],
+      attachments: [{ type: 'image', url }],
     });
     expect(again).toEqual(first);
     expect(channels.deliver).toHaveBeenCalledTimes(2);
@@ -345,27 +349,59 @@ describe('ConversationFacade tenant and delivery contract', () => {
       ws,
       channelId,
       'customer',
-      { text: '', attachments: [{ type: 'image', url: input.urls[0] }] },
+      { text: '', attachments: [{ type: 'image', url }] },
       'bot:in1:img1',
     );
     await expect(
-      service.commitBotImages(ws, c.id, { ...input, urls: ['https://img.example.com/b.jpg'] }),
+      service.commitBotAttachments(ws, c.id, {
+        ...input,
+        attachments: [{ type: 'image', url: 'https://img.example.com/b.jpg' }],
+      }),
     ).rejects.toMatchObject({ code: 'CONFLICT' });
     await service.update(ws, c.id, { mode: 'human' }, actor);
     expect(
-      await service.commitBotImages(ws, c.id, { urls: input.urls, idempotencyKey: 'bot:in1:img2' }),
+      await service.commitBotAttachments(ws, c.id, {
+        attachments: input.attachments,
+        idempotencyKey: 'bot:in1:img2',
+      }),
     ).toBeNull();
     expect(channels.deliver).toHaveBeenCalledTimes(2);
   });
-  it('rejects a bot image that is not https or when the 24-hour window is closed', async () => {
+  it('sends a bot video alone, as a video attachment', async () => {
+    const c = await service.receive(ws, channelId, event());
+    await service.commitBotReply(ws, c.id, {
+      revision: c.revision,
+      text: 'Video ạ',
+      idempotencyKey: 'bot:in1',
+    });
+    const url = 'https://rapiz.test/media/lodging/tour.mp4';
+    const sent = await service.commitBotAttachments(ws, c.id, {
+      attachments: [{ type: 'video', url }],
+      idempotencyKey: 'bot:in1:vid',
+    });
+    expect(sent?.attachments).toEqual([{ type: 'video', url }]);
+    await expect(
+      service.commitBotAttachments(ws, c.id, {
+        attachments: [
+          { type: 'video', url },
+          { type: 'image', url: 'https://img.example.com/a.jpg' },
+        ],
+        idempotencyKey: 'k3',
+      }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+  });
+  it('rejects a bot attachment that is not https or when the 24-hour window is closed', async () => {
     const c = await service.receive(ws, channelId, event());
     await expect(
-      service.commitBotImages(ws, c.id, { urls: ['http://x.example/a.jpg'], idempotencyKey: 'k1' }),
+      service.commitBotAttachments(ws, c.id, {
+        attachments: [{ type: 'image', url: 'http://x.example/a.jpg' }],
+        idempotencyKey: 'k1',
+      }),
     ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     vi.advanceTimersByTime(86400000);
     await expect(
-      service.commitBotImages(ws, c.id, {
-        urls: ['https://x.example/a.jpg'],
+      service.commitBotAttachments(ws, c.id, {
+        attachments: [{ type: 'image', url: 'https://x.example/a.jpg' }],
         idempotencyKey: 'k2',
       }),
     ).rejects.toMatchObject({ code: 'CONFLICT' });

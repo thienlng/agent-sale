@@ -1,281 +1,305 @@
-import type { PropertyDto } from '@agent-sales/contracts';
-import { Plus, Trash2, TriangleAlert } from 'lucide-react';
-import { type FormEvent, useMemo, useState } from 'react';
+import {
+  galleryCoverUrl,
+  type PropertyDto,
+  type UnitDto,
+  type UnitInput,
+} from '@agent-sales/contracts';
+import { Link, useNavigate } from '@tanstack/react-router';
+import type { TFunction } from 'i18next';
+import { ImageOff, MoreVertical, Plus, TriangleAlert } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
 import { useReplaceUnits } from '../api/properties';
 import { useSaveError } from '../hooks/use-save-error';
-import { intOrNull, TabSaveBar, useReportDirty, useTabDraft } from './property-tab-parts';
-
-interface RoomDraft {
-  /** Absent for a room added in this draft. */
-  id?: string;
-  key: string;
-  name: string;
-  beds: string;
-  adults: string;
-  children: string;
-  active: boolean;
-}
-
-const roomsOf = (p: PropertyDto): RoomDraft[] =>
-  p.units
-    .filter((u) => u.kind === 'room')
-    .map((u) => ({
-      id: u.id,
-      key: u.id,
-      name: u.name,
-      beds: u.beds,
-      adults: String(u.capacityAdults),
-      children: String(u.capacityChildren),
-      active: u.active,
-    }));
-
-/** Which fields of a room are wrong (shown under the field after a save attempt). */
-const roomErrors = (r: RoomDraft) => {
-  const adults = intOrNull(r.adults);
-  const children = intOrNull(r.children || '0');
-  return {
-    name: !r.name.trim(),
-    adults: adults === null || adults < 1,
-    children: children === null || children < 0,
-  };
-};
-
-const roomInvalid = (r: RoomDraft) => Object.values(roomErrors(r)).some(Boolean);
+import { formatVnd } from '../lib/format';
+import { lowestWeekdaySell, MAX_UNITS, roomUnits, unitInputOf } from '../lib/units-model';
+import { AddUnitDialog } from './add-unit-dialog';
+import { CoverImage } from './cover-image';
 
 /**
- * "Phòng" tab (rooms places only): the room list as a table. Rooms switched off
- * (including the ones left off by an earlier whole → rooms switch) stay listed with a
- * clear "Đang tắt" badge and a switch to sell them again.
+ * "Đơn vị cho thuê" tab (rooms places only): one card per unit (room, bungalow, house) with
+ * its cover, type, view, party and lowest weekday price; a card opens the unit page. Turning a
+ * unit on or off, moving, deleting and adding save the whole unit list at once (`PUT units`,
+ * every unit sent back with all of its fields). Units switched off stay listed, marked "Đang tắt".
  */
-export function RoomsTab({
-  property: p,
-  canEdit,
-  onDirtyChange,
-}: {
-  property: PropertyDto;
-  canEdit: boolean;
-  onDirtyChange: (dirty: boolean) => void;
-}) {
-  const { t } = useTranslation();
-  const base = useMemo(() => roomsOf(p), [p]);
-  const { draft: rooms, setDraft, dirty, discard } = useTabDraft(base);
-  useReportDirty(dirty, onDirtyChange);
-  const [submitted, setSubmitted] = useState(false);
+export function RoomsTab({ property: p, canEdit }: { property: PropertyDto; canEdit: boolean }) {
+  const { t } = useTranslation('lodging');
+  const navigate = useNavigate();
+  const units = roomUnits(p);
   const replace = useReplaceUnits();
   const saveError = useSaveError();
-  const invalid = rooms.length === 0 || rooms.some(roomInvalid);
-  const inactive = rooms.filter((r) => !r.active).length;
-  const setRoom = (key: string, patch: Partial<RoomDraft>) =>
-    setDraft((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState<UnitDto | null>(null);
+  const inactive = units.filter((u) => !u.active).length;
 
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    setSubmitted(true);
-    if (invalid || replace.isPending || !canEdit) return;
+  const save = (next: UnitInput[], onSaved?: (saved: PropertyDto) => void) => {
+    if (replace.isPending || !canEdit) return;
     replace.mutate(
-      {
-        id: p.id,
-        body: {
-          version: p.version,
-          units: rooms.map((r) => ({
-            ...(r.id ? { id: r.id } : {}),
-            name: r.name.trim(),
-            beds: r.beds.trim(),
-            capacityAdults: intOrNull(r.adults) ?? 1,
-            capacityChildren: intOrNull(r.children || '0') ?? 0,
-            active: r.active,
-          })),
-        },
-      },
+      { id: p.id, body: { version: p.version, units: next } },
       {
         onSuccess: (saved) => {
-          setDraft(roomsOf(saved));
-          setSubmitted(false);
-          toast.success(t('lodging.editor.saved'), { duration: 3500 });
+          toast.success(t('editor.saved'), { duration: 3500 });
+          onSaved?.(saved);
         },
-        onError: (error) =>
-          saveError(error, { onStale: discard, conflict: () => t('lodging.rooms.removeConflict') }),
+        onError: (error) => saveError(error, { conflict: () => t('units.removeConflict') }),
       },
     );
   };
+  const inputs = () => units.map(unitInputOf);
+  const move = (index: number, delta: -1 | 1) => {
+    const next = inputs();
+    const [u] = next.splice(index, 1);
+    if (u) next.splice(index + delta, 0, u);
+    save(next);
+  };
 
   return (
-    <form onSubmit={submit} noValidate className="grid gap-4">
-      <p className="text-sm text-muted-foreground">{t('lodging.rooms.intro')}</p>
-      {rooms.length > 0 && !rooms.some((r) => r.active) ? (
+    <div className="grid gap-4">
+      <p className="text-sm text-muted-foreground">{t('units.intro')}</p>
+      {units.length > 0 && inactive === units.length ? (
         <Alert variant="destructive">
           <TriangleAlert aria-hidden />
-          <AlertDescription>{t('lodging.rooms.noActive')}</AlertDescription>
+          <AlertDescription>{t('units.noActive')}</AlertDescription>
         </Alert>
       ) : inactive > 0 ? (
         <Alert>
           <TriangleAlert aria-hidden />
-          <AlertDescription>
-            {t('lodging.rooms.inactiveHint', { count: inactive })}
-          </AlertDescription>
+          <AlertDescription>{t('units.inactiveHint', { count: inactive })}</AlertDescription>
         </Alert>
       ) : null}
-      <Table className="min-w-[640px]">
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t('lodging.rooms.name')}</TableHead>
-            <TableHead>{t('lodging.rooms.beds')}</TableHead>
-            <TableHead className="w-24">{t('lodging.rooms.adults')}</TableHead>
-            <TableHead className="w-24">{t('lodging.rooms.children')}</TableHead>
-            <TableHead className="w-36">{t('lodging.rooms.active')}</TableHead>
-            <TableHead className="w-12" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rooms.map((r) => {
-            const bad = submitted ? roomErrors(r) : { name: false, adults: false, children: false };
-            const errorId = (field: string) => `room-${r.key}-${field}-error`;
-            return (
-              <TableRow
-                key={r.key}
-                className={cn(!r.active && 'bg-muted/40 text-muted-foreground')}
-              >
-                <TableCell>
-                  <Input
-                    aria-label={t('lodging.rooms.name')}
-                    value={r.name}
-                    maxLength={100}
-                    disabled={!canEdit}
-                    aria-invalid={bad.name || undefined}
-                    aria-describedby={bad.name ? errorId('name') : undefined}
-                    onChange={(e) => setRoom(r.key, { name: e.target.value })}
-                  />
-                  {bad.name && (
-                    <p id={errorId('name')} className="mt-1 text-xs text-destructive">
-                      {t('lodging.rooms.nameRequired')}
-                    </p>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Input
-                    aria-label={t('lodging.rooms.beds')}
-                    value={r.beds}
-                    maxLength={500}
-                    disabled={!canEdit}
-                    onChange={(e) => setRoom(r.key, { beds: e.target.value })}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Input
-                    aria-label={t('lodging.rooms.adults')}
-                    type="number"
-                    min={1}
-                    value={r.adults}
-                    disabled={!canEdit}
-                    aria-invalid={bad.adults || undefined}
-                    aria-describedby={bad.adults ? errorId('adults') : undefined}
-                    onChange={(e) => setRoom(r.key, { adults: e.target.value })}
-                  />
-                  {bad.adults && (
-                    <p id={errorId('adults')} className="mt-1 text-xs text-destructive">
-                      {t('lodging.rooms.adultsInvalid')}
-                    </p>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Input
-                    aria-label={t('lodging.rooms.children')}
-                    type="number"
-                    min={0}
-                    value={r.children}
-                    disabled={!canEdit}
-                    aria-invalid={bad.children || undefined}
-                    aria-describedby={bad.children ? errorId('children') : undefined}
-                    onChange={(e) => setRoom(r.key, { children: e.target.value })}
-                  />
-                  {bad.children && (
-                    <p id={errorId('children')} className="mt-1 text-xs text-destructive">
-                      {t('lodging.rooms.childrenInvalid')}
-                    </p>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <span className="flex items-center gap-2">
-                    <Switch
-                      aria-label={t('lodging.rooms.activeLabel', { name: r.name })}
-                      checked={r.active}
-                      disabled={!canEdit}
-                      onCheckedChange={(active) => setRoom(r.key, { active })}
-                    />
-                    {!r.active && <Badge variant="outline">{t('lodging.rooms.inactive')}</Badge>}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  {canEdit && (
-                    <Button
-                      type="button"
-                      size="icon-sm"
-                      variant="ghost"
-                      aria-label={t('lodging.rooms.remove', { name: r.name })}
-                      onClick={() => setDraft((rs) => rs.filter((x) => x.key !== r.key))}
-                    >
-                      <Trash2 aria-hidden />
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-      {canEdit && rooms.length < 100 && (
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="justify-self-start"
-          onClick={() =>
-            setDraft((rs) => [
-              ...rs,
-              {
-                key: crypto.randomUUID(),
-                name: '',
-                beds: '',
-                adults: '2',
-                children: '0',
-                active: true,
-              },
-            ])
+      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+        {units.map((u, i) => (
+          <li key={u.id} className="min-w-0">
+            <UnitCard
+              property={p}
+              unit={u}
+              canEdit={canEdit}
+              busy={replace.isPending}
+              first={i === 0}
+              last={i === units.length - 1}
+              onActive={(active) =>
+                save(
+                  units.map((x) => ({ ...unitInputOf(x), ...(x.id === u.id ? { active } : {}) })),
+                )
+              }
+              onMove={(delta) => move(i, delta)}
+              onRemove={() => setRemoving(u)}
+            />
+          </li>
+        ))}
+      </ul>
+      {canEdit ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={units.length >= MAX_UNITS}
+            onClick={() => setAdding(true)}
+          >
+            <Plus aria-hidden />
+            {t('units.add')}
+          </Button>
+          {units.length >= MAX_UNITS && (
+            <span className="text-xs text-muted-foreground">
+              {t('units.limit', { count: MAX_UNITS })}
+            </span>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">{t('editor.readOnly')}</p>
+      )}
+      {adding && (
+        <AddUnitDialog
+          pending={replace.isPending}
+          onClose={() => setAdding(false)}
+          onAdd={(unit) =>
+            save([...inputs(), unit], (saved) => {
+              setAdding(false);
+              const created = roomUnits(saved).at(-1);
+              if (created)
+                void navigate({
+                  to: '/app/properties/$propertyId/units/$unitId',
+                  params: { propertyId: p.id, unitId: created.id },
+                });
+            })
           }
-        >
-          <Plus aria-hidden />
-          {t('lodging.rooms.add')}
-        </Button>
+        />
       )}
-      {submitted && rooms.length === 0 && (
-        <p role="alert" className="text-sm text-destructive">
-          {t('lodging.rooms.needOne')}
-        </p>
+      <AlertDialog open={removing !== null} onOpenChange={(open) => !open && setRemoving(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('units.removeTitle', { name: removing?.name ?? '' })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>{t('units.removeDescription')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('units.keep')}</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                const id = removing?.id;
+                setRemoving(null);
+                if (id) save(inputs().filter((u) => u.id !== id));
+              }}
+            >
+              {t('units.removeConfirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+/** "Tiêu chuẩn 2 · Tối đa 4" of a unit (the max only when it has one). */
+export function partyLine(t: TFunction, u: UnitDto): string {
+  const standard = t('units.standard', { count: u.capacityAdults + u.capacityChildren });
+  return u.maxGuests === null
+    ? standard
+    : `${standard} · ${t('units.max', { count: u.maxGuests })}`;
+}
+
+function UnitCard({
+  property: p,
+  unit: u,
+  canEdit,
+  busy,
+  first,
+  last,
+  onActive,
+  onMove,
+  onRemove,
+}: {
+  property: PropertyDto;
+  unit: UnitDto;
+  canEdit: boolean;
+  busy: boolean;
+  first: boolean;
+  last: boolean;
+  onActive: (active: boolean) => void;
+  onMove: (delta: -1 | 1) => void;
+  onRemove: () => void;
+}) {
+  const { t } = useTranslation('lodging');
+  const cover = galleryCoverUrl(u);
+  const from = lowestWeekdaySell(p, u.id);
+  const titleId = `unit-${u.id}-title`;
+  return (
+    <article
+      aria-labelledby={titleId}
+      className={cn(
+        'relative flex h-full min-w-0 flex-col overflow-hidden rounded-xl border bg-card transition-colors hover:border-primary/40 focus-within:ring-2 focus-within:ring-ring',
+        !u.active && 'bg-muted/40',
       )}
-      <TabSaveBar
-        dirty={dirty}
-        pending={replace.isPending}
-        canEdit={canEdit}
-        label={t('lodging.rooms.save')}
-      />
-    </form>
+    >
+      {/* Fixed 4:3 crop, as the property cards. */}
+      <div
+        className={cn(
+          'relative aspect-[4/3] shrink-0 overflow-hidden bg-muted',
+          !u.active && 'opacity-60',
+        )}
+      >
+        {cover ? (
+          <CoverImage src={cover} alt={u.name} />
+        ) : (
+          <div className="grid size-full place-items-center text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <ImageOff className="size-4" aria-hidden />
+              {t('units.noPhoto')}
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="flex flex-1 flex-col gap-1.5 p-3">
+        <div className="flex min-w-0 items-baseline justify-between gap-2">
+          <h3 id={titleId} className="min-w-0 text-sm font-semibold break-words">
+            <Link
+              to="/app/properties/$propertyId/units/$unitId"
+              params={{ propertyId: p.id, unitId: u.id }}
+              className="outline-none after:absolute after:inset-0"
+            >
+              {u.name}
+            </Link>
+          </h3>
+          <span className="flex shrink-0 gap-1">
+            {!u.active && <Badge variant="outline">{t('units.inactive')}</Badge>}
+            <Badge variant="secondary">{t(`units.category.${u.category}`)}</Badge>
+          </span>
+        </div>
+        {u.view && <p className="text-xs text-muted-foreground">{u.view}</p>}
+        <p className="text-xs tabular-nums text-muted-foreground">{partyLine(t, u)}</p>
+        <div className="mt-auto flex items-center justify-between gap-2 border-t pt-2">
+          <span className="text-sm font-medium tabular-nums">
+            {from === null ? t('units.noPrice') : t('units.from', { amount: formatVnd(from) })}
+          </span>
+          {canEdit && (
+            // Above the card link, so the switch and the menu do not open the unit page.
+            <span className="relative z-10 flex items-center gap-1">
+              <Switch
+                aria-label={t('units.activeLabel', { name: u.name })}
+                checked={u.active}
+                disabled={busy}
+                onCheckedChange={onActive}
+              />
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    disabled={busy}
+                    aria-label={t('units.menu', { name: u.name })}
+                  >
+                    <MoreVertical aria-hidden />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem disabled={first} onSelect={() => onMove(-1)}>
+                    {t('units.moveUp')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled={last} onSelect={() => onMove(1)}>
+                    {t('units.moveDown')}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    disabled={first && last}
+                    onSelect={onRemove}
+                  >
+                    {t('units.remove')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </span>
+          )}
+        </div>
+      </div>
+    </article>
   );
 }

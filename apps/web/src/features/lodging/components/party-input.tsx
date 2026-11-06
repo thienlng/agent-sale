@@ -22,7 +22,7 @@ export function PartyInput({
   onChange: (next: PartyValue) => void;
   compact?: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
   const setChildren = (count: number) =>
     onChange({
@@ -34,7 +34,7 @@ export function PartyInput({
     <div className={cn('flex flex-wrap items-end gap-2', compact && 'gap-1.5')}>
       <div className="grid gap-1">
         <Label htmlFor={`${id}-adults`} className="text-xs">
-          {t('lodging.party.adults')}
+          {t('party.adults')}
         </Label>
         <Input
           id={`${id}-adults`}
@@ -49,7 +49,7 @@ export function PartyInput({
       </div>
       <div className="grid gap-1">
         <Label htmlFor={`${id}-children`} className="text-xs">
-          {t('lodging.party.children')}
+          {t('party.children')}
         </Label>
         <Input
           id={`${id}-children`}
@@ -65,7 +65,7 @@ export function PartyInput({
       {value.childAges.map((age, i) => (
         <div key={i} className="grid gap-1">
           <Label htmlFor={`${id}-age-${i}`} className="text-xs text-muted-foreground">
-            {t('lodging.party.childAge', { n: i + 1 })}
+            {t('party.childAge', { n: i + 1 })}
           </Label>
           <Input
             id={`${id}-age-${i}`}
@@ -84,9 +84,7 @@ export function PartyInput({
           />
         </div>
       ))}
-      {missing && (
-        <p className="w-full text-xs text-destructive">{t('lodging.party.agesRequired')}</p>
-      )}
+      {missing && <p className="w-full text-xs text-destructive">{t('party.agesRequired')}</p>}
     </div>
   );
 }

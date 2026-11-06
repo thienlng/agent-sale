@@ -1,7 +1,7 @@
 # Prompt evals
 
 Cases that drive real customer questions through the production reply pipeline
-(`PlaygroundService.playground()`: prompts `sales-agent@15` (retail) / `@18` (lodging) / `@19`
+(`PlaygroundService.playground()`: prompts `sales-agent@15` (retail) / `@21` (lodging) / `@19`
 (saas, education, spa), business
 profile block, FAQs, situations, history compression, the agent loop with catalog, `calculate`,
 `send_message`, `handoff`, order and action tools, reply post-processing) and check what the
@@ -18,7 +18,7 @@ pnpm --filter @agent-sales/backend eval --live --id saas-demo-recorded-no-handof
 ```
 
 `--prompt-version n` forces `sales-agent@n` for every case. Without it each case runs on its
-industry's prompt (`PROMPT_BY_INDUSTRY`: hotel `@18`; saas, education and spa `@19`; others `@15`).
+industry's prompt (`PROMPT_BY_INDUSTRY`: hotel `@21`; saas, education and spa `@19`; others `@15`).
 
 - **Fake mode** (default): the scripted model replays the case's `fake_turns`, one per model call
   of the agent loop. A turn with `tool_calls` makes the loop run those tools (catalog lookups,
@@ -40,6 +40,7 @@ industry's prompt (`PROMPT_BY_INDUSTRY`: hotel `@18`; saas, education and spa `@
   ranks `search_products` queries by accent-folded term overlap with the product name (weight 3),
   category, description and an offering's audience and level (weight 1), so a live model that searches for a product by name finds it;
   it is not the SQL ranking (that has its own integration test).
+- **Albums (T-192).** A case's `sent_media` lists attachment URLs the bot sent before the turn; they reach the pipeline as `sentMediaUrls`, so an `albumId` send skips them (`hotel-a17-album-next-page`). An accommodation product's `albums` are its media folders; album ids are `a:eval-product-<n>:<folder index>` (0-based). A unit's own folders follow the property's from index 20 (T-193), so `hotel-resort-bungalow-album` expects `a:eval-product-1:21` for Bungalow 2's folder.
 - **Lodging holds.** A hotel bot gets `check_availability` and, with `orderTaking: true`,
   `prepare_hold` / `confirm_hold` / `cancel_hold_draft` on an in-memory lodging bot facade
   (`src/modules/ai/evals/lodging.ts`), in both modes. The case's accommodation products are the
@@ -47,7 +48,12 @@ industry's prompt (`PROMPT_BY_INDUSTRY`: hotel `@18`; saas, education and spa `@
   `maxGuests`, nights booked by `lodging.taken`, a summary in the layout of the real one, holds
   numbered `BK-0001`… `lodging.hold_draft` seeds a summary sent before the turn and
   `lodging.taken_before_confirm` makes another booking take its nights before the confirm. Dates and
-  review rules are not checked by the fake (the lodging module has its own tests).
+  review rules are not checked by the fake (the lodging module has its own tests). Whole-property
+  bedroom packages (T-193, `accommodation.packages`) are simulated like `quoteStay`: the fewest
+  bedrooms that hold the party and are sold every night, else the biggest; the other packages as
+  `alternatives`; `prepare_hold` `packages` by name, `unknown_package`, and the package in the
+  summary (`hotel-aura-package-autopick`). Unit packages are not simulated (the integration tests
+  cover them).
 - **Orders.** A bot with `orderTaking: true` gets the order tools (`prepare_order`, then
   `confirm_order` / `cancel_order_draft` while a summary waits) on an in-memory commerce facade
   (`src/modules/ai/evals/commerce.ts`), in both modes. It works on the case's catalog: SKUs

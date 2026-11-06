@@ -12,7 +12,7 @@ import {
 import { renderWithRouter } from '@/testing/render';
 
 import { OverrideDialog } from './override-dialog';
-import { RoomsTab } from './rooms-tab';
+import { UnitInfoTab } from './unit-info-tab';
 
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-1' }));
@@ -59,24 +59,26 @@ describe('editor field errors', () => {
     expect(calls).toHaveLength(0);
   });
 
-  it('puts room errors under the room fields', async () => {
+  it('puts unit errors under the unit fields', async () => {
     const { fetchStub, calls } = stubLodgingApi({});
     vi.stubGlobal('fetch', fetchStub);
-    const p = propertyFixture({
-      id: LODGING_IDS.h1,
-      sellMode: 'rooms',
-      units: [unitFixture({ id: LODGING_IDS.r1, kind: 'room', name: 'P101' })],
-    });
-    renderWithRouter(() => <RoomsTab property={p} canEdit onDirtyChange={() => {}} />);
-    const [name] = await screen.findAllByLabelText('Tên phòng');
-    await userEvent.clear(name as HTMLElement);
-    const [adults] = screen.getAllByLabelText('Người lớn');
-    await userEvent.clear(adults as HTMLElement);
-    await userEvent.type(adults as HTMLElement, '0');
-    await userEvent.click(screen.getByRole('button', { name: 'Lưu phòng' }));
+    const room = unitFixture({ id: LODGING_IDS.r1, kind: 'room', name: 'P101' });
+    const p = propertyFixture({ id: LODGING_IDS.h1, sellMode: 'rooms', units: [room] });
+    renderWithRouter(() => (
+      <UnitInfoTab property={p} unit={room} canEdit onDirtyChange={() => {}} />
+    ));
+    const name = await screen.findByLabelText('Tên');
+    await userEvent.clear(name);
+    const adults = screen.getByLabelText('Người lớn tiêu chuẩn');
+    await userEvent.clear(adults);
+    await userEvent.type(adults, '0');
+    const area = screen.getByLabelText('Diện tích (m²)');
+    await userEvent.type(area, '0');
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu thông tin' }));
     expect(name).toHaveAttribute('aria-invalid', 'true');
-    expect(describedText(name as HTMLElement)).toBe('Nhập tên phòng.');
-    expect(describedText(adults as HTMLElement)).toBe('Ít nhất 1 người lớn.');
+    expect(describedText(name)).toBe('Nhập tên đơn vị.');
+    expect(describedText(adults)).toBe('Người lớn tiêu chuẩn từ 1 đến 100.');
+    expect(describedText(area)).toBe('Diện tích từ 1 đến 100000 m², hoặc để trống.');
     expect(calls).toHaveLength(0);
   });
 });

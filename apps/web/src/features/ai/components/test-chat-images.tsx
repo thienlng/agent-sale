@@ -3,6 +3,9 @@ import { X } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ImageLightbox } from '@/components/image-lightbox';
+import { cn } from '@/lib/utils';
+
 import type { Attachment } from '../hooks/use-image-attachments';
 
 /** Thumbnails of images in the composer (with remove) or in a sent customer bubble. */
@@ -40,17 +43,20 @@ export function AttachmentThumbs({
   );
 }
 
-function BotImage({ image }: { image: BotReplyImage }) {
+function BotImage({ image, onOpen }: { image: BotReplyImage; onOpen: () => void }) {
+  const { t } = useTranslation();
   const [broken, setBroken] = useState(false);
   return (
-    <a
-      href={image.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-xs text-primary underline-offset-2 hover:underline"
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={t('lightbox.open', { label: image.label })}
+      className="relative aspect-square overflow-hidden rounded-md border bg-muted focus-visible:outline-2 focus-visible:outline-ring"
     >
       {broken ? (
-        image.label
+        <span className="grid size-full place-items-center p-1.5 text-center text-[11px] leading-tight text-muted-foreground">
+          {image.label}
+        </span>
       ) : (
         <img
           src={image.url}
@@ -58,20 +64,54 @@ function BotImage({ image }: { image: BotReplyImage }) {
           loading="lazy"
           referrerPolicy="no-referrer"
           onError={() => setBroken(true)}
-          className="size-24 rounded-lg border object-cover"
+          className="size-full cursor-zoom-in object-cover"
         />
       )}
-    </a>
+    </button>
   );
 }
 
-/** Pictures the bot sends after its text. */
+/** Pictures the bot sends after its text: an album grid; a click opens the large view. */
 export function BotImages({ images }: { images: readonly BotReplyImage[] }) {
+  const [open, setOpen] = useState<number | null>(null);
   if (!images.length) return null;
+  const cols =
+    images.length === 1
+      ? 'grid-cols-1 max-w-44'
+      : images.length === 2 || images.length === 4
+        ? 'grid-cols-2 max-w-60'
+        : 'grid-cols-3 max-w-64';
   return (
-    <div className="flex flex-wrap gap-2">
-      {images.map((image) => (
-        <BotImage key={image.url} image={image} />
+    <>
+      <div className={cn('grid gap-1', cols)}>
+        {images.map((image, i) => (
+          <BotImage key={image.url} image={image} onOpen={() => setOpen(i)} />
+        ))}
+      </div>
+      <ImageLightbox
+        images={images}
+        index={open}
+        onIndexChange={setOpen}
+        onClose={() => setOpen(null)}
+      />
+    </>
+  );
+}
+
+/** Videos the bot sends, each as its own message (lodging folders, T-192). */
+export function BotVideos({ videos }: { videos: readonly { url: string; label: string }[] }) {
+  if (!videos.length) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      {videos.map((video) => (
+        <video
+          key={video.url}
+          src={video.url}
+          controls
+          preload="metadata"
+          aria-label={video.label}
+          className="max-h-64 w-full max-w-xs rounded-lg border bg-muted"
+        />
       ))}
     </div>
   );

@@ -10,6 +10,8 @@ export interface QuickReply {
 export interface OutgoingMessage {
   text?: string;
   images: { id: string; url: string; label: string }[];
+  /** At most one uploaded video, delivered as its own message after the pictures (T-192). */
+  videos?: { id: string; url: string; label: string }[];
   /** At most 3, titles of 20 characters or fewer; attached to the last bubble only. */
   quickReplies?: QuickReply[];
 }
@@ -41,6 +43,11 @@ export interface ReplyOptions {
    * conversation summary be reused across turns; without it a long history is summarised per turn.
    */
   turnTimes?: readonly Date[];
+  /**
+   * Attachment URLs the bot already sent in this conversation (last 30 days): `send_message` with
+   * an `albumId` sends the folder's photos not among them first (T-192). Absent: none.
+   */
+  sentMediaUrls?: readonly string[];
 }
 
 /**

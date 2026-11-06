@@ -14,16 +14,16 @@ import { lodgingConflict } from '../api/bookings';
  * `manualTotalSell` asks for the total price.
  */
 export function BookingErrorAlert({ error, onReload }: { error: unknown; onReload?: () => void }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   if (!error) return null;
   const conflict = lodgingConflict(error);
   let text: string;
   if (conflict.reason === 'NIGHTS_TAKEN')
     text = conflict.codes.length
-      ? t('lodging.nightsTaken', { codes: conflict.codes.join(', ') })
-      : t('lodging.nightsTakenUnknown');
-  else if (conflict.reason === 'STALE_VERSION') text = t('lodging.staleVersion');
-  else if (conflict.reason === 'HOLD_EXPIRED') text = t('lodging.holdExpired');
+      ? t('nightsTaken', { codes: conflict.codes.join(', ') })
+      : t('nightsTakenUnknown');
+  else if (conflict.reason === 'STALE_VERSION') text = t('staleVersion');
+  else if (conflict.reason === 'HOLD_EXPIRED') text = t('holdExpired');
   else if (
     error instanceof ApiClientError &&
     error.status === 400 &&
@@ -32,11 +32,11 @@ export function BookingErrorAlert({ error, onReload }: { error: unknown; onReloa
     // A night has no price (the server sends the quote warnings) or the stay changed under a
     // manual price: either way the total must be typed.
     text = Array.isArray(error.details?.['warnings'])
-      ? t('lodging.quote.missingPrice')
-      : t('lodging.quote.manualRequired');
+      ? t('quote.missingPrice')
+      : t('quote.manualRequired');
   else if (error instanceof ApiClientError && error.code === 'FORBIDDEN')
-    text = t('lodging.sheet.permission');
-  else text = t('lodging.sheet.saveError');
+    text = t('sheet.permission');
+  else text = t('sheet.saveError');
   return (
     <Alert variant="destructive">
       <CircleAlert aria-hidden />
@@ -44,7 +44,7 @@ export function BookingErrorAlert({ error, onReload }: { error: unknown; onReloa
         <span>{text}</span>
         {conflict.reason === 'STALE_VERSION' && onReload && (
           <Button type="button" size="xs" variant="outline" onClick={onReload}>
-            {t('lodging.sheet.reload')}
+            {t('sheet.reload')}
           </Button>
         )}
       </AlertDescription>

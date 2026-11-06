@@ -51,7 +51,7 @@ export async function createHttpApp(
     bufferLogs: true,
   });
   await app.register(fastifyCookie);
-  // Parsed only where a handler calls `req.file()` (the widget's image upload); no other route reads multipart.
+  // Parsed only where a handler calls `req.file()` (widget image upload, lodging video upload); each call sets its own fileSize.
   await app.register(fastifyMultipart, {
     limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 0 },
   });

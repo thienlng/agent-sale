@@ -157,6 +157,7 @@ function booking(
     kind: 'stay',
     whole: true,
     unitIds,
+    unitPackages: {},
     status: 'confirmed',
     checkIn,
     checkOut,
@@ -357,6 +358,99 @@ describe('lodging v2 properties over HTTP', () => {
     expect(next.units).toEqual([
       expect.objectContaining({ kind: 'whole', name: 'Villa A17 mới', capacityAdults: 22 }),
     ]);
+  });
+
+  it('saves media folders and a cover, and refuses a video of another business', async () => {
+    const o = await signup();
+    const p = await create(o.headers, villa());
+    const own = `/media/lodging/${o.ws}/${newId()}.mp4`;
+    const foreign = `/media/lodging/${newId()}/${newId()}.mp4`;
+    const photo = 'https://cdn.example.com/a17/pool.jpg';
+    const gallery = [
+      {
+        id: 'pool',
+        name: 'Hồ bơi',
+        items: [
+          { kind: 'image', url: photo },
+          { kind: 'video', url: own, caption: 'Tour' },
+          { kind: 'link', url: 'https://youtu.be/a17', caption: 'Flycam' },
+        ],
+      },
+    ];
+    const saved = await ok(
+      await call(o.headers, 'PATCH', `/lodging/properties/${p.id}`, {
+        version: 1,
+        patch: { gallery, galleryCover: photo },
+      }),
+    );
+    expect(saved.galleryCover).toBe(photo);
+    expect(saved.gallery[0]?.items.map((i) => i.kind)).toEqual(['image', 'video', 'link']);
+    const bad = await call(o.headers, 'PATCH', `/lodging/properties/${p.id}`, {
+      version: 2,
+      patch: { gallery: [{ id: 'v', name: 'Video', items: [{ kind: 'video', url: foreign }] }] },
+    });
+    expect(bad.statusCode, bad.body).toBe(400);
+    expect(bad.json()).toMatchObject({ error: { details: { reason: 'VIDEO_NOT_UPLOADED' } } });
+    // A new gallery without the stored cover photo (and no new cover) resets the cover to
+    // automatic, never stores a stale cover.
+    const stale = await ok(
+      await call(o.headers, 'PATCH', `/lodging/properties/${p.id}`, {
+        version: 2,
+        patch: { gallery: [{ id: 'v', name: 'Video', items: [{ kind: 'video', url: own }] }] },
+      }),
+    );
+    expect(stale.version).toBe(3);
+    expect(stale.galleryCover).toBe('');
+    expect(stale.gallery[0]?.items.map((i) => i.url)).toEqual([own]);
+    // A cover sent explicitly is still checked against the merged gallery.
+    const explicit = await call(o.headers, 'PATCH', `/lodging/properties/${p.id}`, {
+      version: 3,
+      patch: { gallery, galleryCover: 'https://cdn.example.com/a17/other.jpg' },
+    });
+    expect(explicit.statusCode, explicit.body).toBe(400);
+    expect(explicit.json()).toMatchObject({
+      error: {
+        code: 'VALIDATION_FAILED',
+        details: {
+          issues: expect.arrayContaining([expect.objectContaining({ path: 'galleryCover' })]),
+        },
+      },
+    });
+    // A cover-only PATCH that names no image of the stored gallery is refused too.
+    const coverOnly = await call(o.headers, 'PATCH', `/lodging/properties/${p.id}`, {
+      version: 3,
+      patch: { galleryCover: photo },
+    });
+    expect(coverOnly.statusCode, coverOnly.body).toBe(400);
+  });
+
+  it('lets only catalog managers of the business upload a video', async () => {
+    const o = await signup();
+    const analyst = await member(o.ws, 'analyst');
+    const stranger = await signup();
+    const boundary = '----rapiz-video-test';
+    const payload = Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="v.mp4"\r\n` +
+          'Content-Type: video/mp4\r\n\r\n',
+      ),
+      Buffer.from([0, 0, 0, 0x18]),
+      Buffer.from('ftypisom'),
+      Buffer.alloc(16, 1),
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]);
+    const upload = (h: Headers) =>
+      app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          method: 'POST',
+          url: '/api/v1/lodging/media/videos',
+          payload,
+          headers: { ...h, 'content-type': `multipart/form-data; boundary=${boundary}` },
+        });
+    expect((await upload(analyst)).statusCode).toBe(403);
+    expect((await upload(stranger.in(o.ws))).statusCode).toBe(404);
   });
 
   it('refuses a sell-mode change while a future booking exists', async () => {

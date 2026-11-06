@@ -43,6 +43,46 @@ export function withAttachmentNote(
 }
 
 /**
+ * What the bot or staff sent besides text, in their own words ("[Bot đã gửi 8 ảnh]"), so the
+ * model never reads its own album as something the customer sent.
+ */
+export function outboundAttachmentNote(
+  text: string,
+  attachments: readonly { type: string }[],
+  sender: 'bot' | 'human',
+): string {
+  if (!attachments.length) return text;
+  const images = attachments.filter((a) => a.type === 'image').length;
+  const videos = attachments.filter((a) => a.type === 'video').length;
+  const others = attachments.length - images - videos;
+  const what = [images && `${images} ảnh`, videos && `${videos} video`, others && `${others} tệp`]
+    .filter(Boolean)
+    .join(' / ');
+  return `${text}\n[${sender === 'bot' ? 'Bot' : 'Nhân viên'} đã gửi ${what}]`.trim();
+}
+
+/** Bot attachments sent within this window count as already sent for album paging (T-192). */
+export const SENT_MEDIA_WINDOW_MS = 30 * 86_400_000;
+
+/** URLs of attachments the bot sent (status `sent`) in the last 30 days, oldest first, unique. */
+export function sentBotMediaUrls(stored: readonly InboxMessageDto[], now: Date): string[] {
+  const since = now.getTime() - SENT_MEDIA_WINDOW_MS;
+  return [
+    ...new Set(
+      stored
+        .filter(
+          (m) =>
+            m.direction === 'outbound' &&
+            m.sender === 'bot' &&
+            m.status === 'sent' &&
+            Date.parse(m.createdAt) >= since,
+        )
+        .flatMap((m) => m.attachments.map((a) => a.url)),
+    ),
+  ];
+}
+
+/**
  * Chat turns for the model from messages already in arrival order. Consecutive customer messages
  * (a burst, or text followed by an image) become ONE turn joined by newlines, so the model sees
  * every question after the last bot/staff reply as a single customer turn instead of answering
@@ -76,11 +116,10 @@ export function toTimedReplyTurns(
       attempted = true;
       if (m.status !== 'sent') continue;
     }
-    const content = withAttachmentNote(
-      m.text,
-      m.attachments,
-      seen,
-      m.direction === 'inbound' && index < lastOutbound,
+    const content = (
+      m.direction === 'outbound'
+        ? outboundAttachmentNote(m.text, m.attachments, m.sender === 'bot' ? 'bot' : 'human')
+        : withAttachmentNote(m.text, m.attachments, seen, index < lastOutbound)
     ).slice(0, MAX_TURN_CHARS);
     if (!content.trim()) continue;
     const role = m.sender === 'customer' ? 'customer' : 'bot';

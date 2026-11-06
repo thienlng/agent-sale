@@ -1,6 +1,18 @@
-import { quoteStay, resolveUnits, type Quote } from '../domain/quote.js';
-import type { RateRule } from '../domain/rates.js';
-import type { LodgingTx, PropertyRecord, UnitRecord } from './ports/lodging-store.js';
+import {
+  quoteStay,
+  resolveUnits,
+  singlePackageTarget,
+  stayTargets,
+  type Quote,
+  type QuotePackage,
+} from '../domain/quote.js';
+import { packagesOf, type RateRule } from '../domain/rates.js';
+import type {
+  LodgingTx,
+  PackageRecord,
+  PropertyRecord,
+  UnitRecord,
+} from './ports/lodging-store.js';
 import { currentUnits } from './property-support.js';
 
 export interface StayAsk {
@@ -19,6 +31,22 @@ export interface FreeOption {
   units: UnitRecord[];
   quote: Quote;
   /** Nobody above the standard capacity or the property's maximum. */
+  fits: boolean;
+  /** The packages the quote picked (`quote.packages`). */
+  packages: QuotePackage[];
+  /**
+   * When the option prices exactly one target and it has packages (`singlePackageTarget`): its
+   * other packages, fewest bedrooms first; else empty.
+   */
+  alternatives: PackageAlternative[];
+}
+
+/** Another package of the option's single package target, quoted for the same stay. */
+export interface PackageAlternative {
+  packageId: string;
+  name: string;
+  bedrooms: number;
+  totalSell: number | null;
   fits: boolean;
 }
 
@@ -49,12 +77,13 @@ export async function freeOptions(
   tx: LodgingTx,
   props: PropertyRecord[],
   stay: StayAsk,
-  loaded?: { units: UnitRecord[]; ratesOf: Map<string, RateRule[]> },
+  loaded?: { units: UnitRecord[]; ratesOf: Map<string, RateRule[]>; packages: PackageRecord[] },
 ): Promise<FreeOption[]> {
   const pids = props.map((p) => p.id);
   if (pids.length === 0) return [];
   const units = loaded?.units ?? (await tx.units(pids));
   const ratesOf = loaded?.ratesOf ?? (await tx.ratesByProperty(pids));
+  const allPackages = loaded?.packages ?? (await tx.packages(pids));
   const taken = new Set(
     (
       await tx.takenNights(
@@ -69,6 +98,7 @@ export async function freeOptions(
   for (const p of props) {
     const own = units.filter((u) => u.propertyId === p.id);
     const rates = ratesOf.get(p.id) ?? [];
+    const packages = allPackages.filter((pk) => pk.propertyId === p.id);
     const selections: { whole: boolean; unitIds: string[] }[] = [];
     const bookable = currentUnits(p, own).filter((u) => u.active);
     const wholeFree = bookable.length > 0 && bookable.every((u) => !taken.has(u.id));
@@ -81,7 +111,35 @@ export async function freeOptions(
       if (rooms.length > 0 && !sameAsWhole) selections.push({ whole: false, unitIds: rooms });
     }
     for (const s of selections) {
-      const quote = quoteStay(p, own, rates, { ...s, ...stay });
+      const quote = quoteStay(p, own, rates, { ...s, ...stay }, packages);
+      const ask = { ...s, ...stay };
+      const single = singlePackageTarget(
+        stayTargets(p, own, rates, ask, packages).priced,
+        packages,
+      );
+      const chosen = single && quote.packages.find((c) => c.target === single.target);
+      const alternatives =
+        single && chosen
+          ? packagesOf(packages, single.target)
+              .filter((pk) => pk.id !== chosen.packageId)
+              .sort((a, b) => a.bedrooms - b.bedrooms)
+              .map((pk): PackageAlternative => {
+                const q = quoteStay(
+                  p,
+                  own,
+                  rates,
+                  { ...s, ...stay, packageIds: [pk.id] },
+                  packages,
+                );
+                return {
+                  packageId: pk.id,
+                  name: pk.name,
+                  bedrooms: pk.bedrooms,
+                  totalSell: q.totalSell,
+                  fits: fitsQuote(q),
+                };
+              })
+          : [];
       options.push({
         property: p,
         whole: s.whole,
@@ -89,6 +147,8 @@ export async function freeOptions(
         units: own,
         quote,
         fits: fitsQuote(quote),
+        packages: quote.packages,
+        alternatives,
       });
     }
   }

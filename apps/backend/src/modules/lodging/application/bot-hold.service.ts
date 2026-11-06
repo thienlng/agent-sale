@@ -35,6 +35,8 @@ import {
   toBotOption,
   validParty,
   type FailCode,
+  packagesOfProperty,
+  pickPackages,
   type SoldContext,
 } from './bot-hold-support.js';
 import { toBotProduct } from './bot-product.js';
@@ -127,15 +129,35 @@ export class LodgingBotHolds implements LodgingBotFacade {
       const unitIds = whole ? [] : [...new Set(input.unitIds ?? [])];
       let quote: Quote | null = null;
       let resolved: string[] = [];
+      let validPackages: string[] | undefined;
+      const names = new Map(ctx.units.map((u) => [u.id, u.name]));
       if (!property) {
         problems.push('not_sold');
       } else {
         const units = ctx.units.filter((u) => u.propertyId === property.id);
         const rates = ctx.ratesOf.get(property.id) ?? [];
+        const packages = packagesOfProperty(ctx, property.id);
         const selection = { whole, unitIds };
         try {
           resolved = resolveUnits(property, units, selection);
-          quote = quoteStay(property, units, rates, { ...selection, ...stayOf(input) });
+          const stay = { ...selection, ...stayOf(input) };
+          quote = quoteStay(property, units, rates, stay, packages);
+          if (input.packages?.length) {
+            const picked = pickPackages(quote, packages, input.packages, names);
+            if ('valid' in picked) {
+              problems.push('unknown_package');
+              validPackages = picked.valid;
+              quote = null;
+            } else {
+              quote = quoteStay(
+                property,
+                units,
+                rates,
+                { ...stay, packageIds: picked.ids },
+                packages,
+              );
+            }
+          }
         } catch (error) {
           if (!(error instanceof LodgingError)) throw error;
           problems.push('not_available');
@@ -145,7 +167,8 @@ export class LodgingBotHolds implements LodgingBotFacade {
           if (taken.length) problems.push('not_available');
           else if (quote.warnings.includes('min_nights')) problems.push('min_nights');
           if (quote.warnings.includes('over_max')) problems.push('over_max');
-          if (quote.totalSell === null) problems.push('missing_rate');
+          if (quote.warnings.includes('package_unavailable')) problems.push('package_unavailable');
+          else if (quote.totalSell === null) problems.push('missing_rate');
         }
       }
       if (problems.length || !quote || quote.totalSell === null || !e164 || !property) {
@@ -161,7 +184,12 @@ export class LodgingBotHolds implements LodgingBotFacade {
               ),
             ).options
           : [];
-        return { status: 'problems', problems, alternatives };
+        return {
+          status: 'problems',
+          problems,
+          alternatives,
+          ...(validPackages ? { validPackages } : {}),
+        };
       }
 
       const guestPhone = `0${e164.slice(3)}`;
@@ -184,13 +212,13 @@ export class LodgingBotHolds implements LodgingBotFacade {
         guestPhone,
         note,
         quoteHash: '',
+        packageIds: quote.packages.map((pk) => pk.packageId),
         createdAt: now,
         expiresAt: new Date(now.getTime() + BOT_HOLD_DRAFT_TTL_MS),
       };
       draft.quoteHash = quoteHash(draft, resolved, quote);
       await tx.saveBotHoldDraft(draft);
       const { holdMinutes } = await tx.settings();
-      const names = new Map(ctx.units.map((u) => [u.id, u.name]));
       return {
         status: 'ready',
         holdMinutes,
@@ -207,6 +235,10 @@ export class LodgingBotHolds implements LodgingBotFacade {
           guestPhone,
           holdMinutes,
           note,
+          packages: quote.packages.map((pk) => ({
+            unitName: pk.target === null ? null : (names.get(pk.target) ?? ''),
+            name: pk.name,
+          })),
         }),
       };
     });
@@ -275,15 +307,27 @@ export class LodgingBotHolds implements LodgingBotFacade {
     const property = ctx.sold.find((p) => p.id === draft.propertyId);
     if (!property) throw new HoldNotConfirmable('not_available', draft);
     const units = ctx.units.filter((u) => u.propertyId === property.id);
+    const packages = packagesOfProperty(ctx, property.id);
+    // A package of the summary was removed meanwhile: the offer changed.
+    if (!draft.packageIds.every((id) => packages.some((pk) => pk.id === id))) {
+      throw new HoldNotConfirmable('price_changed', draft);
+    }
     let quote: Quote;
     let resolved: string[];
     try {
       resolved = resolveUnits(property, units, draft);
-      quote = quoteStay(property, units, ctx.ratesOf.get(property.id) ?? [], {
-        whole: draft.whole,
-        unitIds: draft.unitIds,
-        ...stayOf(draft),
-      });
+      quote = quoteStay(
+        property,
+        units,
+        ctx.ratesOf.get(property.id) ?? [],
+        {
+          whole: draft.whole,
+          unitIds: draft.unitIds,
+          ...stayOf(draft),
+          packageIds: draft.packageIds,
+        },
+        packages,
+      );
     } catch (error) {
       if (error instanceof LodgingError) throw new HoldNotConfirmable('not_available', draft);
       throw error;
@@ -301,6 +345,8 @@ export class LodgingBotHolds implements LodgingBotFacade {
           propertyId: draft.propertyId,
           whole: draft.whole,
           unitIds: draft.unitIds,
+          // Exactly the packages of the summary the customer saw.
+          packageIds: draft.packageIds,
           checkIn: draft.checkIn,
           checkOut: draft.checkOut,
           status: 'hold',
@@ -372,9 +418,18 @@ export class LodgingBotHolds implements LodgingBotFacade {
     const pids = props.map((p) => p.id);
     const units = pids.length ? await tx.units(pids) : [];
     const ratesOf = pids.length ? await tx.ratesByProperty(pids) : new Map();
+    const packages = await tx.packages(pids);
     const today = localToday(now);
-    const sold = props.filter((p) => toBotProduct(p, units, ratesOf.get(p.id) ?? [], today));
-    return { sold, units, ratesOf };
+    const sold = props.filter((p) =>
+      toBotProduct(
+        p,
+        units,
+        ratesOf.get(p.id) ?? [],
+        today,
+        packages.filter((pk) => pk.propertyId === p.id),
+      ),
+    );
+    return { sold, units, ratesOf, packages };
   }
 
   /** Free options of the sold properties, as the bot sees them (a min-stay breach is flagged). */

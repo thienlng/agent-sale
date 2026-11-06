@@ -1,4 +1,4 @@
-import { Policies } from '@agent-sales/contracts';
+import { type GalleryFolder, type GalleryItem, Policies } from '@agent-sales/contracts';
 import type { schema } from '@agent-sales/db';
 import type { WorkspaceId } from '@agent-sales/shared';
 
@@ -7,6 +7,7 @@ import type { Quote } from '../../domain/quote.js';
 import type { RateRule } from '../../domain/rates.js';
 import type {
   BookingRecord,
+  PackageRecord,
   PropertyRecord,
   UnitRecord,
 } from '../../application/ports/lodging-store.js';
@@ -14,6 +15,7 @@ import type {
 type PropertyRow = typeof schema.lodgingProperties.$inferSelect;
 type UnitRow = typeof schema.lodgingUnits.$inferSelect;
 type RateRow = typeof schema.lodgingRates.$inferSelect;
+type PackageRow = typeof schema.lodgingPackages.$inferSelect;
 type BookingRow = typeof schema.lodgingBookings.$inferSelect;
 
 /** Postgres SQLSTATE of a driver error (drizzle wraps it in `cause`). */
@@ -22,6 +24,48 @@ export const pgCode = (e: unknown): string | undefined =>
 
 const price = (sell: number | null, cost: number | null) =>
   sell === null || cost === null ? null : { sell, cost };
+
+/** Id and name of the folder a flat (pre-0066) gallery reads as; migration 0066 uses this name. */
+export const LEGACY_FOLDER_ID = 'legacy';
+export const LEGACY_FOLDER_NAME = 'Ảnh chung';
+const KINDS = new Set<string>(['image', 'video', 'link']);
+const rec = (v: unknown): Record<string, unknown> =>
+  v !== null && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+const text = (v: unknown): string => (typeof v === 'string' ? v : '');
+
+/** Rapiz photos and videos are host-relative `/media/…` paths; older rows name a former host. */
+function toItem(raw: unknown): GalleryItem[] {
+  const r = rec(raw);
+  const kind = text(r['kind']);
+  const url = text(r['url']);
+  if (!KINDS.has(kind) || !url) return [];
+  return [
+    {
+      kind,
+      url: kind === 'link' ? url : toMediaPath(url),
+      caption: text(r['caption']),
+    } as GalleryItem,
+  ];
+}
+
+/**
+ * The stored gallery as folders. A flat `[{url, caption}]` list (a row written before 0066, or by
+ * a later run of `lodging_copy_accommodations()`) reads as one "Ảnh chung" folder.
+ */
+export function toGallery(raw: unknown): GalleryFolder[] {
+  if (!Array.isArray(raw)) return [];
+  if (!raw.some((f) => 'items' in rec(f))) {
+    const items = raw.flatMap((g) => toItem({ ...rec(g), kind: 'image' }));
+    return items.length ? [{ id: LEGACY_FOLDER_ID, name: LEGACY_FOLDER_NAME, items }] : [];
+  }
+  return raw.flatMap((f) => {
+    const r = rec(f);
+    const id = text(r['id']);
+    const name = text(r['name']);
+    if (!id || !name) return [];
+    return [{ id, name, items: (Array.isArray(r['items']) ? r['items'] : []).flatMap(toItem) }];
+  });
+}
 
 export function toProperty(r: PropertyRow): PropertyRecord {
   return {
@@ -42,8 +86,8 @@ export function toProperty(r: PropertyRow): PropertyRecord {
     layout: r.layout.map((l) => ({ name: l.name, beds: l.beds ?? '', note: l.note ?? '' })),
     // Rows copied by 0041 carry only some policy keys; the contract fills the rest with ''.
     policies: Policies.parse(r.policies),
-    // Rapiz photos are host-relative `/media/…` paths; older rows name a former public host.
-    gallery: r.gallery.map((g) => ({ url: toMediaPath(g.url), caption: g.caption ?? '' })),
+    gallery: toGallery(r.gallery),
+    galleryCover: r.galleryCover ? toMediaPath(r.galleryCover) : '',
     internalNote: r.internalNote,
     surcharges: {
       extraAdult: price(r.extraAdultSell, r.extraAdultCost),
@@ -54,6 +98,19 @@ export function toProperty(r: PropertyRow): PropertyRecord {
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   };
+}
+
+/** A gallery as stored: Rapiz photos and videos as host-relative `/media/…` paths. */
+function galleryValues(gallery: GalleryFolder[]) {
+  return gallery.map((f) => ({
+    id: f.id,
+    name: f.name,
+    items: f.items.map((i) => ({
+      kind: i.kind,
+      url: i.kind === 'link' ? i.url : toMediaPath(i.url),
+      caption: i.caption,
+    })),
+  }));
 }
 
 export function propertyValues(ws: WorkspaceId, p: PropertyRecord) {
@@ -75,7 +132,8 @@ export function propertyValues(ws: WorkspaceId, p: PropertyRecord) {
     amenities: p.amenities,
     layout: p.layout,
     policies: { ...p.policies },
-    gallery: p.gallery.map((g) => ({ ...g, url: toMediaPath(g.url) })),
+    gallery: galleryValues(p.gallery),
+    galleryCover: p.galleryCover ? toMediaPath(p.galleryCover) : '',
     internalNote: p.internalNote,
     extraAdultSell: p.surcharges.extraAdult?.sell ?? null,
     extraAdultCost: p.surcharges.extraAdult?.cost ?? null,
@@ -99,6 +157,14 @@ export function toUnit(r: UnitRow): UnitRecord {
     capacityChildren: r.capacityChildren,
     active: r.active,
     sortOrder: r.sortOrder,
+    category: r.category,
+    view: r.view,
+    areaM2: r.areaM2,
+    description: r.description,
+    amenities: r.amenities,
+    maxGuests: r.maxGuests,
+    gallery: toGallery(r.gallery),
+    galleryCover: r.galleryCover ? toMediaPath(r.galleryCover) : '',
   };
 }
 
@@ -114,6 +180,43 @@ export function unitValues(ws: WorkspaceId, propertyId: string, u: UnitRecord) {
     capacityChildren: u.capacityChildren,
     active: u.active,
     sortOrder: u.sortOrder,
+    category: u.category,
+    view: u.view,
+    areaM2: u.areaM2,
+    description: u.description,
+    amenities: u.amenities,
+    maxGuests: u.maxGuests,
+    gallery: galleryValues(u.gallery),
+    galleryCover: u.galleryCover ? toMediaPath(u.galleryCover) : '',
+  };
+}
+
+export function toPackage(r: PackageRow): PackageRecord {
+  return {
+    id: r.id,
+    propertyId: r.propertyId,
+    unitId: r.unitId,
+    name: r.name,
+    bedrooms: r.bedrooms,
+    standardAdults: r.standardAdults,
+    standardChildren: r.standardChildren,
+    maxGuests: r.maxGuests,
+    sortOrder: r.sortOrder,
+  };
+}
+
+export function packageValues(ws: WorkspaceId, propertyId: string, p: PackageRecord) {
+  return {
+    id: p.id,
+    workspaceId: ws,
+    propertyId,
+    unitId: p.unitId,
+    name: p.name,
+    bedrooms: p.bedrooms,
+    standardAdults: p.standardAdults,
+    standardChildren: p.standardChildren,
+    maxGuests: p.maxGuests,
+    sortOrder: p.sortOrder,
   };
 }
 
@@ -129,6 +232,7 @@ export function toRate(r: RateRow): RateRule {
     sell: r.sell,
     cost: r.cost,
     minNights: r.minNights,
+    packageId: r.packageId,
   };
 }
 
@@ -146,10 +250,15 @@ export function rateValues(ws: WorkspaceId, propertyId: string, r: RateRule) {
     sell: r.sell,
     cost: r.cost,
     minNights: r.minNights,
+    packageId: r.packageId,
   };
 }
 
-export function toBooking(r: BookingRow, unitIds: string[]): BookingRecord {
+export function toBooking(
+  r: BookingRow,
+  unitIds: string[],
+  unitPackages: Record<string, string> = {},
+): BookingRecord {
   return {
     id: r.id,
     code: r.code,
@@ -157,6 +266,7 @@ export function toBooking(r: BookingRow, unitIds: string[]): BookingRecord {
     kind: r.kind,
     whole: r.whole,
     unitIds,
+    unitPackages,
     status: r.status,
     checkIn: r.checkIn,
     checkOut: r.checkOut,
@@ -168,7 +278,8 @@ export function toBooking(r: BookingRow, unitIds: string[]): BookingRecord {
     conversationId: r.conversationId,
     source: r.source,
     holdExpiresAt: r.holdExpiresAt?.toISOString() ?? null,
-    quote: (r.quote as unknown as Quote | null) ?? null,
+    // Quotes stored before T-193 have no `packages`.
+    quote: r.quote ? ({ packages: [], ...r.quote } as unknown as Quote) : null,
     adjustment: r.adjustment,
     adjustmentReason: r.adjustmentReason,
     totalSell: r.totalSell,

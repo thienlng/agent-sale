@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { PublicImageUrl } from '../common/media.js';
-import { AccommodationDetails } from './lodging.schema.js';
+import { AccommodationDetails, CatalogAccommodationDetails } from './lodging.schema.js';
 import { Money } from './money.schema.js';
 import { OrderItemsPreviewFields, OrderOriginFields } from './order-review.schema.js';
 
@@ -212,32 +212,54 @@ export const ProductVariantInput = z.object({
 });
 export type ProductVariantInput = z.input<typeof ProductVariantInput>;
 
+const upsertProductShape = {
+  code: Code,
+  name: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(5000).default(''),
+  category: optionalText(120),
+  visibleToBot: z.boolean().default(true),
+  botInstructions: z.string().trim().max(4000).default(''),
+  imageUrls: ProductImageUrls.default([]),
+  accommodation: AccommodationDetails.nullable().optional(),
+  /** Omitted on update: the stored offering stays. Null clears it. */
+  offering: OfferingDetails.nullable().optional(),
+  status: z.enum(['active', 'archived']).default('active'),
+  variants: z.array(ProductVariantInput).min(1).max(100),
+  /** Create only: also selects the new product for this bot (T-080). Ignored on update. */
+  botId: z.uuid().optional(),
+};
+type UpsertProductShape = {
+  variants: { sku: string }[];
+  offering?: unknown;
+  accommodation?: unknown;
+};
+const distinctSkus = (p: UpsertProductShape) =>
+  new Set(p.variants.map((v) => v.sku.toLowerCase())).size === p.variants.length;
+const DISTINCT_SKUS = { message: 'each variant needs a different SKU', path: ['variants'] };
+const notBoth = (p: UpsertProductShape) => !p.offering || !p.accommodation;
+const NOT_BOTH = {
+  message: 'a product is a course or service, or an accommodation, not both',
+  path: ['offering'],
+};
+
 export const UpsertProductRequest = z
-  .object({
-    code: Code,
-    name: z.string().trim().min(1).max(200),
-    description: z.string().trim().max(5000).default(''),
-    category: optionalText(120),
-    visibleToBot: z.boolean().default(true),
-    botInstructions: z.string().trim().max(4000).default(''),
-    imageUrls: ProductImageUrls.default([]),
-    accommodation: AccommodationDetails.nullable().optional(),
-    /** Omitted on update: the stored offering stays. Null clears it. */
-    offering: OfferingDetails.nullable().optional(),
-    status: z.enum(['active', 'archived']).default('active'),
-    variants: z.array(ProductVariantInput).min(1).max(100),
-    /** Create only: also selects the new product for this bot (T-080). Ignored on update. */
-    botId: z.uuid().optional(),
-  })
-  .refine((p) => new Set(p.variants.map((v) => v.sku.toLowerCase())).size === p.variants.length, {
-    message: 'each variant needs a different SKU',
-    path: ['variants'],
-  })
-  .refine((p) => !p.offering || !p.accommodation, {
-    message: 'a product is a course or service, or an accommodation, not both',
-    path: ['offering'],
-  });
+  .object(upsertProductShape)
+  .refine(distinctSkus, DISTINCT_SKUS)
+  .refine(notBoth, NOT_BOTH);
 export type UpsertProductRequest = z.input<typeof UpsertProductRequest>;
+
+/**
+ * The product body the owner assistant writes (`assistant.body` of the product writes): the same
+ * request with a catalog product's accommodation, without the lodging bot product's own fields
+ * (T-193), so `tool_describe` stays within its result limit.
+ */
+export const AssistantUpsertProductRequest = z
+  .object({
+    ...upsertProductShape,
+    accommodation: CatalogAccommodationDetails.nullable().optional(),
+  })
+  .refine(distinctSkus, DISTINCT_SKUS)
+  .refine(notBoth, NOT_BOTH);
 
 /**
  * Only the bot's fields of a product (at least one). Stays usable on a PMS-synced product, whose

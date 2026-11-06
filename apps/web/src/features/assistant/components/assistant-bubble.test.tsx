@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { requestAssistantOpen } from '@/lib/assistant-context';
@@ -6,6 +6,7 @@ import type { Session } from '@/lib/session';
 import { threadFixture } from '@/testing/assistant-factories';
 import { renderWithRouter, stubFetch } from '@/testing/render';
 
+import { LAUNCHER_POSITION_KEY } from '../hooks/use-launcher-drag';
 import { useAssistantUi } from '../stores/assistant-ui.store';
 
 import { AssistantBubble } from './assistant-bubble';
@@ -178,5 +179,102 @@ describe('AssistantBubble open requests', () => {
     );
     // The panel does not open on whatever view it had before.
     expect(useAssistantUi.getState()).toMatchObject({ open: false, threadId: null });
+  });
+});
+
+describe('AssistantBubble dragging', () => {
+  const vw = () => document.documentElement.clientWidth || window.innerWidth;
+  const vh = () => window.innerHeight;
+
+  beforeEach(() => {
+    localStorage.removeItem(LAUNCHER_POSITION_KEY);
+    state.session = sessionWith('owner', ACCOUNT);
+    useAssistantUi.setState({ open: false, workspaceId: null, threadId: null, spotlight: null });
+  });
+  afterEach(() => {
+    localStorage.removeItem(LAUNCHER_POSITION_KEY);
+    vi.restoreAllMocks();
+  });
+
+  /** The launcher, laid out at its default place (jsdom has no layout). */
+  async function launcher() {
+    const button = await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' });
+    vi.spyOn(button, 'getBoundingClientRect').mockImplementation(() => {
+      const right = vw() - (Number.parseFloat(button.style.right) || 16);
+      const bottom = vh() - (Number.parseFloat(button.style.bottom) || 16);
+      return {
+        left: right - 56,
+        right,
+        top: bottom - 56,
+        bottom,
+        width: 56,
+        height: 56,
+      } as DOMRect;
+    });
+    return button;
+  }
+
+  it('opens the panel on a plain click, even when the finger shakes a little', async () => {
+    renderPage();
+    const button = await launcher();
+    fireEvent.pointerDown(button, { button: 0, pointerId: 1, clientX: 500, clientY: 500 });
+    fireEvent.pointerMove(button, { pointerId: 1, clientX: 503, clientY: 502 });
+    fireEvent.pointerUp(button, { pointerId: 1, clientX: 503, clientY: 502 });
+    fireEvent.click(button);
+    expect(useAssistantUi.getState().open).toBe(true);
+    expect(localStorage.getItem(LAUNCHER_POSITION_KEY)).toBeNull();
+  });
+
+  it('moves with a drag, does not open, and keeps the place after a reload', async () => {
+    const first = renderWithRouter(() => <AssistantBubble />);
+    const button = await launcher();
+    expect(button.style.right).toBe('16px');
+    fireEvent.pointerDown(button, { button: 0, pointerId: 1, clientX: 500, clientY: 500 });
+    fireEvent.pointerMove(button, { pointerId: 1, clientX: 400, clientY: 300 });
+    fireEvent.pointerUp(button, { pointerId: 1, clientX: 400, clientY: 300 });
+    fireEvent.click(button);
+    expect(useAssistantUi.getState().open).toBe(false);
+    expect(button.style.right).toBe('116px');
+    expect(button.style.bottom).toBe('216px');
+    expect(JSON.parse(localStorage.getItem(LAUNCHER_POSITION_KEY) ?? '{}')).toEqual({
+      right: 116,
+      bottom: 216,
+    });
+    // The next click opens again.
+    fireEvent.click(button);
+    expect(useAssistantUi.getState().open).toBe(true);
+    first.unmount();
+
+    useAssistantUi.setState({ open: false });
+    renderWithRouter(() => <AssistantBubble />);
+    const again = await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' });
+    expect(again.style.right).toBe('116px');
+    expect(again.style.bottom).toBe('216px');
+  });
+
+  it('stays inside the screen when dragged past an edge or restored on a smaller window', async () => {
+    localStorage.setItem(LAUNCHER_POSITION_KEY, JSON.stringify({ right: 99_999, bottom: -50 }));
+    renderPage();
+    const button = await launcher();
+    expect(button.style.right).toBe(`${vw() - 56 - 8}px`);
+    expect(button.style.bottom).toBe('8px');
+    fireEvent.pointerDown(button, { button: 0, pointerId: 1, clientX: 500, clientY: 500 });
+    fireEvent.pointerMove(button, { pointerId: 1, clientX: 5_000, clientY: -5_000 });
+    fireEvent.pointerUp(button, { pointerId: 1, clientX: 5_000, clientY: -5_000 });
+    expect(button.style.right).toBe('8px');
+    expect(button.style.bottom).toBe(`${vh() - 56 - 8}px`);
+  });
+
+  it('moves with Alt+arrow keys and still opens with Enter', async () => {
+    renderPage();
+    const button = await launcher();
+    fireEvent.keyDown(button, { key: 'ArrowUp', altKey: true });
+    expect(button.style.bottom).toBe('40px');
+    fireEvent.keyDown(button, { key: 'ArrowLeft', altKey: true });
+    expect(button.style.right).toBe('40px');
+    expect(useAssistantUi.getState().open).toBe(false);
+    button.focus();
+    fireEvent.click(button);
+    expect(useAssistantUi.getState().open).toBe(true);
   });
 });

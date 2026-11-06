@@ -13,14 +13,21 @@ import { compareFitThenPrice } from '../domain/availability-ranking.js';
 import { LodgingError } from '../domain/lodging.errors.js';
 import { addNights, localToday, nightsBetween, nightToUtcMs } from '../domain/nights.js';
 import { quoteStay, resolveUnits } from '../domain/quote.js';
-import { priceNight, type RateRule } from '../domain/rates.js';
+import { priceFull, type DomainPackage, type RateRule } from '../domain/rates.js';
 import { freeOptions } from './availability.js';
-import { expireHolds, loadContext, toQuoteDto } from './booking-support.js';
+import {
+  bookingPackageIds,
+  expireHolds,
+  loadContext,
+  quoteKeepingPackages,
+  toQuoteDto,
+} from './booking-support.js';
 import { LodgingAccess } from './lodging-access.js';
 import {
   LODGING_STORE,
   type BookingRecord,
   type LodgingStore,
+  type PackageRecord,
   type PropertyRecord,
   type UnitRecord,
 } from './ports/lodging-store.js';
@@ -57,14 +64,23 @@ function parseIds(csv: string | undefined): string[] | undefined {
   return ids;
 }
 
-/** Whole-property price of a night: a whole-target rate, else the sum of the rooms (all priced). */
-function wholePrice(p: PropertyRecord, rooms: UnitRecord[], rates: RateRule[], night: string) {
-  const own = priceNight(rates, null, night);
+/**
+ * Whole-property price of a night: a whole-target rate, else the sum of the rooms (all priced).
+ * A target with packages shows its full package's price.
+ */
+function wholePrice(
+  p: PropertyRecord,
+  rooms: UnitRecord[],
+  rates: RateRule[],
+  packages: DomainPackage[],
+  night: string,
+) {
+  const own = priceFull(rates, packages, null, night);
   if (own) return { night, sell: own.sell, label: own.label };
   if (p.sellMode === 'whole' || rooms.length === 0) return { night, sell: null, label: '' };
   let sell = 0;
   for (const r of rooms) {
-    const price = priceNight(rates, r.id, night);
+    const price = priceFull(rates, packages, r.id, night);
     if (!price) return { night, sell: null, label: '' };
     sell += price.sell;
   }
@@ -86,7 +102,11 @@ export class CalendarService {
     @Inject(LodgingAccess) private readonly access: LodgingAccess,
   ) {}
 
-  /** Quote for one selection; `takenBy` lists the bookings already on those nights. */
+  /**
+   * Quote for one selection; `takenBy` lists the bookings already on those nights. Without
+   * explicit `packageIds`, `keepPackageIds` keeps a booking's packages while they fit, exactly
+   * as the booking edit prices it (`quoteKeepingPackages`), so its preview matches the save.
+   */
   async quote(ws: WorkspaceId, req: QuoteRequest): Promise<QuoteDto> {
     await this.access.assertHotel(ws);
     return this.store.run(ws, async (tx) => {
@@ -99,8 +119,12 @@ export class CalendarService {
         checkOut: req.checkOut,
         adults: req.party.adults,
         childAges: req.party.childAges,
+        packageIds: req.packageIds,
       };
-      const quote = quoteStay(ctx.property, ctx.units, ctx.rates, input);
+      const quote =
+        req.packageIds.length === 0 && req.keepPackageIds?.length
+          ? quoteKeepingPackages(ctx, input, req.keepPackageIds)
+          : quoteStay(ctx.property, ctx.units, ctx.rates, input, ctx.packages);
       const unitIds = resolveUnits(ctx.property, ctx.units, input);
       const taken = await tx.takenNights(unitIds, req.checkIn, req.checkOut);
       return toQuoteDto(quote, [...new Set(taken.map((t) => t.code))].sort());
@@ -126,10 +150,13 @@ export class CalendarService {
       const units = await tx.units(pids);
       const bookings = await tx.bookingsInRange(pids, query.from, query.to);
       const ratesOf = await tx.ratesByProperty(pids);
+      const allPackages = await tx.packages(pids);
+      const packageNames = new Map(allPackages.map((pk) => [pk.id, pk.name]));
       const notes = await tx.nightNotes(pids, query.from, query.to);
       const properties: CalendarProperty[] = [];
       for (const p of props) {
         const rates = ratesOf.get(p.id) ?? [];
+        const packages = allPackages.filter((pk) => pk.propertyId === p.id);
         const rows = currentUnits(p, units).filter((u) => u.active);
         const rooms = rows.filter((u) => u.kind === 'room');
         const own = bookings.filter((b) => b.propertyId === p.id);
@@ -141,18 +168,18 @@ export class CalendarService {
           sellMode: p.sellMode,
           standardAdults: p.standardAdults,
           standardChildren: p.standardChildren,
-          wholePrices: nights.map((n) => wholePrice(p, rooms, rates, n)),
+          wholePrices: nights.map((n) => wholePrice(p, rooms, rates, packages, n)),
           rows: rows.map((u) => ({
             unitId: u.id,
             name: u.name,
             kind: u.kind,
             prices: nights.map((n): NightPrice => {
-              const price = priceNight(rates, u.kind === 'whole' ? null : u.id, n);
+              const price = priceFull(rates, packages, u.kind === 'whole' ? null : u.id, n);
               return { night: n, sell: price?.sell ?? null, label: price?.label ?? '' };
             }),
             segments: own
               .filter((b) => b.unitIds.includes(u.id))
-              .map((b) => segment(b, query.from, query.to)),
+              .map((b) => segment(b, query.from, query.to, packageNames)),
           })),
           internalNote: p.internalNote,
           notes: notes.filter((n) => n.propertyId === p.id).map(({ propertyId: _p, ...n }) => n),
@@ -186,13 +213,20 @@ export class CalendarService {
         unitIds: o.unitIds,
         fits: o.fits,
         quote: toQuoteDto(o.quote),
+        packages: o.packages,
+        alternatives: o.alternatives,
       }));
       return { options: options.sort(byFitThenPrice) };
     });
   }
 }
 
-function segment(b: BookingRecord, from: string, to: string) {
+function segment(
+  b: BookingRecord,
+  from: string,
+  to: string,
+  packageNames: Map<string, PackageRecord['name']>,
+) {
   return {
     bookingId: b.id,
     code: b.code,
@@ -208,5 +242,6 @@ function segment(b: BookingRecord, from: string, to: string) {
     totalSell: b.totalSell,
     tags: b.tags,
     note: b.note,
+    packageNames: bookingPackageIds(b).map((id) => packageNames.get(id) ?? ''),
   };
 }

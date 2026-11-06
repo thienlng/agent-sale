@@ -1,6 +1,7 @@
 import { defineRoutes, type RouteContract } from '../common/routes.js';
 import {
   AdjustStockRequest,
+  AssistantUpsertProductRequest,
   BotProductsDto,
   ChangeOrderStatusRequest,
   CreateOrderRequest,
@@ -105,6 +106,7 @@ export const commerceRoutes = defineRoutes([
     assistant: {
       use: 'write',
       when: 'The owner asks to add a product with its price and variants.',
+      body: AssistantUpsertProductRequest,
     },
     apiKey: true,
     summary: 'Create a product with its variants',
@@ -143,6 +145,7 @@ export const commerceRoutes = defineRoutes([
     assistant: {
       use: 'write',
       when: "The owner asks to change a product's name, price, description or variants. Read the product first and send it whole.",
+      body: AssistantUpsertProductRequest,
     },
     apiKey: true,
     summary: 'Replace a product and its variants (missing variants are archived)',

@@ -4,8 +4,13 @@ import {
   buildAllowlist,
   imagesBlock,
   libraryImages,
+  MAX_PRODUCT_ALBUMS,
+  MAX_PRODUCT_VIDEOS,
+  nextAlbumPage,
+  productAlbums,
   productIdOfImage,
   productImages,
+  productVideos,
   resolveImageIds,
   selectImages,
 } from '../domain/image-allowlist.js';
@@ -201,5 +206,198 @@ describe('stored /media/ pictures', () => {
     expect(allowlist.resolve(['p:villa:1']).images.map((i) => i.url)).toEqual([
       `https://old.trycloudflare.com${path}`,
     ]);
+  });
+});
+
+const WS = '0192f0a0-0000-7000-8000-000000000001';
+const CLIP = `/media/lodging/${WS}/0192f0a0-0000-7000-8000-0000000000cc.mp4`;
+const villa = {
+  id: 'villa-1',
+  name: 'A17 – Villa',
+  accommodation: {
+    albums: [
+      {
+        name: 'Ngoài trời',
+        items: [
+          { kind: 'image', url: 'https://cdn.example.com/o1.jpg', caption: 'Hồ bơi' },
+          { kind: 'image', url: 'http://insecure.example/x.jpg', caption: '' },
+          { kind: 'link', url: 'https://youtu.be/flycam', caption: '' },
+        ],
+      },
+      { name: 'Video', items: [{ kind: 'video', url: CLIP, caption: 'Giới thiệu' }] },
+      {
+        name: 'Phòng ngủ',
+        items: Array.from({ length: 12 }, (_, i) => ({
+          kind: 'image',
+          url: `https://cdn.example.com/b${i}.jpg`,
+          caption: '',
+        })),
+      },
+    ],
+  },
+};
+
+describe('lodging albums and videos', () => {
+  it('lists one album per folder that has sendable photos, with its photo count', () => {
+    const albums = productAlbums([villa]);
+    expect(albums.map((a) => [a.id, a.label, a.images.length])).toEqual([
+      ['a:villa-1:0', 'A17 – Villa – Ngoài trời (1 ảnh)', 1],
+      ['a:villa-1:2', 'A17 – Villa – Phòng ngủ (12 ảnh)', 12],
+    ]);
+    expect(albums[0]?.images[0]).toEqual({
+      url: 'https://cdn.example.com/o1.jpg',
+      label: 'A17 – Villa – Hồ bơi',
+    });
+    expect(albums[1]?.images[0]?.label).toBe('A17 – Villa – Phòng ngủ');
+  });
+
+  it('lists uploaded videos and links with their folder, numbered per folder when untitled', () => {
+    expect(productVideos([villa]).map((v) => [v.id, v.kind, v.label])).toEqual([
+      ['v:villa-1:0:2', 'link', 'A17 – Villa – Ngoài trời – video: video 1'],
+      ['v:villa-1:1:0', 'video', 'A17 – Villa – Video – video: Giới thiệu'],
+    ]);
+  });
+
+  it('caps albums at 20 and videos at 10 per product, and ignores products without albums', () => {
+    const many = {
+      id: 'm',
+      name: 'M',
+      accommodation: {
+        albums: Array.from({ length: 25 }, (_, f) => ({
+          name: `F${f}`,
+          items: [
+            { kind: 'image', url: `https://cdn.example.com/${f}.jpg`, caption: '' },
+            { kind: 'link', url: `https://youtu.be/${f}`, caption: '' },
+          ],
+        })),
+      },
+    };
+    expect(productAlbums([many])).toHaveLength(MAX_PRODUCT_ALBUMS);
+    expect(productVideos([many])).toHaveLength(MAX_PRODUCT_VIDEOS);
+    expect(productAlbums([product])).toEqual([]);
+  });
+
+  it("lists each unit's own folders and videos after the property's, ids unique (T-193)", () => {
+    const resort = {
+      id: 'resort',
+      name: 'R01 – Resort Đồi',
+      accommodation: {
+        albums: [
+          {
+            name: 'Khuôn viên',
+            items: [{ kind: 'image', url: 'https://cdn.example.com/k.jpg', caption: '' }],
+          },
+        ],
+        units: [
+          {
+            name: 'Bungalow 1',
+            albums: [
+              {
+                name: 'View đồi',
+                items: [
+                  { kind: 'image', url: 'https://cdn.example.com/b1-0.jpg', caption: '' },
+                  { kind: 'image', url: 'https://cdn.example.com/b1-1.jpg', caption: 'Ban công' },
+                ],
+              },
+            ],
+          },
+          { name: 'Bungalow 2' },
+          {
+            name: 'Bungalow 3',
+            albums: [
+              { name: 'Clip', items: [{ kind: 'video', url: CLIP, caption: '' }] },
+              {
+                name: 'Phòng',
+                items: [{ kind: 'image', url: 'https://cdn.example.com/b3.jpg', caption: '' }],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const albums = productAlbums([resort]);
+    expect(albums.map((a) => [a.id, a.label])).toEqual([
+      ['a:resort:0', 'R01 – Resort Đồi – Khuôn viên (1 ảnh)'],
+      [`a:resort:${MAX_PRODUCT_ALBUMS}`, 'R01 – Resort Đồi – Bungalow 1 – View đồi (2 ảnh)'],
+      [`a:resort:${MAX_PRODUCT_ALBUMS + 2}`, 'R01 – Resort Đồi – Bungalow 3 – Phòng (1 ảnh)'],
+    ]);
+    expect(albums[1]?.images.map((i) => i.label)).toEqual([
+      'R01 – Resort Đồi – Bungalow 1 – View đồi',
+      'R01 – Resort Đồi – Bungalow 1 – Ban công',
+    ]);
+    expect(productVideos([resort]).map((v) => [v.id, v.label])).toEqual([
+      [
+        `v:resort:${MAX_PRODUCT_ALBUMS + 1}:0`,
+        'R01 – Resort Đồi – Bungalow 3 – Clip – video: video 1',
+      ],
+    ]);
+    expect(productIdOfImage(`a:resort:${MAX_PRODUCT_ALBUMS + 2}`)).toBe('resort');
+    // send_message resolves a unit folder like a property folder.
+    const allowlist = new ImageAllowlist([], 'https://rapiz.test');
+    allowlist.addMedia([resort as never]);
+    expect(allowlist.album(`a:resort:${MAX_PRODUCT_ALBUMS}`)?.images).toHaveLength(2);
+    expect(allowlist.video(`v:resort:${MAX_PRODUCT_ALBUMS + 1}:0`)).toBeDefined();
+  });
+
+  it('pages a folder 8 at a time, skipping what was sent, then starts again', () => {
+    const sent = (n: number, total = 12) => Array.from({ length: total }, (_, i) => i < n);
+    expect(nextAlbumPage(sent(0))).toEqual({
+      indexes: [0, 1, 2, 3, 4, 5, 6, 7],
+      remaining: 4,
+      restarted: false,
+    });
+    expect(nextAlbumPage(sent(8))).toEqual({
+      indexes: [8, 9, 10, 11],
+      remaining: 0,
+      restarted: false,
+    });
+    expect(nextAlbumPage(sent(12))).toEqual({
+      indexes: [0, 1, 2, 3, 4, 5, 6, 7],
+      remaining: 4,
+      restarted: true,
+    });
+    expect(nextAlbumPage([false, true, false])).toEqual({
+      indexes: [0, 2],
+      remaining: 0,
+      restarted: false,
+    });
+  });
+
+  it('finds the product of album and video ids', () => {
+    expect(productIdOfImage('a:villa-1:2:5')).toBe('villa-1');
+    expect(productIdOfImage('v:villa-1:0:2')).toBe('villa-1');
+    expect(productIdOfImage('p:villa-1:3')).toBe('villa-1');
+    expect(productIdOfImage('m:size')).toBeNull();
+  });
+
+  it('never lists a stored lodging video as an image', () => {
+    const mislabelled = {
+      id: 'v2',
+      name: 'V2',
+      accommodation: {
+        albums: [
+          {
+            name: 'Mixed',
+            items: [
+              { kind: 'image', url: CLIP, caption: '' },
+              { kind: 'image', url: 'https://cdn.example.com/ok.jpg', caption: '' },
+            ],
+          },
+        ],
+      },
+    };
+    expect(productAlbums([mislabelled])[0]?.images.map((i) => i.url)).toEqual([
+      'https://cdn.example.com/ok.jpg',
+    ]);
+    const flat = productImages([
+      { id: 'v3', name: 'V3', accommodation: { gallery: [{ url: CLIP, caption: 'clip' }] } },
+      { id: 'r1', name: 'R1', imageUrls: [CLIP, 'https://cdn.example.com/r.jpg'] },
+    ]);
+    expect(flat.map((i) => i.url)).toEqual(['https://cdn.example.com/r.jpg']);
+    const library = libraryImages(
+      [{ id: '1', kind: 'media', title: 'Hành lang', trigger: '', mediaUrl: CLIP }],
+      'ảnh hành lang',
+    );
+    expect(library).toEqual([]);
   });
 });

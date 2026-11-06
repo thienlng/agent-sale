@@ -163,6 +163,20 @@ export class ImageNotUploadedError extends DomainError {
   }
 }
 
+/**
+ * Media folders (`accommodation.albums`) are built by the lodging module for its bot product; a
+ * catalog product cannot carry them, since their links and videos skip the picture checks (T-192).
+ */
+export class AlbumsLodgingOnlyError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor() {
+    super('Media folders belong to lodging properties, not catalog products', {
+      reason: 'ALBUMS_LODGING_ONLY',
+      field: 'accommodation.albums',
+    });
+  }
+}
+
 /** Only orders the bot created carry a review. */
 export class NotBotOrderError extends DomainError {
   readonly code = 'CONFLICT';

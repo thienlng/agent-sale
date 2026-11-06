@@ -107,10 +107,12 @@ export class LodgingBotCatalog implements LodgingCatalogFacade {
     const pids = properties.map((p) => p.id);
     const units = await tx.units(pids);
     const ratesOf = await tx.ratesByProperty(pids);
+    const packages = await tx.packages(pids);
     const today = localToday(new Date());
     const products: ProductDto[] = [];
     for (const p of properties) {
-      const dto = toBotProduct(p, units, ratesOf.get(p.id) ?? [], today);
+      const own = packages.filter((pk) => pk.propertyId === p.id);
+      const dto = toBotProduct(p, units, ratesOf.get(p.id) ?? [], today, own);
       if (dto) products.push(dto);
     }
     return products;

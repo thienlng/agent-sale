@@ -1,0 +1,88 @@
+id: hotel-resort-bungalow-album
+group: lodging-packages
+tags: [critical]
+bot:
+  industry: hotel
+  name: Test lodging assistant
+  profile:
+    fields:
+      displayName: Test lodging business
+    notes: ''
+products:
+  - name: 'R01 – Resort Đồi Thông'
+    code: R01
+    description: 'Resort thuê theo từng bungalow.'
+    variants:
+      - name: 'Bungalow, giá tham khảo'
+        price: 1500000
+        stock: 0
+    accommodation:
+      rentalType: rooms
+      code: R01
+      bedrooms: 2
+      standardAdults: 4
+      standardChildren: 2
+      childAgeBelow: 6
+      maxGuests: null
+      roomLayout:
+        - { name: 'Bungalow 1', beds: '1 giường đôi' }
+        - { name: 'Bungalow 2', beds: '1 giường đôi' }
+      amenities: ['Bể bơi']
+      rateBasis: night
+      rates:
+        - { days: [1, 2, 3, 4, 5, 6, 7], amount: 3000000 }
+      gallery: []
+      albums:
+        - id: grounds
+          name: 'Khuôn viên'
+          items:
+            - { kind: image, url: 'https://media.rapiz.test/r01/k-0.jpg', caption: '' }
+      units:
+        - name: 'Bungalow 1'
+          beds: '1 giường đôi'
+          capacityAdults: 2
+          capacityChildren: 1
+          weekdayRates:
+            - { days: [1, 2, 3, 4, 5, 6, 7], amount: 1500000 }
+          category: bungalow
+          view: 'hồ'
+          description: 'Bungalow sát hồ, có hiên gỗ.'
+          albums:
+            - id: b1
+              name: 'Bungalow 1'
+              items:
+                - { kind: image, url: 'https://media.rapiz.test/r01/b1-0.jpg', caption: '' }
+                - { kind: image, url: 'https://media.rapiz.test/r01/b1-1.jpg', caption: '' }
+        - name: 'Bungalow 2'
+          beds: '1 giường đôi'
+          capacityAdults: 2
+          capacityChildren: 1
+          weekdayRates:
+            - { days: [1, 2, 3, 4, 5, 6, 7], amount: 1500000 }
+          category: bungalow
+          view: 'đồi'
+          description: 'Bungalow trên sườn đồi, ban công nhìn ra rừng thông.'
+          albums:
+            - id: b2
+              name: 'Bungalow 2'
+              items:
+                - { kind: image, url: 'https://media.rapiz.test/r01/b2-0.jpg', caption: '' }
+                - { kind: image, url: 'https://media.rapiz.test/r01/b2-1.jpg', caption: '' }
+                - { kind: image, url: 'https://media.rapiz.test/r01/b2-2.jpg', caption: '' }
+conversation:
+  - customer: 'Cho em xem ảnh căn bungalow view đồi bên R01 với'
+# The customer asks about the bungalow with the hill view: the bot sends that unit's own album
+# (the second unit folder, id index 20 + 1), not the grounds folder of the resort.
+expect:
+  outcome: answered
+  steps_succeeded: [search_products, send_message]
+  images_min: 3
+  images_per_message_max: 3
+  not_contains: ['https://', 'media.rapiz.test']
+fake_turns:
+  - tool_calls:
+      - { name: search_products, input: { query: 'R01 bungalow view đồi' } }
+  - tool_calls:
+      - name: send_message
+        input: { text: 'Dạ em gửi ảnh Bungalow 2 view đồi ạ', albumId: 'a:eval-product-1:21' }
+  - text: 'Dạ Bungalow 2 nằm trên sườn đồi, ban công nhìn ra rừng thông ạ.'

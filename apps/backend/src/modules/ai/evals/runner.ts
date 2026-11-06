@@ -303,6 +303,7 @@ const request = (c: EvalCase): PlaygroundRequest => ({
       ? { role: 'customer' as const, content: turn.customer }
       : { role: 'bot' as const, content: turn.bot },
   ),
+  ...(c.sent_media.length ? { sentMediaUrls: c.sent_media } : {}),
 });
 
 const customerTextsOf = (c: EvalCase): string[] =>

@@ -34,6 +34,7 @@ const quote = {
   totalCost: 20_000_000,
   warnings: [],
   takenBy: [],
+  packages: [],
 };
 const booking = (over: Partial<BookingDetail> = {}): BookingDetail => ({
   id: BK,
@@ -45,6 +46,8 @@ const booking = (over: Partial<BookingDetail> = {}): BookingDetail => ({
   whole: true,
   unitIds: [UNIT],
   unitNames: ['Nguyên căn'],
+  packageIds: [],
+  packageNames: [],
   status: 'hold',
   checkIn: '2099-11-02',
   checkOut: '2099-11-04',
@@ -285,6 +288,14 @@ describe('BookingSheet view', () => {
       capacityChildren: 0,
       active: true,
       sortOrder,
+      category: 'room',
+      view: '',
+      areaM2: null,
+      description: '',
+      amenities: [],
+      maxGuests: null,
+      gallery: [],
+      galleryCover: '',
     });
     const homestay = {
       ...property,
@@ -307,8 +318,10 @@ describe('BookingSheet view', () => {
         other: '',
       },
       gallery: [],
+      galleryCover: '',
       units: [room(R1, 'P101', 0), room(R2, 'P102', 1)],
       rates: [],
+      packages: [],
       surcharges: { extraAdult: null, extraChild: null },
       version: 1,
       createdAt: '2099-10-30T00:00:00.000Z',

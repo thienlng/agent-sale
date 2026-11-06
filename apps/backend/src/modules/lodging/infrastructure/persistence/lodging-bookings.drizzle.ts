@@ -70,11 +70,11 @@ export type BookingPort = Pick<
 
 /** Bookings, unit-nights, audit trail and outbox of one tenant transaction. */
 export function bookingPort(tx: TenantTx, ws: WorkspaceId): BookingPort {
-  /** Booking rows with their unit ids (ordered like the units on the calendar). */
+  /** Booking rows with their unit ids (ordered like the units on the calendar) and packages. */
   async function hydrate(rows: (typeof B.$inferSelect)[]): Promise<BookingRecord[]> {
     if (rows.length === 0) return [];
     const links = await tx
-      .select({ bookingId: BU.bookingId, unitId: BU.unitId })
+      .select({ bookingId: BU.bookingId, unitId: BU.unitId, packageId: BU.packageId })
       .from(BU)
       .innerJoin(U, and(eq(U.workspaceId, BU.workspaceId), eq(U.id, BU.unitId)))
       .where(
@@ -88,16 +88,31 @@ export function bookingPort(tx: TenantTx, ws: WorkspaceId): BookingPort {
       )
       .orderBy(asc(U.sortOrder), asc(U.id));
     const byBooking = new Map<string, string[]>();
-    for (const l of links)
+    const packagesOf = new Map<string, Record<string, string>>();
+    for (const l of links) {
       byBooking.set(l.bookingId, [...(byBooking.get(l.bookingId) ?? []), l.unitId]);
-    return rows.map((r) => toBooking(r, byBooking.get(r.id) ?? []));
+      if (l.packageId) {
+        packagesOf.set(l.bookingId, {
+          ...packagesOf.get(l.bookingId),
+          [l.unitId]: l.packageId,
+        });
+      }
+    }
+    return rows.map((r) => toBooking(r, byBooking.get(r.id) ?? [], packagesOf.get(r.id) ?? {}));
   }
 
-  async function linkUnits(bookingId: string, unitIds: string[]): Promise<void> {
-    if (unitIds.length === 0) return;
+  async function linkUnits(b: BookingRecord): Promise<void> {
+    if (b.unitIds.length === 0) return;
     await tx
       .insert(BU)
-      .values(unitIds.map((unitId) => ({ workspaceId: ws, bookingId, unitId })))
+      .values(
+        b.unitIds.map((unitId) => ({
+          workspaceId: ws,
+          bookingId: b.id,
+          unitId,
+          packageId: b.unitPackages[unitId] ?? null,
+        })),
+      )
       .onConflictDoNothing();
   }
 
@@ -214,7 +229,7 @@ export function bookingPort(tx: TenantTx, ws: WorkspaceId): BookingPort {
 
     async insertBooking(b) {
       await tx.insert(B).values(bookingValues(ws, b));
-      await linkUnits(b.id, b.unitIds);
+      await linkUnits(b);
     },
 
     async updateBooking(b) {
@@ -230,7 +245,7 @@ export function bookingPort(tx: TenantTx, ws: WorkspaceId): BookingPort {
         .set(set)
         .where(and(eq(B.workspaceId, ws), eq(B.id, b.id)));
       await tx.delete(BU).where(and(eq(BU.workspaceId, ws), eq(BU.bookingId, b.id)));
-      await linkUnits(b.id, b.unitIds);
+      await linkUnits(b);
     },
 
     async takeNights(bookingId, unitIds, nights) {

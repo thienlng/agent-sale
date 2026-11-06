@@ -101,6 +101,31 @@ describe('toolDetail', () => {
     });
   });
 
+  it('send_message: album page and video flags, never ids or URLs', () => {
+    const out = toolDetail(
+      'send_message',
+      { albumId: 'a:p:0', videoId: 'v:p:1:0' },
+      j({
+        status: 'sent',
+        delivered: 2,
+        album: { sent: 8, remaining: 4 },
+        video: 'video',
+        incomplete: true,
+      }),
+    );
+    expect(out.detail).toEqual({
+      chars: 0,
+      imageCount: 0,
+      droppedImages: 0,
+      delivered: true,
+      album: true,
+      albumSent: 8,
+      albumRemaining: 4,
+      video: true,
+      incomplete: true,
+    });
+  });
+
   it('handoff: the redacted reason', () => {
     expect(
       toolDetail('handoff', { reason: 'khách xin số 0912345678' }, j({ status: 'handed_over' })),

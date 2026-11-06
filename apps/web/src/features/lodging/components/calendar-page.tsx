@@ -33,7 +33,7 @@ type SheetState =
  * nhiêu tiền?" with the find bar, and places a hold from the grid in about three clicks.
  */
 export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const mobile = useIsMobile();
   const [start, setStart] = useState<string | null>(initialFrom ?? null);
   const [rangeNights, setRangeNights] = useState<RangeNights>(14);
@@ -128,12 +128,12 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
   const findStatus = !search
     ? null
     : availability.isError
-      ? t('lodging.find.error')
+      ? t('find.error')
       : availability.isFetching
-        ? t('lodging.loading')
+        ? t('loading')
         : fitCount
-          ? t('lodging.find.result', { count: fitCount })
-          : t('lodging.find.none');
+          ? t('find.result', { count: fitCount })
+          : t('find.none');
 
   const runSearch = (body: AvailabilityRequest) => {
     setSearch(body);
@@ -144,7 +144,7 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <h1 className="text-xl font-semibold">{t('lodging.calendarTitle')}</h1>
+      <h1 className="text-xl font-semibold">{t('calendarTitle')}</h1>
       <FindAvailabilityBar
         active={search !== null}
         status={findStatus}
@@ -166,12 +166,12 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
       />
       {selection && !selection.complete && (
         <p role="status" className="text-xs text-muted-foreground">
-          {t('lodging.cal.selecting', { date: dayMonth(selection.start) })}
+          {t('cal.selecting', { date: dayMonth(selection.start) })}
         </p>
       )}
 
       {calendar.isPending ? (
-        <div className="grid gap-1.5" role="status" aria-label={t('lodging.loading')}>
+        <div className="grid gap-1.5" role="status" aria-label={t('loading')}>
           {Array.from({ length: 6 }, (_, i) => (
             <Skeleton key={i} className="h-10 w-full" />
           ))}
@@ -180,26 +180,26 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
         <Alert variant="destructive">
           <CircleAlert aria-hidden />
           <AlertDescription className="flex flex-wrap items-center gap-2">
-            {t('lodging.loadError')}
+            {t('loadError')}
             <Button size="xs" variant="outline" onClick={() => void calendar.refetch()}>
-              {t('lodging.retry')}
+              {t('retry')}
             </Button>
           </AlertDescription>
         </Alert>
       ) : all.length === 0 ? (
         <div className="grid justify-items-center gap-2 rounded-lg border border-dashed border-border px-4 py-10 text-center">
-          <p className="font-medium">{t('lodging.cal.empty')}</p>
-          <p className="text-sm text-muted-foreground">{t('lodging.cal.emptyHint')}</p>
+          <p className="font-medium">{t('cal.empty')}</p>
+          <p className="text-sm text-muted-foreground">{t('cal.emptyHint')}</p>
           <Button asChild size="sm">
             <Link to="/app/properties">
               <House aria-hidden />
-              {t('lodging.cal.addProperty')}
+              {t('cal.addProperty')}
             </Link>
           </Button>
         </div>
       ) : visible.length === 0 ? (
         <p className="rounded-lg border border-border px-4 py-6 text-center text-sm text-muted-foreground">
-          {t('lodging.cal.noRows')}
+          {t('cal.noRows')}
         </p>
       ) : mobile ? (
         <CalendarMobile
