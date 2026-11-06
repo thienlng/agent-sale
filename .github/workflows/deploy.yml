@@ -48,7 +48,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push app
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: infra/deploy/Dockerfile
@@ -61,7 +61,7 @@ jobs:
           cache-from: type=gha,scope=rapiz
           cache-to: type=gha,mode=max,scope=rapiz
       - name: Build and push edge
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: infra/deploy/Dockerfile
