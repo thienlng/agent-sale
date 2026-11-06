@@ -21,6 +21,10 @@
     }
   ],
   "shortcuts": [
-    { "name": "Tin nhắn", "url": "/app/inbox", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+    {
+      "name": "Tin nhắn",
+      "url": "/app/inbox",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
   ]
 }
