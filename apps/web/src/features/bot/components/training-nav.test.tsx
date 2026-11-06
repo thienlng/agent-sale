@@ -7,7 +7,6 @@ import {
   RouterProvider,
 } from '@tanstack/react-router';
 import { screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { renderWithProviders } from '@/testing/render';
@@ -50,17 +49,8 @@ describe('TrainingNav', () => {
     }
   });
 
-  it('toggles the test chat from the menu instead of a floating button', async () => {
-    const onTestChat = vi.fn();
-    await renderNav({ onTestChat, testChatOpen: true });
-    const button = screen.getByRole('button', { name: 'Chat thử' });
-    expect(button).toHaveAttribute('aria-pressed', 'true');
-    await userEvent.click(button);
-    expect(onTestChat).toHaveBeenCalledOnce();
-  });
-
-  it('has no test chat button when the page does not offer one', async () => {
+  it('has no test chat button: the chat reopens from its own collapsed rail', async () => {
     await renderNav();
-    expect(screen.queryByRole('button', { name: 'Chat thử' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Chat thử/ })).toBeNull();
   });
 });

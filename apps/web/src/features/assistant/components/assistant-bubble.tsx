@@ -1,4 +1,3 @@
-import { Rabbit } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -16,6 +15,7 @@ import { openReportThread } from '../api/report-thread';
 import { LAUNCHER_INSET, useLauncherBottom } from '../hooks/use-launcher-bottom';
 import { useLauncherDrag } from '../hooks/use-launcher-drag';
 import { useAssistantUi } from '../stores/assistant-ui.store';
+import rabbitUrl from '@/assets/assistant-rabbit.png';
 
 // The panel (Sheet, chat, steps, spotlight) and its strings load on first open (docs/16 §1).
 const AssistantPanel = lazy(() =>
@@ -112,7 +112,7 @@ export function AssistantBubble() {
             drag.dragging ? 'cursor-grabbing shadow-xl' : 'transition',
           )}
         >
-          <Rabbit className="size-7" aria-hidden />
+          <img src={rabbitUrl} alt="" draggable={false} className="size-10 object-contain" />
         </button>
       )}
       {loaded ? (

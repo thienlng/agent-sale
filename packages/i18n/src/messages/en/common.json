@@ -285,7 +285,7 @@
     "guardrail": "Blocked an answer with a figure that isn't in your data",
     "meta": "{{model}} · {{tokens}} tokens · {{seconds}} s",
     "hide": "Hide test chat",
-    "show": "Test chat",
+    "show": "Show test chat",
     "error": "The bot couldn't reply: {{message}}",
     "attachImage": "Attach image",
     "removeImage": "Remove this image",
@@ -1999,6 +1999,7 @@
   "pwa": {
     "install": {
       "button": "Install app",
+      "buttonShort": "Install",
       "hint": "Install Rapiz on your home screen for quick access and notifications",
       "iosTitle": "Install Rapiz on iPhone",
       "iosIntro": "Safari has no install button. Follow these 3 steps:",
