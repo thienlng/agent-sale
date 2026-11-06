@@ -285,7 +285,7 @@
     "guardrail": "Blocked an answer with a figure that isn't in your data",
     "meta": "{{model}} · {{tokens}} tokens · {{seconds}} s",
     "hide": "Hide test chat",
-    "show": "Test chat",
+    "show": "Show test chat",
     "error": "The bot couldn't reply: {{message}}",
     "attachImage": "Attach image",
     "removeImage": "Remove this image",

@@ -8,7 +8,6 @@ import {
   House,
   Info,
   Megaphone,
-  MessageSquareText,
   Package,
   Settings,
   Zap,
@@ -126,17 +125,7 @@ function SettingsGroup({ botId }: { botId: string }) {
  * main sections, the settings group and the development tools. Below `lg` the
  * same pages are a horizontally scrolling strip.
  */
-export function TrainingNav({
-  bot,
-  testChatOpen = false,
-  onTestChat,
-}: {
-  bot: BotDto;
-  /** Whether the docked test chat is shown (wide screens). */
-  testChatOpen?: boolean;
-  /** Shows or hides the test chat; omitted, the button is not rendered. */
-  onTestChat?: () => void;
-}) {
+export function TrainingNav({ bot }: { bot: BotDto }) {
   const { t } = useTranslation('training');
   const { t: common } = useTranslation();
 
@@ -156,19 +145,6 @@ export function TrainingNav({
         </h1>
         <BotActiveSwitch bot={bot} />
       </div>
-      {onTestChat ? (
-        <div className="px-3 pb-3">
-          <button
-            type="button"
-            onClick={onTestChat}
-            aria-pressed={testChatOpen}
-            className="flex w-full items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none aria-pressed:border-primary aria-pressed:bg-primary-soft aria-pressed:text-primary"
-          >
-            <MessageSquareText aria-hidden className="size-4" />
-            {common('playground.title')}
-          </button>
-        </div>
-      ) : null}
 
       <nav aria-label={t('menu')} className="hidden flex-col pb-4 lg:flex">
         <GroupLabel>{t('space.nav.main')}</GroupLabel>

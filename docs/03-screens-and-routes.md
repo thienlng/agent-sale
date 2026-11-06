@@ -71,7 +71,7 @@
 
 ## 3. Bot space (`/app/bots/{botId}/…`)
 
-Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **test chat panel on the right** (collapsible), onboarding checklist dialog (x/4).
+Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **test chat panel on the right** (collapsible: collapsed, a slim rail keeps a chat icon that reopens it; below `xl` the same icon sits on the right edge and opens the chat as a sheet; there is no test chat button in the menu), onboarding checklist dialog (x/4).
 
 | Item                                           | Preny route                         | Our route                                                                                                                                                                                                                   | Feature   |
 | ---------------------------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |

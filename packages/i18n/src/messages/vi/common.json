@@ -284,7 +284,7 @@
     "guardrail": "Đã chặn câu trả lời có con số không có trong dữ liệu",
     "meta": "{{model}} · {{tokens}} token · {{seconds}} giây",
     "hide": "Ẩn chat thử",
-    "show": "Chat thử",
+    "show": "Mở chat thử",
     "error": "Bot chưa trả lời được: {{message}}",
     "attachImage": "Đính kèm ảnh",
     "removeImage": "Bỏ ảnh này",
