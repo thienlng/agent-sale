@@ -37,6 +37,7 @@ function setup(opts: { email?: boolean } = {}) {
       role: 'owner',
       industry: 'retail',
       accountId,
+      createdAt: new Date(0),
     },
   ];
   const account = {

@@ -153,6 +153,7 @@ describe('ImportExecutor (through ProposalService.approve)', () => {
         role: 'owner',
         industry: 'education',
         accountId: null,
+        createdAt: new Date(0),
       },
     ]);
     expect((await proposals.approve(scope, await propose(), 'B')).status).toBe('done');
@@ -176,6 +177,7 @@ describe('ImportExecutor (through ProposalService.approve)', () => {
         role: 'owner',
         industry: 'retail',
         accountId: null,
+        createdAt: new Date(0),
       },
     ]);
     await proposals.approve(scope, await propose(), 'B');

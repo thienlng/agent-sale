@@ -6,7 +6,9 @@ const A = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d20';
 const NEW_ID = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d31';
 const at = '2026-10-29T08:00:00.000Z';
 
-test('the owner creates a lodging business named Villas from the selector', async ({ page }) => {
+test('the owner creates a lodging business named Villas from the business gallery', async ({
+  page,
+}) => {
   await mockApi(page);
   const memberships = [{ workspaceId: A, workspaceName: 'Ken Shop', role: 'owner' }];
   const user = {
@@ -19,8 +21,12 @@ test('the owner creates a lodging business named Villas from the selector', asyn
     timezone: 'Asia/Ho_Chi_Minh',
     isPlatformAdmin: false,
   };
+  // The owner already owns an account, so the new business goes under it (ADR-012 §3).
+  const accounts = [
+    { accountId: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d40', name: 'Demo', role: 'owner' },
+  ];
   await page.route('**/api/v1/bootstrap', (route) =>
-    route.fulfill({ json: { user, memberships } }),
+    route.fulfill({ json: { user, memberships, accounts } }),
   );
   const created: unknown[] = [];
   await page.route('**/api/v1/workspaces', (route) => {
@@ -39,14 +45,15 @@ test('the owner creates a lodging business named Villas from the selector', asyn
     });
   });
 
-  await page.goto('/app/bots');
-  await page.getByRole('button', { name: 'Chọn business', exact: true }).click();
+  await page.goto('/app/businesses');
+  const main = page.getByRole('main');
+  await expect(main.getByRole('button', { name: 'Mở business Ken Shop' })).toBeVisible();
+  await main.getByRole('link', { name: 'Tạo business mới' }).click();
+  await expect(page).toHaveURL(/\/app\/businesses\/new$/);
+  await page.getByLabel('Tên business').fill('Villas');
+  await page.getByLabel('Lĩnh vực kinh doanh').click();
+  await page.getByRole('option', { name: 'Khách sạn / homestay' }).click();
   await page.getByRole('button', { name: 'Tạo business', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Tạo business mới' });
-  await expect(dialog.getByRole('button', { name: 'Tạo business', exact: true })).toBeDisabled();
-  await dialog.getByLabel('Tên business').fill('Villas');
-  await dialog.getByRole('radio', { name: /Khách sạn \/ homestay/ }).click();
-  await dialog.getByRole('button', { name: 'Tạo business', exact: true }).click();
 
   await expect(page).toHaveURL(/\/app\/analytics$/);
   await expect(page.getByRole('button', { name: 'Chọn business', exact: true })).toContainText(

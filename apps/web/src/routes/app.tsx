@@ -5,7 +5,6 @@ import { AssistantBubble } from '@/features/assistant/components/assistant-bubbl
 import { useIsAccountOwner } from '@/lib/use-is-account-owner';
 import { NotificationBell } from '@/features/notification/components/notification-bell';
 import { MessageUsageBanner } from '@/features/billing/components/message-usage-banner';
-import { CreateBusinessDialog } from '@/features/workspace/components/create-business-dialog';
 import { PlanDialog } from '@/features/billing/components/plan-dialog';
 import { ACCOUNT_PATHS } from '@/lib/account-paths';
 import { ensureSession, selectWorkspace } from '@/lib/session';
@@ -50,7 +49,6 @@ export const Route = createFileRoute('/app')({
     return (
       <AppShell
         planDialog={(props) => <PlanDialog {...props} />}
-        createBusinessDialog={(props) => <CreateBusinessDialog {...props} />}
         headerActions={isOwner ? <NotificationBell /> : undefined}
         // Undefined only while the business is loading, so the sidebar holds the industry entries
         // instead of flashing retail ones; without a business (or on error) it falls back to retail.

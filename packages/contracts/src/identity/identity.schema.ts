@@ -103,6 +103,8 @@ export const MembershipDto = z.object({
   accountId: z.uuid().nullable().default(null),
   /** Shown to group the business switcher; membership of the account is not implied. */
   accountName: z.string().nullable().default(null),
+  /** When the business was created (ISO); absent from older clients' cached sessions. */
+  createdAt: z.string().optional(),
 });
 export type MembershipDto = z.infer<typeof MembershipDto>;
 

@@ -36,8 +36,6 @@
     "adminPlans": "Gói cước",
     "adminSettings": "Cài đặt thanh toán",
     "adminLlm": "Mô hình AI",
-    "platform": "Nền tảng",
-    "backToBusinesses": "Về các business",
     "toggleSidebar": "Mở hoặc thu gọn thanh bên",
     "ordersOverview": "Tổng quan",
     "ordersList": "Danh sách đơn",
@@ -1810,7 +1808,38 @@
     "welcomeTitle": "Tạo business đầu tiên",
     "welcomeSubtitle": "Cho Rapiz biết tên và lĩnh vực của cửa hàng để chuẩn bị bot, câu trả lời mẫu và trạng thái khách hàng phù hợp.",
     "accountLabel": "Tài khoản",
-    "createAction": "Tạo business"
+    "createAction": "Tạo business",
+    "switchTo": "Chuyển sang business khác",
+    "accountSection": "Tài khoản",
+    "manageAccountHint": "Rời business này, về tổng quan tài khoản",
+    "allBusinesses": "Tất cả business",
+    "allBusinessesHint": "Xem, lọc và mở các business của bạn",
+    "gallery": {
+      "title": "Business của tôi",
+      "subtitle_other": "{{count}} business. Chọn một business để vào quản lý.",
+      "searchLabel": "Tìm theo tên business",
+      "searchPlaceholder": "Tìm theo tên…",
+      "industry": "Lọc theo lĩnh vực",
+      "allIndustries": "Mọi lĩnh vực",
+      "created": "Lọc theo ngày tạo",
+      "createdAny": "Mọi thời điểm",
+      "createdWithin": {
+        "7d": "7 ngày qua",
+        "30d": "30 ngày qua",
+        "90d": "90 ngày qua",
+        "365d": "12 tháng qua"
+      },
+      "sort": "Sắp xếp",
+      "sorts": {
+        "newest": "Mới tạo nhất",
+        "oldest": "Tạo lâu nhất",
+        "name": "Tên A → Z"
+      },
+      "clear": "Xóa bộ lọc",
+      "open": "Mở business {{name}}",
+      "createdOn": "Tạo ngày {{date}}",
+      "otherAccount": "Thuộc tài khoản {{name}}"
+    }
   },
   "account": {
     "open": "Tài khoản của {{name}}",

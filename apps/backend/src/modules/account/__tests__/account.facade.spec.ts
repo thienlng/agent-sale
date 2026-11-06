@@ -23,6 +23,19 @@ describe('AccountFacade (contract)', () => {
     ).toBe(first);
   });
 
+  it('names the new account after its owner, not after the first business', async () => {
+    const f = await facade();
+    const lan = userId(newId());
+    await f.resolveForNewBusiness({
+      userId: lan,
+      businessName: 'Shop thời trang Lan',
+      owner: { name: 'Nguyễn Thị Lan', email: 'lan@shop.vn', phone: null },
+    });
+    expect(await f.listForUser(lan)).toEqual([
+      expect.objectContaining({ name: 'Nguyễn Thị Lan', role: 'owner' }),
+    ]);
+  });
+
   it('never places a business under an account the user does not own', async () => {
     const f = await facade();
     const lan = userId(newId());
