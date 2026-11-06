@@ -13,6 +13,8 @@ import {
   type NotificationPage,
   type NotificationRecord,
   type NotificationRepository,
+  MAX_PUSH_DEVICES,
+  type PushSubscriptionRecord,
 } from '../../domain/ports/notification.repository.js';
 
 const mine = (accountId: string, userId: string, x: { accountId: string; userId: string }) =>
@@ -22,6 +24,7 @@ const mine = (accountId: string, userId: string, x: { accountId: string; userId:
 export class InMemoryNotificationRepository implements NotificationRepository {
   readonly notifications = new Map<string, NotificationRecord>();
   readonly deliveries = new Map<string, DeliveryRecord>();
+  readonly pushSubscriptions = new Map<string, PushSubscriptionRecord>();
   #clock = 0;
 
   /** Strictly increasing timestamps so ordering is deterministic in tests. */
@@ -205,5 +208,53 @@ export class InMemoryNotificationRepository implements NotificationRepository {
       }
     }
     return count;
+  }
+
+  async savePushSubscription(
+    row: Omit<PushSubscriptionRecord, 'failures' | 'lastSentAt' | 'createdAt'>,
+  ): Promise<void> {
+    const existing = [...this.pushSubscriptions.values()].find(
+      (p) => p.accountId === row.accountId && p.endpoint === row.endpoint,
+    );
+    if (existing) {
+      Object.assign(existing, { ...row, id: existing.id, failures: 0 });
+      return;
+    }
+    this.pushSubscriptions.set(row.id, {
+      ...row,
+      failures: 0,
+      lastSentAt: null,
+      createdAt: new Date(),
+    });
+  }
+
+  async removePushSubscription(
+    accountId: string,
+    userId: string,
+    endpoint: string,
+  ): Promise<boolean> {
+    for (const [id, p] of this.pushSubscriptions) {
+      if (p.accountId === accountId && p.userId === userId && p.endpoint === endpoint) {
+        this.pushSubscriptions.delete(id);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  async pushSubscriptionsFor(accountId: string, userId: string): Promise<PushSubscriptionRecord[]> {
+    return [...this.pushSubscriptions.values()]
+      .filter((p) => p.accountId === accountId && p.userId === userId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .slice(0, MAX_PUSH_DEVICES)
+      .map((p) => ({ ...p }));
+  }
+
+  async recordPushResult(id: string, outcome: 'sent' | 'failed' | 'gone', at: Date): Promise<void> {
+    const p = this.pushSubscriptions.get(id);
+    if (!p) return;
+    if (outcome === 'gone') this.pushSubscriptions.delete(id);
+    else if (outcome === 'sent') Object.assign(p, { failures: 0, lastSentAt: at });
+    else p.failures += 1;
   }
 }

@@ -105,5 +105,15 @@
     "more": "Show more",
     "less": "Show less",
     "unread": "unread"
+  },
+  "inbox": {
+    "handoff": {
+      "title": "{{customer}} needs a person",
+      "body": "{{business}} · {{excerpt}}"
+    },
+    "message": {
+      "title": "New message from {{customer}}",
+      "body": "{{business}} · {{excerpt}}"
+    }
   }
 }

@@ -112,6 +112,17 @@ export const EnvSchema = z
      * directory, so the live-backend e2e suite can read signup codes. Refused in production.
      */
     MAIL_OUTBOX_DIR: z.string().min(1).optional(),
+    /**
+     * Web Push (T-190): VAPID key pair (`npx web-push generate-vapid-keys`) and the contact the
+     * push services may reach (`mailto:` or `https:`). Unset, push deliveries are skipped and the
+     * app offers no device notifications.
+     */
+    WEB_PUSH_PUBLIC_KEY: z.string().min(40).optional(),
+    WEB_PUSH_PRIVATE_KEY: z.string().min(20).optional(),
+    WEB_PUSH_SUBJECT: z
+      .string()
+      .regex(/^(mailto:|https:\/\/)/)
+      .default('mailto:support@rapiz.io'),
     /** Public HTTPS origin of the dashboard, for links in emails; unset leaves links out. */
     APP_PUBLIC_URL: z.url({ protocol: /^https$/ }).optional(),
   })

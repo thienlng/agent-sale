@@ -1988,5 +1988,28 @@
       "price": "Giá {{period}} (VND)",
       "from": "từ {{mrr}}/tháng"
     }
+  },
+  "pwa": {
+    "install": {
+      "button": "Cài ứng dụng",
+      "hint": "Cài Rapiz lên màn hình chính để mở nhanh và nhận thông báo",
+      "iosTitle": "Cài Rapiz lên iPhone",
+      "iosIntro": "Safari không có nút cài tự động. Làm theo 3 bước sau:",
+      "iosStep1": "Mở Rapiz bằng Safari, bấm nút Chia sẻ",
+      "iosStep2": "Chọn \"Thêm vào MH chính\" (Add to Home Screen)",
+      "iosStep3": "Mở Rapiz từ biểu tượng mới trên màn hình chính, rồi bật thông báo",
+      "share": "Chia sẻ",
+      "iosHint": "Trên iPhone, hãy cài Rapiz lên màn hình chính trước rồi bật thông báo trong ứng dụng."
+    },
+    "push": {
+      "turnOn": "Bật thông báo trên thiết bị này",
+      "turnOff": "Tắt thông báo trên thiết bị này",
+      "offHint": "Bật để nhận thông báo khi khách nhắn hoặc bot chuyển cho nhân viên, kể cả khi đã đóng Rapiz",
+      "onHint": "Đang nhận thông báo trên thiết bị này. Bấm để tắt",
+      "enabled": "Đã bật thông báo trên thiết bị này",
+      "disabled": "Đã tắt thông báo trên thiết bị này",
+      "blocked": "Trình duyệt đang chặn thông báo của Rapiz. Hãy cho phép trong cài đặt trình duyệt.",
+      "failed": "Chưa bật được thông báo. Thử lại sau."
+    }
   }
 }

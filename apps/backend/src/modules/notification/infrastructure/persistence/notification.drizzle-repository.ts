@@ -1,5 +1,6 @@
 import {
   and,
+  asc,
   desc,
   eq,
   inArray,
@@ -29,10 +30,13 @@ import {
   type NotificationPage,
   type NotificationRecord,
   type NotificationRepository,
+  MAX_PUSH_DEVICES,
+  type PushSubscriptionRecord,
 } from '../../domain/ports/notification.repository.js';
 
 const n = schema.notifications;
 const d = schema.notificationDeliveries;
+const ps = schema.pushSubscriptions;
 
 const ownsNotification = (accountId: string, userId: string) =>
   and(eq(n.accountId, accountId), eq(n.userId, userId));
@@ -295,6 +299,63 @@ export class DrizzleNotificationRepository implements NotificationRepository {
     return this.#sys(async (tx) => {
       const rows = await tx.delete(n).where(lt(n.createdAt, before)).returning({ id: n.id });
       return rows.length;
+    });
+  }
+
+  savePushSubscription(
+    row: Omit<PushSubscriptionRecord, 'failures' | 'lastSentAt' | 'createdAt'>,
+  ): Promise<void> {
+    return this.#in(row.accountId, async (tx) => {
+      await tx
+        .insert(ps)
+        .values(row)
+        .onConflictDoUpdate({
+          target: [ps.accountId, ps.endpoint],
+          // The same browser re-registered, maybe by another user: it now belongs to the caller.
+          set: {
+            userId: row.userId,
+            p256dh: row.p256dh,
+            auth: row.auth,
+            userAgent: row.userAgent,
+            failures: 0,
+          },
+        });
+    });
+  }
+
+  removePushSubscription(accountId: string, userId: string, endpoint: string): Promise<boolean> {
+    return this.#in(accountId, async (tx) => {
+      const rows = await tx
+        .delete(ps)
+        .where(and(eq(ps.accountId, accountId), eq(ps.userId, userId), eq(ps.endpoint, endpoint)))
+        .returning({ id: ps.id });
+      return rows.length > 0;
+    });
+  }
+
+  pushSubscriptionsFor(accountId: string, userId: string): Promise<PushSubscriptionRecord[]> {
+    return this.#sys(async (tx) =>
+      tx
+        .select()
+        .from(ps)
+        .where(and(eq(ps.accountId, accountId), eq(ps.userId, userId)))
+        .orderBy(asc(ps.createdAt))
+        .limit(MAX_PUSH_DEVICES),
+    );
+  }
+
+  recordPushResult(id: string, outcome: 'sent' | 'failed' | 'gone', at: Date): Promise<void> {
+    return this.#sys(async (tx) => {
+      if (outcome === 'gone') {
+        await tx.delete(ps).where(eq(ps.id, id));
+      } else if (outcome === 'sent') {
+        await tx.update(ps).set({ failures: 0, lastSentAt: at }).where(eq(ps.id, id));
+      } else {
+        await tx
+          .update(ps)
+          .set({ failures: sql`${ps.failures} + 1` })
+          .where(eq(ps.id, id));
+      }
     });
   }
 }

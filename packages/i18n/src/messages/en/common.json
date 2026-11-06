@@ -1995,5 +1995,28 @@
       "price": "{{period}} price (VND)",
       "from": "from {{mrr}}/month"
     }
+  },
+  "pwa": {
+    "install": {
+      "button": "Install app",
+      "hint": "Install Rapiz on your home screen for quick access and notifications",
+      "iosTitle": "Install Rapiz on iPhone",
+      "iosIntro": "Safari has no install button. Follow these 3 steps:",
+      "iosStep1": "Open Rapiz in Safari and tap Share",
+      "iosStep2": "Choose \"Add to Home Screen\"",
+      "iosStep3": "Open Rapiz from the new home-screen icon, then turn on notifications",
+      "share": "Share",
+      "iosHint": "On iPhone, install Rapiz on the home screen first, then turn on notifications in the app."
+    },
+    "push": {
+      "turnOn": "Turn on notifications on this device",
+      "turnOff": "Turn off notifications on this device",
+      "offHint": "Get notified when customers write or the bot hands over to staff, even with Rapiz closed",
+      "onHint": "Notifications are on for this device. Click to turn off",
+      "enabled": "Notifications are on for this device",
+      "disabled": "Notifications are off for this device",
+      "blocked": "The browser blocks Rapiz notifications. Allow them in the browser settings.",
+      "failed": "Could not turn on notifications. Try again later."
+    }
   }
 }

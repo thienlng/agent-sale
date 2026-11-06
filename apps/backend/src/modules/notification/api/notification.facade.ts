@@ -1,9 +1,16 @@
 // The api/ layer may not import domain/; these unions mirror `domain/notification.ts`.
-export type NotificationType = 'assistant.report' | 'assistant.alert' | 'assistant.schedule_paused';
+export type NotificationType =
+  | 'assistant.report'
+  | 'assistant.alert'
+  | 'assistant.schedule_paused'
+  | 'inbox.handoff'
+  | 'inbox.message';
 export type NotificationChannelKind = 'email' | 'push';
 export type DeliveryStatus = 'queued' | 'sending' | 'sent' | 'failed' | 'skipped';
 export type NotificationTarget =
-  { kind: 'path'; path: string } | { kind: 'assistant_report'; runId: string };
+  | { kind: 'path'; path: string }
+  | { kind: 'assistant_report'; runId: string }
+  | { kind: 'conversation'; conversationId: string };
 
 /** What a producer asks the notification module to deliver (T-172, S3-R5). */
 export interface NotifyInput {

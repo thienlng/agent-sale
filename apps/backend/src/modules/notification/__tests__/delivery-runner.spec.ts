@@ -31,7 +31,7 @@ function setup(opts: { email?: string | null; channels?: NotificationChannel[] }
     ),
   } as unknown as IdentityFacade;
   const workspaces = { accountOf: vi.fn(async () => null) } as unknown as WorkspaceFacade;
-  const service = new NotificationService(repo, channels, identity, workspaces);
+  const service = new NotificationService(repo, channels, identity, workspaces, 'BPUB');
   const runner = new DeliveryRunner(repo, channels, identity, 'https://app.rapiz.test');
   const accountId = newId();
   const userId = newId();

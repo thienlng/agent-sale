@@ -3,7 +3,10 @@ import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { AppShell } from '@/components/app-shell';
 import { AssistantBubble } from '@/features/assistant/components/assistant-bubble';
 import { useIsAccountOwner } from '@/lib/use-is-account-owner';
+import { PushSync } from '@/features/notification/api/push';
+import { DevicePushButton } from '@/features/notification/components/device-push-button';
 import { NotificationBell } from '@/features/notification/components/notification-bell';
+import { InstallAppButton } from '@/components/install-app-button';
 import { MessageUsageBanner } from '@/features/billing/components/message-usage-banner';
 import { PlanDialog } from '@/features/billing/components/plan-dialog';
 import { ACCOUNT_PATHS } from '@/lib/account-paths';
@@ -49,7 +52,14 @@ export const Route = createFileRoute('/app')({
     return (
       <AppShell
         planDialog={(props) => <PlanDialog {...props} />}
-        headerActions={isOwner ? <NotificationBell /> : undefined}
+        headerActions={
+          <>
+            <InstallAppButton />
+            {/* Device notifications (T-190) are for every member: staff get the inbox alerts. */}
+            <DevicePushButton />
+            {isOwner ? <NotificationBell /> : null}
+          </>
+        }
         // Undefined only while the business is loading, so the sidebar holds the industry entries
         // instead of flashing retail ones; without a business (or on error) it falls back to retail.
         industry={workspace.data?.industry ?? (workspace.isLoading ? undefined : '')}
@@ -60,6 +70,7 @@ export const Route = createFileRoute('/app')({
           },
         }}
       >
+        <PushSync />
         <MessageUsageBanner />
         <Outlet />
         {/* Owner assistant (ADR-024): owners of the account only; the panel loads on open. */}

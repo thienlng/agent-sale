@@ -4,6 +4,10 @@ import {
   NotificationDto,
   NotificationList,
   NotificationListQuery,
+  PushConfig,
+  PushSubscriptionInput,
+  PushSubscriptionRemove,
+  PushSubscriptionResult,
 } from './notification.schema.js';
 
 /**
@@ -45,5 +49,28 @@ export const notificationRoutes = defineRoutes([
     path: '/notifications/read-all',
     summary: "Mark all the caller's notifications read; returns how many changed",
     responses: { 200: NotificationCount },
+  },
+  {
+    ...scoped,
+    method: 'get',
+    path: '/notifications/push',
+    summary: 'Web Push settings: the VAPID public key, null when push is not configured',
+    responses: { 200: PushConfig },
+  },
+  {
+    ...scoped,
+    method: 'post',
+    path: '/notifications/push/subscriptions',
+    summary: "Register this browser's push subscription for the caller (idempotent per endpoint)",
+    body: PushSubscriptionInput,
+    responses: { 200: PushSubscriptionResult },
+  },
+  {
+    ...scoped,
+    method: 'post',
+    path: '/notifications/push/subscriptions/remove',
+    summary: "Forget this browser's push subscription for the caller",
+    body: PushSubscriptionRemove,
+    responses: { 200: PushSubscriptionResult },
   },
 ]);

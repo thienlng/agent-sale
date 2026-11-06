@@ -105,6 +105,23 @@ describe('NotificationBell', () => {
     expect(calls.map((c) => c.key)).toContain(`POST /notifications/${note().id}/read`);
   });
 
+  it('opens the conversation of an inbox alert in its business', async () => {
+    const CONV = '01a19d25-57b8-7082-bbf9-35da4e0c3200';
+    stub([
+      note({
+        type: 'inbox.handoff',
+        title: 'Lan cần nhân viên hỗ trợ',
+        target: { kind: 'conversation', conversationId: CONV },
+      }),
+    ]);
+    const router = renderBell();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: /Thông báo/ }));
+    await user.click(await screen.findByText('Lan cần nhân viên hỗ trợ'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/app/inbox'));
+    expect(router.state.location.search).toEqual({ conversation: CONV, ws: WS });
+  });
+
   it('does not navigate to an unsafe path', async () => {
     const { calls } = stub([note({ target: { kind: 'path', path: 'https://evil.example' } })]);
     const router = renderBell();

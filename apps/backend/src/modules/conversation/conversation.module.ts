@@ -8,9 +8,14 @@ import { BillingModule } from '../billing/billing.module.js';
 import { BotModule } from '../bot/bot.module.js';
 import { CrmModule } from '../crm/crm.module.js';
 import { IdentityModule } from '../identity/identity.module.js';
+import { NotificationModule } from '../notification/notification.module.js';
 import { TeamModule } from '../team/team.module.js';
+import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { CONVERSATION_FACADE, CONVERSATION_RUNNER } from './api/conversation.facade.js';
 import { ConversationFacadeImpl } from './application/conversation.facade.impl.js';
+import { InboxAlerts } from './application/inbox-alerts.js';
+import { NOTIFICATION_FACADE, type NotificationFacade } from '../notification/api/index.js';
+import { WORKSPACE_FACADE, type WorkspaceFacade } from '../workspace/api/index.js';
 import { CONVERSATION_STORE } from './application/ports/conversation-store.js';
 import { BOT_IMAGE_VISION, IMAGE_FETCHER } from './application/ports/image-fetcher.js';
 import { botImageExtraHosts, botImageVisionEnabled, getEnv } from '../../common/config.js';
@@ -30,6 +35,8 @@ import { ConversationController } from './interface/http/conversation.controller
     IdentityModule,
     TeamModule,
     CrmModule,
+    WorkspaceModule,
+    NotificationModule,
   ],
   controllers: [ConversationController],
   providers: [
@@ -38,6 +45,11 @@ import { ConversationController } from './interface/http/conversation.controller
       inject: [{ token: DB_TENANT, optional: true }],
       useFactory: (db: Database | null | undefined) =>
         db ? new DrizzleConversationStore(db) : new UnavailableConversationStore(),
+    },
+    {
+      provide: InboxAlerts,
+      useFactory: (n: NotificationFacade, w: WorkspaceFacade) => new InboxAlerts(n, w),
+      inject: [NOTIFICATION_FACADE, WORKSPACE_FACADE],
     },
     ConversationFacadeImpl,
     { provide: CONVERSATION_FACADE, useExisting: ConversationFacadeImpl },

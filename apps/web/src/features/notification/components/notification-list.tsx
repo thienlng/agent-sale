@@ -94,6 +94,11 @@ export function NotificationList({ onDone }: { onDone: () => void }) {
       if (!to) return;
       onDone();
       void router.navigate({ href: to });
+    } else if (target.kind === 'conversation') {
+      // An inbox alert (T-190): its business may not be the current one; `ws` switches to it.
+      onDone();
+      const ws = item.workspaceId ? `&ws=${item.workspaceId}` : '';
+      void router.navigate({ href: `/app/inbox?conversation=${target.conversationId}${ws}` });
     } else {
       onDone();
       requestAssistantOpen({ reportRunId: target.runId, title: item.title, body: item.body });

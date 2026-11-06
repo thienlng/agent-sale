@@ -33,7 +33,8 @@ describe('NotificationFacade (contract)', () => {
     expect(first.deduped).toBe(false);
     expect(await facade.notify(input)).toEqual({ id: first.id, deduped: true });
     const summary = await facade.deliverySummary(accountId, userId, [first.id]);
-    expect(summary.get(first.id)).toEqual({ push: 'queued' });
+    // No push adapter configured in this setup: the delivery is skipped at once.
+    expect(summary.get(first.id)).toEqual({ push: 'skipped' });
     // An unknown user reads in Vietnamese.
     expect(await facade.recipientLocale(newId())).toBe('vi');
     expect(typeof facade.emailAvailable()).toBe('boolean');

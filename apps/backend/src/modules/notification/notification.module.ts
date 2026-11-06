@@ -10,21 +10,28 @@ import { NOTIFICATION_FACADE } from './api/notification.facade.js';
 import { NOTIFICATION_RUNNER } from './api/notification.runner.js';
 import { DeliveryRunner, NOTIFICATION_APP_URL } from './application/delivery-runner.js';
 import { NotificationFacadeImpl } from './application/notification.facade.impl.js';
-import { NotificationService } from './application/notification.service.js';
+import {
+  NOTIFICATION_PUSH_PUBLIC_KEY,
+  NotificationService,
+} from './application/notification.service.js';
 import {
   NOTIFICATION_CHANNELS,
   type NotificationChannel,
 } from './domain/ports/notification-channel.port.js';
-import { NOTIFICATION_REPOSITORY } from './domain/ports/notification.repository.js';
+import {
+  NOTIFICATION_REPOSITORY,
+  type NotificationRepository,
+} from './domain/ports/notification.repository.js';
 import { MailerEmailChannel } from './infrastructure/clients/email.channel.js';
+import { WebPushChannel, webPushConfig } from './infrastructure/clients/web-push.channel.js';
 import { DrizzleNotificationRepository } from './infrastructure/persistence/notification.drizzle-repository.js';
 import { InMemoryNotificationRepository } from './infrastructure/persistence/notification.in-memory-repository.js';
 import { NotificationController } from './interface/http/notification.controller.js';
 
 /**
  * Tier-0 notifications (T-172, S3-R5): in-app rows, and email deliveries through Resend sent by the
- * worker's `NOTIFICATION_RUNNER`. Push has no adapter yet: its deliveries are skipped
- * (`channel_unavailable`). Exports ONLY what api/ declares.
+ * worker's `NOTIFICATION_RUNNER`, and Web Push to the user's devices (T-190; skipped as
+ * `channel_unavailable` while the VAPID keys are unset). Exports ONLY what api/ declares.
  */
 @Module({
   imports: [IdentityModule, WorkspaceModule],
@@ -43,16 +50,22 @@ import { NotificationController } from './interface/http/notification.controller
     },
     {
       provide: NOTIFICATION_CHANNELS,
-      useFactory: (): NotificationChannel[] => {
+      inject: [NOTIFICATION_REPOSITORY],
+      useFactory: (repo: NotificationRepository): NotificationChannel[] => {
         const env = getEnv();
         return [
           new MailerEmailChannel(
             env.RESEND_API_KEY ? new ResendMailer(env.RESEND_API_KEY, env.EMAIL_FROM) : null,
           ),
+          new WebPushChannel(webPushConfig(env), repo),
         ];
       },
     },
     { provide: NOTIFICATION_APP_URL, useFactory: () => getEnv().APP_PUBLIC_URL ?? null },
+    {
+      provide: NOTIFICATION_PUSH_PUBLIC_KEY,
+      useFactory: () => webPushConfig(getEnv())?.publicKey ?? null,
+    },
     NotificationService,
     DeliveryRunner,
     { provide: NOTIFICATION_FACADE, useClass: NotificationFacadeImpl },
