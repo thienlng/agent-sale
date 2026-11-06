@@ -1,10 +1,10 @@
 import { roleCan, type ConversationView } from '@agent-sales/contracts';
 import { notificationStrings } from '@agent-sales/i18n/notification';
 import type { UserId, WorkspaceId } from '@agent-sales/shared';
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 
-import { NOTIFICATION_FACADE, type NotificationFacade } from '../../notification/api/index.js';
-import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
+import type { NotificationFacade } from '../../notification/api/index.js';
+import type { WorkspaceFacade } from '../../workspace/api/index.js';
 
 /** One alert per conversation and recipient per window: a burst of messages pushes once. */
 export const INBOX_ALERT_WINDOW_MS = 5 * 60_000;
@@ -27,14 +27,14 @@ function excerpt(text: string): string {
  * in a conversation staff are handling. Goes to the assignee, else to every active member who
  * replies to customers (`contacts.edit`), in-app and as a push to their devices. Best effort: an
  * alert never fails the inbox operation that raised it; logs carry ids and error classes only.
+ * Built by the `useFactory` provider in `conversation.module.ts` (the clock stays injectable).
  */
-@Injectable()
 export class InboxAlerts {
   readonly #log = new Logger('InboxAlerts');
 
   constructor(
-    @Optional() @Inject(NOTIFICATION_FACADE) private readonly notifications?: NotificationFacade,
-    @Optional() @Inject(WORKSPACE_FACADE) private readonly workspaces?: WorkspaceFacade,
+    private readonly notifications?: NotificationFacade,
+    private readonly workspaces?: WorkspaceFacade,
     private readonly now: () => number = Date.now,
   ) {}
 
