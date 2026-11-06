@@ -11,7 +11,8 @@
     />
     <link rel="icon" href="/favicon.png" type="image/png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- use-credentials: the beta gate (Basic Auth) answers 401 to a manifest fetched without them. -->
+    <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Rapiz" />

@@ -5,7 +5,7 @@ The mobile app for the beta is the dashboard itself, installable as a PWA (ADR-0
 ## Install
 
 - `apps/web/public/manifest.webmanifest`: name Rapiz, `start_url` `/app/inbox`, `display: standalone`, theme `#f26b1d`, icons 192/512 and a maskable 512 (`public/icons/`, made from `logo.png`).
-- `index.html` links the manifest and sets the Apple home-screen tags.
+- `index.html` links the manifest (with `crossorigin="use-credentials"`: behind the beta gate's Basic Auth, a manifest fetched without credentials gets a 401 and the browser offers no install) and sets the Apple home-screen tags.
 - `lib/pwa.ts` registers `/sw.js` at startup and keeps the browser's `beforeinstallprompt`. The header shows **Cài ứng dụng** (`components/install-app-button.tsx`) when the browser offers an install; on iPhone/iPad, where Safari has no prompt, it opens the three "Add to Home Screen" steps. Hidden inside the installed app.
 
 ## Device notifications (Web Push)
