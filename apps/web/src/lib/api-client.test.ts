@@ -5,6 +5,7 @@ import { stubFetch } from '@/testing/render';
 
 import {
   api,
+  apiUpload,
   ApiClientError,
   setAccessToken,
   setSessionExpiredHandler,
@@ -133,5 +134,111 @@ describe('tenant context across portfolio reads and retries', () => {
     await api('/analytics/definitions', z.object({}), { workspaceId: 'business-b' });
     await api('/analytics/definitions', z.object({}));
     expect(calls.map((c) => c.headers['X-Workspace-Id'])).toEqual(['business-b', 'business-a']);
+  });
+});
+
+/** A scripted XMLHttpRequest: reports 50 % upload progress, then answers the next response. */
+class FakeXhr {
+  static responses: { status: number; body: string }[] = [];
+  static sent: FakeXhr[] = [];
+  headers: Record<string, string> = {};
+  url = '';
+  withCredentials = false;
+  status = 0;
+  statusText = '';
+  responseText = '';
+  body: FormData | null = null;
+  upload: {
+    onprogress: ((e: { lengthComputable: boolean; loaded: number; total: number }) => void) | null;
+  } = { onprogress: null };
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  onabort: (() => void) | null = null;
+  open(_method: string, url: string) {
+    this.url = url;
+  }
+  setRequestHeader(name: string, value: string) {
+    this.headers[name] = value;
+  }
+  abort() {
+    this.onabort?.();
+  }
+  send(body: FormData) {
+    this.body = body;
+    FakeXhr.sent.push(this);
+    this.upload.onprogress?.({ lengthComputable: true, loaded: 5, total: 10 });
+    const next = FakeXhr.responses.shift() ?? { status: 500, body: '' };
+    this.status = next.status;
+    this.responseText = next.body;
+    queueMicrotask(() => this.onload?.());
+  }
+}
+
+describe('apiUpload()', () => {
+  const Schema = z.object({ url: z.string() });
+  const file = new Blob(['mp4'], { type: 'video/mp4' });
+
+  it('posts one multipart file with the token and workspace headers, reporting progress', async () => {
+    FakeXhr.sent = [];
+    FakeXhr.responses = [{ status: 201, body: JSON.stringify({ url: '/media/v.mp4' }) }];
+    vi.stubGlobal('XMLHttpRequest', FakeXhr);
+    setAccessToken('t1');
+    const progress: number[] = [];
+    await expect(
+      apiUpload('/lodging/media/videos', Schema, {
+        file,
+        fileName: 'tour.mp4',
+        workspaceId: 'ws-9',
+        onProgress: ({ loaded, total }) => progress.push(loaded / total),
+      }),
+    ).resolves.toEqual({ url: '/media/v.mp4' });
+    const xhr = FakeXhr.sent[0];
+    expect(xhr?.url).toBe('/api/v1/lodging/media/videos');
+    expect(xhr?.withCredentials).toBe(true);
+    expect(xhr?.headers).toMatchObject({ Authorization: 'Bearer t1', 'X-Workspace-Id': 'ws-9' });
+    expect(xhr?.body?.get('file')).toBeInstanceOf(Blob);
+    expect(progress).toEqual([0.5]);
+  });
+
+  it('answers the error envelope as an ApiClientError', async () => {
+    FakeXhr.sent = [];
+    FakeXhr.responses = [
+      {
+        status: 413,
+        body: JSON.stringify({
+          error: {
+            code: 'VALIDATION_FAILED',
+            message: 'too large',
+            details: { reason: 'VIDEO_TOO_LARGE' },
+            traceId: 't',
+          },
+        }),
+      },
+    ];
+    vi.stubGlobal('XMLHttpRequest', FakeXhr);
+    const error = await apiUpload('/lodging/media/videos', Schema, {
+      file,
+      fileName: 'a.mp4',
+    }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiClientError);
+    expect(error).toMatchObject({ status: 413, details: { reason: 'VIDEO_TOO_LARGE' } });
+  });
+
+  it('refreshes the session once on 401 and retries', async () => {
+    FakeXhr.sent = [];
+    FakeXhr.responses = [
+      { status: 401, body: '' },
+      { status: 201, body: JSON.stringify({ url: '/media/v.mp4' }) },
+    ];
+    vi.stubGlobal('XMLHttpRequest', FakeXhr);
+    const { fetchStub } = stubFetch({ 'POST /auth/refresh': { status: 200, body: refreshed } });
+    vi.stubGlobal('fetch', fetchStub);
+    setAccessToken('old');
+    await expect(
+      apiUpload('/lodging/media/videos', Schema, { file, fileName: 'a.mp4' }),
+    ).resolves.toEqual({
+      url: '/media/v.mp4',
+    });
+    expect(FakeXhr.sent[1]?.headers['Authorization']).toBe('Bearer new-token');
   });
 });

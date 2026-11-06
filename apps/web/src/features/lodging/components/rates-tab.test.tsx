@@ -60,12 +60,12 @@ describe('RatesTab', () => {
     expect(calls.some((c) => c.key.startsWith('PUT'))).toBe(false);
   });
 
-  it('fills Monday into Tuesday–Thursday and saves runs of equal days as one rule', async () => {
+  it('saves runs of equal days as one rule', async () => {
     const calls = stub();
     renderWithRouter(() => <RatesTab property={rooms} canEdit onDirtyChange={() => {}} />);
-    await userEvent.type(await screen.findByLabelText('Giá bán P102 T2'), '700000');
-    await userEvent.click(screen.getByRole('button', { name: 'Áp giá T2 của P102 cho T2–T5' }));
-    expect(screen.getByLabelText('Giá bán P102 T5')).toHaveValue('700.000');
+    await screen.findByLabelText('Giá bán P102 T2');
+    for (const day of ['T2', 'T3', 'T4', 'T5'])
+      await userEvent.type(screen.getByLabelText(`Giá bán P102 ${day}`), '700000');
     for (const day of ['T6', 'T7', 'CN'])
       await userEvent.type(screen.getByLabelText(`Giá bán P102 ${day}`), '900000');
     await userEvent.click(screen.getByRole('button', { name: 'Lưu giá' }));

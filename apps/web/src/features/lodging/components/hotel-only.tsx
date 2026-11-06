@@ -23,15 +23,15 @@ export function HotelOnly({
   workspace: HotelOnlyWorkspace;
   children: ReactNode;
 }) {
-  const { t } = useTranslation();
-  if (workspace.isPending) return <p role="status">{t('lodging.loading')}</p>;
+  const { t } = useTranslation('lodging');
+  if (workspace.isPending) return <p role="status">{t('loading')}</p>;
   if (workspace.isError)
     return (
       <div role="alert">
-        {t('lodging.loadError')}
-        <Button onClick={() => void workspace.refetch()}>{t('lodging.retry')}</Button>
+        {t('loadError')}
+        <Button onClick={() => void workspace.refetch()}>{t('retry')}</Button>
       </div>
     );
-  if (workspace.data?.industry !== 'hotel') return <p role="alert">{t('lodging.hotelOnly')}</p>;
+  if (workspace.data?.industry !== 'hotel') return <p role="alert">{t('hotelOnly')}</p>;
   return children;
 }

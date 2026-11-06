@@ -1,5 +1,5 @@
 import type { RunnableTool, ToolDefinition } from '@agent-sales/ai-core';
-import { DomainError, foldVietnamese, type WorkspaceId } from '@agent-sales/shared';
+import { DomainError, type WorkspaceId } from '@agent-sales/shared';
 import { z } from 'zod';
 
 import type {
@@ -10,6 +10,7 @@ import type {
 } from '../../lodging/api/index.js';
 import type { MessageSink, OutgoingMessage, QuickReply } from '../api/reply-options.js';
 import { safeJson } from './action-tools.js';
+import { resolveRooms } from './hold-rooms.js';
 import { confirmableDraft } from './order-tools.js';
 import type { OutputState } from './output-tools.js';
 import { SHOP_TIME_ZONE } from './reply-context.js';
@@ -65,6 +66,15 @@ const PrepareInput = z
     guestName: z.string().max(120),
     guestPhone: z.string().max(40),
     note: z.string().max(300).optional(),
+    packages: z
+      .array(
+        z.object({
+          room: z.string().trim().min(1).max(100).optional(),
+          package: z.string().trim().min(1).max(50),
+        }),
+      )
+      .max(30)
+      .optional(),
   })
   .refine(someGuest, SOME_GUEST);
 
@@ -78,7 +88,7 @@ const CHECK_DEFINITION: ToolDefinition = {
 const PREPARE_DEFINITION: ToolDefinition = {
   name: PREPARE_HOLD_TOOL,
   description:
-    'Prepares a hold once the customer wants to keep a free option from check_availability and gave their name and phone. propertyCode is the option\'s code; rooms are the option\'s room names (omit them to hold the whole property). The server checks the calendar again, computes the total and sends the customer the summary with "Giữ chỗ" / "Sửa thông tin" buttons; never restate the summary. Returns problems to ask the customer about (with alternatives when the option is gone), or that the hold waits for the customer to confirm.',
+    'Prepares a hold once the customer wants to keep a free option from check_availability and gave their name and phone. propertyCode is the option\'s code; rooms are the option\'s room names (omit them to hold the whole property). packages is optional: only when the customer chose a bedroom package other than the option\'s package, give [{room, package}] with a name from the option\'s package or alternatives (omit room for the whole property); unknown_package answers the valid names. The server checks the calendar again, computes the total and sends the customer the summary with "Giữ chỗ" / "Sửa thông tin" buttons; never restate the summary. Returns problems to ask the customer about (with alternatives when the option is gone), or that the hold waits for the customer to confirm.',
   input: PrepareInput,
 };
 
@@ -270,30 +280,6 @@ export function holdTools(ctx: HoldToolContext): {
     },
   };
 
-  /** Room names → ids of the property; null when a name is unknown (with the known names). */
-  const roomIds = async (
-    args: z.infer<typeof PrepareInput>,
-    propertyId: string,
-  ): Promise<{ ids: string[] } | { unknown: string[] }> => {
-    const res = await facade.checkAvailabilityForBot(ws, {
-      botId: ctx.botId,
-      ...stayOf(args),
-      propertyId,
-    });
-    const byName = new Map<string, { id: string; name: string }>();
-    for (const o of res.options.filter((x) => x.propertyId === propertyId))
-      o.unitNames.forEach((name, i) => {
-        const id = o.unitIds[i];
-        if (id) byName.set(foldVietnamese(name).trim(), { id, name });
-      });
-    // The property is full: the lodging module answers not_available with alternatives.
-    if (!byName.size) return { ids: [] };
-    const ids = (args.rooms ?? []).map((r) => byName.get(foldVietnamese(r).trim())?.id);
-    return ids.every((id): id is string => id !== undefined)
-      ? { ids: [...new Set(ids)] }
-      : { unknown: [...byName.values()].map((u) => u.name) };
-  };
-
   const prepare: RunnableTool = {
     name: PREPARE_HOLD_TOOL,
     readOnly: false,
@@ -313,15 +299,12 @@ export function holdTools(ctx: HoldToolContext): {
       const propertyId = await propertyIdOf(ctx, args.propertyCode);
       if (!propertyId) return reply({ ok: false, error: 'unknown_property_code' }, false);
       const whole = !args.rooms?.length;
-      let unitIds: string[] = [];
       let res;
       try {
-        if (!whole) {
-          const rooms = await roomIds(args, propertyId);
-          if ('unknown' in rooms)
-            return reply({ ok: false, error: 'unknown_room', rooms: rooms.unknown }, false);
-          unitIds = rooms.ids;
-        }
+        const rooms = await resolveRooms(ctx, { ...args, ...stayOf(args) }, propertyId);
+        if ('unknown' in rooms)
+          return reply({ ok: false, error: 'unknown_room', rooms: rooms.unknown }, false);
+        const unitIds = rooms.ids;
         res = await facade.prepareBotHold(ws, {
           botId: ctx.botId,
           conversationId,
@@ -334,6 +317,7 @@ export function holdTools(ctx: HoldToolContext): {
           guestName: args.guestName,
           guestPhone: args.guestPhone,
           ...(args.note?.trim() ? { note: args.note.trim() } : {}),
+          ...(rooms.packages.length ? { packages: rooms.packages } : {}),
         });
       } catch (error) {
         if (isValidationFailure(error)) return reply(INVALID_REQUEST, false);
@@ -341,7 +325,12 @@ export function holdTools(ctx: HoldToolContext): {
       }
       if (res.status !== 'ready')
         return reply(
-          { ok: false, problems: res.problems, alternatives: res.alternatives.map(optionView) },
+          {
+            ok: false,
+            problems: res.problems,
+            alternatives: res.alternatives.map(optionView),
+            ...(res.validPackages ? { valid: res.validPackages } : {}),
+          },
           false,
         );
       state.stored = true;

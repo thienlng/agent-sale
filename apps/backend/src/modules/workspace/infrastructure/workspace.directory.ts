@@ -96,6 +96,7 @@ export class DrizzleWorkspaceDirectory implements WorkspaceDirectory {
           >`(select ${schema.workspaceAssets.sha256} from ${schema.workspaceAssets} where ${schema.workspaceAssets.id} = ${schema.workspaces.logoAssetId})`,
           industry: schema.workspaces.industry,
           accountId: schema.workspaces.accountId,
+          createdAt: schema.workspaces.createdAt,
         })
         .from(schema.members)
         .innerJoin(schema.workspaces, eq(schema.workspaces.id, schema.members.workspaceId))
@@ -161,6 +162,7 @@ export class InMemoryWorkspaceDirectory implements WorkspaceDirectory {
         role: m.role,
         industry: s.industry,
         accountId: s.accountId,
+        createdAt: s.createdAt,
       });
     }
     return out;

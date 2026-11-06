@@ -39,7 +39,7 @@ export function BookingNightNotes({
   booking: BookingDetail;
   focus?: NoteFocus | undefined;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
   const canManage = useCan('orders.manage');
   const save = useSaveNightNotes();
@@ -112,12 +112,12 @@ export function BookingNightNotes({
       { propertyId: b.propertyId, unitIds, nights: chosen, text },
       {
         onSuccess: () => {
-          toast.success(t(text ? 'lodging.sheet.noteSaved' : 'lodging.sheet.noteDeleted'), {
+          toast.success(t(text ? 'sheet.noteSaved' : 'sheet.noteDeleted'), {
             duration: 3500,
           });
           setEditor(null);
         },
-        onError: () => toast.error(t('lodging.sheet.noteError')),
+        onError: () => toast.error(t('sheet.noteError')),
       },
     );
   };
@@ -146,20 +146,20 @@ export function BookingNightNotes({
           id={`${id}-title`}
           className="text-xs font-semibold tracking-wide text-muted-foreground"
         >
-          {t('lodging.sheet.sectionNightNotes')}
+          {t('sheet.sectionNightNotes')}
         </h3>
         {canManage && !editor && property && nights.length > 0 && (
           <Button size="xs" variant="ghost" onClick={() => open(nights)}>
             <Plus aria-hidden />
-            {t('lodging.sheet.addNightNote')}
+            {t('sheet.addNightNote')}
           </Button>
         )}
       </div>
 
       {calendar.isError ? (
-        <p className="text-muted-foreground">{t('lodging.sheet.nightNotesLoadError')}</p>
+        <p className="text-muted-foreground">{t('sheet.nightNotesLoadError')}</p>
       ) : notes.length === 0 ? (
-        property && <p className="text-muted-foreground">{t('lodging.sheet.nightNotesEmpty')}</p>
+        property && <p className="text-muted-foreground">{t('sheet.nightNotesEmpty')}</p>
       ) : (
         <ul className="grid gap-1.5">
           {notes.map((n) => {
@@ -176,7 +176,7 @@ export function BookingNightNotes({
                     <Button
                       size="icon-xs"
                       variant="ghost"
-                      aria-label={t('lodging.sheet.editNightNoteOf', { date })}
+                      aria-label={t('sheet.editNightNoteOf', { date })}
                       disabled={save.isPending}
                       onClick={() => {
                         focusPending.current = true;
@@ -189,7 +189,7 @@ export function BookingNightNotes({
                       size="icon-xs"
                       variant="ghost"
                       className="text-destructive hover:text-destructive"
-                      aria-label={t('lodging.sheet.deleteNightNoteOf', { date })}
+                      aria-label={t('sheet.deleteNightNoteOf', { date })}
                       disabled={save.isPending}
                       onClick={() => write([n.unitId], [n.night], '')}
                     >
@@ -213,9 +213,7 @@ export function BookingNightNotes({
           }}
         >
           <fieldset className="grid gap-1.5">
-            <legend className="mb-1 text-xs font-medium">
-              {t('lodging.sheet.nightNoteNights')}
-            </legend>
+            <legend className="mb-1 text-xs font-medium">{t('sheet.nightNoteNights')}</legend>
             <div className="flex flex-wrap gap-x-3 gap-y-1.5">
               {nights.map((night) => (
                 <div key={night} className="flex items-center gap-1.5">
@@ -231,7 +229,7 @@ export function BookingNightNotes({
               ))}
             </div>
             {chosen.length === 0 && (
-              <p className="text-xs text-destructive">{t('lodging.sheet.nightNoteNoNight')}</p>
+              <p className="text-xs text-destructive">{t('sheet.nightNoteNoNight')}</p>
             )}
           </fieldset>
           <NightNoteFields
@@ -249,18 +247,18 @@ export function BookingNightNotes({
                 disabled={save.isPending}
                 onClick={() => write(editor.targets, chosen, '')}
               >
-                {t('lodging.sheet.deleteNote')}
+                {t('sheet.deleteNote')}
               </Button>
             )}
             <Button type="button" size="sm" variant="outline" onClick={() => setEditor(null)}>
-              {t('lodging.sheet.cancelEdit')}
+              {t('sheet.cancelEdit')}
             </Button>
             <Button
               type="submit"
               size="sm"
               disabled={save.isPending || chosen.length === 0 || !editor.text.trim()}
             >
-              {t('lodging.sheet.saveNote')}
+              {t('sheet.saveNote')}
             </Button>
           </div>
         </form>

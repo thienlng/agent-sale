@@ -137,7 +137,9 @@ export { PHONE_KNOWN_LINE };
 // Steps 2 and 5 change bot behaviour: run the ai evals before/after. Measure first (prompt viewer).
 /** The sales-agent prompt version of a bot's industry; an industry not listed gets @15 (retail). */
 export const PROMPT_BY_INDUSTRY: Readonly<Record<string, SalesPromptVersion>> = {
-  hotel: 18,
+  // @20 + unit details, unit albums and bedroom packages (T-193). @20 = @18 + lodging media
+  // folders: albums by albumId, videos only on request (T-192).
+  hotel: 21,
   // The request industries: @15 plus "Recording a request" and the course / service facts.
   saas: 19,
   education: 19,
@@ -152,7 +154,7 @@ export function salesPromptFor(industry: string): {
   return { name: 'sales-agent', version: PROMPT_BY_INDUSTRY[industry] ?? DEFAULT_PROMPT_VERSION };
 }
 /** The sales-agent prompt versions the option may force (13/14: before the order tools). */
-export type SalesPromptVersion = 13 | 14 | 15 | 16 | 17 | 18 | 19;
+export type SalesPromptVersion = 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21;
 /** Optional DI token: forces the sales-agent prompt for every bot (default: `PROMPT_BY_INDUSTRY`). */
 export const PROMPT_VERSION_OPTION = Symbol('PROMPT_VERSION_OPTION');
 /** The current public base of Rapiz storage (`S3_PUBLIC_URL`); pictures are sent on it. */
@@ -269,9 +271,10 @@ export class PlaygroundService implements AiFacade {
       focus.some((p) => p.accommodation) ? query : '',
     );
     const allowlist = new ImageAllowlist(initialAllowed, this.mediaBase);
+    allowlist.addMedia(focus);
     const carryIds = carriedProductIds(options.carry ?? []);
     if (catalog && carryIds.length)
-      allowlist.add(productImages(await catalog.getBotProductsByIds(ws, scope, carryIds)));
+      allowlist.addProducts(await catalog.getBotProductsByIds(ws, scope, carryIds));
 
     const situations = [
       post
@@ -407,6 +410,8 @@ export class PlaygroundService implements AiFacade {
       orders,
       holds,
       requests: requestTool,
+      // Channels pass what the conversation already received; the playground sends its own list.
+      sentMediaUrls: options.sentMediaUrls ?? input.sentMediaUrls ?? [],
     });
 
     const postRules = post ? await this.#prompts.load(POST_PROMPT) : '';

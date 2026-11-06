@@ -1,11 +1,19 @@
 import { workspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
 
-import { weekday } from '../__tests__/factories/rate-rules.js';
+import { auraPackages, auraRates, pkg } from '../__tests__/factories/packages.js';
+import { forPackage, weekday } from '../__tests__/factories/rate-rules.js';
+import { unitDetails } from '../__tests__/factories/units.js';
 import type { RateRule } from '../domain/rates.js';
 import { CalendarService } from './calendar.service.js';
 import type { LodgingAccess } from './lodging-access.js';
-import type { LodgingStore, PropertyRecord, UnitRecord } from './ports/lodging-store.js';
+import type {
+  BookingRecord,
+  LodgingStore,
+  PackageRecord,
+  PropertyRecord,
+  UnitRecord,
+} from './ports/lodging-store.js';
 
 const ws = workspaceId('01890000-0000-7000-8000-000000000001');
 const VILLA = '01890000-0000-7000-8000-0000000000a1';
@@ -38,6 +46,7 @@ function property(id: string, code: string, sellMode: 'whole' | 'rooms'): Proper
       other: '',
     },
     gallery: [],
+    galleryCover: '',
     internalNote: '',
     surcharges: { extraAdult: null, extraChild: null },
     sortOrder: 0,
@@ -54,6 +63,7 @@ const unit = (
   capacityAdults: number,
   sortOrder = 0,
 ): UnitRecord => ({
+  ...unitDetails(),
   id,
   propertyId,
   kind,
@@ -81,14 +91,25 @@ const rates = new Map<string, RateRule[]>([
 ]);
 
 /** An in-memory store with the reads the calendar and availability use; records rate reads. */
-function service(opts: { takenUnits?: string[] } = {}) {
+function service(
+  opts: {
+    takenUnits?: string[];
+    rates?: Map<string, RateRule[]>;
+    packages?: PackageRecord[];
+    bookings?: BookingRecord[];
+  } = {},
+) {
   const rateReads: string[][] = [];
   const tx = {
     expireOverdueHolds: async () => [],
     properties: async (f: { ids?: string[]; activeOnly?: boolean } = {}) =>
       [villa, homestay].filter((p) => !f.ids || f.ids.includes(p.id)),
+    property: async (id: string) => [villa, homestay].find((p) => p.id === id) ?? null,
     units: async (ids: string[]) => units.filter((u) => ids.includes(u.propertyId)),
-    bookingsInRange: async () => [],
+    rates: async (ids: string[]) => ids.flatMap((id) => (opts.rates ?? rates).get(id) ?? []),
+    bookingsInRange: async () => opts.bookings ?? [],
+    packages: async (ids: string[]) =>
+      (opts.packages ?? []).filter((pk) => ids.includes(pk.propertyId)),
     nightNotes: async () => [],
     takenNights: async (unitIds: string[]) =>
       (opts.takenUnits ?? [])
@@ -96,7 +117,7 @@ function service(opts: { takenUnits?: string[] } = {}) {
         .map((unitId) => ({ unitId, night: '2026-12-01', bookingId: 'b', code: 'BK-0001' })),
     ratesByProperty: async (ids: string[]) => {
       rateReads.push(ids);
-      return new Map(ids.map((id) => [id, rates.get(id) ?? []]));
+      return new Map(ids.map((id) => [id, (opts.rates ?? rates).get(id) ?? []]));
     },
   };
   const store = { run: (_ws, fn) => fn(tx as never) } as LodgingStore;
@@ -144,5 +165,152 @@ describe('CalendarService', () => {
       propertyIds: [HOMESTAY],
     });
     expect(partial.options.map((o) => [o.whole, o.unitIds])).toEqual([[false, [P2]]]);
+  });
+});
+
+describe('CalendarService with bedroom packages (T-193)', () => {
+  // "Aura Villa 6PN" on the villa: 6PN 10/12/18/12 M, 5PN 9/11/16/11 M, 4PN 8/10/–/10 M.
+  const aura = (): PackageRecord[] => auraPackages.map((pk) => ({ ...pk, propertyId: VILLA }));
+  const withAura = (extra: Parameters<typeof service>[0] = {}) =>
+    service({ rates: new Map([[VILLA, auraRates()]]), packages: aura(), ...extra });
+  // 2026-12-04 is a Friday, 2026-12-05 a Saturday.
+  const weekend = (adults: number) => ({
+    checkIn: '2026-12-04',
+    checkOut: '2026-12-06',
+    party: { adults, childAges: [] },
+    propertyIds: [VILLA],
+  });
+
+  it('shows the full package price on the calendar and the package names on bars', async () => {
+    const stay = {
+      id: 'b1',
+      code: 'BK-0001',
+      propertyId: VILLA,
+      kind: 'stay',
+      whole: true,
+      unitIds: [WHOLE],
+      unitPackages: { [WHOLE]: 'pk5' },
+      status: 'confirmed',
+      checkIn: '2026-12-04',
+      checkOut: '2026-12-06',
+      adults: 9,
+      childAges: [],
+      tags: [],
+    } as unknown as BookingRecord;
+    const cal = await withAura({ bookings: [stay] }).calendar.calendar(ws, {
+      from: '2026-12-04',
+      to: '2026-12-06',
+      propertyIds: VILLA,
+    });
+    const villaCal = cal.properties[0];
+    expect(villaCal?.wholePrices.map((n) => n.sell)).toEqual([12_000_000, 18_000_000]);
+    expect(villaCal?.rows[0]?.prices.map((n) => n.sell)).toEqual([12_000_000, 18_000_000]);
+    expect(villaCal?.rows[0]?.segments[0]?.packageNames).toEqual(['5PN']);
+  });
+
+  it('auto-picks a package per option and lists the others with their totals', async () => {
+    const r = await withAura().calendar.availability(ws, weekend(6));
+    const option = r.options[0];
+    // 4PN is not sold on Saturday, so 6 guests get 5PN (11 M + 16 M).
+    expect(option?.packages).toEqual([{ target: null, packageId: 'pk5', name: '5PN' }]);
+    expect(option?.quote.totalSell).toBe(27_000_000);
+    expect(option?.alternatives).toEqual([
+      { packageId: 'pk4', name: '4PN', bedrooms: 4, totalSell: null, fits: true },
+      { packageId: 'pk6', name: '6PN', bedrooms: 6, totalSell: 30_000_000, fits: true },
+    ]);
+  });
+
+  it('offers no alternatives when the option prices two targets, one with packages', async () => {
+    const roomRates = new Map([
+      [
+        HOMESTAY,
+        [
+          forPackage('p1-2', weekday(P1, ALL_DAYS, 1_500_000)),
+          forPackage('p1-1', weekday(P1, ALL_DAYS, 1_000_000)),
+          weekday(P2, ALL_DAYS, 1_200_000),
+        ],
+      ],
+    ]);
+    const packages = [pkg('p1-2', P1, 2), pkg('p1-1', P1, 1)].map((pk) => ({
+      ...pk,
+      propertyId: HOMESTAY,
+    }));
+    const r = await service({ rates: roomRates, packages }).calendar.availability(ws, {
+      ...request(4),
+      propertyIds: [HOMESTAY],
+    });
+    expect(r.options.map((o) => [o.unitIds, o.packages, o.alternatives])).toEqual([
+      [[P1, P2], [{ target: P1, packageId: 'p1-2', name: '2PN' }], []],
+    ]);
+  });
+
+  it('has no alternatives without packages', async () => {
+    const r = await service().calendar.availability(ws, { ...request(2), propertyIds: [VILLA] });
+    expect(r.options[0]).toMatchObject({ packages: [], alternatives: [] });
+  });
+
+  it('quotes an explicit package', async () => {
+    const q = await withAura().calendar.quote(ws, {
+      propertyId: VILLA,
+      whole: true,
+      unitIds: [],
+      packageIds: ['pk6'],
+      checkIn: '2026-12-04',
+      checkOut: '2026-12-06',
+      party: { adults: 6, childAges: [] },
+    });
+    expect(q.totalSell).toBe(30_000_000);
+    expect(q.packages).toEqual([{ target: null, packageId: 'pk6', name: '6PN' }]);
+  });
+
+  describe('keepPackageIds (a booking edit preview, as the save prices it)', () => {
+    const villaStay = (adults: number, checkIn: string, checkOut: string) => ({
+      propertyId: VILLA,
+      whole: true,
+      unitIds: [],
+      packageIds: [],
+      checkIn,
+      checkOut,
+      party: { adults, childAges: [] },
+    });
+
+    it('keeps the stored package while it still fits', async () => {
+      // Mon→Wed, 6 guests: 4PN fits and prices every night.
+      const q = await withAura().calendar.quote(ws, {
+        ...villaStay(6, '2026-11-30', '2026-12-02'),
+        keepPackageIds: ['pk6'],
+      });
+      expect(q.packages).toEqual([{ target: null, packageId: 'pk6', name: '6PN' }]);
+      expect(q.totalSell).toBe(20_000_000);
+    });
+
+    it('re-picks when the stored package leaves a night unpriced', async () => {
+      // An auto-picked 4PN moved onto a Saturday: the save re-picks 5PN, so does the preview.
+      const q = await withAura().calendar.quote(ws, {
+        ...villaStay(6, '2026-12-04', '2026-12-06'),
+        keepPackageIds: ['pk4'],
+      });
+      expect(q.packages).toEqual([{ target: null, packageId: 'pk5', name: '5PN' }]);
+      expect(q.warnings).not.toContain('package_unavailable');
+      expect(q.totalSell).toBe(27_000_000);
+    });
+
+    it('re-picks when the party outgrows the stored package', async () => {
+      const q = await withAura().calendar.quote(ws, {
+        ...villaStay(11, '2026-11-30', '2026-12-02'),
+        keepPackageIds: ['pk4'],
+      });
+      expect(q.packages).toEqual([{ target: null, packageId: 'pk5', name: '5PN' }]);
+      expect(q.warnings).not.toContain('over_max');
+    });
+
+    it('is ignored when explicit packages are sent', async () => {
+      const q = await withAura().calendar.quote(ws, {
+        ...villaStay(6, '2026-12-04', '2026-12-06'),
+        packageIds: ['pk6'],
+        keepPackageIds: ['pk4'],
+      });
+      expect(q.packages).toEqual([{ target: null, packageId: 'pk6', name: '6PN' }]);
+    });
   });
 });

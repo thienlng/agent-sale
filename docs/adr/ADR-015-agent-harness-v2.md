@@ -41,6 +41,7 @@ Also part of the harness: a byte-stable system prompt per bot (`sales-agent@13` 
 - Prompt changes need live evals on `gpt-6.1-sol`; the Hermes pipe is a development convenience, not a production dependency.
 - Migrations (additive): `0037_conversation_summaries` (forced RLS) and `0038_ingress_notify` (the `rapiz_ingress` trigger). The agent process holds one extra database connection for LISTEN.
 - Superseded parts: ADR-010's "Hermes has no tools / runtime provider" and ADR-014's JSON final reply (`outcome/reply/sources/imageIds`), 4-round loop, 3-images-per-turn cap and emulated tools as the Hermes path. ADR-014's catalog tools, actions as tools and focus products stand.
+- Amended by [ADR-026](ADR-026-lodging-media-folders.md): one album message may carry 8 pictures (`albumId`); `imageIds` stays at 3.
 
 Accepted limitations (implementation ledger, 2026-10-31):
 

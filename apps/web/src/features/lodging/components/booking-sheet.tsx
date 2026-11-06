@@ -41,7 +41,7 @@ export type BookingSheetProps = {
 );
 
 export function BookingSheet(props: BookingSheetProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const mobile = useIsMobile();
   return (
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
@@ -52,15 +52,13 @@ export function BookingSheet(props: BookingSheetProps) {
         <SheetHeader className="pr-12">
           <SheetTitle>
             {props.mode === 'create' ? (
-              t('lodging.sheet.createTitle')
+              t('sheet.createTitle')
             ) : (
               <BookingViewTitle bookingId={props.bookingId} />
             )}
           </SheetTitle>
           <SheetDescription className="sr-only">
-            {props.mode === 'create'
-              ? t('lodging.sheet.createDescription')
-              : t('lodging.sheet.viewDescription')}
+            {props.mode === 'create' ? t('sheet.createDescription') : t('sheet.viewDescription')}
           </SheetDescription>
         </SheetHeader>
         {props.open &&

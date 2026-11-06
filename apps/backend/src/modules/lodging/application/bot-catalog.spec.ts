@@ -2,7 +2,9 @@ import { ProductDto } from '@agent-sales/contracts';
 import { workspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
 
-import { override, weekday } from '../__tests__/factories/rate-rules.js';
+import { auraPackages, auraRates } from '../__tests__/factories/packages.js';
+import { forPackage, override, weekday } from '../__tests__/factories/rate-rules.js';
+import { unitDetails } from '../__tests__/factories/units.js';
 import { LodgingUnavailableError } from '../domain/lodging.errors.js';
 import type { RateRule } from '../domain/rates.js';
 import { LodgingBotCatalog } from './bot-catalog.js';
@@ -47,13 +49,31 @@ function property(over: Partial<PropertyRecord> = {}): PropertyRecord {
       other: 'Có chỗ đỗ ô tô',
     },
     gallery: [
-      { url: 'https://cdn.example.com/a17/1.jpg', caption: 'Bể bơi' },
-      { url: 'https://cdn.example.com/a17/2.jpg', caption: '' },
-      ...Array.from({ length: 5 }, (_, i) => ({
-        url: `https://cdn.example.com/a17/${i + 3}.jpg`,
-        caption: `Ảnh ${i + 3}`,
-      })),
+      {
+        id: 'pool',
+        name: 'Hồ bơi',
+        items: [
+          { kind: 'image', url: 'https://cdn.example.com/a17/1.jpg', caption: 'Bể bơi' },
+          { kind: 'image', url: 'https://cdn.example.com/a17/2.jpg', caption: '' },
+          {
+            kind: 'video',
+            url: `/media/lodging/${ws}/01890000-0000-7000-8000-0000000000e1.mp4`,
+            caption: 'Tour',
+          },
+          { kind: 'link', url: 'https://youtu.be/a17', caption: 'Flycam' },
+        ],
+      },
+      {
+        id: 'rooms',
+        name: 'Phòng ngủ',
+        items: Array.from({ length: 5 }, (_, i) => ({
+          kind: 'image' as const,
+          url: `https://cdn.example.com/a17/${i + 3}.jpg`,
+          caption: `Ảnh ${i + 3}`,
+        })),
+      },
     ],
+    galleryCover: '',
     internalNote: '',
     surcharges: {
       extraAdult: { sell: 300_000, cost: COSTS[3]! },
@@ -68,6 +88,7 @@ function property(over: Partial<PropertyRecord> = {}): PropertyRecord {
 }
 
 const wholeUnit = (pid = A17_ID): UnitRecord => ({
+  ...unitDetails(),
   id: `${pid.slice(0, -2)}ff`,
   propertyId: pid,
   kind: 'whole',
@@ -88,6 +109,7 @@ const a17Rates = (): RateRule[] => [
 ];
 
 const room = (id: string, name: string, sortOrder: number, active = true): UnitRecord => ({
+  ...unitDetails(),
   id,
   propertyId: R01_ID,
   kind: 'room',
@@ -152,8 +174,8 @@ describe('toBotProduct', () => {
     expect(acc.notes).toContain('Không hát karaoke sau 22h');
     expect(acc.notes).toContain('Có chỗ đỗ ô tô');
     expect(acc.gallery).toHaveLength(7);
-    // An empty caption still labels the picture (the image allowlist needs a label).
-    expect(acc.gallery[1]?.caption.length).toBeGreaterThan(0);
+    // An empty caption falls back to the folder name (the image allowlist needs a label).
+    expect(acc.gallery[1]?.caption).toBe('Hồ bơi');
   });
 
   it('never carries a cost price', () => {
@@ -167,6 +189,201 @@ describe('toBotProduct', () => {
     const dto = toBotProduct(property({ internalNote: secret }), [wholeUnit()], a17Rates(), today);
     expect(dto).not.toBeNull();
     expect(JSON.stringify(dto)).not.toContain('owner is difficult');
+  });
+
+  it('sells a villa with packages at its full package weekday prices (T-193)', () => {
+    const acc = toBotProduct(
+      property(),
+      [wholeUnit()],
+      auraRates(),
+      today,
+      auraPackages,
+    )?.accommodation;
+    expect(acc?.rates).toEqual([
+      { days: [1, 2, 3, 4], amount: 10_000_000 },
+      { days: [5], amount: 12_000_000 },
+      { days: [6], amount: 18_000_000 },
+      { days: [7], amount: 12_000_000 },
+    ]);
+  });
+
+  it('lists the packages of the whole property with their weekday sell prices (T-193)', () => {
+    const acc = toBotProduct(
+      property(),
+      [wholeUnit()],
+      auraRates(),
+      today,
+      auraPackages,
+    )?.accommodation;
+    expect(acc?.packages).toEqual([
+      {
+        name: '4PN',
+        bedrooms: 4,
+        standardAdults: 8,
+        standardChildren: 0,
+        maxGuests: 10,
+        weekdaySell: [8e6, 8e6, 8e6, 8e6, 10e6, null, 10e6],
+      },
+      {
+        name: '5PN',
+        bedrooms: 5,
+        standardAdults: 10,
+        standardChildren: 0,
+        maxGuests: 12,
+        weekdaySell: [9e6, 9e6, 9e6, 9e6, 11e6, 16e6, 11e6],
+      },
+      {
+        name: '6PN',
+        bedrooms: 6,
+        standardAdults: 12,
+        standardChildren: 0,
+        maxGuests: 16,
+        weekdaySell: [10e6, 10e6, 10e6, 10e6, 12e6, 18e6, 12e6],
+      },
+    ]);
+    expect(
+      toBotProduct(property(), [wholeUnit()], a17Rates(), today)?.accommodation?.packages,
+    ).toBeUndefined();
+    // A date-range price of a package names it.
+    const tet = {
+      ...override(null, '2027-02-05', '2027-02-08', 25_000_000, 'Tết'),
+      packageId: 'pk5',
+    };
+    const dated = toBotProduct(
+      property(),
+      [wholeUnit()],
+      [...auraRates(), tet],
+      today,
+      auraPackages,
+    );
+    expect(dated?.accommodation?.overrides?.[0]).toMatchObject({
+      amount: 25e6,
+      packageName: '5PN',
+    });
+  });
+
+  it('carries unit details, unit albums and unit packages of a rooms property (T-193)', () => {
+    const p = property({ id: R01_ID, code: 'R01', sellMode: 'rooms', layout: [] });
+    const hill = {
+      ...room(P1, 'Bungalow 1', 0),
+      category: 'bungalow' as const,
+      view: 'đồi thông',
+      areaM2: 45,
+      description: 'Bungalow gỗ, ban công nhìn ra đồi',
+      amenities: ['Bồn tắm', 'Ban công'],
+      maxGuests: 4,
+      gallery: [
+        {
+          id: '01890000-0000-7000-8000-0000000000f1',
+          name: 'Bungalow 1',
+          items: [
+            {
+              kind: 'image' as const,
+              url: 'https://cdn.example.com/b1/1.jpg',
+              caption: ' Ban công ',
+            },
+          ],
+        },
+      ],
+    };
+    const units = [hill, room(P2, 'P2', 1)];
+    const packages = [
+      { ...auraPackages[0]!, id: 'b2', unitId: P1, name: '2PN', bedrooms: 2, maxGuests: 4 },
+      { ...auraPackages[1]!, id: 'b1', unitId: P1, name: '1PN', bedrooms: 1, maxGuests: 2 },
+    ];
+    const rates = [
+      { ...weekday(P1, [1, 2, 3, 4, 5, 6, 7], 2_000_000, 700_001), packageId: 'b2' },
+      { ...weekday(P1, [1, 2, 3, 4, 5], 1_200_000, 700_002), packageId: 'b1' },
+      weekday(P2, [1, 2, 3, 4, 5, 6, 7], 900_000, 700_003),
+    ];
+    const dto = ProductDto.parse(toBotProduct(p, units, rates, today, packages));
+    const [b1, p2] = dto.accommodation!.units!;
+    expect(b1).toMatchObject({
+      name: 'Bungalow 1',
+      category: 'bungalow',
+      view: 'đồi thông',
+      areaM2: 45,
+      description: 'Bungalow gỗ, ban công nhìn ra đồi',
+      amenities: ['Bồn tắm', 'Ban công'],
+      maxGuests: 4,
+      weekdayRates: [{ days: [1, 2, 3, 4, 5, 6, 7], amount: 2_000_000 }],
+    });
+    expect(b1?.albums).toEqual([
+      {
+        id: '01890000-0000-7000-8000-0000000000f1',
+        name: 'Bungalow 1',
+        items: [{ kind: 'image', url: 'https://cdn.example.com/b1/1.jpg', caption: 'Ban công' }],
+      },
+    ]);
+    expect(b1?.packages?.map((k) => [k.name, k.weekdaySell])).toEqual([
+      ['1PN', [1.2e6, 1.2e6, 1.2e6, 1.2e6, 1.2e6, null, null]],
+      ['2PN', [2e6, 2e6, 2e6, 2e6, 2e6, 2e6, 2e6]],
+    ]);
+    expect(p2?.albums).toBeUndefined();
+    expect(p2?.packages).toBeUndefined();
+    expect(p2).toMatchObject({ category: 'room', view: '', areaM2: null, maxGuests: null });
+    expect(dto.accommodation?.packages).toBeUndefined();
+    expect(JSON.stringify(dto)).not.toMatch(/70000[123]/);
+  });
+
+  it('starts the price range at the cheapest package of the place and of its rooms (T-193)', () => {
+    const villa = toBotProduct(property(), [wholeUnit()], auraRates(), today, auraPackages);
+    // 4PN Mon–Thu (8 M) is the cheapest stay, below 6PN's 10 M.
+    expect(villa?.priceMin).toBe(8_000_000);
+    expect(villa?.priceMax).toBe(18_000_000);
+
+    const p = property({ id: R01_ID, code: 'R01', sellMode: 'rooms', layout: [] });
+    const packages = [
+      { ...auraPackages[0]!, id: 'b2', unitId: P1, name: '2PN', bedrooms: 2 },
+      { ...auraPackages[1]!, id: 'b1', unitId: P1, name: '1PN', bedrooms: 1 },
+    ];
+    const rates = [
+      forPackage('b2', weekday(P1, [1, 2, 3, 4, 5, 6, 7], 2_000_000)),
+      forPackage('b1', weekday(P1, [1, 2, 3, 4, 5], 700_000)),
+      weekday(P2, [1, 2, 3, 4, 5, 6, 7], 900_000),
+    ];
+    const rooms = toBotProduct(p, [room(P1, 'P1', 0), room(P2, 'P2', 1)], rates, today, packages);
+    expect(rooms?.priceMin).toBe(700_000);
+  });
+
+  it('never carries a cost price with packages, unit details, date-range prices and surcharges (T-193)', () => {
+    // Every cost differs from every sell price, so a leaked cost shows up as its digits.
+    const leaks = [7_100_001, 7_100_002, 7_100_003, 7_100_004, 7_100_005, 7_100_006, 7_100_007];
+    const tet = {
+      ...override(null, '2027-02-05', '2027-02-08', 25_000_000, 'Tết'),
+      packageId: 'pk5',
+      cost: leaks[0]!,
+    };
+    const villa = toBotProduct(
+      property(),
+      [wholeUnit()],
+      [...auraRates().map((r, i) => ({ ...r, cost: leaks[1]! + i * 10 })), tet],
+      today,
+      auraPackages,
+    );
+    const p = property({ id: R01_ID, code: 'R01', sellMode: 'rooms', layout: [] });
+    const unit = { ...room(P1, 'Bungalow 1', 0), view: 'đồi', areaM2: 40, maxGuests: 4 };
+    const roomRates = [
+      forPackage('b2', weekday(P1, [1, 2, 3, 4, 5, 6, 7], 2_000_000, leaks[2])),
+      forPackage('b1', weekday(P1, [1, 2, 3, 4, 5], 1_200_000, leaks[3])),
+      weekday(P2, [1, 2, 3, 4, 5, 6, 7], 900_000, leaks[4]),
+      { ...override(P1, '2027-02-05', '2027-02-08', 3_000_000, 'Tết'), cost: leaks[5]! },
+    ];
+    const roomPackages = [
+      { ...auraPackages[0]!, id: 'b2', unitId: P1, name: '2PN', bedrooms: 2 },
+      { ...auraPackages[1]!, id: 'b1', unitId: P1, name: '1PN', bedrooms: 1 },
+    ];
+    const rooms = toBotProduct(p, [unit, room(P2, 'P2', 1)], roomRates, today, roomPackages);
+    expect(villa?.accommodation?.packages).toHaveLength(3);
+    expect(rooms?.accommodation?.units?.[0]?.packages).toHaveLength(2);
+    expect(rooms?.accommodation?.overrides).toHaveLength(1);
+    for (const dto of [villa, rooms]) {
+      const json = JSON.stringify(dto);
+      for (const cost of [...leaks, ...COSTS]) expect(json).not.toContain(String(cost));
+      for (let i = 0; i < auraRates().length; i += 1)
+        expect(json).not.toContain(String(leaks[1]! + i * 10));
+      expect(json).not.toMatch(/"cost"/i);
+    }
   });
 
   it('skips a property whose weekdays are not all priced', () => {
@@ -255,6 +472,36 @@ describe('toBotProduct', () => {
     const acc = ProductDto.parse(toBotProduct(p, units, rates, today)).accommodation!;
     expect(acc.rates).toEqual([{ days: [1, 2, 3, 4, 5, 6, 7], amount: 2_000_000 }]);
   });
+
+  it('carries the folders as albums, in order, with their videos and links', () => {
+    const acc = ProductDto.parse(
+      toBotProduct(property(), [wholeUnit()], a17Rates(), today),
+    ).accommodation!;
+    expect(acc.albums?.map((a) => [a.name, a.items.map((i) => i.kind)])).toEqual([
+      ['Hồ bơi', ['image', 'image', 'video', 'link']],
+      ['Phòng ngủ', ['image', 'image', 'image', 'image', 'image']],
+    ]);
+    expect(acc.gallery.map((g) => g.url)).not.toContain('https://youtu.be/a17');
+  });
+
+  it('puts the chosen cover first in imageUrls, once', () => {
+    const cover = 'https://cdn.example.com/a17/5.jpg';
+    const dto = toBotProduct(property({ galleryCover: cover }), [wholeUnit()], a17Rates(), today);
+    expect(dto?.imageUrls[0]).toBe(cover);
+    expect(dto?.imageUrls.filter((u) => u === cover)).toHaveLength(1);
+    expect(dto?.imageUrls).toHaveLength(5);
+  });
+
+  it('leaves albums out of a property without folders', () => {
+    const acc = toBotProduct(
+      property({ gallery: [] }),
+      [wholeUnit()],
+      a17Rates(),
+      today,
+    )?.accommodation;
+    expect(acc?.albums).toBeUndefined();
+    expect(acc?.gallery).toEqual([]);
+  });
 });
 
 /** An in-memory store with the reads the bot catalog uses. */
@@ -273,6 +520,7 @@ function storeWith(opts: {
         (p) => (!f.ids || f.ids.includes(p.id)) && (!f.activeOnly || p.status === 'active'),
       ),
     units: async (ids: string[]) => opts.units.filter((u) => ids.includes(u.propertyId)),
+    packages: async () => [],
     ratesByProperty: async (ids: string[]) => {
       opts.rateReads?.push(ids);
       return new Map(ids.map((id) => [id, opts.rates.get(id) ?? []]));

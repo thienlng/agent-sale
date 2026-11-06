@@ -906,13 +906,14 @@ describe('team and access on Postgres', () => {
     await join(lan, hoa, 'hoaacc@team.vn', 'sales');
 
     const boot = BootstrapResponse.parse((await call(hoa.auth, 'GET', '/bootstrap')).json());
-    // Hoa owns only their own account; Lan's business is listed under Lan's account name.
+    // Hoa owns only their own account; Lan's business is listed under Lan's account, which is
+    // named after Lan, not after Lan's first business.
     expect(boot.accounts).toHaveLength(1);
-    expect(boot.accounts[0]).toMatchObject({ name: 'Shop Hoa Acc', role: 'owner' });
+    expect(boot.accounts[0]).toMatchObject({ name: 'Hoa Acc', role: 'owner' });
     const own = boot.memberships.find((m) => m.workspaceId === hoa.ownWorkspace);
     const lans = boot.memberships.find((m) => m.workspaceId === lan.ownWorkspace);
     expect(own).toMatchObject({ accountId: boot.accounts[0]?.accountId, industry: 'fashion' });
-    expect(lans).toMatchObject({ accountName: 'Shop Lan Acc', role: 'sales', industry: 'fashion' });
+    expect(lans).toMatchObject({ accountName: 'Lan Acc', role: 'sales', industry: 'fashion' });
     expect(lans?.accountId).not.toBe(own?.accountId);
 
     // Removed: a scoped request says the business is gone, not that a resource is missing.

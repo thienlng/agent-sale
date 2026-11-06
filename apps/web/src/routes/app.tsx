@@ -8,7 +8,6 @@ import { DevicePushButton } from '@/features/notification/components/device-push
 import { NotificationBell } from '@/features/notification/components/notification-bell';
 import { InstallAppButton } from '@/components/install-app-button';
 import { MessageUsageBanner } from '@/features/billing/components/message-usage-banner';
-import { CreateBusinessDialog } from '@/features/workspace/components/create-business-dialog';
 import { PlanDialog } from '@/features/billing/components/plan-dialog';
 import { ACCOUNT_PATHS } from '@/lib/account-paths';
 import { ensureSession, selectWorkspace } from '@/lib/session';
@@ -53,7 +52,6 @@ export const Route = createFileRoute('/app')({
     return (
       <AppShell
         planDialog={(props) => <PlanDialog {...props} />}
-        createBusinessDialog={(props) => <CreateBusinessDialog {...props} />}
         headerActions={
           <>
             <InstallAppButton />
@@ -68,7 +66,7 @@ export const Route = createFileRoute('/app')({
         navCounts={{
           '/app/bookings': {
             count: pendingHolds,
-            label: t('lodging.list.pendingBotHolds', { count: pendingHolds }),
+            label: t('nav.pendingBotHolds', { count: pendingHolds }),
           },
         }}
       >

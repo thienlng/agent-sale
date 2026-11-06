@@ -33,7 +33,7 @@ export function ConversationBookings({
   guestPhone: string;
   source?: BookingSource | undefined;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const canCreate = useCan('orders.manage');
   const bookings = useBookings({ view: 'all', conversationId });
   const [sheet, setSheet] = useState<SheetState | null>(null);
@@ -45,13 +45,13 @@ export function ConversationBookings({
         <Skeleton className="h-12 w-full" />
       ) : bookings.isError ? (
         <div role="alert" className="flex flex-wrap items-center gap-2 text-xs">
-          {t('lodging.conv.loadError')}
+          {t('conv.loadError')}
           <Button size="xs" variant="outline" onClick={() => void bookings.refetch()}>
-            {t('lodging.retry')}
+            {t('retry')}
           </Button>
         </div>
       ) : list.length === 0 ? (
-        <p className="text-xs text-muted-foreground">{t('lodging.conv.empty')}</p>
+        <p className="text-xs text-muted-foreground">{t('conv.empty')}</p>
       ) : (
         <ul className="grid gap-1.5">
           {list.map((b) => (
@@ -85,11 +85,11 @@ export function ConversationBookings({
             onClick={() => setSheet({ key: Date.now(), mode: 'create' })}
           >
             <Plus aria-hidden />
-            {t('lodging.conv.create')}
+            {t('conv.create')}
           </Button>
         )}
         <Button asChild size="sm" variant="ghost">
-          <Link to="/app/bookings">{t('lodging.conv.all')}</Link>
+          <Link to="/app/bookings">{t('conv.all')}</Link>
         </Button>
       </div>
       {sheet?.mode === 'create' && (

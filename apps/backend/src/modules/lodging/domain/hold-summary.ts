@@ -54,6 +54,8 @@ export interface HoldSummaryInput {
   guestPhone: string;
   holdMinutes: number;
   note: string;
+  /** The bedroom packages of the stay (T-193): `unitName` null = the whole property. */
+  packages?: { unitName: string | null; name: string }[];
 }
 
 function clip(text: string, max: number): string {
@@ -81,9 +83,27 @@ function partyText(adults: number, childAges: number[]): string {
 }
 
 /** The fixed hold summary the customer agrees to (spec §3); never guesses how to address them. */
+/**
+ * ' · phòng P1 (gói 2PN), P2' for rooms; ' · Nguyên căn · gói 5PN' for a whole rental with packages
+ * (a room's package named 'Bungalow 1: 2PN'); '' for a whole rental without packages.
+ */
+function selectionText(input: HoldSummaryInput): string {
+  const packages = input.packages ?? [];
+  if (!input.whole) {
+    if (!input.unitNames.length) return '';
+    const named = input.unitNames.map((unit) => {
+      const pk = packages.find((p) => p.unitName === unit);
+      return pk ? `${unit} (gói ${pk.name})` : unit;
+    });
+    return ` · phòng ${named.join(', ')}`;
+  }
+  if (!packages.length) return '';
+  const names = packages.map((p) => (p.unitName === null ? p.name : `${p.unitName}: ${p.name}`));
+  return ` · Nguyên căn · gói ${names.join(', ')}`;
+}
+
 export function buildHoldSummary(input: HoldSummaryInput): string {
-  const rooms =
-    !input.whole && input.unitNames.length ? ` · phòng ${input.unitNames.join(', ')}` : '';
+  const rooms = selectionText(input);
   const note = clip(input.note, MAX_NOTE_CHARS);
   return [
     `Giữ chỗ ${clip(input.propertyName, MAX_NAME_CHARS)}${rooms}`,

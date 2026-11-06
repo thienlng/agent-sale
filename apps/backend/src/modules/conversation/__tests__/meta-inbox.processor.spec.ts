@@ -647,15 +647,19 @@ describe('MetaInboxProcessor', () => {
       ]);
     });
 
-    it('caps the album at three pictures even if the answer carries more', async () => {
+    it('caps the album at eight pictures even if the answer carries more', async () => {
       const { channels, ai, processor } = setup();
-      ai.reply.mockResolvedValueOnce(withImages(pics));
+      const many = Array.from({ length: 10 }, (_, i) => ({
+        url: `https://img.example.com/m${i}.jpg`,
+        label: `m${i}`,
+      }));
+      ai.reply.mockResolvedValueOnce(withImages(many));
       vi.mocked(channels.claimEvents).mockResolvedValueOnce([
         job('p2', 'message', 'photos please', Date.now()),
       ]);
       await processor.tick();
       expect(channels.deliver).toHaveBeenCalledTimes(2);
-      expect(vi.mocked(channels.deliver).mock.calls[1]?.[3].attachments).toHaveLength(3);
+      expect(vi.mocked(channels.deliver).mock.calls[1]?.[3].attachments).toHaveLength(8);
     });
 
     it('falls back to one message per picture when the album is rejected', async () => {
@@ -730,7 +734,7 @@ describe('MetaInboxProcessor', () => {
     it('never fails the event when sending an image throws', async () => {
       const { channels, ai, inbox, processor } = setup();
       ai.reply.mockResolvedValueOnce(withImages(pics.slice(0, 2)));
-      vi.spyOn(inbox, 'commitBotImages').mockRejectedValue(new Error('boom'));
+      vi.spyOn(inbox, 'commitBotAttachments').mockRejectedValue(new Error('boom'));
       vi.mocked(channels.claimEvents).mockResolvedValueOnce([
         job('p5', 'message', 'show me', Date.now()),
       ]);

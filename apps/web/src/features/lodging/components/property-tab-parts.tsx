@@ -65,17 +65,14 @@ export function TabSaveBar({
   label: string;
   canEdit: boolean;
 }) {
-  const { t } = useTranslation();
-  if (!canEdit)
-    return <p className="text-sm text-muted-foreground">{t('lodging.editor.readOnly')}</p>;
+  const { t } = useTranslation('lodging');
+  if (!canEdit) return <p className="text-sm text-muted-foreground">{t('editor.readOnly')}</p>;
   return (
     <div className="flex flex-wrap items-center gap-3 border-t pt-4">
       <Button type="submit" disabled={pending}>
         <SavingLabel saving={pending}>{label}</SavingLabel>
       </Button>
-      {dirty && (
-        <span className="text-xs text-muted-foreground">{t('lodging.editor.unsavedMark')}</span>
-      )}
+      {dirty && <span className="text-xs text-muted-foreground">{t('editor.unsavedMark')}</span>}
     </div>
   );
 }
@@ -103,8 +100,10 @@ export function Field({
           'aria-describedby': describedBy,
         })
       : children;
+  // content-start: in a row next to a taller field (one with a hint), the label and input
+  // stay at the top instead of the stretched grid spreading them apart.
   return (
-    <div className={className ?? 'grid gap-1.5'}>
+    <div className={className ?? 'grid content-start gap-1.5'}>
       <Label htmlFor={id}>{label}</Label>
       {control}
       {hint && !error && (

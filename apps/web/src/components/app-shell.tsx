@@ -11,9 +11,7 @@ import { useSession } from '@/lib/session';
 import { AccountMenu, type MenuDialogProps } from './layout/account-menu';
 import { AccountSidebar, ACCOUNT_PATHS } from './layout/account-sidebar';
 import { ADMIN_NAV } from './layout/admin-nav';
-import { AdminSidebar } from './layout/admin-sidebar';
 import { AppSidebar, type NavCounts } from './layout/app-sidebar';
-import type { CreateBusinessDialogProps } from './layout/business-selector';
 
 /** shadcn's sidebar remembers open/closed in this cookie (written by the component itself). */
 function sidebarOpenByDefault(): boolean {
@@ -35,7 +33,7 @@ const SECTION: Record<string, string> = {
   bookings: 'nav.bookings',
   properties: 'nav.properties',
   overview: 'nav.accountOverview',
-  businesses: 'nav.newBusiness',
+  businesses: 'nav.groupBusinesses',
 };
 
 /** Every service business (education, spa) names its catalog "Dịch vụ", like the sidebar. */
@@ -51,7 +49,6 @@ const CATALOG_SECTION: Record<string, string> = { education: 'nav.services', spa
 export function AppShell({
   children,
   planDialog,
-  createBusinessDialog,
   industry,
   navCounts,
   headerActions,
@@ -59,8 +56,6 @@ export function AppShell({
   children: ReactNode;
   /** Plan and billing popup for the account menu, composed by the route from `features/billing`. */
   planDialog?: ((props: MenuDialogProps) => ReactNode) | undefined;
-  /** Create-business popup for the business selector, composed by the route from `features/workspace`. */
-  createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
   /** The current business's industry; hotels get lodging navigation, SaaS businesses their requests and subscribers. */
   industry?: string | undefined;
   /** Waiting counts next to sidebar entries, composed by the route (e.g. bot holds to review). */
@@ -74,11 +69,14 @@ export function AppShell({
     select: (s) => s.location.pathname.split('/').filter(Boolean)[1] ?? '',
   });
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  // The platform back-office has its own sidebar and section names (ADR-021 §6).
+  // The platform back-office (ADR-021 §6) lives in the account layer: same sidebar, its own section names.
   const adminLayer = /^\/admin(\/|$)/.test(pathname);
   const section = adminLayer
     ? ADMIN_NAV.find((item) => pathname.startsWith(item.to))?.key
-    : ((segment === 'products' ? CATALOG_SECTION[industry ?? ''] : undefined) ?? SECTION[segment]);
+    : pathname === '/app/businesses/new'
+      ? 'nav.newBusiness'
+      : ((segment === 'products' ? CATALOG_SECTION[industry ?? ''] : undefined) ??
+        SECTION[segment]);
   const accountLayer = ACCOUNT_PATHS.test(pathname);
 
   return (
@@ -88,16 +86,10 @@ export function AppShell({
         defaultOpen={sidebarOpenByDefault()}
         style={{ '--header-height': '3.25rem' } as CSSProperties}
       >
-        {adminLayer ? (
-          <AdminSidebar />
-        ) : accountLayer ? (
+        {adminLayer || accountLayer ? (
           <AccountSidebar />
         ) : (
-          <AppSidebar
-            createBusinessDialog={createBusinessDialog}
-            industry={industry}
-            navCounts={navCounts}
-          />
+          <AppSidebar industry={industry} navCounts={navCounts} />
         )}
         <SidebarInset className="min-w-0 overflow-x-clip">
           <header

@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -37,46 +37,25 @@ beforeEach(() => {
   })) as unknown as typeof window.matchMedia;
 });
 
-// The selector links to the account overview, so it renders inside a router.
+// The selector links to the account layer, so it renders inside a router.
 function renderSelector() {
   return renderWithRouter(() => (
     <TooltipProvider>
       <SidebarProvider>
-        <BusinessSelector
-          createBusinessDialog={({ open, onOpenChange }) =>
-            open ? (
-              <div role="dialog" aria-label="create-dialog">
-                <button type="button" onClick={() => onOpenChange(false)}>
-                  close-stub
-                </button>
-              </div>
-            ) : null
-          }
-        />
+        <BusinessSelector />
       </SidebarProvider>
     </TooltipProvider>
   ));
 }
 
-describe('BusinessSelector create action', () => {
-  it('shows a persistent create action below the list and opens the dialog', async () => {
+describe('BusinessSelector search', () => {
+  it('filters the businesses and says when none match', async () => {
     const user = userEvent.setup();
     renderSelector();
     await user.click(await screen.findByRole('button', { name: 'Chọn business' }));
     expect(screen.getByRole('button', { name: 'Spa Lan' })).toBeInTheDocument();
-    const create = screen.getByRole('button', { name: /Tạo business/ });
-    expect(create).toBeInTheDocument();
-    await user.click(create);
-    expect(screen.getByRole('dialog', { name: 'create-dialog' })).toBeInTheDocument();
-  });
-
-  it('keeps the create action when the search has no results', async () => {
-    const user = userEvent.setup();
-    renderSelector();
-    await user.click(await screen.findByRole('button', { name: 'Chọn business' }));
     await user.type(screen.getByLabelText('Tìm business'), 'zzz');
     expect(screen.getByText('Không tìm thấy business.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Tạo business/ })).toBeInTheDocument();
   });
 });
 
@@ -87,5 +66,26 @@ describe('BusinessSelector logo', () => {
     const trigger = await screen.findByRole('button', { name: 'Chọn business' });
     await waitFor(() => expect(trigger.querySelector('img')).not.toBeNull());
     expect(apiBlob).toHaveBeenCalledWith('/workspace/logo', 'a');
+  });
+});
+
+describe('BusinessSelector account actions', () => {
+  it('keeps account actions in their own labelled group, apart from the businesses', async () => {
+    const user = userEvent.setup();
+    renderSelector();
+    await user.click(await screen.findByRole('button', { name: 'Chọn business' }));
+    expect(screen.getByText('Chuyển sang business khác')).toBeInTheDocument();
+    const group = screen.getByRole('group', { name: 'Tài khoản' });
+    expect(within(group).getByRole('link', { name: /Quản lý tài khoản/ })).toHaveAttribute(
+      'href',
+      '/app/overview',
+    );
+    expect(within(group).getByRole('link', { name: /Tất cả business/ })).toHaveAttribute(
+      'href',
+      '/app/businesses',
+    );
+    expect(within(group).queryByRole('button', { name: 'Spa Lan' })).toBeNull();
+    // Creating a business lives on the account layer, not in the picker.
+    expect(screen.queryByRole('button', { name: /Tạo business/ })).toBeNull();
   });
 });

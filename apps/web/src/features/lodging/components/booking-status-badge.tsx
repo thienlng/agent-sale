@@ -41,13 +41,13 @@ export function BookingStatusBadge({
   status: BookingStatus;
   className?: string;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const style = STATUS_STYLE[status];
   const Icon = style.icon;
   return (
     <Badge variant="outline" className={cn('gap-1', style.className, className)}>
       <Icon className="size-3" aria-hidden />
-      {t(`lodging.bookingStatus.${status}`)}
+      {t(`bookingStatus.${status}`)}
     </Badge>
   );
 }

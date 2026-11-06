@@ -14,7 +14,7 @@ const MAX = 1440;
 
 /** "Giữ chỗ tự hết hạn sau N phút" (catalog managers; the caller checks the capability). */
 export function HoldMinutesControl() {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
   const settings = useLodgingSettings();
   const update = useUpdateLodgingSettings();
@@ -33,9 +33,8 @@ export function HoldMinutesControl() {
     update.mutate(
       { holdMinutes: minutes },
       {
-        onSuccess: () =>
-          toast.success(t('lodging.holdSetting.saved', { minutes }), { duration: 3500 }),
-        onError: () => toast.error(t('lodging.holdSetting.error')),
+        onSuccess: () => toast.success(t('holdSetting.saved', { minutes }), { duration: 3500 }),
+        onError: () => toast.error(t('holdSetting.error')),
       },
     );
   };
@@ -43,7 +42,7 @@ export function HoldMinutesControl() {
   return (
     <form onSubmit={submit} noValidate className="flex flex-wrap items-center gap-2 text-sm">
       <Label htmlFor={id} className="font-normal text-muted-foreground">
-        {t('lodging.holdSetting.label')}
+        {t('holdSetting.label')}
       </Label>
       <Input
         id={id}
@@ -58,13 +57,13 @@ export function HoldMinutesControl() {
         aria-describedby={text !== '' && !valid ? `${id}-error` : undefined}
         onChange={(e) => setText(e.target.value)}
       />
-      <span className="text-muted-foreground">{t('lodging.holdSetting.minutes')}</span>
+      <span className="text-muted-foreground">{t('holdSetting.minutes')}</span>
       {changed && (
         <Button
           type="submit"
           size="icon-sm"
           variant="outline"
-          aria-label={t('lodging.holdSetting.save')}
+          aria-label={t('holdSetting.save')}
           disabled={update.isPending}
         >
           <Check aria-hidden />
@@ -72,7 +71,7 @@ export function HoldMinutesControl() {
       )}
       {text !== '' && !valid && (
         <span id={`${id}-error`} className="w-full text-xs text-destructive">
-          {t('lodging.holdSetting.invalid')}
+          {t('holdSetting.invalid')}
         </span>
       )}
     </form>

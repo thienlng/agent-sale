@@ -50,11 +50,11 @@ export function dayMonth(night: string): string {
 }
 
 export function weekdayShort(t: TFunction, night: string): string {
-  return t(`lodging.weekdayShort.${isoWeekday(night)}`);
+  return t(`weekdayShort.${isoWeekday(night)}`);
 }
 
 export function weekdayLong(t: TFunction, night: string): string {
-  return t(`lodging.weekday.${isoWeekday(night)}`);
+  return t(`weekday.${isoWeekday(night)}`);
 }
 
 /** Today's night in the business time zone (check-in rules use Asia/Ho_Chi_Minh). */

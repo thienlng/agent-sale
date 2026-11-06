@@ -68,7 +68,8 @@ interface Stay {
 /**
  * The in-memory lodging bot facade of a case: availability, quotes and holds on the case's
  * accommodation products, deterministic and without a database. It mirrors the real
- * `LodgingBotHolds` contract (whole-property options only, weekday rates, extra-adult surcharges,
+ * `LodgingBotHolds` contract (whole-property options only, weekday rates, whole-property bedroom
+ * packages, extra-adult surcharges,
  * problem codes, a summary in the layout of `buildHoldSummary`, one draft per case) but none of its
  * storage, locking, date or review rules; those have their own tests in the lodging module.
  */
@@ -95,16 +96,41 @@ export function evalLodging(
     return typeof max === 'number' && stay.adults + stay.childAges.length > max;
   };
 
-  const optionOf = (p: ProductDto, stay: Stay): BotAvailabilityOption => {
+  type Pkg = NonNullable<NonNullable<ProductDto['accommodation']>['packages']>[number];
+
+  /**
+   * The whole-property package a quote uses (T-193, as `quoteStay`): the one asked for, else the
+   * fewest bedrooms that holds the party and is sold every night, else the full package.
+   */
+  const packageFor = (p: ProductDto, stay: Stay, name?: string): Pkg | undefined => {
+    const pkgs = [...(p.accommodation?.packages ?? [])].sort((a, b) => a.bedrooms - b.bedrooms);
+    if (!pkgs.length) return undefined;
+    if (name) return pkgs.find((k) => k.name.trim().toLowerCase() === name.trim().toLowerCase());
+    const party = stay.adults + stay.childAges.length;
+    const sold = (k: Pkg) =>
+      nightsOf(stay.checkIn, stay.checkOut).every((d) => k.weekdaySell[isoWeekday(d) - 1] !== null);
+    const fit = pkgs.find(
+      (k) => (k.maxGuests ?? k.standardAdults + k.standardChildren) >= party && sold(k),
+    );
+    return fit ?? pkgs.at(-1);
+  };
+
+  const quoteOf = (p: ProductDto, stay: Stay, pkg?: Pkg) => {
     const acc = p.accommodation;
     if (!acc) throw new Error(`eval product ${p.code} has no accommodation`);
+    const sellOn = (date: string): number | undefined =>
+      pkg
+        ? (pkg.weekdaySell[isoWeekday(date) - 1] ?? undefined)
+        : acc.rates.find((r) => r.days.includes(isoWeekday(date)))?.amount;
     const nightly = nightsOf(stay.checkIn, stay.checkOut).flatMap((date) => {
-      const rate = acc.rates.find((r) => r.days.includes(isoWeekday(date)));
+      const sell = sellOn(date);
       const label = WEEKDAYS[isoWeekday(date)] ?? '';
-      return rate ? [{ date, weekdayLabel: label, label, sell: rate.amount }] : [];
+      return sell === undefined ? [] : [{ date, weekdayLabel: label, label, sell }];
     });
     const nights = nightsOf(stay.checkIn, stay.checkOut).length;
-    const extraAdults = Math.max(0, stay.adults - acc.standardAdults);
+    const standardAdults = pkg?.standardAdults ?? acc.standardAdults;
+    const standardChildren = pkg?.standardChildren ?? acc.standardChildren;
+    const extraAdults = Math.max(0, stay.adults - standardAdults);
     const extraAdult = acc.surcharges?.extraAdult ?? null;
     const surcharges =
       extraAdults > 0 && extraAdult !== null
@@ -119,8 +145,29 @@ export function evalLodging(
         : [];
     // Guests above the standard that no surcharge covers: staff must check.
     const overStandard =
-      (extraAdults > 0 && extraAdult === null) || stay.childAges.length > acc.standardChildren;
+      (extraAdults > 0 && extraAdult === null) || stay.childAges.length > standardChildren;
+    const overPackage =
+      pkg !== undefined &&
+      pkg.maxGuests !== null &&
+      stay.adults + stay.childAges.length > pkg.maxGuests;
     const complete = nightly.length === nights;
+    return {
+      nightly,
+      surcharges,
+      overStandard,
+      fits: !overStandard && !overMax(p, stay) && !overPackage,
+      totalSell: complete
+        ? nightly.reduce((s, n) => s + n.sell, 0) + surcharges.reduce((s, x) => s + x.sell, 0)
+        : null,
+    };
+  };
+
+  const optionOf = (p: ProductDto, stay: Stay, name?: string): BotAvailabilityOption => {
+    const pkg = packageFor(p, stay, name);
+    const q = quoteOf(p, stay, pkg);
+    const others = (p.accommodation?.packages ?? [])
+      .filter((k) => pkg && k.name !== pkg.name)
+      .sort((a, b) => a.bedrooms - b.bedrooms);
     return {
       propertyId: p.id,
       code: p.code,
@@ -128,15 +175,18 @@ export function evalLodging(
       whole: true,
       unitIds: [],
       unitNames: [],
-      fits: !overStandard && !overMax(p, stay),
-      overStandard,
+      fits: q.fits,
+      overStandard: q.overStandard,
       minNights: null,
       problems: [],
-      totalSell: complete
-        ? nightly.reduce((s, n) => s + n.sell, 0) + surcharges.reduce((s, x) => s + x.sell, 0)
-        : null,
-      nightly,
-      surcharges,
+      totalSell: q.totalSell,
+      package: pkg?.name ?? null,
+      alternatives: others.map((k) => {
+        const alt = quoteOf(p, stay, k);
+        return { package: k.name, bedrooms: k.bedrooms, totalSell: alt.totalSell, fits: alt.fits };
+      }),
+      nightly: q.nightly,
+      surcharges: q.surcharges,
     };
   };
 
@@ -153,15 +203,21 @@ export function evalLodging(
     return nights > MAX_NIGHTS ? ['too_long'] : [];
   };
 
-  const summaryOf = (p: ProductDto, stay: Stay, name: string, phone: string): string => {
-    const option = optionOf(p, stay);
+  const summaryOf = (
+    p: ProductDto,
+    stay: Stay,
+    name: string,
+    phone: string,
+    packageName?: string,
+  ): string => {
+    const option = optionOf(p, stay, packageName);
     const kids = stay.childAges.length
       ? `, ${stay.childAges.length} trẻ em (${stay.childAges.join(', ')} tuổi)`
       : '';
     const h = Math.floor(fixture.hold_minutes / 60);
     const m = fixture.hold_minutes % 60;
     return [
-      `Giữ chỗ ${p.name}`,
+      `Giữ chỗ ${p.name}${option.package ? ` · Nguyên căn · gói ${option.package}` : ''}`,
       `${day(stay.checkIn)} → ${day(stay.checkOut)} · ${option.nightly.length} đêm`,
       `${stay.adults} người lớn${kids}`,
       `Tổng: ${formatVnd(option.totalSell ?? 0)}`,
@@ -210,6 +266,15 @@ export function evalLodging(
         if (!isFree(p, stay)) problems.push('not_available');
         else if (overMax(p, stay)) problems.push('over_max');
       }
+      const asked = input.packages?.find((k) => k.unitId === null)?.name;
+      if (!problems.length && p && asked && !packageFor(p, stay, asked)) {
+        return {
+          status: 'problems' as const,
+          problems: ['unknown_package' as const],
+          alternatives: [],
+          validPackages: (p.accommodation?.packages ?? []).map((k) => k.name),
+        };
+      }
       if (problems.length || !p)
         return {
           status: 'problems' as const,
@@ -221,7 +286,7 @@ export function evalLodging(
       draft = { propertyId: p.id, stay, storedAt: new Date() };
       return {
         status: 'ready' as const,
-        summary: summaryOf(p, stay, input.guestName.trim(), input.guestPhone.trim()),
+        summary: summaryOf(p, stay, input.guestName.trim(), input.guestPhone.trim(), asked),
         holdMinutes: fixture.hold_minutes,
       };
     },

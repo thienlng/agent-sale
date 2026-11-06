@@ -1,5 +1,5 @@
 import { Rabbit } from 'lucide-react';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { toast } from 'sonner';
@@ -13,7 +13,8 @@ import { useWorkspaceId } from '@/lib/use-workspace';
 import { cn } from '@/lib/utils';
 
 import { openReportThread } from '../api/report-thread';
-import { useLauncherBottom } from '../hooks/use-launcher-bottom';
+import { LAUNCHER_INSET, useLauncherBottom } from '../hooks/use-launcher-bottom';
+import { useLauncherDrag } from '../hooks/use-launcher-drag';
 import { useAssistantUi } from '../stores/assistant-ui.store';
 
 // The panel (Sheet, chat, steps, spotlight) and its strings load on first open (docs/16 §1).
@@ -82,8 +83,12 @@ export function AssistantBubble() {
       },
     );
   }, [request, isOwner, workspaceId, consume, setOpen, setThread, t]);
-  // Steps over a page's bottom-right control marked `data-assistant-avoid` (a Send button).
-  const bottom = useLauncherBottom(isOwner && !open);
+  // The owner can drag it anywhere (or Alt+arrows); a moved launcher stays where it was put.
+  const openPanel = useCallback(() => setOpen(true), [setOpen]);
+  const drag = useLauncherDrag(openPanel);
+  // At its default place it steps over a bottom-right control marked `data-assistant-avoid`.
+  const bottom = useLauncherBottom(isOwner && !open && drag.position === null);
+  const place = drag.position ?? { right: LAUNCHER_INSET, bottom };
   if (!isOwner) return null;
   return (
     <>
@@ -98,11 +103,13 @@ export function AssistantBubble() {
         <button
           type="button"
           aria-label={t('app.assistantLauncher')}
-          title={t('app.assistantLauncher')}
-          onClick={() => setOpen(true)}
-          style={{ bottom }}
+          title={t('app.assistantLauncherHint')}
+          aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight"
+          {...drag.handlers}
+          style={place}
           className={cn(
-            'fixed right-4 z-40 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg transition hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+            'fixed z-40 grid size-14 touch-none place-items-center rounded-full bg-primary text-primary-foreground shadow-lg select-none hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+            drag.dragging ? 'cursor-grabbing shadow-xl' : 'transition',
           )}
         >
           <Rabbit className="size-7" aria-hidden />

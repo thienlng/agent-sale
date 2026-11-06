@@ -39,6 +39,7 @@ import { Route as AdminAccountsIndexRouteImport } from './routes/admin/accounts/
 import { Route as AdminAccountsAccountIdRouteImport } from './routes/admin/accounts/$accountId'
 import { Route as AppBotsIndexRouteImport } from './routes/app/bots/index'
 import { Route as AppBotsBotIdRouteImport } from './routes/app/bots/$botId'
+import { Route as AppBusinessesIndexRouteImport } from './routes/app/businesses/index'
 import { Route as AppBusinessesNewRouteImport } from './routes/app/businesses/new'
 import { Route as AppCrmSettingsIndexRouteImport } from './routes/app/crm-settings/index'
 import { Route as AppCrmSettingsDistributionRouteImport } from './routes/app/crm-settings/distribution'
@@ -79,6 +80,7 @@ import { Route as AppBotsBotIdSettingsRouteImport } from './routes/app/bots/$bot
 import { Route as AppBotsBotIdActionsIndexRouteImport } from './routes/app/bots/$botId/actions.index'
 import { Route as AppBotsBotIdActionsActionIdRouteImport } from './routes/app/bots/$botId/actions.$actionId'
 import { Route as AppBotsBotIdActionsNewRouteImport } from './routes/app/bots/$botId/actions.new'
+import { Route as AppPropertiesPropertyIdUnitsUnitIdRouteImport } from './routes/app/properties/$propertyId_.units.$unitId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -228,6 +230,11 @@ const AppBotsIndexRoute = AppBotsIndexRouteImport.update({
 const AppBotsBotIdRoute = AppBotsBotIdRouteImport.update({
   id: '/bots/$botId',
   path: '/bots/$botId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBusinessesIndexRoute = AppBusinessesIndexRouteImport.update({
+  id: '/businesses/',
+  path: '/businesses/',
   getParentRoute: () => AppRoute,
 } as any)
 const AppBusinessesNewRoute = AppBusinessesNewRouteImport.update({
@@ -438,6 +445,12 @@ const AppBotsBotIdActionsNewRoute = AppBotsBotIdActionsNewRouteImport.update({
   path: '/actions/new',
   getParentRoute: () => AppBotsBotIdRoute,
 } as any)
+const AppPropertiesPropertyIdUnitsUnitIdRoute =
+  AppPropertiesPropertyIdUnitsUnitIdRouteImport.update({
+    id: '/properties/$propertyId_/units/$unitId',
+    path: '/properties/$propertyId/units/$unitId',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -490,6 +503,7 @@ export interface FileRoutesByFullPath {
   '/app/settings/security': typeof AppSettingsSecurityRoute
   '/admin/accounts/': typeof AdminAccountsIndexRoute
   '/app/bots/': typeof AppBotsIndexRoute
+  '/app/businesses/': typeof AppBusinessesIndexRoute
   '/app/crm-settings/': typeof AppCrmSettingsIndexRoute
   '/app/integrations/': typeof AppIntegrationsIndexRoute
   '/app/order-settings/': typeof AppOrderSettingsIndexRoute
@@ -509,6 +523,7 @@ export interface FileRoutesByFullPath {
   '/app/bots/$botId/': typeof AppBotsBotIdIndexRoute
   '/app/bots/$botId/actions/$actionId': typeof AppBotsBotIdActionsActionIdRoute
   '/app/bots/$botId/actions/new': typeof AppBotsBotIdActionsNewRoute
+  '/app/properties/$propertyId/units/$unitId': typeof AppPropertiesPropertyIdUnitsUnitIdRoute
   '/app/bots/$botId/actions/': typeof AppBotsBotIdActionsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -556,6 +571,7 @@ export interface FileRoutesByTo {
   '/app/settings/security': typeof AppSettingsSecurityRoute
   '/admin/accounts': typeof AdminAccountsIndexRoute
   '/app/bots': typeof AppBotsIndexRoute
+  '/app/businesses': typeof AppBusinessesIndexRoute
   '/app/crm-settings': typeof AppCrmSettingsIndexRoute
   '/app/integrations': typeof AppIntegrationsIndexRoute
   '/app/order-settings': typeof AppOrderSettingsIndexRoute
@@ -575,6 +591,7 @@ export interface FileRoutesByTo {
   '/app/bots/$botId': typeof AppBotsBotIdIndexRoute
   '/app/bots/$botId/actions/$actionId': typeof AppBotsBotIdActionsActionIdRoute
   '/app/bots/$botId/actions/new': typeof AppBotsBotIdActionsNewRoute
+  '/app/properties/$propertyId/units/$unitId': typeof AppPropertiesPropertyIdUnitsUnitIdRoute
   '/app/bots/$botId/actions': typeof AppBotsBotIdActionsIndexRoute
 }
 export interface FileRoutesById {
@@ -629,6 +646,7 @@ export interface FileRoutesById {
   '/app/settings/security': typeof AppSettingsSecurityRoute
   '/admin/accounts/': typeof AdminAccountsIndexRoute
   '/app/bots/': typeof AppBotsIndexRoute
+  '/app/businesses/': typeof AppBusinessesIndexRoute
   '/app/crm-settings/': typeof AppCrmSettingsIndexRoute
   '/app/integrations/': typeof AppIntegrationsIndexRoute
   '/app/order-settings/': typeof AppOrderSettingsIndexRoute
@@ -648,6 +666,7 @@ export interface FileRoutesById {
   '/app/bots/$botId/': typeof AppBotsBotIdIndexRoute
   '/app/bots/$botId/actions/$actionId': typeof AppBotsBotIdActionsActionIdRoute
   '/app/bots/$botId/actions/new': typeof AppBotsBotIdActionsNewRoute
+  '/app/properties/$propertyId_/units/$unitId': typeof AppPropertiesPropertyIdUnitsUnitIdRoute
   '/app/bots/$botId/actions/': typeof AppBotsBotIdActionsIndexRoute
 }
 export interface FileRouteTypes {
@@ -703,6 +722,7 @@ export interface FileRouteTypes {
     | '/app/settings/security'
     | '/admin/accounts/'
     | '/app/bots/'
+    | '/app/businesses/'
     | '/app/crm-settings/'
     | '/app/integrations/'
     | '/app/order-settings/'
@@ -722,6 +742,7 @@ export interface FileRouteTypes {
     | '/app/bots/$botId/'
     | '/app/bots/$botId/actions/$actionId'
     | '/app/bots/$botId/actions/new'
+    | '/app/properties/$propertyId/units/$unitId'
     | '/app/bots/$botId/actions/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -769,6 +790,7 @@ export interface FileRouteTypes {
     | '/app/settings/security'
     | '/admin/accounts'
     | '/app/bots'
+    | '/app/businesses'
     | '/app/crm-settings'
     | '/app/integrations'
     | '/app/order-settings'
@@ -788,6 +810,7 @@ export interface FileRouteTypes {
     | '/app/bots/$botId'
     | '/app/bots/$botId/actions/$actionId'
     | '/app/bots/$botId/actions/new'
+    | '/app/properties/$propertyId/units/$unitId'
     | '/app/bots/$botId/actions'
   id:
     | '__root__'
@@ -841,6 +864,7 @@ export interface FileRouteTypes {
     | '/app/settings/security'
     | '/admin/accounts/'
     | '/app/bots/'
+    | '/app/businesses/'
     | '/app/crm-settings/'
     | '/app/integrations/'
     | '/app/order-settings/'
@@ -860,6 +884,7 @@ export interface FileRouteTypes {
     | '/app/bots/$botId/'
     | '/app/bots/$botId/actions/$actionId'
     | '/app/bots/$botId/actions/new'
+    | '/app/properties/$propertyId_/units/$unitId'
     | '/app/bots/$botId/actions/'
   fileRoutesById: FileRoutesById
 }
@@ -1083,6 +1108,13 @@ declare module '@tanstack/react-router' {
       path: '/bots/$botId'
       fullPath: '/app/bots/$botId'
       preLoaderRoute: typeof AppBotsBotIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/businesses/': {
+      id: '/app/businesses/'
+      path: '/businesses'
+      fullPath: '/app/businesses/'
+      preLoaderRoute: typeof AppBusinessesIndexRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/businesses/new': {
@@ -1365,6 +1397,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBotsBotIdActionsNewRouteImport
       parentRoute: typeof AppBotsBotIdRoute
     }
+    '/app/properties/$propertyId_/units/$unitId': {
+      id: '/app/properties/$propertyId_/units/$unitId'
+      path: '/properties/$propertyId/units/$unitId'
+      fullPath: '/app/properties/$propertyId/units/$unitId'
+      preLoaderRoute: typeof AppPropertiesPropertyIdUnitsUnitIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -1510,10 +1549,12 @@ interface AppRouteChildren {
   AppProductsNewRoute: typeof AppProductsNewRoute
   AppPropertiesPropertyIdRoute: typeof AppPropertiesPropertyIdRoute
   AppBotsIndexRoute: typeof AppBotsIndexRoute
+  AppBusinessesIndexRoute: typeof AppBusinessesIndexRoute
   AppIntegrationsIndexRoute: typeof AppIntegrationsIndexRoute
   AppOrdersIndexRoute: typeof AppOrdersIndexRoute
   AppProductsIndexRoute: typeof AppProductsIndexRoute
   AppPropertiesIndexRoute: typeof AppPropertiesIndexRoute
+  AppPropertiesPropertyIdUnitsUnitIdRoute: typeof AppPropertiesPropertyIdUnitsUnitIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -1541,10 +1582,13 @@ const AppRouteChildren: AppRouteChildren = {
   AppProductsNewRoute: AppProductsNewRoute,
   AppPropertiesPropertyIdRoute: AppPropertiesPropertyIdRoute,
   AppBotsIndexRoute: AppBotsIndexRoute,
+  AppBusinessesIndexRoute: AppBusinessesIndexRoute,
   AppIntegrationsIndexRoute: AppIntegrationsIndexRoute,
   AppOrdersIndexRoute: AppOrdersIndexRoute,
   AppProductsIndexRoute: AppProductsIndexRoute,
   AppPropertiesIndexRoute: AppPropertiesIndexRoute,
+  AppPropertiesPropertyIdUnitsUnitIdRoute:
+    AppPropertiesPropertyIdUnitsUnitIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

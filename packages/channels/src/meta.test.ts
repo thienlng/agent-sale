@@ -279,6 +279,25 @@ describe('Meta signed messaging adapter', () => {
     expect(new MetaAdapter('facebook').capabilities().quickReplies).toBe(true);
     expect(new MetaAdapter('instagram').capabilities().quickReplies).toBe(true);
   });
+  it('waits 60 s for a send with a video (Meta fetches it synchronously), 15 s otherwise', async () => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    try {
+      const transport = vi
+        .fn<typeof fetch>()
+        .mockImplementation(() => Promise.resolve(Response.json({ message_id: 'm' })));
+      const adapter = new MetaAdapter('facebook', 'v24.0', transport);
+      const send = (message: Parameters<MetaAdapter['send']>[2]) =>
+        adapter.send({ externalId: 'page', token: 't' }, 'u', message, { idempotencyKey: 'k' });
+      await send({ attachments: [{ type: 'video', url: 'https://cdn.example/tour.mp4' }] });
+      expect(timeout).toHaveBeenLastCalledWith(60_000);
+      await send({ text: 'Xin chào' });
+      expect(timeout).toHaveBeenLastCalledWith(15_000);
+      await send({ attachments: [{ type: 'image', url: 'https://cdn.example/1.jpg' }] });
+      expect(timeout).toHaveBeenLastCalledWith(15_000);
+    } finally {
+      timeout.mockRestore();
+    }
+  });
   it('sends several images as one album message', async () => {
     const transport = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ message_id: 'm.2' }));
     await new MetaAdapter('facebook', 'v24.0', transport).send(

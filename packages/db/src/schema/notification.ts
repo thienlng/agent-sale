@@ -107,7 +107,7 @@ export const notificationDeliveries = pgTable(
 );
 
 /**
- * Web Push devices (0066, T-190): one row per browser push endpoint and account. The push channel
+ * Web Push devices (0069, T-190): one row per browser push endpoint and account. The push channel
  * sends to every row of the recipient and deletes a row the push service reports gone.
  */
 export const pushSubscriptions = pgTable(

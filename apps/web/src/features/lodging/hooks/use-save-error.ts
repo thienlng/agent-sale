@@ -16,7 +16,8 @@ import { lodgingKeys } from '../api/keys';
  * editor's generic message.
  */
 export function useSaveError() {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
+  const { t: tc } = useTranslation();
   const qc = useQueryClient();
   const ws = useWorkspaceId();
   return (
@@ -27,7 +28,7 @@ export function useSaveError() {
     } = {},
   ) => {
     if (lodgingConflict(error).reason === 'STALE_VERSION') {
-      toast.error(t('lodging.editor.stale'));
+      toast.error(t('editor.stale'));
       options.onStale?.();
       void qc.invalidateQueries({ queryKey: lodgingKeys.all(ws) });
       return;
@@ -38,8 +39,8 @@ export function useSaveError() {
     }
     toast.error(
       error instanceof ApiClientError && error.code === 'VALIDATION_FAILED'
-        ? t('lodging.editor.error')
-        : errorMessage(t, error),
+        ? t('editor.error')
+        : errorMessage(tc, error),
     );
   };
 }

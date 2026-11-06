@@ -2,7 +2,7 @@
 
 **Purpose:** Tier-0 delivery of notices to a user (T-172, S3-R5…R8): the in-app notification behind the dashboard bell, and its email (through the backend `Mailer`, Resend, ADR-023) and Web Push deliveries (T-190, installable app). Producers render the text; this module stores, lists and delivers it.
 
-**Owned tables:** `notifications`, `notification_deliveries` (schema in `packages/db/src/schema/notification.ts`, migration 0061), `push_subscriptions` (migration 0066, T-190: one row per browser push endpoint and account; `UNIQUE (account_id, endpoint)`, a re-registration moves the row to the caller). Account-scoped: `accountPolicies` + `withAccount`, and every query also filters on `user_id`. The delivery runner works as `app_system`.
+**Owned tables:** `notifications`, `notification_deliveries` (schema in `packages/db/src/schema/notification.ts`, migration 0061), `push_subscriptions` (migration 0069, T-190: one row per browser push endpoint and account; `UNIQUE (account_id, endpoint)`, a re-registration moves the row to the caller). Account-scoped: `accountPolicies` + `withAccount`, and every query also filters on `user_id`. The delivery runner works as `app_system`.
 
 **Public API (`api/`):**
 

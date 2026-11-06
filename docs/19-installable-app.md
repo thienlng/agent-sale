@@ -14,7 +14,7 @@ The mobile app for the beta is the dashboard itself, installable as a PWA (ADR-0
 - The header bell switch (`features/notification/components/device-push-button.tsx`) turns notifications on for this device: it asks the browser permission, subscribes with the server's VAPID key (`GET /notifications/push`) and registers the subscription (`POST /notifications/push/subscriptions`). Turning it off unregisters and remembers the choice in `localStorage` (`rapiz.push.off`).
 - `PushSync` (mounted in the app layout) re-registers the device quietly on every visit once permission is granted, also after the inbox's older **Bật thông báo** button granted it, so a renewed endpoint or another account of the same user keeps receiving.
 - iOS delivers pushes only to the app added to the home screen (iOS 16.4+); in a Safari tab the switch points to the install steps.
-- Server side: see `apps/backend/src/modules/notification/MODULE.md` (push channel, `push_subscriptions`, migration 0066) and `conversation/MODULE.md` (staff alerts).
+- Server side: see `apps/backend/src/modules/notification/MODULE.md` (push channel, `push_subscriptions`, migration 0069) and `conversation/MODULE.md` (staff alerts).
 
 ## What is pushed
 

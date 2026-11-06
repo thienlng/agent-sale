@@ -97,14 +97,15 @@ export interface ConversationFacade {
     input: { text: string; idempotencyKey: string } & BotQuickReplies,
   ): Promise<InboxMessageDto | null>;
   /**
-   * The pictures of a bot reply as ONE message (several images arrive as a single album; https
-   * URLs). Same delivery path, idempotency and 24-hour window as the text; null when a human took
-   * over meanwhile. A failed send is stored as a failed outbound message and returned, never thrown.
+   * Attachments of a bot reply as ONE message: several images arrive as a single album (Meta takes
+   * up to 10), a video always goes alone (T-192); https URLs only. Same delivery path, idempotency
+   * and 24-hour window as the text; null when a human took over meanwhile. A failed send is stored
+   * as a failed outbound message and returned, never thrown.
    */
-  commitBotImages(
+  commitBotAttachments(
     ws: WorkspaceId,
     id: string,
-    input: { urls: readonly string[]; idempotencyKey: string },
+    input: { attachments: readonly BotAttachment[]; idempotencyKey: string },
   ): Promise<InboxMessageDto | null>;
   /**
    * Open conversations waiting for a reply since `olderThan` or earlier (owner reports, T-172):
@@ -123,6 +124,11 @@ export interface AwaitingReply {
 }
 export interface BotQuickReplies {
   quickReplies?: readonly { title: string; payload: string }[] | undefined;
+}
+/** One attachment of a bot message (T-192). */
+export interface BotAttachment {
+  type: 'image' | 'video';
+  url: string;
 }
 export const CONVERSATION_FACADE = Symbol('CONVERSATION_FACADE');
 /** Agent entry capability; never started by the HTTP process. */

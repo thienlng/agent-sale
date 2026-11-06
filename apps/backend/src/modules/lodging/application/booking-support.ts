@@ -8,11 +8,12 @@ import {
 import type { LodgingEventType } from '../api/lodging.events.js';
 import { LodgingError } from '../domain/lodging.errors.js';
 import { addNights, localToday, nightsBetween } from '../domain/nights.js';
-import { quoteStay, type Quote } from '../domain/quote.js';
+import { quoteStay, type Quote, type QuoteInput } from '../domain/quote.js';
 import type { RateRule } from '../domain/rates.js';
 import type {
   BookingRecord,
   LodgingTx,
+  PackageRecord,
   PropertyRecord,
   UnitRecord,
 } from './ports/lodging-store.js';
@@ -26,11 +27,12 @@ export interface Actor {
   name: string | null;
 }
 
-/** A property with every unit (both modes, active or not) and its price rules. */
+/** A property with every unit (both modes, active or not), its price rules and packages. */
 export interface PropertyContext {
   property: PropertyRecord;
   units: UnitRecord[];
   rates: RateRule[];
+  packages: PackageRecord[];
 }
 
 /** Status events carry ids and codes only, never guest details. */
@@ -64,6 +66,7 @@ export async function loadContext(tx: LodgingTx, propertyId: string): Promise<Pr
     property,
     units: await tx.units([property.id]),
     rates: await tx.rates([property.id]),
+    packages: await tx.packages([property.id]),
   };
 }
 
@@ -71,13 +74,79 @@ export function toQuoteDto(q: Quote, takenBy: string[] = []): QuoteDto {
   return { ...q, takenBy };
 }
 
-/** API shape of a booking; property and unit names come from the given lookups. */
+/**
+ * The package each booked unit is sold with, from the quote's chosen packages: a room's own
+ * package; for a whole rental the whole-property package first (every row gets it), else the
+ * room's own.
+ */
+export function unitPackagesOf(
+  quote: Quote | null,
+  whole: boolean,
+  unitIds: string[],
+): Record<string, string> {
+  const chosen = quote?.packages ?? [];
+  const wholePackage = whole ? chosen.find((c) => c.target === null) : undefined;
+  const out: Record<string, string> = {};
+  for (const unitId of unitIds) {
+    const pk = wholePackage ?? chosen.find((c) => c.target === unitId);
+    if (pk) out[unitId] = pk.packageId;
+  }
+  return out;
+}
+
+/**
+ * Quote of a stay keeping the packages it was sold with, while they still fit: when they no
+ * longer belong to the selection, leave a night unpriced (`package_unavailable`) or hold too few
+ * guests (`over_max`), the packages are picked automatically. The booking does not remember
+ * whether staff chose its package or the quote did, so a kept package never blocks an edit.
+ */
+export function quoteKeepingPackages(
+  ctx: PropertyContext,
+  input: Omit<QuoteInput, 'packageIds'>,
+  stored: string[],
+): Quote {
+  const quote = (packageIds: string[]) =>
+    quoteStay(ctx.property, ctx.units, ctx.rates, { ...input, packageIds }, ctx.packages);
+  if (stored.length === 0) return quote([]);
+  let kept: Quote;
+  try {
+    kept = quote(stored);
+  } catch (error) {
+    if (error instanceof LodgingError && error.code === 'VALIDATION_FAILED') return quote([]);
+    throw error;
+  }
+  const misfit =
+    kept.warnings.includes('package_unavailable') || kept.warnings.includes('over_max');
+  return misfit ? quote([]) : kept;
+}
+
+/** Quote of a stay with the `requested` packages when sent, else `quoteKeepingPackages(kept)`. */
+export function quoteSelection(
+  ctx: PropertyContext,
+  input: Omit<QuoteInput, 'packageIds'>,
+  requested: string[] | undefined,
+  kept: string[],
+): Quote {
+  if (requested === undefined) return quoteKeepingPackages(ctx, input, kept);
+  const withPackages = { ...input, packageIds: requested };
+  return quoteStay(ctx.property, ctx.units, ctx.rates, withPackages, ctx.packages);
+}
+
+/** The booking's packages, once each, in the order of its units. */
+export function bookingPackageIds(b: Pick<BookingRecord, 'unitIds' | 'unitPackages'>): string[] {
+  return [...new Set(b.unitIds.flatMap((id) => b.unitPackages[id] ?? []))];
+}
+
+/** API shape of a booking; property, unit and package names come from the given lookups. */
 export function toBookingDto(
   b: BookingRecord,
   properties: Map<string, PropertyRecord>,
   units: Map<string, UnitRecord>,
+  packages: Map<string, PackageRecord> = new Map(),
 ): BookingDto {
+  const packageIds = bookingPackageIds(b);
   const {
+    unitPackages: _packages,
     clientRequestId: _key,
     fingerprint: _fp,
     reviewedBy: _reviewer,
@@ -96,6 +165,8 @@ export function toBookingDto(
     propertyCode: p?.code ?? '',
     propertyName: p?.name ?? '',
     unitNames: b.unitIds.map((id) => units.get(id)?.name ?? ''),
+    packageIds,
+    packageNames: packageIds.map((id) => packages.get(id)?.name ?? ''),
     party: { adults, childAges },
     quote: quote ? toQuoteDto(quote) : null,
   };
@@ -107,7 +178,8 @@ export async function toBookingDtos(tx: LodgingTx, list: BookingRecord[]): Promi
   if (pids.length === 0) return [];
   const props = new Map((await tx.properties({ ids: pids })).map((p) => [p.id, p]));
   const units = new Map((await tx.units(pids)).map((u) => [u.id, u]));
-  return list.map((b) => toBookingDto(b, props, units));
+  const packages = new Map((await tx.packages(pids)).map((pk) => [pk.id, pk]));
+  return list.map((b) => toBookingDto(b, props, units, packages));
 }
 
 /**
@@ -210,18 +282,23 @@ export async function shortenStay(
   let next: BookingRecord = { ...b, checkOut };
   if (b.kind === 'stay' && storedManualTotal(b) === null) {
     const ctx = await loadContext(tx, b.propertyId);
-    const quote = quoteStay(ctx.property, ctx.units, ctx.rates, {
-      whole: b.whole,
-      unitIds: b.unitIds,
-      checkIn: b.checkIn,
-      checkOut,
-      adults: b.adults,
-      childAges: b.childAges,
-    });
+    const quote = quoteKeepingPackages(
+      ctx,
+      {
+        whole: b.whole,
+        unitIds: b.unitIds,
+        checkIn: b.checkIn,
+        checkOut,
+        adults: b.adults,
+        childAges: b.childAges,
+      },
+      bookingPackageIds(b),
+    );
     if (quote.totalSell !== null) {
       next = {
         ...next,
         quote,
+        unitPackages: unitPackagesOf(quote, b.whole, b.unitIds),
         totalSell: Math.max(0, quote.totalSell + b.adjustment),
         totalCost: quote.totalCost,
       };
@@ -279,7 +356,7 @@ export function assertEditable(b: BookingRecord, req: UpdateBookingRequest): voi
   }
 }
 
-/** Fields every new booking gets, stay or block. */
+/** Fields every new booking gets, stay or block (a block sells no package). */
 export type BookingBase = Pick<
   BookingRecord,
   | 'id'
@@ -302,6 +379,7 @@ export type BookingBase = Pick<
 export function blockRecord(base: BookingBase, blockReason: string): BookingRecord {
   return {
     ...base,
+    unitPackages: {},
     kind: 'block',
     status: 'active',
     adults: 0,

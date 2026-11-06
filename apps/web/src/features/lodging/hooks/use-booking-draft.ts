@@ -2,13 +2,16 @@ import type {
   BookingSource,
   CreateBookingRequest,
   NightNoteDto,
+  QuoteDto,
   QuoteRequest,
 } from '@agent-sales/contracts';
 import { useMemo, useState } from 'react';
 import type { z } from 'zod';
 
 import { useQuote } from '../api/calendar';
+import { useProperty } from '../api/properties';
 import { isStayRange } from '../lib/format';
+import { choiceIds, type PackageChoice, selectTargets } from '../lib/package-choice';
 import { EMPTY_PARTY, type PartyValue, type PriceFields, toParty } from '../lib/party';
 import { useDebouncedValue } from './use-debounced-value';
 
@@ -47,6 +50,8 @@ export interface BookingDraft extends PriceFields {
   note: string;
   tags: string[];
   blockReason: string;
+  /** Packages chosen in the form; a target without a choice is auto-picked by the server. */
+  packageChoice: PackageChoice;
 }
 
 export function draftFrom(initial: BookingCreateInitial = {}): BookingDraft {
@@ -64,6 +69,7 @@ export function draftFrom(initial: BookingCreateInitial = {}): BookingDraft {
     note: '',
     tags: [],
     blockReason: '',
+    packageChoice: {},
     adjustment: 0,
     adjustmentReason: '',
     manualTotal: null,
@@ -78,6 +84,10 @@ export function quoteBody(d: {
   whole: boolean;
   unitIds: string[];
   party: PartyValue;
+  /** Chosen packages; sent only when there are some (the server default is auto). */
+  packageIds?: readonly string[];
+  /** A booking edit without chosen packages: the booking's packages, kept while they fit. */
+  keepPackageIds?: readonly string[];
 }): z.input<typeof QuoteRequest> | null {
   const party = toParty(d.party);
   if (!d.propertyId || !party || !isStayRange(d.checkIn, d.checkOut)) return null;
@@ -89,6 +99,10 @@ export function quoteBody(d: {
     checkIn: d.checkIn,
     checkOut: d.checkOut,
     party,
+    ...(d.packageIds?.length ? { packageIds: [...d.packageIds] } : {}),
+    ...(!d.packageIds?.length && d.keepPackageIds?.length
+      ? { keepPackageIds: [...d.keepPackageIds] }
+      : {}),
   };
 }
 
@@ -114,6 +128,7 @@ export function createRequest(
   d: BookingDraft,
   clientRequestId: string,
   links: { contactId?: string | null; conversationId?: string | null },
+  packageIds: readonly string[] = [],
 ): z.input<typeof CreateBookingRequest> {
   const selection = {
     propertyId: d.propertyId,
@@ -128,6 +143,7 @@ export function createRequest(
     kind: 'stay',
     ...selection,
     status: d.kind,
+    ...(packageIds.length ? { packageIds: [...packageIds] } : {}),
     party: toParty(d.party) ?? { adults: d.party.adults, childAges: [] },
     guestName: d.guestName.trim(),
     guestPhone: d.guestPhone.trim(),
@@ -142,17 +158,49 @@ export function createRequest(
   };
 }
 
-/** Draft state of the create form with a live quote debounced by 300 ms. */
+/**
+ * Draft state of the create form with a live quote debounced by 300 ms. `packageTargets` are
+ * the targets of the selection that have packages (one select each; once quoted, the ones the
+ * quote priced); `packageIds` the chosen
+ * ones (stays only), sent with the quote and the create request.
+ */
 export function useBookingDraft(initial: BookingCreateInitial | undefined) {
   const [draft, setDraft] = useState(() => draftFrom(initial));
+  const property = useProperty(draft.propertyId || undefined);
+  // The latest quote of this property, set below: the selects follow the targets it priced.
+  const [liveQuote, setLiveQuote] = useState<QuoteDto | undefined>(undefined);
+  const targets = useMemo(
+    () =>
+      draft.kind === 'block'
+        ? []
+        : selectTargets(property.data, draft.whole, draft.unitIds, liveQuote),
+    [draft.kind, property.data, draft.whole, draft.unitIds, liveQuote],
+  );
+  const packageIds = useMemo(
+    () => choiceIds(draft.packageChoice, targets),
+    [draft.packageChoice, targets],
+  );
   // Blocks are quoted too: the quote's `takenBy` lists the bookings in the way.
   const body = useMemo(
     () =>
-      quoteBody(draft.kind === 'block' ? { ...draft, party: { adults: 1, childAges: [] } } : draft),
-    [draft],
+      quoteBody(
+        draft.kind === 'block'
+          ? { ...draft, party: { adults: 1, childAges: [] } }
+          : { ...draft, packageIds },
+      ),
+    [draft, packageIds],
   );
   const debounced = useDebouncedValue(body, 300);
   const quote = useQuote(debounced);
+  const live = debounced?.propertyId === draft.propertyId ? quote.data : undefined;
+  if (live !== liveQuote) setLiveQuote(live);
   const patch = (p: Partial<BookingDraft>) => setDraft((d) => ({ ...d, ...p }));
-  return { draft, patch, quote, quoteStale: body !== debounced };
+  return {
+    draft,
+    patch,
+    quote,
+    quoteStale: body !== debounced,
+    packageTargets: targets,
+    packageIds,
+  };
 }

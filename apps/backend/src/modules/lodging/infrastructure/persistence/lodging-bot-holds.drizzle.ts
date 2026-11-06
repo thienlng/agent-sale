@@ -34,6 +34,7 @@ function toDraft(r: typeof D.$inferSelect): BotHoldDraftRecord {
     guestPhone: r.guestPhone,
     note: r.note,
     quoteHash: r.quoteHash,
+    packageIds: r.packageIds,
     createdAt: r.createdAt,
     expiresAt: r.expiresAt,
   };

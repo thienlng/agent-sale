@@ -1,6 +1,10 @@
 import type { InboxMessageDto } from '@agent-sales/contracts';
 import { describe, expect, it } from 'vitest';
-import { toReplyTurns, toTimedReplyTurns } from '../application/jobs/reply-turns.js';
+import {
+  sentBotMediaUrls,
+  toReplyTurns,
+  toTimedReplyTurns,
+} from '../application/jobs/reply-turns.js';
 
 let seq = 0;
 function msg(sender: InboxMessageDto['sender'], text: string, createdAt: string): InboxMessageDto {
@@ -51,5 +55,50 @@ describe('toTimedReplyTurns', () => {
     expect(times).toHaveLength(100);
     expect(turns[0]?.content).toBe('m5');
     expect(times[0]?.toISOString()).toBe('2026-10-31T01:05:00.000Z');
+  });
+});
+
+describe('bot attachments in the history (T-192)', () => {
+  it("describes what the bot sent in its own words, never as the customer's", () => {
+    const album = {
+      ...msg('bot', '', '2026-11-05T01:00:01.000Z'),
+      attachments: Array.from({ length: 8 }, (_, i) => ({
+        type: 'image' as const,
+        url: `https://img.example.com/${i}.jpg`,
+      })),
+    };
+    const video = {
+      ...msg('bot', '', '2026-11-05T01:00:02.000Z'),
+      attachments: [{ type: 'video' as const, url: 'https://rapiz.test/media/lodging/v.mp4' }],
+    };
+    const { turns } = toTimedReplyTurns([
+      msg('customer', 'cho xem phòng', '2026-11-05T01:00:00.000Z'),
+      album,
+      video,
+      msg('customer', 'xem thêm', '2026-11-05T01:01:00.000Z'),
+    ]);
+    expect(turns[1]).toEqual({ role: 'bot', content: '[Bot đã gửi 8 ảnh]\n[Bot đã gửi 1 video]' });
+    expect(JSON.stringify(turns)).not.toContain('Khách đã gửi kèm');
+  });
+
+  it('lists the attachment URLs the bot sent in the last 30 days', () => {
+    const at = (iso: string, url: string, sender: 'bot' | 'human' = 'bot') => ({
+      ...msg(sender, '', iso),
+      attachments: [{ type: 'image' as const, url }],
+    });
+    const recent = at('2026-11-04T00:00:00.000Z', 'https://img.example.com/new.jpg');
+    const stored = [
+      at('2026-09-01T00:00:00.000Z', 'https://img.example.com/old.jpg'),
+      recent,
+      {
+        ...at('2026-11-04T00:00:00.000Z', 'https://img.example.com/failed.jpg'),
+        status: 'failed' as const,
+      },
+      at('2026-11-04T00:00:00.000Z', 'https://img.example.com/staff.jpg', 'human'),
+      recent,
+    ];
+    expect(sentBotMediaUrls(stored, new Date('2026-11-05T00:00:00.000Z'))).toEqual([
+      'https://img.example.com/new.jpg',
+    ]);
   });
 });

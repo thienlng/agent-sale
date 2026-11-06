@@ -14,11 +14,8 @@ const SUGGESTED = ['deposit', 'regular', 'pickup', 'kids', 'company'] as const;
 
 /** The suggested tags in the UI language (labels only; stored as typed). */
 export function useSuggestedTags(): string[] {
-  const { t } = useTranslation();
-  return useMemo(
-    () => SUGGESTED.map((k) => normalizeBookingTag(t(`lodging.tags.suggested.${k}`))),
-    [t],
-  );
+  const { t } = useTranslation('lodging');
+  return useMemo(() => SUGGESTED.map((k) => normalizeBookingTag(t(`tags.suggested.${k}`))), [t]);
 }
 
 /** NFC, trimmed, without empties or duplicates, first occurrence first (as the server stores them). */
@@ -72,7 +69,7 @@ export function TagInput({
   value: string[];
   onChange: (tags: string[]) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
   const suggested = useSuggestedTags();
   const [text, setText] = useState('');
@@ -105,7 +102,7 @@ export function TagInput({
     <div role="group" aria-labelledby={`${id}-label`} className="grid gap-1.5">
       <span id={`${id}-label`} className="flex items-center gap-1 text-xs font-medium">
         <Tag aria-hidden className="size-3.5" />
-        {t('lodging.tags.label')}
+        {t('tags.label')}
       </span>
       <div className="flex flex-wrap gap-1.5">
         {suggested.map((tag) => {
@@ -131,7 +128,7 @@ export function TagInput({
             {tag}
             <button
               type="button"
-              aria-label={t('lodging.tags.remove', { tag })}
+              aria-label={t('tags.remove', { tag })}
               className="rounded-full p-0.5 hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               onClick={() => onChange(value.filter((x) => x !== tag))}
             >
@@ -141,8 +138,8 @@ export function TagInput({
         ))}
       </div>
       <Input
-        aria-label={t('lodging.tags.add')}
-        placeholder={t('lodging.tags.addPlaceholder')}
+        aria-label={t('tags.add')}
+        placeholder={t('tags.addPlaceholder')}
         className="h-8 w-60"
         maxLength={MAX_TAG_LENGTH}
         disabled={full}
@@ -151,7 +148,7 @@ export function TagInput({
         onKeyDown={onKeyDown}
         onBlur={add}
       />
-      {full && <p className="text-xs text-muted-foreground">{t('lodging.tags.limit')}</p>}
+      {full && <p className="text-xs text-muted-foreground">{t('tags.limit')}</p>}
     </div>
   );
 }

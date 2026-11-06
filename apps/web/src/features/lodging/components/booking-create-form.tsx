@@ -31,7 +31,14 @@ import {
   validateDraft,
 } from '../hooks/use-booking-draft';
 import { BookingErrorAlert } from './booking-error-alert';
-import { SavingLabel, SheetSection, StayDates, TakenAlert, UnitPicker } from './booking-fields';
+import {
+  PackagePicker,
+  SavingLabel,
+  SheetSection,
+  StayDates,
+  TakenAlert,
+  UnitPicker,
+} from './booking-fields';
 import { existingNotes, NightNoteFields, noteNights, noteTargets } from './night-note-fields';
 import { PartyInput } from './party-input';
 import { QuoteBreakdown } from './quote-breakdown';
@@ -40,9 +47,9 @@ import { TagInput } from './tag-input';
 type SheetTab = CreateKind | 'note';
 
 const SUBMIT_LABEL: Record<CreateKind, string> = {
-  hold: 'lodging.sheet.submitHold',
-  confirmed: 'lodging.sheet.submitConfirmed',
-  block: 'lodging.sheet.submitBlock',
+  hold: 'sheet.submitHold',
+  confirmed: 'sheet.submitConfirmed',
+  block: 'sheet.submitBlock',
 };
 
 /**
@@ -59,11 +66,11 @@ export function BookingCreateForm({
   /** Closes the sheet after a night note was saved. */
   onClose: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
   const ws = useWorkspaceId();
   const qc = useQueryClient();
-  const { draft, patch, quote } = useBookingDraft(initial);
+  const { draft, patch, quote, packageTargets, packageIds } = useBookingDraft(initial);
   const properties = useProperties();
   const property = useProperty(draft.propertyId || undefined);
   const create = useCreateBooking();
@@ -103,12 +110,12 @@ export function BookingCreateForm({
       { propertyId: draft.propertyId, unitIds: targets, nights, text },
       {
         onSuccess: () => {
-          toast.success(t(text ? 'lodging.sheet.noteSaved' : 'lodging.sheet.noteDeleted'), {
+          toast.success(t(text ? 'sheet.noteSaved' : 'sheet.noteDeleted'), {
             duration: 3500,
           });
           onClose();
         },
-        onError: () => toast.error(t('lodging.sheet.noteError')),
+        onError: () => toast.error(t('sheet.noteError')),
       },
     );
   };
@@ -122,14 +129,19 @@ export function BookingCreateForm({
     }
     if (Object.keys(errors).length > 0 || create.isPending) return;
     create.mutate(
-      createRequest(draft, clientRequestId, {
-        contactId: initial?.contactId ?? null,
-        conversationId: initial?.conversationId ?? null,
-      }),
+      createRequest(
+        draft,
+        clientRequestId,
+        {
+          contactId: initial?.contactId ?? null,
+          conversationId: initial?.conversationId ?? null,
+        },
+        packageIds,
+      ),
       {
         onSuccess: (booking) => {
           setClientRequestId(crypto.randomUUID());
-          toast.success(t('lodging.sheet.created', { code: booking.code }), { duration: 3500 });
+          toast.success(t('sheet.created', { code: booking.code }), { duration: 3500 });
           onCreated(booking);
         },
         onError: (error) => {
@@ -145,29 +157,31 @@ export function BookingCreateForm({
     <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col" noValidate>
       <div className="grid flex-1 gap-5 overflow-y-auto px-4 pb-4">
         <Tabs value={tab} onValueChange={(v) => openTab(v as SheetTab)}>
-          <TabsList aria-label={t('lodging.sheet.kind')} className="w-full">
-            <TabsTrigger value="hold">{t('lodging.sheet.tabHold')}</TabsTrigger>
-            <TabsTrigger value="confirmed">{t('lodging.sheet.tabConfirmed')}</TabsTrigger>
-            <TabsTrigger value="block">{t('lodging.sheet.tabBlock')}</TabsTrigger>
-            <TabsTrigger value="note">{t('lodging.sheet.tabNote')}</TabsTrigger>
+          <TabsList aria-label={t('sheet.kind')} className="w-full">
+            <TabsTrigger value="hold">{t('sheet.tabHold')}</TabsTrigger>
+            <TabsTrigger value="confirmed">{t('sheet.tabConfirmed')}</TabsTrigger>
+            <TabsTrigger value="block">{t('sheet.tabBlock')}</TabsTrigger>
+            <TabsTrigger value="note">{t('sheet.tabNote')}</TabsTrigger>
           </TabsList>
         </Tabs>
 
-        <SheetSection title={t('lodging.sheet.sectionDates')}>
+        <SheetSection title={t('sheet.sectionDates')}>
           <div className="grid gap-1">
             <Label htmlFor={`${id}-property`} className="text-xs">
-              {t('lodging.sheet.property')}
+              {t('sheet.property')}
             </Label>
             <Select
               value={draft.propertyId}
-              onValueChange={(propertyId) => patch({ propertyId, whole: true, unitIds: [] })}
+              onValueChange={(propertyId) =>
+                patch({ propertyId, whole: true, unitIds: [], packageChoice: {} })
+              }
             >
               <SelectTrigger
                 id={`${id}-property`}
                 className="w-full"
                 aria-invalid={show('property') || undefined}
               >
-                <SelectValue placeholder={t('lodging.sheet.chooseProperty')}>
+                <SelectValue placeholder={t('sheet.chooseProperty')}>
                   {p ? `${p.code} · ${p.name}` : undefined}
                 </SelectValue>
               </SelectTrigger>
@@ -179,9 +193,7 @@ export function BookingCreateForm({
                 ))}
               </SelectContent>
             </Select>
-            {show('property') && (
-              <p className="text-xs text-destructive">{t('lodging.sheet.required')}</p>
-            )}
+            {show('property') && <p className="text-xs text-destructive">{t('sheet.required')}</p>}
           </div>
           <StayDates
             checkIn={draft.checkIn}
@@ -196,17 +208,26 @@ export function BookingCreateForm({
             onChange={patch}
             showError={show('units')}
           />
+          {!noteMode && !block && (
+            <PackagePicker
+              property={p}
+              targets={packageTargets}
+              choice={draft.packageChoice}
+              quote={quote.data}
+              onChange={(packageChoice) => patch({ packageChoice })}
+            />
+          )}
           {!noteMode && <TakenAlert quote={quote.data} />}
         </SheetSection>
 
         {noteMode ? (
-          <SheetSection title={t('lodging.sheet.sectionNote')}>
+          <SheetSection title={t('sheet.sectionNote')}>
             <NightNoteFields value={noteText} onChange={setNoteText} mixed={existing.mixed} />
           </SheetSection>
         ) : block ? (
-          <SheetSection title={t('lodging.sheet.blockReason')}>
+          <SheetSection title={t('sheet.blockReason')}>
             <Input
-              aria-label={t('lodging.sheet.blockReason')}
+              aria-label={t('sheet.blockReason')}
               maxLength={300}
               value={draft.blockReason}
               aria-invalid={show('blockReason') || undefined}
@@ -214,17 +235,17 @@ export function BookingCreateForm({
               onChange={(e) => patch({ blockReason: e.target.value })}
             />
             {show('blockReason') && (
-              <p className="text-xs text-destructive">{t('lodging.sheet.required')}</p>
+              <p className="text-xs text-destructive">{t('sheet.required')}</p>
             )}
           </SheetSection>
         ) : (
           <>
-            <SheetSection title={t('lodging.sheet.sectionGuest')}>
+            <SheetSection title={t('sheet.sectionGuest')}>
               <PartyInput value={draft.party} onChange={(party) => patch({ party })} />
               <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-1">
                   <Label htmlFor={`${id}-name`} className="text-xs">
-                    {t('lodging.sheet.guestName')}
+                    {t('sheet.guestName')}
                   </Label>
                   <Input
                     id={`${id}-name`}
@@ -236,12 +257,12 @@ export function BookingCreateForm({
                     onChange={(e) => patch({ guestName: e.target.value })}
                   />
                   {show('guestName') && (
-                    <p className="text-xs text-destructive">{t('lodging.sheet.required')}</p>
+                    <p className="text-xs text-destructive">{t('sheet.required')}</p>
                   )}
                 </div>
                 <div className="grid gap-1">
                   <Label htmlFor={`${id}-phone`} className="text-xs">
-                    {t('lodging.sheet.guestPhone')}
+                    {t('sheet.guestPhone')}
                   </Label>
                   <Input
                     id={`${id}-phone`}
@@ -255,7 +276,7 @@ export function BookingCreateForm({
               </div>
               <div className="grid gap-1">
                 <Label htmlFor={`${id}-source`} className="text-xs">
-                  {t('lodging.sheet.source')}
+                  {t('sheet.source')}
                 </Label>
                 <Select
                   value={draft.source}
@@ -267,14 +288,14 @@ export function BookingCreateForm({
                   <SelectContent>
                     {BookingSourceEnum.options.map((s) => (
                       <SelectItem key={s} value={s}>
-                        {t(`lodging.source.${s}`)}
+                        {t(`source.${s}`)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </SheetSection>
-            <SheetSection title={t('lodging.sheet.sectionPrice')}>
+            <SheetSection title={t('sheet.sectionPrice')}>
               <QuoteBreakdown
                 quote={quote.data}
                 loading={quote.isFetching}
@@ -282,13 +303,14 @@ export function BookingCreateForm({
                 checkIn={draft.checkIn}
                 checkOut={draft.checkOut}
                 standard={p ? { adults: p.standardAdults, children: p.standardChildren } : null}
+                property={p}
                 price={draft}
                 onPriceChange={patch}
               />
             </SheetSection>
-            <SheetSection title={t('lodging.sheet.sectionNote')}>
+            <SheetSection title={t('sheet.sectionNote')}>
               <Textarea
-                aria-label={t('lodging.sheet.note')}
+                aria-label={t('sheet.note')}
                 maxLength={2000}
                 rows={2}
                 value={draft.note}
@@ -311,11 +333,11 @@ export function BookingCreateForm({
                 disabled={saveNotes.isPending}
                 onClick={() => writeNote('')}
               >
-                {t('lodging.sheet.deleteNote')}
+                {t('sheet.deleteNote')}
               </Button>
             )}
             <Button type="submit" disabled={saveNotes.isPending || !noteText.trim()}>
-              <SavingLabel saving={saveNotes.isPending}>{t('lodging.sheet.saveNote')}</SavingLabel>
+              <SavingLabel saving={saveNotes.isPending}>{t('sheet.saveNote')}</SavingLabel>
             </Button>
           </>
         ) : (

@@ -40,6 +40,7 @@ function ownerWorld() {
       role: 'owner',
       industry: 'retail',
       accountId,
+      createdAt: new Date(0),
     },
     {
       workspaceId: workspaceId(newId()),
@@ -47,6 +48,7 @@ function ownerWorld() {
       role: 'sales',
       industry: 'fnb',
       accountId: newId(),
+      createdAt: new Date(0),
     },
   ];
   const account = {

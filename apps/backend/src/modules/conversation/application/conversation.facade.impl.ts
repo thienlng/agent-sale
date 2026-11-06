@@ -27,6 +27,7 @@ import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.j
 import { TEAM_FACADE, type TeamFacade } from '../../team/api/index.js';
 import type {
   AwaitingReply,
+  BotAttachment,
   BotQuickReplies,
   ConversationFacade,
 } from '../api/conversation.facade.js';
@@ -631,17 +632,27 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
       'follow-up',
     );
   }
-  async commitBotImages(
+  async commitBotAttachments(
     ws: WorkspaceId,
     id: string,
-    input: { urls: readonly string[]; idempotencyKey: string },
+    input: { attachments: readonly BotAttachment[]; idempotencyKey: string },
   ): Promise<InboxMessageDto | null> {
+    const list = input.attachments;
     if (
-      !input.urls.length ||
-      input.urls.length > 10 ||
-      input.urls.some((url) => !url.startsWith('https://') || url.length > 2000)
+      !list.length ||
+      list.length > 10 ||
+      list.some(
+        (a) =>
+          (a.type !== 'image' && a.type !== 'video') ||
+          !a.url.startsWith('https://') ||
+          a.url.length > 2000,
+      ) ||
+      (list.some((a) => a.type === 'video') && list.length > 1)
     )
-      throw new ConversationError('VALIDATION_FAILED', 'Image URLs must be 1-10 https URLs');
+      throw new ConversationError(
+        'VALIDATION_FAILED',
+        'Attachments must be 1-10 https images or one https video',
+      );
     // The text reply of the same turn already moved the revision on, so a follow-up only requires
     // that the bot still holds the conversation (a takeover in between wins).
     return this.reserveAndDeliver(
@@ -649,7 +660,7 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
       id,
       {
         text: '',
-        attachments: input.urls.map((url) => ({ type: 'image' as const, url })),
+        attachments: list.map((a) => ({ type: a.type, url: a.url })),
         idempotencyKey: input.idempotencyKey,
       },
       null,

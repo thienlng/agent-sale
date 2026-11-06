@@ -53,12 +53,12 @@ export function NightNoteFields({
   onChange: (text: string) => void;
   mixed: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
   return (
     <div className="grid gap-1">
       <Label htmlFor={`${id}-note`} className="text-xs">
-        {t('lodging.sheet.nightNoteLabel')}
+        {t('sheet.nightNoteLabel')}
       </Label>
       <Textarea
         id={`${id}-note`}
@@ -69,7 +69,7 @@ export function NightNoteFields({
         onChange={(e) => onChange(e.target.value)}
       />
       <p id={`${id}-hint`} className="text-xs text-muted-foreground">
-        {mixed ? t('lodging.sheet.nightNoteMixed') : t('lodging.sheet.nightNoteHint')}
+        {mixed ? t('sheet.nightNoteMixed') : t('sheet.nightNoteHint')}
       </p>
     </div>
   );

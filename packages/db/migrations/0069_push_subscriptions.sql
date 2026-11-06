@@ -1,4 +1,4 @@
--- 0066_push_subscriptions: Web Push devices of a user (T-190, installable app / PWA). One row per
+-- 0069_push_subscriptions: Web Push devices of a user (T-190, installable app / PWA). One row per
 -- browser push endpoint and account; the notification module's push channel sends to every row
 -- of the recipient and deletes a row the push service reports gone (404/410). Account-scoped like
 -- notifications (RLS on app.account_id); every query also filters on user_id. Additive only.

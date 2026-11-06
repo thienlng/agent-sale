@@ -22,18 +22,17 @@ const SOON_MS = 15 * 60_000;
 
 /** Expiry cell of a hold: "Quá hạn" when past, red when under 15 minutes. */
 export function HoldExpiry({ at, now }: { at: string | null; now: number }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   if (!at) return null;
   const left = new Date(at).getTime() - now;
-  if (left <= 0)
-    return <span className="font-semibold text-destructive">{t('lodging.list.overdue')}</span>;
+  if (left <= 0) return <span className="font-semibold text-destructive">{t('list.overdue')}</span>;
   const date = new Date(at);
   const sameDay = left < 24 * 3_600_000;
   return (
     <span className={cn('tabular-nums', left < SOON_MS && 'font-semibold text-destructive')}>
       {sameDay
-        ? t('lodging.list.expiresAt', { time: clockTime(at) })
-        : t('lodging.list.expiresOn', {
+        ? t('list.expiresAt', { time: clockTime(at) })
+        : t('list.expiresOn', {
             date: new Intl.DateTimeFormat('vi-VN', {
               timeZone: 'Asia/Ho_Chi_Minh',
               day: '2-digit',
@@ -47,7 +46,7 @@ export function HoldExpiry({ at, now }: { at: string | null; now: number }) {
 
 /** "Bot tạo": amber while the hold waits for staff, quiet once handled. */
 function BotBadge({ pending }: { pending: boolean }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   return (
     <Badge
       variant="outline"
@@ -57,7 +56,7 @@ function BotBadge({ pending }: { pending: boolean }) {
       )}
     >
       <Bot className="size-3" aria-hidden />
-      {t('lodging.list.botBadge')}
+      {t('list.botBadge')}
     </Badge>
   );
 }
@@ -75,19 +74,19 @@ export function BookingsTable({
   /** Clicking a tag chip filters the list by that tag. */
   onTag?: (tag: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const now = Date.now();
   return (
     <Table className="min-w-[760px] text-[13px]">
       <TableHeader>
         <TableRow>
-          <TableHead>{t('lodging.list.col.code')}</TableHead>
-          <TableHead>{t('lodging.list.col.guest')}</TableHead>
-          <TableHead>{t('lodging.list.col.property')}</TableHead>
-          <TableHead>{t('lodging.list.col.dates')}</TableHead>
-          <TableHead>{t('lodging.list.col.party')}</TableHead>
-          <TableHead className="text-right">{t('lodging.list.col.total')}</TableHead>
-          {showExpiry && <TableHead>{t('lodging.list.col.expires')}</TableHead>}
+          <TableHead>{t('list.col.code')}</TableHead>
+          <TableHead>{t('list.col.guest')}</TableHead>
+          <TableHead>{t('list.col.property')}</TableHead>
+          <TableHead>{t('list.col.dates')}</TableHead>
+          <TableHead>{t('list.col.party')}</TableHead>
+          <TableHead className="text-right">{t('list.col.total')}</TableHead>
+          {showExpiry && <TableHead>{t('list.col.expires')}</TableHead>}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -114,7 +113,7 @@ export function BookingsTable({
               <TableCell className="max-w-48">
                 {block ? (
                   <span className="text-muted-foreground">
-                    {t('lodging.list.block', { reason: b.blockReason })}
+                    {t('list.block', { reason: b.blockReason })}
                   </span>
                 ) : (
                   <>
@@ -140,7 +139,7 @@ export function BookingsTable({
                   className="block truncate text-xs text-muted-foreground"
                   title={b.unitNames.join(', ')}
                 >
-                  {b.whole ? t('lodging.sheet.whole') : b.unitNames.join(', ')}
+                  {b.whole ? t('sheet.whole') : b.unitNames.join(', ')}
                 </span>
               </TableCell>
               <TableCell className="tabular-nums">
@@ -148,13 +147,13 @@ export function BookingsTable({
                   {dayMonth(b.checkIn)} → {dayMonth(b.checkOut)}
                 </span>
                 <span className="block text-xs text-muted-foreground">
-                  {t('lodging.list.nights', { count: nightsBetween(b.checkIn, b.checkOut) })}
+                  {t('list.nights', { count: nightsBetween(b.checkIn, b.checkOut) })}
                 </span>
               </TableCell>
               <TableCell className="tabular-nums">
                 {block
                   ? '—'
-                  : t('lodging.cal.capacity', {
+                  : t('cal.capacity', {
                       adults: b.party.adults,
                       children: b.party.childAges.length,
                     })}

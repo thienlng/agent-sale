@@ -39,6 +39,6 @@ assistant: {
 },
 ```
 
-The assistant validates `tool_call` against `assistant.body`, `tool_describe` shows it, and approval re-checks the stored body with it; the route itself still validates its full `body` when the proposal runs. `routes.assistant.test.ts` reads every `write` body's top-level properties: a secret-like one needs `assistant.body`, a valid sample in `VALID_ASSISTANT_BODIES`, and the narrowed body must reject the sample with each secret key added (use `.strict()` so the key is refused, not stripped).
+The assistant validates `tool_call` against `assistant.body`, `tool_describe` shows it, and approval re-checks the stored body with it; the route itself still validates its full `body` when the proposal runs. `routes.assistant.test.ts` reads every `write` body's top-level properties: a secret-like one needs `assistant.body`, a valid sample in `VALID_ASSISTANT_BODIES`, and the narrowed body must reject the sample with each secret key added (use `.strict()` so the key is refused, not stripped). A narrower body can also just keep `tool_describe` small: the product writes use `AssistantUpsertProductRequest`, whose accommodation leaves out the fields only the lodging bot product fills (media folders, unit details, bedroom packages), which a catalog product never stores (T-193).
 
 Test: `pnpm --filter @agent-sales/contracts test`.

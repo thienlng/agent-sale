@@ -33,6 +33,14 @@ export function unitFixture(over: Partial<UnitDto> = {}): UnitDto {
     capacityChildren: 8,
     active: true,
     sortOrder: 0,
+    category: 'room',
+    view: '',
+    areaM2: null,
+    description: '',
+    amenities: [],
+    maxGuests: null,
+    gallery: [],
+    galleryCover: '',
     ...over,
   };
 }
@@ -49,6 +57,7 @@ export function weekdayRate(over: Partial<RateDto> = {}): RateDto {
     sell: 12_000_000,
     cost: 10_000_000,
     minNights: null,
+    packageId: null,
     ...over,
   };
 }
@@ -79,9 +88,11 @@ export function propertyFixture(over: Partial<PropertyDto> = {}): PropertyDto {
       other: '',
     },
     gallery: [],
+    galleryCover: '',
     internalNote: '',
     units: [unitFixture()],
     rates: [],
+    packages: [],
     surcharges: { extraAdult: null, extraChild: null },
     version: 1,
     createdAt: STAMP,
@@ -106,6 +117,8 @@ export function bookingFixture(over: Partial<BookingDto> = {}): BookingDto {
     whole: true,
     unitIds: [LODGING_IDS.a17Unit],
     unitNames: ['Nguyên căn'],
+    packageIds: [],
+    packageNames: [],
     status: 'confirmed',
     checkIn: '2099-11-06',
     checkOut: '2099-11-08',

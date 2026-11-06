@@ -95,4 +95,76 @@ describe('lodging catalog grounding', () => {
     expect(allowed[0]?.id).toBe('m:11');
     expect(allowed).toHaveLength(10);
   });
+  it('shows the model a folder summary and album / video ids, never media URLs', () => {
+    const withAlbums: ProductDto = {
+      ...product,
+      accommodation: {
+        ...details,
+        albums: [
+          {
+            id: 'f1',
+            name: 'Phòng ngủ',
+            items: [
+              { kind: 'image', url: 'https://images.example.test/b1.jpg', caption: '' },
+              { kind: 'image', url: 'https://images.example.test/b2.jpg', caption: '' },
+              { kind: 'link', url: 'https://youtu.be/tour', caption: 'Tour' },
+            ],
+          },
+        ],
+      },
+    };
+    const ctx = catalogProductContext(withAlbums);
+    expect(ctx).toMatchObject({
+      accommodation: { albums: [{ name: 'Phòng ngủ', photos: 2, videos: 0, links: 1 }] },
+    });
+    const full = productDetails(withAlbums);
+    expect(full.albums).toEqual([
+      { id: `a:${product.id}:0`, label: 'Test property – Phòng ngủ (2 ảnh)' },
+    ]);
+    expect(full.videos).toEqual([
+      { id: `v:${product.id}:0:2`, label: 'Test property – Phòng ngủ – video: Tour' },
+    ]);
+    expect(JSON.stringify(full)).not.toContain('https://');
+    expect(JSON.stringify(ctx)).not.toContain('youtu.be');
+    expect(productDetails(product)).not.toHaveProperty('albums');
+  });
+
+  it("summarises each unit's folders and lists their album ids, never media URLs (T-193)", () => {
+    const resort: ProductDto = {
+      ...product,
+      accommodation: {
+        ...details,
+        units: [
+          {
+            name: 'Bungalow 1',
+            beds: '1 giường đôi',
+            capacityAdults: 2,
+            capacityChildren: 0,
+            weekdayRates: [{ days: [1, 2, 3, 4, 5, 6, 7], amount: 1_000_000 }],
+            view: 'đồi thông',
+            albums: [
+              {
+                id: 'u1',
+                name: 'View đồi',
+                items: [{ kind: 'image', url: 'https://images.example.test/u1.jpg', caption: '' }],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const ctx = catalogProductContext(resort);
+    expect(ctx).toMatchObject({
+      accommodation: {
+        units: [
+          { name: 'Bungalow 1', view: 'đồi thông', albums: [{ name: 'View đồi', photos: 1 }] },
+        ],
+      },
+    });
+    const full = productDetails(resort);
+    expect(full.albums).toEqual([
+      { id: `a:${product.id}:20`, label: 'Test property – Bungalow 1 – View đồi (1 ảnh)' },
+    ]);
+    expect(JSON.stringify(full)).not.toContain('https://');
+  });
 });

@@ -35,7 +35,8 @@ describe('PropertyService gallery ownership', () => {
   const ws = workspaceId('01890000-0000-7000-8000-000000000001');
   const other = '01890000-0000-7000-8000-000000000009';
   const file = '01890000-0000-7000-8000-0000000000aa.jpg';
-  const create = (url: string) => {
+  const clip = '01890000-0000-7000-8000-0000000000bb.mp4';
+  const create = (item: { kind: string; url: string }, extra: object = {}) => {
     const run = vi.fn().mockResolvedValue(undefined);
     const service = new PropertyService(
       { run } as unknown as LodgingStore,
@@ -47,7 +48,8 @@ describe('PropertyService gallery ownership', () => {
       sellMode: 'whole',
       standardAdults: 2,
       standardChildren: 0,
-      gallery: [{ url, caption: '' }],
+      gallery: [{ id: 'f1', name: 'Ảnh', items: [{ ...item, caption: '' }] }],
+      ...extra,
     };
     return { run, done: service.create(ws, input as never, 'actor').catch((e: unknown) => e) };
   };
@@ -58,24 +60,44 @@ describe('PropertyService gallery ownership', () => {
       `https://old.trycloudflare.com/media/products/${other}/${file}`,
       `/media/workspaces/${ws}/bots/${other}/${file}`,
     ]) {
-      const { run, done } = create(url);
+      const { run, done } = create({ kind: 'image', url });
       expect(await done, url).toMatchObject({
         code: 'VALIDATION_FAILED',
-        details: { reason: 'IMAGE_NOT_UPLOADED', field: 'gallery[0].url' },
+        details: { reason: 'IMAGE_NOT_UPLOADED', field: 'gallery[0].items[0].url' },
       });
       expect(run).not.toHaveBeenCalled();
     }
   });
 
-  it('accepts its own photos and external https links', async () => {
-    for (const url of [
-      `/media/products/${ws}/${file}`,
-      `https://old.trycloudflare.com/media/products/${ws}/${file}`,
-      'https://cdn.shop.vn/media/products/villa-1.jpg',
+  it('accepts its own photos, external https photos, its own videos and video links', async () => {
+    for (const item of [
+      { kind: 'image', url: `/media/products/${ws}/${file}` },
+      { kind: 'image', url: `https://old.trycloudflare.com/media/products/${ws}/${file}` },
+      { kind: 'image', url: 'https://cdn.shop.vn/media/products/villa-1.jpg' },
+      { kind: 'video', url: `/media/lodging/${ws}/${clip}` },
+      { kind: 'link', url: 'https://youtu.be/abc' },
     ]) {
-      const { run, done } = create(url);
+      const { run, done } = create(item);
       await done;
-      expect(run, url).toHaveBeenCalled();
+      expect(run, item.url).toHaveBeenCalled();
     }
+  });
+
+  it('refuses a video uploaded by another workspace', async () => {
+    const { run, done } = create({ kind: 'video', url: `/media/lodging/${other}/${clip}` });
+    expect(await done).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      details: { reason: 'VIDEO_NOT_UPLOADED', field: 'gallery[0].items[0].url' },
+    });
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('refuses a cover that is not an image of the gallery', async () => {
+    const { run, done } = create(
+      { kind: 'image', url: `/media/products/${ws}/${file}` },
+      { galleryCover: 'https://cdn.example.com/other.jpg' },
+    );
+    expect(await done).toMatchObject({ code: 'VALIDATION_FAILED' });
+    expect(run).not.toHaveBeenCalled();
   });
 });

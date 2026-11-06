@@ -11,6 +11,7 @@ export interface WorkspaceMembership {
   icon?: string;
   industry: string;
   accountId: string | null;
+  createdAt: Date;
 }
 
 /** A member of one workspace (removed ones only when asked for). */

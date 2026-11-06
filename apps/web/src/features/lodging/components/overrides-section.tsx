@@ -28,37 +28,44 @@ const ddmmyyyy = (night: string) =>
 export function OverridesSection({
   property: p,
   canEdit,
+  target,
 }: {
   property: PropertyDto;
   canEdit: boolean;
+  /** Only this target's special dates (a unit page); undefined = all. */
+  target?: string | null | undefined;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const [editing, setEditing] = useState<RateDto | null | undefined>(undefined);
   const [deleting, setDeleting] = useState<RateDto | null>(null);
   const remove = useDeleteOverride();
   const saveError = useSaveError();
   const overrides = p.rates
-    .filter((r) => r.kind === 'override')
+    .filter((r) => r.kind === 'override' && (target === undefined || r.unitId === target))
     .sort((a, b) => (a.dateFrom ?? '').localeCompare(b.dateFrom ?? ''));
   const unitName = (id: string | null) =>
-    id === null ? t('lodging.rates.whole') : (p.units.find((u) => u.id === id)?.name ?? '');
+    id === null ? t('rates.whole') : (p.units.find((u) => u.id === id)?.name ?? '');
+  const targetName = (r: RateDto) => {
+    const pkg = r.packageId ? p.packages.find((k) => k.id === r.packageId)?.name : undefined;
+    return [target === undefined ? unitName(r.unitId) : '', pkg ?? ''].filter(Boolean).join(' · ');
+  };
 
   return (
     <section className="grid gap-3">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h2 className="text-base font-semibold">{t('lodging.overrides.title')}</h2>
-          <p className="text-xs text-muted-foreground">{t('lodging.overrides.hint')}</p>
+          <h2 className="text-base font-semibold">{t('overrides.title')}</h2>
+          <p className="text-xs text-muted-foreground">{t('overrides.hint')}</p>
         </div>
         {canEdit && (
           <Button type="button" size="sm" variant="outline" onClick={() => setEditing(null)}>
             <Plus aria-hidden />
-            {t('lodging.overrides.add')}
+            {t('overrides.add')}
           </Button>
         )}
       </div>
       {overrides.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('lodging.overrides.empty')}</p>
+        <p className="text-sm text-muted-foreground">{t('overrides.empty')}</p>
       ) : (
         <ul className="divide-y rounded-lg border">
           {overrides.map((r) => (
@@ -68,19 +75,19 @@ export function OverridesSection({
             >
               <span className="min-w-28 font-medium">{r.label}</span>
               <span className="tabular-nums text-muted-foreground">
-                {t('lodging.overrides.nights', {
+                {t('overrides.nights', {
                   from: ddmmyyyy(r.dateFrom ?? ''),
                   to: ddmmyyyy(r.dateTo ?? ''),
                 })}
               </span>
-              <span className="text-muted-foreground">{unitName(r.unitId)}</span>
+              <span className="text-muted-foreground">{targetName(r)}</span>
               <span className="tabular-nums">
                 {formatVnd(r.sell)}
                 <span className="text-xs text-muted-foreground"> / {formatVnd(r.cost)}</span>
               </span>
               {r.minNights && (
                 <span className="text-xs text-muted-foreground">
-                  {t('lodging.overrides.minNightsShort', { count: r.minNights })}
+                  {t('overrides.minNightsShort', { count: r.minNights })}
                 </span>
               )}
               {canEdit && (
@@ -89,7 +96,7 @@ export function OverridesSection({
                     type="button"
                     size="icon-sm"
                     variant="ghost"
-                    aria-label={t('lodging.overrides.edit', { label: r.label })}
+                    aria-label={t('overrides.edit', { label: r.label })}
                     onClick={() => setEditing(r)}
                   >
                     <Pencil aria-hidden />
@@ -98,7 +105,7 @@ export function OverridesSection({
                     type="button"
                     size="icon-sm"
                     variant="ghost"
-                    aria-label={t('lodging.overrides.delete', { label: r.label })}
+                    aria-label={t('overrides.delete', { label: r.label })}
                     onClick={() => setDeleting(r)}
                   >
                     <Trash2 aria-hidden />
@@ -110,20 +117,23 @@ export function OverridesSection({
         </ul>
       )}
       {editing !== undefined && (
-        <OverrideDialog property={p} rate={editing} onClose={() => setEditing(undefined)} />
+        <OverrideDialog
+          property={p}
+          rate={editing}
+          lockedTarget={target}
+          onClose={() => setEditing(undefined)}
+        />
       )}
       <AlertDialog open={deleting !== null} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {t('lodging.overrides.deleteTitle', { label: deleting?.label ?? '' })}
+              {t('overrides.deleteTitle', { label: deleting?.label ?? '' })}
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('lodging.overrides.deleteDescription')}
-            </AlertDialogDescription>
+            <AlertDialogDescription>{t('overrides.deleteDescription')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('lodging.overrides.keep')}</AlertDialogCancel>
+            <AlertDialogCancel>{t('overrides.keep')}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={remove.isPending}
@@ -132,14 +142,14 @@ export function OverridesSection({
                 remove.mutate(
                   { id: p.id, rateId: deleting.id, version: p.version },
                   {
-                    onSuccess: () => toast.success(t('lodging.overrides.deleted')),
+                    onSuccess: () => toast.success(t('overrides.deleted')),
                     onError: (error) => saveError(error),
                   },
                 );
                 setDeleting(null);
               }}
             >
-              {t('lodging.overrides.delete', { label: deleting?.label ?? '' })}
+              {t('overrides.delete', { label: deleting?.label ?? '' })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -38,7 +38,7 @@ const { values } = parseArgs({
   },
 });
 
-const PROMPT_VERSIONS: readonly SalesPromptVersion[] = [13, 14, 15, 16, 17, 18, 19];
+const PROMPT_VERSIONS: readonly SalesPromptVersion[] = [13, 14, 15, 16, 17, 18, 19, 20, 21];
 const forced = values['prompt-version'];
 const opts: RunOptions = {};
 if (forced !== undefined) {

@@ -52,7 +52,7 @@ type SheetState = { key: number } & ({ mode: 'create' } | { mode: 'view'; bookin
  * filters, search and 100-row pages. Rows open the shared booking sheet.
  */
 export function BookingsPage({ initialView = 'today' }: { initialView?: View }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const canManageCatalog = useCan('catalog.manage');
   const canManageOrders = useCan('orders.manage');
   const [view, setView] = useState<View>(initialView);
@@ -101,13 +101,13 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <h1 className="text-xl font-semibold">{t('lodging.bookingsTitle')}</h1>
+        <h1 className="text-xl font-semibold">{t('bookingsTitle')}</h1>
         <div className="flex flex-wrap items-center gap-3">
           {canManageCatalog && <HoldMinutesControl />}
           {canManageOrders && (
             <Button size="sm" onClick={() => setSheet({ key: Date.now(), mode: 'create' })}>
               <Plus aria-hidden />
-              {t('lodging.list.create')}
+              {t('list.create')}
             </Button>
           )}
         </div>
@@ -116,7 +116,7 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
         <TabsList variant="line" className="w-full justify-start overflow-x-auto border-b">
           {VIEWS.map((v) => (
             <TabsTrigger key={v} value={v} className="flex-none px-3">
-              {t(`lodging.list.tabs.${v}`)}
+              {t(`list.tabs.${v}`)}
               {v === 'holds' && pendingBotHolds > 0 && (
                 <>
                   {' '}
@@ -127,7 +127,7 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
                     {pendingBotHolds}
                   </span>
                   <span className="sr-only">
-                    {t('lodging.list.pendingBotHolds', { count: pendingBotHolds })}
+                    {t('nav.pendingBotHolds', { ns: 'common', count: pendingBotHolds })}
                   </span>
                 </>
               )}
@@ -143,8 +143,8 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
           />
           <Input
             type="search"
-            aria-label={t('lodging.list.searchLabel')}
-            placeholder={t('lodging.list.search')}
+            aria-label={t('list.searchLabel')}
+            placeholder={t('list.search')}
             className="h-8 pl-8"
             maxLength={100}
             value={q}
@@ -152,11 +152,11 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
           />
         </div>
         <Select value={propertyId} onValueChange={reset(setPropertyId)}>
-          <SelectTrigger size="sm" className="w-44" aria-label={t('lodging.list.property')}>
+          <SelectTrigger size="sm" className="w-44" aria-label={t('list.property')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>{t('lodging.list.allProperties')}</SelectItem>
+            <SelectItem value={ALL}>{t('list.allProperties')}</SelectItem>
             {properties.data?.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.code} · {p.name}
@@ -165,11 +165,11 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
           </SelectContent>
         </Select>
         <Select value={tag} onValueChange={reset(setTag)}>
-          <SelectTrigger size="sm" className="w-40" aria-label={t('lodging.list.tag')}>
+          <SelectTrigger size="sm" className="w-40" aria-label={t('list.tag')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ANY_TAG}>{t('lodging.list.allTags')}</SelectItem>
+            <SelectItem value={ANY_TAG}>{t('list.allTags')}</SelectItem>
             {tagOptions.map((x) => (
               <SelectItem key={x} value={x}>
                 {x}
@@ -178,28 +178,28 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
           </SelectContent>
         </Select>
         <Select value={source} onValueChange={reset(setSource)}>
-          <SelectTrigger size="sm" className="w-36" aria-label={t('lodging.list.source')}>
+          <SelectTrigger size="sm" className="w-36" aria-label={t('list.source')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>{t('lodging.list.allSources')}</SelectItem>
+            <SelectItem value={ALL}>{t('list.allSources')}</SelectItem>
             {BookingSourceEnum.options.map((s) => (
               <SelectItem key={s} value={s}>
-                {t(`lodging.source.${s}`)}
+                {t(`source.${s}`)}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         {view === 'all' && (
           <Select value={status} onValueChange={reset(setStatus)}>
-            <SelectTrigger size="sm" className="w-40" aria-label={t('lodging.list.status')}>
+            <SelectTrigger size="sm" className="w-40" aria-label={t('list.status')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>{t('lodging.list.allStatuses')}</SelectItem>
+              <SelectItem value={ALL}>{t('list.allStatuses')}</SelectItem>
               {BookingStatusEnum.options.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {t(`lodging.bookingStatus.${s}`)}
+                  {t(`bookingStatus.${s}`)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -207,7 +207,7 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
         )}
       </div>
       {bookings.isPending ? (
-        <div className="grid gap-1.5" role="status" aria-label={t('lodging.loading')}>
+        <div className="grid gap-1.5" role="status" aria-label={t('loading')}>
           {Array.from({ length: 6 }, (_, i) => (
             <Skeleton key={i} className="h-12 w-full" />
           ))}
@@ -216,15 +216,15 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
         <Alert variant="destructive">
           <CircleAlert aria-hidden />
           <AlertDescription className="flex flex-wrap items-center gap-2">
-            {t('lodging.loadError')}
+            {t('loadError')}
             <Button size="xs" variant="outline" onClick={() => void bookings.refetch()}>
-              {t('lodging.retry')}
+              {t('retry')}
             </Button>
           </AlertDescription>
         </Alert>
       ) : rows.length === 0 ? (
         <p className="rounded-lg border px-4 py-8 text-center text-sm text-muted-foreground">
-          {t(`lodging.list.empty.${view}`)}
+          {t(`list.empty.${view}`)}
         </p>
       ) : (
         <div className="rounded-lg border">
@@ -245,7 +245,7 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
             onClick={() => setOffset(Math.max(0, offset - 100))}
           >
             <ChevronLeft aria-hidden />
-            {t('lodging.list.prev')}
+            {t('list.prev')}
           </Button>
           <Button
             size="sm"
@@ -253,7 +253,7 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
             disabled={!bookings.data?.nextOffset}
             onClick={() => setOffset(bookings.data?.nextOffset ?? offset)}
           >
-            {t('lodging.list.next')}
+            {t('list.next')}
             <ChevronRight aria-hidden />
           </Button>
         </div>

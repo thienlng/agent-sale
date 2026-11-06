@@ -74,7 +74,7 @@ export function InfoTab({
   canEdit: boolean;
   onDirtyChange: (dirty: boolean) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
   const base = useMemo(() => infoOf(p), [p]);
   const { draft: d, setDraft, dirty, discard } = useTabDraft(base);
@@ -83,7 +83,7 @@ export function InfoTab({
   const saveError = useSaveError();
   const errors = validate(d);
   const set = (patch: Partial<InfoDraft>) => setDraft((v) => ({ ...v, ...patch }));
-  const err = (key: keyof InfoErrors) => (errors[key] ? t('lodging.places.required') : undefined);
+  const err = (key: keyof InfoErrors) => (errors[key] ? t('places.required') : undefined);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -118,7 +118,7 @@ export function InfoTab({
       {
         onSuccess: (saved) => {
           setDraft(infoOf(saved));
-          toast.success(t('lodging.editor.saved'), { duration: 3500 });
+          toast.success(t('editor.saved'), { duration: 3500 });
         },
         onError: (error) =>
           saveError(error, {
@@ -127,8 +127,8 @@ export function InfoTab({
             conflict: (e) => {
               const codes = e.details?.['codes'];
               return Array.isArray(codes)
-                ? t('lodging.info.sellModeConflict', { codes: codes.join(', ') })
-                : t('lodging.info.codeTaken');
+                ? t('info.sellModeConflict', { codes: codes.join(', ') })
+                : t('info.codeTaken');
             },
           }),
       },
@@ -138,7 +138,7 @@ export function InfoTab({
   const text = (key: 'code' | 'name' | 'area' | 'address', max: number) => (
     <Field
       id={`${id}-${key}`}
-      label={t(`lodging.info.${key}`)}
+      label={t(`info.${key}`)}
       error={key === 'code' || key === 'name' ? err(key) : undefined}
     >
       <Input
@@ -152,7 +152,7 @@ export function InfoTab({
     </Field>
   );
   const count = (key: 'standardAdults' | 'standardChildren' | 'maxGuests', hint?: string) => (
-    <Field id={`${id}-${key}`} label={t(`lodging.info.${key}`)} hint={hint} error={err(key)}>
+    <Field id={`${id}-${key}`} label={t(`info.${key}`)} hint={hint} error={err(key)}>
       <Input
         id={`${id}-${key}`}
         type="number"
@@ -173,11 +173,8 @@ export function InfoTab({
         {text('code', 20)}
         {text('name', 200)}
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {text('area', 200)}
-        {text('address', 500)}
-      </div>
-      <Field id={`${id}-description`} label={t('lodging.info.description')}>
+      {text('address', 500)}
+      <Field id={`${id}-description`} label={t('info.description')}>
         <Textarea
           id={`${id}-description`}
           rows={4}
@@ -195,12 +192,12 @@ export function InfoTab({
           onCheckedChange={(active) => set({ active })}
         />
         <div className="grid gap-0.5">
-          <Label htmlFor={`${id}-active`}>{t('lodging.info.status')}</Label>
-          <p className="text-xs text-muted-foreground">{t('lodging.info.statusHint')}</p>
+          <Label htmlFor={`${id}-active`}>{t('info.status')}</Label>
+          <p className="text-xs text-muted-foreground">{t('info.statusHint')}</p>
         </div>
       </div>
       <fieldset className="grid gap-2">
-        <legend className="mb-1 text-sm font-medium">{t('lodging.info.sellMode')}</legend>
+        <legend className="mb-1 text-sm font-medium">{t('info.sellMode')}</legend>
         <RadioGroup
           value={d.sellMode}
           onValueChange={(v) => set({ sellMode: v as SellMode })}
@@ -210,22 +207,18 @@ export function InfoTab({
           {(['whole', 'rooms'] as const).map((mode) => (
             <div key={mode} className="flex items-center gap-2">
               <RadioGroupItem id={`${id}-mode-${mode}`} value={mode} />
-              <Label htmlFor={`${id}-mode-${mode}`}>{t(`lodging.sellMode.${mode}`)}</Label>
+              <Label htmlFor={`${id}-mode-${mode}`}>{t(`sellMode.${mode}`)}</Label>
             </div>
           ))}
         </RadioGroup>
-        <p className="text-xs text-muted-foreground">{t('lodging.info.sellModeHint')}</p>
+        <p className="text-xs text-muted-foreground">{t('info.sellModeHint')}</p>
       </fieldset>
       <div className="flex flex-wrap gap-4">
         {count('standardAdults')}
         {count('standardChildren')}
-        {count('maxGuests', t('lodging.info.maxGuestsHint'))}
+        {count('maxGuests', t('info.maxGuestsHint'))}
       </div>
-      <Field
-        id={`${id}-amenities`}
-        label={t('lodging.info.amenities')}
-        hint={t('lodging.info.amenitiesHint')}
-      >
+      <Field id={`${id}-amenities`} label={t('info.amenities')} hint={t('info.amenitiesHint')}>
         <Textarea
           id={`${id}-amenities`}
           rows={4}
@@ -237,8 +230,8 @@ export function InfoTab({
       <LayoutEditor value={d.layout} disabled={!canEdit} onChange={(layout) => set({ layout })} />
       <Field
         id={`${id}-internalNote`}
-        label={t('lodging.info.internalNote')}
-        hint={t('lodging.info.internalNoteHint')}
+        label={t('info.internalNote')}
+        hint={t('info.internalNoteHint')}
       >
         <Textarea
           id={`${id}-internalNote`}
@@ -253,7 +246,7 @@ export function InfoTab({
         dirty={dirty}
         pending={update.isPending}
         canEdit={canEdit}
-        label={t('lodging.editor.save')}
+        label={t('editor.save')}
       />
     </form>
   );
@@ -268,37 +261,37 @@ function LayoutEditor({
   disabled: boolean;
   onChange: (layout: InfoDraft['layout']) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const setRow = (i: number, patch: Partial<InfoDraft['layout'][number]>) =>
     onChange(value.map((r, j) => (i === j ? { ...r, ...patch } : r)));
   return (
     <fieldset className="grid gap-2">
-      <legend className="text-sm font-medium">{t('lodging.info.layout')}</legend>
-      <p className="text-xs text-muted-foreground">{t('lodging.info.layoutHint')}</p>
+      <legend className="text-sm font-medium">{t('info.layout')}</legend>
+      <p className="text-xs text-muted-foreground">{t('info.layoutHint')}</p>
       {value.map((row, i) => (
         <div
           key={i}
           className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)_auto]"
         >
           <Input
-            aria-label={`${t('lodging.info.layoutName')} ${i + 1}`}
-            placeholder={t('lodging.info.layoutName')}
+            aria-label={`${t('info.layoutName')} ${i + 1}`}
+            placeholder={t('info.layoutName')}
             value={row.name}
             maxLength={100}
             disabled={disabled}
             onChange={(e) => setRow(i, { name: e.target.value })}
           />
           <Input
-            aria-label={`${t('lodging.info.layoutBeds')} ${i + 1}`}
-            placeholder={t('lodging.info.layoutBeds')}
+            aria-label={`${t('info.layoutBeds')} ${i + 1}`}
+            placeholder={t('info.layoutBeds')}
             value={row.beds}
             maxLength={500}
             disabled={disabled}
             onChange={(e) => setRow(i, { beds: e.target.value })}
           />
           <Input
-            aria-label={`${t('lodging.info.layoutNote')} ${i + 1}`}
-            placeholder={t('lodging.info.layoutNote')}
+            aria-label={`${t('info.layoutNote')} ${i + 1}`}
+            placeholder={t('info.layoutNote')}
             value={row.note}
             maxLength={500}
             disabled={disabled}
@@ -309,7 +302,7 @@ function LayoutEditor({
               type="button"
               size="icon"
               variant="ghost"
-              aria-label={t('lodging.info.removeLayout', { name: row.name || i + 1 })}
+              aria-label={t('info.removeLayout', { name: row.name || i + 1 })}
               onClick={() => onChange(value.filter((_, j) => j !== i))}
             >
               <Trash2 aria-hidden />
@@ -326,7 +319,7 @@ function LayoutEditor({
           onClick={() => onChange([...value, { name: '', beds: '', note: '' }])}
         >
           <Plus aria-hidden />
-          {t('lodging.info.addLayout')}
+          {t('info.addLayout')}
         </Button>
       )}
     </fieldset>

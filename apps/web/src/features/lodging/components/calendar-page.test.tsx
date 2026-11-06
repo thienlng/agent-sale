@@ -66,6 +66,7 @@ const calendar: CalendarDto = {
           segments: [
             {
               bookingId: BK1,
+              packageNames: [],
               code: 'BK-0001',
               kind: 'stay',
               status: 'confirmed',
@@ -104,6 +105,7 @@ const calendar: CalendarDto = {
           segments: [
             {
               bookingId: BK2,
+              packageNames: [],
               code: 'BK-0002',
               kind: 'stay',
               status: 'hold',
@@ -159,6 +161,7 @@ const property: PropertyDto = {
     other: '',
   },
   gallery: [],
+  galleryCover: '',
   internalNote: '',
   units: [
     {
@@ -170,9 +173,18 @@ const property: PropertyDto = {
       capacityChildren: 8,
       active: true,
       sortOrder: 0,
+      category: 'room',
+      view: '',
+      areaM2: null,
+      description: '',
+      amenities: [],
+      maxGuests: null,
+      gallery: [],
+      galleryCover: '',
     },
   ],
   rates: [],
+  packages: [],
   surcharges: { extraAdult: null, extraChild: null },
   version: 1,
   createdAt: '2026-11-01T00:00:00.000Z',
@@ -192,6 +204,7 @@ const quote: QuoteDto = {
   totalCost: 30_000_000,
   warnings: [],
   takenBy: [],
+  packages: [],
 };
 
 const created = {
@@ -204,6 +217,8 @@ const created = {
   whole: true,
   unitIds: [A17_UNIT],
   unitNames: ['Nguyên căn'],
+  packageIds: [],
+  packageNames: [],
   status: 'hold',
   checkIn: '2026-11-02',
   checkOut: '2026-11-05',
@@ -323,7 +338,17 @@ describe('CalendarPage', () => {
       'POST /lodging/availability': {
         status: 200,
         body: {
-          options: [{ propertyId: A17, whole: true, unitIds: [A17_UNIT], fits: true, quote }],
+          options: [
+            {
+              propertyId: A17,
+              whole: true,
+              unitIds: [A17_UNIT],
+              fits: true,
+              quote,
+              packages: [],
+              alternatives: [],
+            },
+          ],
         },
       },
     });
@@ -420,6 +445,8 @@ describe('CalendarPage', () => {
               unitIds: [A17_UNIT],
               fits: true,
               quote: { ...quote, totalSell: 27_000_000 },
+              packages: [],
+              alternatives: [],
             },
           ],
         },
@@ -641,6 +668,7 @@ describe('CalendarPage notes, tags and quick view', () => {
     for (const row of h1.rows)
       row.segments.push({
         bookingId: BK3,
+        packageNames: [],
         code: 'BK-0009',
         kind: 'stay',
         status: 'confirmed',
@@ -732,5 +760,57 @@ describe('CalendarPage notes, tags and quick view', () => {
       expect(screen.getAllByText('Chủ nhà: gọi trước 21h, chìa khoá ở bảo vệ')).toHaveLength(2),
     );
     expect(screen.getByText('Ghi chú nội bộ')).toBeInTheDocument();
+  });
+});
+
+describe('CalendarPage bedroom packages', () => {
+  const P5 = '0193a000-0000-7000-8000-000000000705';
+  const P4 = '0193a000-0000-7000-8000-000000000704';
+  const P6 = '0193a000-0000-7000-8000-000000000706';
+
+  it('names the package on the booking bar and in the quick view', async () => {
+    const withPackage = structuredClone(calendar);
+    const seg = withPackage.properties[0]?.rows[0]?.segments[0];
+    if (seg) seg.packageNames = ['5PN'];
+    stubApi({ 'GET /lodging/calendar': { status: 200, body: withPackage } });
+    const user = userEvent.setup();
+    renderPage();
+    const taken = await cell(/^A17, Thứ Sáu 06\/11, Đã đặt BK-0001/);
+    expect(screen.getByText('Anh Nam · BK-0001 · 5PN')).toBeInTheDocument();
+    await user.hover(taken);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Gói 5PN');
+  });
+
+  it('shows the picked package and the totals of the other packages in Tìm trống', async () => {
+    stubApi({
+      'POST /lodging/availability': {
+        status: 200,
+        body: {
+          options: [
+            {
+              propertyId: A17,
+              whole: true,
+              unitIds: [A17_UNIT],
+              fits: true,
+              quote: { ...quote, totalSell: 27_000_000 },
+              packages: [{ target: null, packageId: P5, name: '5PN' }],
+              alternatives: [
+                { packageId: P4, name: '4PN', bedrooms: 4, totalSell: null, fits: false },
+                { packageId: P6, name: '6PN', bedrooms: 6, totalSell: 30_000_000, fits: true },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await cell(/^A17, Thứ Hai 02\/11, trống/);
+    const find = screen.getByRole('search');
+    await user.type(within(find).getByLabelText('Nhận phòng'), '2026-11-13');
+    await user.type(within(find).getByLabelText('Trả phòng'), '2026-11-15');
+    await user.click(within(find).getByRole('button', { name: 'Tìm' }));
+    expect(await screen.findByText('Gói 5PN')).toBeInTheDocument();
+    expect(screen.getByText(/^Gói khác: 4PN không bán, 6PN 30\.000\.000/)).toBeInTheDocument();
   });
 });

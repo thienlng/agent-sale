@@ -9,6 +9,10 @@ import { render, type RenderOptions } from '@testing-library/react';
 import type { ReactElement } from 'react';
 
 import { Providers } from '@/app/providers';
+import { loadNamespace } from '@/lib/i18n';
+
+// Routes load the lodging namespace before rendering; tests render the pages directly.
+await loadNamespace('lodging');
 
 /** Render with app providers (i18n, query). */
 export function renderWithProviders(ui: ReactElement, options?: RenderOptions) {

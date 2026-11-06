@@ -1,72 +1,115 @@
 import type { PropertyDto } from '@agent-sales/contracts';
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { useUpdateProperty } from '../api/properties';
 import { useSaveError } from '../hooks/use-save-error';
-import { GalleryEditor, type GalleryPhoto, type GalleryUploadSlot } from './gallery-editor';
+import { cloneGallery, type GalleryDraft, type GalleryImageUpload } from '../lib/gallery-model';
+import { FolderList } from './gallery/folder-list';
+import { FolderView } from './gallery/folder-view';
 import { TabSaveBar, useReportDirty, useTabDraft } from './property-tab-parts';
 
-/** "Ảnh" tab: captioned photos (first = cover), saved as the whole gallery. */
-export function GalleryTab({
-  property: p,
-  canEdit,
-  onDirtyChange,
-  renderUpload,
-}: {
-  property: PropertyDto;
+/** The editable copy of any gallery owner (a property or one of its units). */
+export const galleryDraftOf = (owner: {
+  gallery: PropertyDto['gallery'];
+  galleryCover: string;
+}): GalleryDraft => ({
+  gallery: cloneGallery(owner.gallery),
+  galleryCover: owner.galleryCover,
+});
+
+/** What a gallery owner does on save: `saved` takes the stored copy, `stale` drops the edits. */
+export type GallerySave = (
+  draft: GalleryDraft,
+  done: { saved: (next: GalleryDraft) => void; stale: () => void },
+) => void;
+
+export interface GalleryFormProps {
+  /** The stored gallery (memoised by the caller). */
+  base: GalleryDraft;
   canEdit: boolean;
+  pending: boolean;
+  onSave: GallerySave;
   onDirtyChange: (dirty: boolean) => void;
-  renderUpload?: GalleryUploadSlot | undefined;
-}) {
-  const { t } = useTranslation();
-  const base = useMemo<GalleryPhoto[]>(() => p.gallery.map((g) => ({ ...g })), [p]);
+  uploadImage?: GalleryImageUpload | undefined;
+  folderId?: string | undefined;
+  onFolderChange: (folderId: string | undefined) => void;
+}
+
+/**
+ * The T-192 folder UI for any gallery: the folder list, or the open folder (`folderId`, kept
+ * in the URL by the route so Back works). One draft of every folder plus the cover, handed to
+ * `onSave` as a whole.
+ */
+export function GalleryForm({
+  base,
+  canEdit,
+  pending,
+  onSave,
+  onDirtyChange,
+  uploadImage,
+  folderId,
+  onFolderChange,
+}: GalleryFormProps) {
+  const { t } = useTranslation('lodging');
   const { draft, setDraft, dirty, discard } = useTabDraft(base);
   useReportDirty(dirty, onDirtyChange);
-  const [submitted, setSubmitted] = useState(false);
-  const update = useUpdateProperty();
-  const saveError = useSaveError();
+  const change = (fn: (d: GalleryDraft) => GalleryDraft) => setDraft((d) => fn(d));
+  const open = folderId ? draft.gallery.find((f) => f.id === folderId) : undefined;
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
-    if (draft.some((g) => !g.caption.trim()) || update.isPending || !canEdit) return;
+    if (pending || !canEdit) return;
+    onSave(draft, {
+      saved: (next) => {
+        setDraft(next);
+        toast.success(t('editor.saved'), { duration: 3500 });
+      },
+      stale: discard,
+    });
+  };
+
+  return (
+    <form onSubmit={submit} noValidate className="grid gap-4">
+      {open ? (
+        <FolderView
+          draft={draft}
+          folder={open}
+          canEdit={canEdit}
+          onChange={change}
+          onBack={() => onFolderChange(undefined)}
+          uploadImage={uploadImage}
+        />
+      ) : (
+        <FolderList draft={draft} canEdit={canEdit} onChange={change} onOpen={onFolderChange} />
+      )}
+      <TabSaveBar dirty={dirty} pending={pending} canEdit={canEdit} label={t('media.save')} />
+    </form>
+  );
+}
+
+/** "Ảnh & video" tab of a property (T-192): its gallery, saved with one PATCH. */
+export function GalleryTab({
+  property: p,
+  ...rest
+}: { property: PropertyDto } & Omit<GalleryFormProps, 'base' | 'pending' | 'onSave'>) {
+  const base = useMemo(() => galleryDraftOf(p), [p]);
+  const update = useUpdateProperty();
+  const saveError = useSaveError();
+  const save: GallerySave = (draft, done) =>
     update.mutate(
       {
         id: p.id,
         body: {
           version: p.version,
-          patch: { gallery: draft.map((g) => ({ url: g.url, caption: g.caption.trim() })) },
+          patch: { gallery: draft.gallery, galleryCover: draft.galleryCover },
         },
       },
       {
-        onSuccess: (saved) => {
-          setDraft(saved.gallery.map((g) => ({ ...g })));
-          setSubmitted(false);
-          toast.success(t('lodging.editor.saved'), { duration: 3500 });
-        },
-        onError: (error) => saveError(error, { onStale: discard }),
+        onSuccess: (saved) => done.saved(galleryDraftOf(saved)),
+        onError: (error) => saveError(error, { onStale: done.stale }),
       },
     );
-  };
-
-  return (
-    <form onSubmit={submit} noValidate className="grid gap-4">
-      <p className="text-sm text-muted-foreground">{t('lodging.photos.hint')}</p>
-      <GalleryEditor
-        value={draft}
-        onChange={setDraft}
-        disabled={!canEdit}
-        showErrors={submitted}
-        renderUpload={renderUpload}
-      />
-      <TabSaveBar
-        dirty={dirty}
-        pending={update.isPending}
-        canEdit={canEdit}
-        label={t('lodging.photos.save')}
-      />
-    </form>
-  );
+  return <GalleryForm {...rest} base={base} pending={update.isPending} onSave={save} />;
 }

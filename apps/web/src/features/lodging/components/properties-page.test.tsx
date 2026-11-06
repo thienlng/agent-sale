@@ -25,7 +25,7 @@ afterEach(() => {
 
 const a17 = summaryFixture({
   today: 'occupied',
-  area: 'Sân golf Tam Đảo',
+  address: 'Lô D33 Sân Golf Tam Đảo, Phú Thọ',
   weekdaySell: [13_200_000, 13_200_000, 13_200_000, 13_200_000, 15_400_000, 17_600_000, 15_400_000],
 });
 const h1 = summaryFixture({
@@ -80,8 +80,15 @@ describe('PropertiesPage', () => {
       code: 'T1',
       gallery: [
         {
-          url: '/media/products/0192f0a0-0000-7000-8000-000000000001/0192f0a0-0000-7000-8000-0000000000aa.jpg',
-          caption: 'Ảnh dọc',
+          id: 'front',
+          name: 'Mặt tiền',
+          items: [
+            {
+              kind: 'image',
+              url: '/media/products/0192f0a0-0000-7000-8000-000000000001/0192f0a0-0000-7000-8000-0000000000aa.jpg',
+              caption: 'Ảnh dọc',
+            },
+          ],
         },
       ],
     });
@@ -94,7 +101,7 @@ describe('PropertiesPage', () => {
     });
     vi.stubGlobal('fetch', fetchStub);
     renderWithRouter(() => <PropertiesPage />);
-    const img = await screen.findByRole('img', { name: 'Ảnh dọc' });
+    const img = await screen.findByRole('img', { name: tall.name });
     // An absolutely positioned cover cannot stretch its aspect-ratio box (min-height: auto).
     expect(img).toHaveClass('absolute', 'inset-0', 'object-cover');
     expect(img.parentElement).toHaveClass('aspect-[4/3]', 'relative', 'overflow-hidden');
@@ -141,7 +148,7 @@ describe('PropertiesPage list view', () => {
       'Ảnh',
       'Mã',
       'Tên',
-      'Khu vực',
+      'Địa chỉ',
       'Kiểu bán',
       'Tiêu chuẩn',
       'T2–T5',
@@ -151,7 +158,7 @@ describe('PropertiesPage list view', () => {
     ]);
     const a17Row = within(table).getByRole('row', { name: /A17/ });
     expect(within(a17Row).getByRole('link', { name: 'Villa A17 Vinpearl' })).toBeInTheDocument();
-    expect(within(a17Row).getByText('Sân golf Tam Đảo')).toBeInTheDocument();
+    expect(within(a17Row).getByText('Lô D33 Sân Golf Tam Đảo, Phú Thọ')).toBeInTheDocument();
     expect(within(a17Row).getByText('Nguyên căn')).toBeInTheDocument();
     expect(within(a17Row).getByText('24 NL + 8 TE')).toBeInTheDocument();
     expect(within(a17Row).getByText('13,2tr')).toBeInTheDocument();

@@ -1,4 +1,4 @@
-import type { BookingDetail, UpdateBookingRequest } from '@agent-sales/contracts';
+import type { BookingDetail, QuoteDto, UpdateBookingRequest } from '@agent-sales/contracts';
 import { type FormEvent, useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -14,9 +14,24 @@ import { useQuote } from '../api/calendar';
 import { quoteBody } from '../hooks/use-booking-draft';
 import { useDebouncedValue } from '../hooks/use-debounced-value';
 import { isStayRange } from '../lib/format';
+import {
+  choiceIds,
+  choiceOf,
+  type PackageChoice,
+  quoteChoice,
+  sameIdSet,
+  selectTargets,
+} from '../lib/package-choice';
 import { type PartyValue, type PriceFields, toParty } from '../lib/party';
 import { BookingErrorAlert } from './booking-error-alert';
-import { SavingLabel, SheetSection, StayDates, TakenAlert, UnitPicker } from './booking-fields';
+import {
+  PackagePicker,
+  SavingLabel,
+  SheetSection,
+  StayDates,
+  TakenAlert,
+  UnitPicker,
+} from './booking-fields';
 import { PartyInput } from './party-input';
 import { QuoteBreakdown } from './quote-breakdown';
 import { TagInput } from './tag-input';
@@ -41,6 +56,10 @@ export function storedManualTotal(b: BookingDetail): number | null {
  * keeps it: only the adjustment or a new manual price moves the total.
  * A manual price never silently survives a change of dates/rooms/guests: staff must type a
  * new one or explicitly choose the calculated price.
+ * Packages: `packageIds` is sent only when staff changed a package select (omitted = the server
+ * keeps the booking's packages while they fit, else re-picks; a change of rooms without a choice
+ * picks them automatically). The preview asks the server for that same rule (`keepPackageIds`)
+ * and shows the packages its quote used, so it prices what the save will store.
  */
 export function BookingEditForm({
   booking,
@@ -51,7 +70,7 @@ export function BookingEditForm({
   onDone: () => void;
   onReload: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('lodging');
   const id = useId();
   const update = useUpdateBooking();
   const property = useProperty(booking.propertyId);
@@ -77,12 +96,27 @@ export function BookingEditForm({
   const [manualTouched, setManualTouched] = useState(false);
   const [useAuto, setUseAuto] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // null = the package selects were not touched.
+  const [choice, setChoice] = useState<PackageChoice | null>(null);
 
+  const unitsChanged = whole !== booking.whole || (!whole && !sameSet(unitIds, booking.unitIds));
+  const stored = useMemo(
+    () => choiceOf(property.data, booking.packageIds),
+    [property.data, booking.packageIds],
+  );
+  // Set below from the live quote; the selects follow the targets it priced (see selectTargets).
+  const [liveQuote, setLiveQuote] = useState<QuoteDto | undefined>(undefined);
+  const targets = stay ? selectTargets(property.data, whole, unitIds, liveQuote) : [];
+  const packageIds = choice === null ? [] : choiceIds(choice, targets);
+  // Untouched selects and the same rooms: the save keeps the booking's packages while they fit.
+  const keepPackageIds = choice === null && !unitsChanged ? booking.packageIds : [];
+  const packagesChanged =
+    stay && choice !== null && (unitsChanged || !sameIdSet(packageIds, booking.packageIds));
   const stayChanged =
     checkIn !== booking.checkIn ||
     checkOut !== booking.checkOut ||
-    whole !== booking.whole ||
-    (!whole && !sameSet(unitIds, booking.unitIds)) ||
+    unitsChanged ||
+    packagesChanged ||
     party.adults !== booking.party.adults ||
     !sameList(party.childAges, booking.party.childAges);
   // A checked-in stay only moves its check-out; when it does, its price is shown (and a manual
@@ -92,14 +126,29 @@ export function BookingEditForm({
   const manualMissing =
     manualRequired && !useAuto && (!manualTouched || price.manualTotal === null);
 
+  const packageKey = packageIds.join(',');
+  const keepKey = keepPackageIds.join(',');
   const body = useMemo(
     () =>
       block
         ? null
-        : quoteBody({ propertyId: booking.propertyId, checkIn, checkOut, whole, unitIds, party }),
-    [block, booking.propertyId, checkIn, checkOut, whole, unitIds, party],
+        : quoteBody({
+            propertyId: booking.propertyId,
+            checkIn,
+            checkOut,
+            whole,
+            unitIds,
+            party,
+            packageIds: packageKey ? packageKey.split(',') : [],
+            keepPackageIds: keepKey ? keepKey.split(',') : [],
+          }),
+    [block, booking.propertyId, checkIn, checkOut, whole, unitIds, party, packageKey, keepKey],
   );
   const quote = useQuote(useDebouncedValue(stayChanged ? body : null, 300));
+  const live = stayChanged ? quote.data : undefined;
+  if (live !== liveQuote) setLiveQuote(live);
+  // What the selects show: staff's choice, else the packages the live quote used.
+  const shownChoice = choice ?? (live ? quoteChoice(live) : unitsChanged ? {} : stored);
 
   const invalid =
     !isStayRange(checkIn, checkOut) ||
@@ -115,10 +164,11 @@ export function BookingEditForm({
     if (checkOut !== booking.checkOut) out.checkOut = checkOut;
     if (!checkedIn) {
       if (checkIn !== booking.checkIn) out.checkIn = checkIn;
-      if (whole !== booking.whole || (!whole && !sameSet(unitIds, booking.unitIds))) {
+      if (unitsChanged) {
         out.whole = whole;
         out.unitIds = whole ? [] : unitIds;
       }
+      if (packagesChanged) out.packageIds = packageIds;
       if (note !== booking.note) out.note = note;
     }
     if (!block && !sameList(tags, booking.tags)) out.tags = tags;
@@ -139,7 +189,7 @@ export function BookingEditForm({
       { id: booking.id, body: out },
       {
         onSuccess: (b) => {
-          toast.success(t('lodging.sheet.saved', { code: b.code }), { duration: 3500 });
+          toast.success(t('sheet.saved', { code: b.code }), { duration: 3500 });
           onDone();
         },
       },
@@ -149,7 +199,7 @@ export function BookingEditForm({
   return (
     <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col" noValidate>
       <div className="grid flex-1 gap-5 overflow-y-auto px-4 pb-4">
-        <SheetSection title={t('lodging.sheet.sectionDates')}>
+        <SheetSection title={t('sheet.sectionDates')}>
           <StayDates
             checkIn={checkIn}
             checkOut={checkOut}
@@ -172,15 +222,24 @@ export function BookingEditForm({
               showError={submitted}
             />
           )}
+          {stay && (
+            <PackagePicker
+              property={property.data}
+              targets={targets}
+              choice={shownChoice}
+              quote={stayChanged ? quote.data : (booking.quote ?? undefined)}
+              onChange={setChoice}
+            />
+          )}
           <TakenAlert quote={quote.data} />
         </SheetSection>
         {stay && (
-          <SheetSection title={t('lodging.sheet.sectionGuest')}>
+          <SheetSection title={t('sheet.sectionGuest')}>
             <PartyInput value={party} onChange={setParty} />
             <div className="grid grid-cols-2 gap-2">
               <div className="grid gap-1">
                 <Label htmlFor={`${id}-name`} className="text-xs">
-                  {t('lodging.sheet.guestName')}
+                  {t('sheet.guestName')}
                 </Label>
                 <Input
                   id={`${id}-name`}
@@ -190,12 +249,12 @@ export function BookingEditForm({
                   onChange={(e) => setGuestName(e.target.value)}
                 />
                 {submitted && !guestName.trim() && (
-                  <p className="text-xs text-destructive">{t('lodging.sheet.required')}</p>
+                  <p className="text-xs text-destructive">{t('sheet.required')}</p>
                 )}
               </div>
               <div className="grid gap-1">
                 <Label htmlFor={`${id}-phone`} className="text-xs">
-                  {t('lodging.sheet.guestPhone')}
+                  {t('sheet.guestPhone')}
                 </Label>
                 <Input
                   id={`${id}-phone`}
@@ -209,7 +268,7 @@ export function BookingEditForm({
           </SheetSection>
         )}
         {priced && (
-          <SheetSection title={t('lodging.sheet.sectionPrice')}>
+          <SheetSection title={t('sheet.sectionPrice')}>
             <QuoteBreakdown
               quote={stayChanged ? quote.data : (booking.quote ?? undefined)}
               loading={quote.isFetching}
@@ -224,6 +283,7 @@ export function BookingEditForm({
                     }
                   : null
               }
+              property={property.data}
               price={price}
               onPriceChange={(next) => {
                 if (next.manualTotal !== price.manualTotal) setManualTouched(true);
@@ -236,10 +296,10 @@ export function BookingEditForm({
           </SheetSection>
         )}
         {(!checkedIn || !block) && (
-          <SheetSection title={t('lodging.sheet.sectionNote')}>
+          <SheetSection title={t('sheet.sectionNote')}>
             {!checkedIn && (
               <Textarea
-                aria-label={t('lodging.sheet.note')}
+                aria-label={t('sheet.note')}
                 rows={2}
                 maxLength={2000}
                 value={note}
@@ -253,10 +313,10 @@ export function BookingEditForm({
       </div>
       <div className="flex justify-end gap-2 border-t border-border px-4 py-3">
         <Button type="button" variant="ghost" onClick={onDone}>
-          {t('lodging.sheet.cancelEdit')}
+          {t('sheet.cancelEdit')}
         </Button>
         <Button type="submit" disabled={update.isPending || (submitted && invalid)}>
-          <SavingLabel saving={update.isPending}>{t('lodging.sheet.save')}</SavingLabel>
+          <SavingLabel saving={update.isPending}>{t('sheet.save')}</SavingLabel>
         </Button>
       </div>
     </form>

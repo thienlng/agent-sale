@@ -67,7 +67,14 @@ function world() {
     [owner, [{ accountId, name: 'Account', role: 'owner' }]],
   ]);
   const memberships: WorkspaceMembership[] = [
-    { workspaceId: business, workspaceName: 'Shop', role: 'owner', industry: 'retail', accountId },
+    {
+      workspaceId: business,
+      workspaceName: 'Shop',
+      role: 'owner',
+      industry: 'retail',
+      accountId,
+      createdAt: new Date(0),
+    },
   ];
   const account = {
     listForUser: (u: UserId) => Promise.resolve(roles.get(u) ?? []),
