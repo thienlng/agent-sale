@@ -1,5 +1,5 @@
 import type { AssistantMessageDto, AssistantProposalDto } from '@agent-sales/contracts';
-import { ChevronDown, Loader2, Rabbit, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { ChevronDown, Loader2, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -13,6 +13,7 @@ import { NAVIGATE_FOLLOW_UP_TEXT } from '../utils/navigate-follow-up';
 import { AssistantMarkdown } from './assistant-markdown';
 import { AssistantProposal } from './assistant-proposals';
 import { AssistantStepList, AssistantSteps } from './assistant-steps';
+import rabbitUrl from '@/assets/assistant-rabbit.png';
 
 /** Lazy, so recharts loads only when an answer has a chart (docs/16). */
 const AssistantChart = lazy(() => import('./assistant-chart'));
@@ -170,8 +171,8 @@ export function AssistantMessages({
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
       {messages.length === 0 && proposals.length === 0 && !pendingTurn ? (
         <div className="flex flex-col items-center px-6 py-12 text-center">
-          <span className="grid size-14 place-items-center rounded-full bg-primary-soft text-primary">
-            <Rabbit className="size-7" aria-hidden />
+          <span className="grid size-14 place-items-center rounded-full bg-primary">
+            <img src={rabbitUrl} alt="" className="size-10 object-contain" />
           </span>
           <p className="mt-4 font-semibold">{t('emptyTitle')}</p>
           <p className="mt-1 max-w-xs text-sm text-muted-foreground">{t('emptyBody')}</p>
