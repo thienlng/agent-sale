@@ -21,6 +21,14 @@ const unit = (n: number, kind: 'whole' | 'room', active = true) => ({
   capacityChildren: 1,
   active,
   sortOrder: n,
+  category: kind === 'whole' ? 'house' : 'room',
+  view: '',
+  areaM2: null,
+  description: '',
+  amenities: [],
+  maxGuests: null,
+  gallery: [],
+  galleryCover: '',
 });
 
 function property(n: number) {
@@ -53,6 +61,7 @@ function property(n: number) {
     galleryCover: '',
     internalNote: '',
     units: rooms ? [unit(1, 'room'), unit(2, 'room', false), unit(3, 'room')] : [unit(0, 'whole')],
+    packages: [],
     surcharges: { extraAdult: { sell: 300_000, cost: 200_000 }, extraChild: null },
     version: 1,
     createdAt: STAMP,
@@ -70,6 +79,8 @@ const booking = (n: number) => ({
   whole: true,
   unitIds: [uuid(1000)],
   unitNames: ['Nguyên căn'],
+  packageIds: [],
+  packageNames: [],
   status: n % 2 ? 'hold' : 'confirmed',
   checkIn: '2026-11-06',
   checkOut: '2026-11-08',
@@ -129,6 +140,7 @@ async function mockHotel(page: Page) {
         sell: 12_000_000,
         cost: 10_000_000,
         minNights: null,
+        packageId: null,
       }));
       return route.fulfill(json({ ...found, rates }));
     }
@@ -186,7 +198,7 @@ for (const width of VIEWPORTS) {
     await expect(page.getByLabel('Giá bán Nguyên căn T2')).toBeVisible();
     await expectNoOverflow(page, width);
     await page.goto(`/app/properties/${uuid(103)}`);
-    await page.getByRole('tab', { name: 'Phòng' }).click();
+    await page.getByRole('tab', { name: 'Đơn vị cho thuê' }).click();
     await expect(page.getByText('Đang tắt', { exact: true })).toBeVisible();
     await expectNoOverflow(page, width);
     expect(errors).toEqual([]);

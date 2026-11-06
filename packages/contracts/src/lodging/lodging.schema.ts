@@ -565,8 +565,8 @@ export const CalendarSegment = z.object({
   totalSell: Vnd.nullable(),
   tags: z.array(z.string()),
   note: z.string(),
-  /** Package name(s) of the booking (T-193); empty when none. */
-  packageNames: z.array(z.string()),
+  /** Package name(s) of the booking (T-193); empty when none, or from an older API. */
+  packageNames: z.array(z.string()).default([]),
 });
 export const CalendarRow = z.object({
   unitId: z.uuid(),
