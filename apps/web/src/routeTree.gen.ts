@@ -41,6 +41,7 @@ import { Route as AppBotsIndexRouteImport } from './routes/app/bots/index'
 import { Route as AppBotsBotIdRouteImport } from './routes/app/bots/$botId'
 import { Route as AppBusinessesIndexRouteImport } from './routes/app/businesses/index'
 import { Route as AppBusinessesNewRouteImport } from './routes/app/businesses/new'
+import { Route as AppCalendarPropertyIdRouteImport } from './routes/app/calendar_.$propertyId'
 import { Route as AppCrmSettingsIndexRouteImport } from './routes/app/crm-settings/index'
 import { Route as AppCrmSettingsDistributionRouteImport } from './routes/app/crm-settings/distribution'
 import { Route as AppCrmSettingsSaasPlansRouteImport } from './routes/app/crm-settings/saas-plans'
@@ -240,6 +241,11 @@ const AppBusinessesIndexRoute = AppBusinessesIndexRouteImport.update({
 const AppBusinessesNewRoute = AppBusinessesNewRouteImport.update({
   id: '/businesses/new',
   path: '/businesses/new',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCalendarPropertyIdRoute = AppCalendarPropertyIdRouteImport.update({
+  id: '/calendar_/$propertyId',
+  path: '/calendar/$propertyId',
   getParentRoute: () => AppRoute,
 } as any)
 const AppCrmSettingsIndexRoute = AppCrmSettingsIndexRouteImport.update({
@@ -482,6 +488,7 @@ export interface FileRoutesByFullPath {
   '/admin/accounts/$accountId': typeof AdminAccountsAccountIdRoute
   '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
   '/app/businesses/new': typeof AppBusinessesNewRoute
+  '/app/calendar/$propertyId': typeof AppCalendarPropertyIdRoute
   '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
   '/app/crm-settings/saas-plans': typeof AppCrmSettingsSaasPlansRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
@@ -550,6 +557,7 @@ export interface FileRoutesByTo {
   '/app': typeof AppIndexRoute
   '/admin/accounts/$accountId': typeof AdminAccountsAccountIdRoute
   '/app/businesses/new': typeof AppBusinessesNewRoute
+  '/app/calendar/$propertyId': typeof AppCalendarPropertyIdRoute
   '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
   '/app/crm-settings/saas-plans': typeof AppCrmSettingsSaasPlansRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
@@ -625,6 +633,7 @@ export interface FileRoutesById {
   '/admin/accounts/$accountId': typeof AdminAccountsAccountIdRoute
   '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
   '/app/businesses/new': typeof AppBusinessesNewRoute
+  '/app/calendar_/$propertyId': typeof AppCalendarPropertyIdRoute
   '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
   '/app/crm-settings/saas-plans': typeof AppCrmSettingsSaasPlansRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
@@ -701,6 +710,7 @@ export interface FileRouteTypes {
     | '/admin/accounts/$accountId'
     | '/app/bots/$botId'
     | '/app/businesses/new'
+    | '/app/calendar/$propertyId'
     | '/app/crm-settings/distribution'
     | '/app/crm-settings/saas-plans'
     | '/app/crm-settings/sources'
@@ -769,6 +779,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/admin/accounts/$accountId'
     | '/app/businesses/new'
+    | '/app/calendar/$propertyId'
     | '/app/crm-settings/distribution'
     | '/app/crm-settings/saas-plans'
     | '/app/crm-settings/sources'
@@ -843,6 +854,7 @@ export interface FileRouteTypes {
     | '/admin/accounts/$accountId'
     | '/app/bots/$botId'
     | '/app/businesses/new'
+    | '/app/calendar_/$propertyId'
     | '/app/crm-settings/distribution'
     | '/app/crm-settings/saas-plans'
     | '/app/crm-settings/sources'
@@ -1122,6 +1134,13 @@ declare module '@tanstack/react-router' {
       path: '/businesses/new'
       fullPath: '/app/businesses/new'
       preLoaderRoute: typeof AppBusinessesNewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/calendar_/$propertyId': {
+      id: '/app/calendar_/$propertyId'
+      path: '/calendar/$propertyId'
+      fullPath: '/app/calendar/$propertyId'
+      preLoaderRoute: typeof AppCalendarPropertyIdRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/crm-settings/': {
@@ -1541,6 +1560,7 @@ interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
   AppBotsBotIdRoute: typeof AppBotsBotIdRouteWithChildren
   AppBusinessesNewRoute: typeof AppBusinessesNewRoute
+  AppCalendarPropertyIdRoute: typeof AppCalendarPropertyIdRoute
   AppIntegrationsKiotvietRoute: typeof AppIntegrationsKiotvietRoute
   AppOrdersOrderIdRoute: typeof AppOrdersOrderIdRoute
   AppOrdersNewRoute: typeof AppOrdersNewRoute
@@ -1574,6 +1594,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
   AppBotsBotIdRoute: AppBotsBotIdRouteWithChildren,
   AppBusinessesNewRoute: AppBusinessesNewRoute,
+  AppCalendarPropertyIdRoute: AppCalendarPropertyIdRoute,
   AppIntegrationsKiotvietRoute: AppIntegrationsKiotvietRoute,
   AppOrdersOrderIdRoute: AppOrdersOrderIdRoute,
   AppOrdersNewRoute: AppOrdersNewRoute,

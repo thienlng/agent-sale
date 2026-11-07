@@ -307,6 +307,21 @@ describe('CalendarPage', () => {
     expect(calls[0]?.url).toBe('/lodging/calendar?from=2026-11-02&to=2026-11-16');
   });
 
+  it('links each property name to its own calendar and keeps the rooms toggle apart', async () => {
+    stubApi();
+    renderPage();
+    const link = await screen.findByRole('link', { name: 'Mở lịch căn A17' });
+    expect(link).toHaveAttribute('href', `/app/calendar/${A17}`);
+    expect(screen.getByRole('link', { name: 'Mở lịch căn H1' })).toHaveAttribute(
+      'href',
+      `/app/calendar/${H1}`,
+    );
+    const toggle = screen.getByRole('button', { name: /Xem từng phòng của H1/ });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  });
+
   it('labels a hold with text, not only colour', async () => {
     stubApi();
     renderPage();
@@ -495,6 +510,10 @@ describe('CalendarPage', () => {
       renderPage();
       const full = await screen.findByRole('button', { name: 'A17 06/11: Đã kín' });
       expect(screen.queryByRole('radio', { name: 'Tháng' })).toBeNull();
+      expect(screen.getByRole('link', { name: 'Mở lịch căn A17' })).toHaveAttribute(
+        'href',
+        `/app/calendar/${A17}`,
+      );
       expect(calls.map((c) => c.url)).toContain('/lodging/calendar?from=2026-11-02&to=2026-12-03');
       await user.click(full);
       expect(

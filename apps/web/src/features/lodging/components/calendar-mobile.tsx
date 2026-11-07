@@ -1,4 +1,5 @@
-import { Plus } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { ChevronRight, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -69,9 +70,22 @@ export function CalendarMobile({
         return (
           <Card key={p.id} className="gap-3 py-3">
             <CardHeader className="px-3">
-              <CardTitle className="flex min-w-0 items-baseline gap-2 text-sm">
-                <span className="font-semibold">{p.code}</span>
-                <span className="min-w-0 truncate font-normal text-muted-foreground">{p.name}</span>
+              <CardTitle className="text-sm">
+                <Link
+                  to="/app/calendar/$propertyId"
+                  params={{ propertyId: p.id }}
+                  aria-label={t('pcal.open', { code: p.code })}
+                  className="-mx-1 flex min-h-11 min-w-0 items-center gap-2 rounded-sm px-1 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                >
+                  <span className="font-semibold">{p.code}</span>
+                  <span className="min-w-0 truncate font-normal text-muted-foreground">
+                    {p.name}
+                  </span>
+                  <ChevronRight
+                    aria-hidden
+                    className="ml-auto size-4 shrink-0 text-muted-foreground"
+                  />
+                </Link>
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 px-3">

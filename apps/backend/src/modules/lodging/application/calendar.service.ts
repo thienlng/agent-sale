@@ -35,19 +35,25 @@ import { currentUnits } from './property-support.js';
 
 const DAY_MS = 86_400_000;
 export const MAX_CALENDAR_NIGHTS = 62;
+/** The window of one property's own calendar ("Lịch căn": a year view plus a spare week). */
+export const MAX_PROPERTY_CALENDAR_NIGHTS = 371;
 const Uuid = z.uuid();
 
 type CalendarProperty = CalendarDto['properties'][number];
 type NightPrice = CalendarProperty['wholePrices'][number];
 type AvailabilityOption = AvailabilityDto['options'][number];
 
-/** The nights [from, to) of a calendar window: 1 to 62 nights. */
-function calendarNights(from: string, to: string): string[] {
+/**
+ * The nights [from, to) of a calendar window: 1 to 62 nights, or 1 to 371 when exactly one
+ * property is asked for (its own month, quarter and year views).
+ */
+function calendarNights(from: string, to: string, single: boolean): string[] {
   const count = (nightToUtcMs(to) - nightToUtcMs(from)) / DAY_MS;
-  if (count < 1 || count > MAX_CALENDAR_NIGHTS) {
+  const max = single ? MAX_PROPERTY_CALENDAR_NIGHTS : MAX_CALENDAR_NIGHTS;
+  if (count < 1 || count > max) {
     throw new LodgingError(
       'VALIDATION_FAILED',
-      `The calendar shows 1 to ${MAX_CALENDAR_NIGHTS} nights`,
+      `The calendar shows 1 to ${MAX_CALENDAR_NIGHTS} nights, or 1 to ${MAX_PROPERTY_CALENDAR_NIGHTS} for one property`,
       { from, to },
     );
   }
@@ -140,8 +146,8 @@ export class CalendarService {
     query: { from: string; to: string; propertyIds?: string | undefined },
   ): Promise<CalendarDto> {
     await this.access.assertHotel(ws);
-    const nights = calendarNights(query.from, query.to);
     const ids = parseIds(query.propertyIds);
+    const nights = calendarNights(query.from, query.to, ids?.length === 1);
     return this.store.run(ws, async (tx) => {
       const now = new Date();
       await expireHolds(tx, now);

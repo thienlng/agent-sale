@@ -38,15 +38,20 @@ export function segmentSpans(row: CalendarRowData, nights: string[]) {
 
 /** Taken / total units per night over the given properties, and the overall percentage. */
 export function occupancy(properties: CalendarPropertyData[], nights: string[]) {
+  return rowOccupancy(
+    properties.flatMap((p) => p.rows),
+    nights,
+  );
+}
+
+/** Taken / total units per night over the given unit rows, and the overall percentage. */
+export function rowOccupancy(rows: CalendarRowData[], nights: string[]) {
   const taken = nights.map(() => 0);
-  let total = 0;
-  for (const p of properties)
-    for (const row of p.rows) {
-      total += 1;
-      takenByNight(row, nights).forEach((s, i) => {
-        if (s) taken[i] = (taken[i] ?? 0) + 1;
-      });
-    }
+  for (const row of rows)
+    takenByNight(row, nights).forEach((s, i) => {
+      if (s) taken[i] = (taken[i] ?? 0) + 1;
+    });
+  const total = rows.length;
   const sum = taken.reduce((a, b) => a + b, 0);
   const pct = total && nights.length ? Math.round((sum / (total * nights.length)) * 100) : 0;
   return { taken, total, pct };

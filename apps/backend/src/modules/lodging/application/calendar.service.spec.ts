@@ -141,6 +141,50 @@ describe('CalendarService', () => {
     expect(rateReads).toEqual([[VILLA, HOMESTAY]]);
   });
 
+  describe('window length', () => {
+    const night = (offset: number) => {
+      const d = new Date(Date.UTC(2026, 11, 1) + offset * 86_400_000);
+      return d.toISOString().slice(0, 10);
+    };
+
+    it('serves up to 62 nights for several properties and refuses 63', async () => {
+      const { calendar } = service();
+      const ok = await calendar.calendar(ws, { from: night(0), to: night(62) });
+      expect(ok.properties[0]?.wholePrices).toHaveLength(62);
+      await expect(calendar.calendar(ws, { from: night(0), to: night(63) })).rejects.toMatchObject({
+        code: 'VALIDATION_FAILED',
+      });
+      await expect(
+        calendar.calendar(ws, {
+          from: night(0),
+          to: night(63),
+          propertyIds: `${VILLA},${HOMESTAY}`,
+        }),
+      ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    });
+
+    it('serves up to 371 nights for exactly one property and refuses 372', async () => {
+      const { calendar } = service();
+      const year = await calendar.calendar(ws, {
+        from: night(0),
+        to: night(371),
+        propertyIds: HOMESTAY,
+      });
+      expect(year.properties.map((p) => p.code)).toEqual(['HS1']);
+      expect(year.properties[0]?.rows[0]?.prices).toHaveLength(371);
+      await expect(
+        calendar.calendar(ws, { from: night(0), to: night(372), propertyIds: HOMESTAY }),
+      ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    });
+
+    it('refuses an empty or reversed window', async () => {
+      const { calendar } = service();
+      await expect(
+        calendar.calendar(ws, { from: night(1), to: night(1), propertyIds: VILLA }),
+      ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    });
+  });
+
   it('reads the rates of every property in one query for availability', async () => {
     const { calendar, rateReads } = service();
     await calendar.availability(ws, request(2));

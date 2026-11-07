@@ -45,7 +45,7 @@ export function HoldExpiry({ at, now }: { at: string | null; now: number }) {
 }
 
 /** "Bot tạo": amber while the hold waits for staff, quiet once handled. */
-function BotBadge({ pending }: { pending: boolean }) {
+export function BotBadge({ pending }: { pending: boolean }) {
   const { t } = useTranslation('lodging');
   return (
     <Badge
