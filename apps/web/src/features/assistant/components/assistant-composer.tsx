@@ -1,10 +1,11 @@
 import { ASSISTANT_MESSAGE_MAX } from '@agent-sales/contracts';
 import { Paperclip, SendHorizontal } from 'lucide-react';
-import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { useEnterToSend } from '@/hooks/use-enter-to-send';
 
 import { useAssistantUi } from '../stores/assistant-ui.store';
 import { ATTACH_ACCEPT, type AssistantAttachments, AttachmentTray } from './assistant-attachments';
@@ -58,12 +59,7 @@ export function AssistantComposer({
     });
   }
 
-  function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
-    // A Vietnamese IME confirms its word with Enter: never send mid-composition.
-    if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
-    event.preventDefault();
-    submit();
-  }
+  const enterToSend = useEnterToSend(input, submit);
 
   return (
     <div className="flex flex-col">
@@ -111,7 +107,7 @@ export function AssistantComposer({
           rows={1}
           className="max-h-40 min-h-10 resize-none"
           onChange={(event) => setText(event.target.value)}
-          onKeyDown={onKeyDown}
+          {...enterToSend}
         />
         <Button type="submit" size="icon-lg" aria-label={t('send')} disabled={!canSend}>
           <SendHorizontal />

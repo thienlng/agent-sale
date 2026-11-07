@@ -292,7 +292,7 @@
     "imageHint": "Bạn có thể gửi ảnh để thử bot nhận diện sản phẩm",
     "imageError": {
       "tooMany": "Chỉ gửi được tối đa {{max}} ảnh mỗi tin nhắn.",
-      "tooBig": "Mỗi ảnh tối đa 3 MB.",
+      "tooBig": "Mỗi ảnh tối đa 20 MB.",
       "badType": "Chỉ nhận ảnh JPEG, PNG hoặc WebP."
     },
     "imagesUnsupported": "Mô hình AI hiện tại chưa đọc được ảnh. Hãy thử gửi tin nhắn chữ, hoặc liên hệ quản trị hệ thống để bật nhận diện ảnh.",

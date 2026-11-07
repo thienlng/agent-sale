@@ -1,8 +1,11 @@
 import type { PlaygroundImage } from '@agent-sales/contracts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { resizeImage } from '@/lib/resize-image';
+
 export const MAX_IMAGES = 3;
-export const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+/** Picked files up to this size are accepted; they are shrunk before sending. */
+export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 
 export interface Attachment {
@@ -24,12 +27,22 @@ export function toBase64(file: File): Promise<string> {
   });
 }
 
+/**
+ * The images as the playground request carries them: shrunk to a 1600 px JPEG (a phone photo is
+ * several MB), or the original file when the browser cannot decode it.
+ */
 export async function toPlaygroundImages(items: readonly Attachment[]) {
   return Promise.all(
-    items.map(async (a): Promise<PlaygroundImage> => ({
-      mimeType: a.file.type as PlaygroundImage['mimeType'],
-      base64: await toBase64(a.file),
-    })),
+    items.map(async (a): Promise<PlaygroundImage> => {
+      try {
+        return await resizeImage(a.file);
+      } catch {
+        return {
+          mimeType: a.file.type as PlaygroundImage['mimeType'],
+          base64: await toBase64(a.file),
+        };
+      }
+    }),
   );
 }
 

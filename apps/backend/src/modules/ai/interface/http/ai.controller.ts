@@ -1,6 +1,7 @@
 import { PlaygroundRequest, type PlaygroundResponse } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import { Body, Controller, HttpCode, Inject, Param, Post } from '@nestjs/common';
+import { RouteConfig } from '@nestjs/platform-fastify';
 
 import {
   CurrentWorkspace,
@@ -19,6 +20,9 @@ export class AiController {
   @RequireCapability('bots.manage')
   @Post(':botId/playground')
   @HttpCode(200)
+  // Up to 3 base64 images (contracts PlaygroundImage, 4 MB each) plus the history; the 1 MiB default
+  // turned a phone photo into "request body is too large".
+  @RouteConfig({ bodyLimit: 13 * 1024 * 1024 })
   playground(
     @CurrentWorkspace() ws: WorkspaceId,
     @Param('botId') botId: string,

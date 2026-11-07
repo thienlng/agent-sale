@@ -12,6 +12,7 @@ import { TestChat } from '@/features/ai/components/test-chat';
 import { useBot } from '@/features/bot/api/bots';
 import { TrainingNav } from '@/features/bot/components/training-nav';
 import { useFaqs } from '@/features/knowledge/api/faqs';
+import { useVisualViewportBox } from '@/hooks/use-visual-viewport';
 import { ApiClientError } from '@/lib/api-client';
 
 /**
@@ -33,6 +34,8 @@ function BotSpace() {
   const faqs = useFaqs(botId);
   const [chatOpen, setChatOpen] = useState(true);
   const [mobileChat, setMobileChat] = useState(false);
+  // The phone sheet follows the visible screen, so the keyboard cannot push its header away.
+  const sheetBox = useVisualViewportBox(mobileChat);
 
   if (bot.error instanceof ApiClientError && bot.error.status === 404) return <NotFound />;
   if (bot.isError && !bot.data)
@@ -108,7 +111,7 @@ function BotSpace() {
       </Button>
 
       <Sheet open={mobileChat} onOpenChange={setMobileChat}>
-        <SheetContent side="right" className="w-full p-0 sm:max-w-md">
+        <SheetContent side="right" className="w-full p-0 sm:max-w-md" style={sheetBox}>
           <SheetTitle className="sr-only">{t('playground.title')}</SheetTitle>
           {chat()}
         </SheetContent>
