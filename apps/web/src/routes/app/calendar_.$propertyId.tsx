@@ -32,7 +32,8 @@ export const Route = createFileRoute('/app/calendar_/$propertyId')({
     const search = Route.useSearch();
     const navigate = useNavigate({ from: Route.fullPath });
     const onSearch = useCallback(
-      (next: PropertyCalendarSearch) => void navigate({ search: next }),
+      (next: PropertyCalendarSearch, options?: { replace?: boolean }) =>
+        void navigate({ search: next, replace: options?.replace ?? false }),
       [navigate],
     );
     return (

@@ -697,7 +697,7 @@
   "pcal": {
     "back": "Lịch",
     "backLabel": "Về lịch tất cả căn hộ",
-    "open": "Mở lịch căn {{code}}",
+    "openSuffix": "Mở lịch căn",
     "notFound": "Không tìm thấy căn hộ này.",
     "prev": "Trước",
     "next": "Sau",
@@ -718,6 +718,7 @@
     "dayTaken": "{{date}}, {{status}} {{code}}",
     "dayPartial": "{{date}}, còn {{free}}/{{total}} phòng",
     "dayOpenMonth": "{{date}}, {{state}}. Mở tháng này",
+    "dayOpenBooking": "{{date}}, {{state}} {{code}}. Mở booking",
     "monthOccupancy": "Lấp đầy {{pct}}%",
     "openMonth": "Mở tháng {{month}}/{{year}}, lấp đầy {{pct}}%",
     "legend": {

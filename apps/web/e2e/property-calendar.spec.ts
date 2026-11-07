@@ -208,7 +208,11 @@ test('the Lịch row header opens the property calendar and Back returns', async
   await mockHotel(page);
   // Lịch asks for every property; the mock answers with the villa.
   await page.goto('/app/calendar');
-  await page.getByRole('link', { name: 'Mở lịch căn A17' }).click();
+  // Move the grid on two weeks: the property's "← Lịch" and Back return to it.
+  await page.getByRole('button', { name: 'Khoảng sau' }).click();
+  await expect(page).toHaveURL(/\/app\/calendar\?from=/);
+  const lich = page.url();
+  await page.getByRole('link', { name: /^A17.*Mở lịch căn$/ }).click();
   await expect(page).toHaveURL(new RegExp(`/app/calendar/${VILLA}`));
   await expect(page.getByTestId('pcal-month')).toBeVisible();
   await page.getByRole('radio', { name: 'Năm' }).click();
@@ -221,4 +225,38 @@ test('the Lịch row header opens the property calendar and Back returns', async
   );
   await page.goBack();
   await expect(page).toHaveURL(/view=year/);
+  await page.getByRole('link', { name: 'Về lịch tất cả căn hộ' }).click();
+  await expect(page).toHaveURL(lich);
+  await page.getByRole('link', { name: /^A17.*Mở lịch căn$/ }).click();
+  await expect(page.getByTestId('pcal-month')).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(lich);
+});
+
+test('a mouse drag over the month selects exactly the dragged nights', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockHotel(page);
+  await page.route('**/api/v1/lodging/properties/**', (route) =>
+    route.fulfill({ status: 404, contentType: 'application/json', body: '{}' }),
+  );
+  await page.route('**/api/v1/lodging/quote', (route) =>
+    route.fulfill({ status: 404, contentType: 'application/json', body: '{}' }),
+  );
+  await page.goto(`/app/calendar/${VILLA}?from=2026-11-01`);
+  const day = (d: string) =>
+    page.getByRole('button', { name: new RegExp(`^Thứ \\S+ ${d}/11, trống`) });
+  // A click that started a selection elsewhere must not leak into the drag.
+  await day('10').click();
+  const from = await day('17').boundingBox();
+  const to = await day('26').boundingBox();
+  if (!from || !to) throw new Error('no day cells');
+  await page.mouse.move(from.x + from.width / 2, from.y + 10);
+  await page.mouse.down();
+  // Pass over other days on the way (left, then down, then right), as a hand does.
+  await page.mouse.move(from.x - from.width, from.y + 10, { steps: 5 });
+  await page.mouse.move(to.x + to.width / 2, to.y + 10, { steps: 10 });
+  await page.mouse.up();
+  const sheet = page.getByRole('dialog');
+  await expect(sheet.getByLabel('Nhận phòng')).toHaveValue('2026-11-17');
+  await expect(sheet.getByLabel('Trả phòng')).toHaveValue('2026-11-27');
 });

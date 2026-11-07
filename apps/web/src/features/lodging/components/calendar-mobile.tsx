@@ -74,13 +74,13 @@ export function CalendarMobile({
                 <Link
                   to="/app/calendar/$propertyId"
                   params={{ propertyId: p.id }}
-                  aria-label={t('pcal.open', { code: p.code })}
                   className="-mx-1 flex min-h-11 min-w-0 items-center gap-2 rounded-sm px-1 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   <span className="font-semibold">{p.code}</span>
                   <span className="min-w-0 truncate font-normal text-muted-foreground">
                     {p.name}
                   </span>
+                  <span className="sr-only"> · {t('pcal.openSuffix')}</span>
                   <ChevronRight
                     aria-hidden
                     className="ml-auto size-4 shrink-0 text-muted-foreground"

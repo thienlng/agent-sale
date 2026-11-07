@@ -1,5 +1,5 @@
 import type { BookingDto, CalendarDto, PropertyDto, QuoteDto } from '@agent-sales/contracts';
-import { configure, screen, waitFor, within } from '@testing-library/react';
+import { configure, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -16,8 +16,13 @@ configure({ asyncUtilTimeout: 5000 });
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-1' }));
 const can = vi.hoisted(() => ({ value: true }));
 vi.mock('@/lib/permissions', () => ({ useCan: () => can.value }));
+/** Extra bookings on A17 for one test; reset after each. */
+const extra = vi.hoisted(() => ({ segments: [] as unknown[], hangFrom: '' }));
 afterEach(() => {
   can.value = true;
+  extra.segments = [];
+  extra.hangFrom = '';
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -144,6 +149,9 @@ function calendarFor(id: string, from: string, to: string): CalendarDto {
                 holdExpiresAt: null,
                 totalSell: 26_000_000,
               },
+              ...(extra.segments as Array<
+                CalendarDto['properties'][number]['rows'][number]['segments'][number]
+              >),
             ]),
           },
         ],
@@ -279,14 +287,17 @@ function stubApi(overrides: Record<string, Reply> = {}) {
     'POST /lodging/quote': { status: 200, body: quote },
     ...overrides,
   };
-  const calls: Array<{ key: string; url: string }> = [];
+  const calls: Array<{ key: string; url: string; body: unknown }> = [];
   vi.stubGlobal('fetch', async (input: string, init: RequestInit = {}) => {
     const url = input.replace('/api/v1', '');
     const [path = '', query = ''] = url.split('?');
     const key = `${init.method ?? 'GET'} ${path}`;
-    calls.push({ key, url });
+    calls.push({ key, url, body: init.body ? JSON.parse(String(init.body)) : undefined });
     if (key === 'GET /lodging/calendar') {
       const q = new URLSearchParams(query);
+      // A window that never answers, to look at the page while it loads.
+      if (extra.hangFrom && q.get('from') === extra.hangFrom)
+        return new Promise<Response>(() => {});
       const body = calendarFor(q.get('propertyIds') ?? A17, q.get('from') ?? '', q.get('to') ?? '');
       return new Response(JSON.stringify(body), {
         status: 200,
@@ -313,8 +324,9 @@ function renderPage(propertyId = A17, initial: PropertyCalendarSearch = { from: 
         <PropertyCalendarPage
           propertyId={propertyId}
           search={search}
-          onSearch={(next) => {
-            onSearch(next);
+          onSearch={(next, options) => {
+            if (options) onSearch(next, options);
+            else onSearch(next);
             setSearch(next);
           }}
         />
@@ -334,7 +346,7 @@ describe('PropertyCalendarPage — month', () => {
     const monday = await cell(/^Thứ Hai 02\/11, trống/);
     expect(monday).toHaveTextContent('12tr');
     expect(calls.map((c) => c.url)).toContain(
-      `/lodging/calendar?from=2026-10-26&to=2026-12-07&propertyIds=${A17}`,
+      `/lodging/calendar?from=2026-10-25&to=2026-12-07&propertyIds=${A17}`,
     );
     expect(screen.getByRole('heading', { name: /A17/ })).toHaveTextContent('Villa A17 Vinpearl');
     expect(screen.getByText('Lễ hội')).toBeInTheDocument();
@@ -400,6 +412,104 @@ describe('PropertyCalendarPage — month', () => {
     expect(onSearch).toHaveBeenLastCalledWith({});
   });
 
+  it('goes back to the month of today in the business time zone', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    // 17:30 UTC on 30/11 is already 01/12 in Asia/Ho_Chi_Minh.
+    vi.setSystemTime(new Date('2026-11-30T17:30:00.000Z'));
+    const calls = stubApi();
+    const user = userEvent.setup();
+    const onSearch = renderPage(A17, { from: '2027-03-01' });
+    expect(await screen.findByTestId('pcal-period')).toHaveTextContent('Tháng 03/2027');
+    await user.click(screen.getByRole('button', { name: 'Hôm nay' }));
+    expect(onSearch).toHaveBeenLastCalledWith({});
+    expect(await screen.findByTestId('pcal-period')).toHaveTextContent('Tháng 12/2026');
+    await waitFor(() =>
+      expect(calls.map((c) => c.url)).toContain(
+        `/lodging/calendar?from=2026-11-29&to=2027-01-04&propertyIds=${A17}`,
+      ),
+    );
+  });
+
+  it('splits a stay that crosses a week into one bar per week', async () => {
+    extra.segments = [
+      {
+        ...segment,
+        bookingId: BK2,
+        code: 'BK-0009',
+        status: 'confirmed',
+        from: '2026-11-14',
+        to: '2026-11-17',
+        guestName: 'Chị Mai',
+        holdExpiresAt: null,
+        totalSell: 39_000_000,
+      },
+    ];
+    stubApi();
+    renderPage();
+    await cell(/^Thứ Hai 02\/11, trống/);
+    const bars = screen.getAllByText('Chị Mai · BK-0009').map((l) => l.parentElement);
+    expect(bars).toHaveLength(2);
+    expect(bars[0]).toHaveStyle({ gridColumn: '6 / 8' });
+    expect(bars[1]).toHaveStyle({ gridColumn: '1 / 2' });
+  });
+
+  it('moves between days with the arrow keys', async () => {
+    stubApi();
+    const user = userEvent.setup();
+    renderPage();
+    (await cell(/^Thứ Hai 02\/11, trống/)).focus();
+    await user.keyboard('{ArrowRight}');
+    expect(document.activeElement).toHaveAccessibleName(/^Thứ Ba 03\/11/);
+    await user.keyboard('{ArrowDown}');
+    expect(document.activeElement).toHaveAccessibleName(/^Thứ Ba 10\/11/);
+    await user.keyboard('{ArrowUp}{ArrowUp}');
+    expect(document.activeElement).toHaveAccessibleName(/^Thứ Ba 27\/10/);
+  });
+
+  it('completes a drag with the nights dragged over, and forgets a cancelled drag', async () => {
+    stubApi();
+    renderPage();
+    const day = (d: string) => cell(new RegExp(`^Thứ \\S+ ${d}\\/11, trống`));
+    fireEvent.pointerDown(await day('09'), { button: 0 });
+    fireEvent.pointerEnter(await day('10'));
+    fireEvent.pointerEnter(await day('11'));
+    fireEvent.pointerUp(window);
+    const sheet = await screen.findByRole('dialog');
+    expect(within(sheet).getByLabelText('Nhận phòng')).toHaveValue('2026-11-09');
+    expect(within(sheet).getByLabelText('Trả phòng')).toHaveValue('2026-11-12');
+  });
+
+  it('drops a drag the browser cancelled instead of completing it later', async () => {
+    stubApi();
+    const user = userEvent.setup();
+    renderPage();
+    const day = (d: string) => cell(new RegExp(`^Thứ \\S+ ${d}\\/11, trống`));
+    fireEvent.pointerDown(await day('12'), { button: 0 });
+    fireEvent.pointerEnter(await day('13'));
+    fireEvent.pointerCancel(window);
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+    await user.click(await day('17'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent('17/11');
+  });
+
+  it('keeps the grid inert while the next month loads', async () => {
+    extra.hangFrom = '2026-11-29';
+    stubApi();
+    const user = userEvent.setup();
+    renderPage();
+    await cell(/^Thứ Hai 02\/11, trống/);
+    await user.click(screen.getByRole('button', { name: 'Sau' }));
+    const body = screen.getByTestId('pcal-body');
+    expect(body).toHaveAttribute('aria-busy', 'true');
+    // December days have no data yet: clicking them selects nothing.
+    await user.click(screen.getByRole('button', { name: /^Thứ Tư 02\/12/, hidden: true }));
+    await user.click(screen.getByRole('button', { name: /^Thứ Sáu 04\/12/, hidden: true }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByText(/Đã chọn nhận phòng/)).toBeNull();
+    expect(screen.getByTestId('pcal-stats')).toHaveAttribute('aria-busy', 'true');
+  });
+
   it('shows the range figures, next check-ins and waiting bot holds in the side panel', async () => {
     stubApi();
     renderPage();
@@ -422,9 +532,12 @@ describe('PropertyCalendarPage — other views', () => {
     expect(onSearch).toHaveBeenLastCalledWith({ view: 'quarter', from: '2026-11-01' });
     expect(await screen.findByTestId('pcal-quarter')).toBeInTheDocument();
     expect(calls.map((c) => c.url)).toContain(
-      `/lodging/calendar?from=2026-11-01&to=2027-02-01&propertyIds=${A17}`,
+      `/lodging/calendar?from=2026-10-31&to=2027-02-01&propertyIds=${A17}`,
     );
     expect(screen.getByTestId('pcal-period')).toHaveTextContent('11/2026 – 01/2027');
+    expect(
+      screen.getByRole('button', { name: 'Thứ Sáu 06/11, Đã đặt BK-0001. Mở booking' }),
+    ).toBeInTheDocument();
     // A booked day opens its booking; a free one opens its month.
     await user.click(screen.getByRole('button', { name: /^Thứ Hai 07\/12, Trống/ }));
     expect(onSearch).toHaveBeenLastCalledWith({ from: '2026-12-01' });
@@ -440,7 +553,7 @@ describe('PropertyCalendarPage — other views', () => {
       screen.getByRole('button', { name: 'Mở tháng 10/2027, lấp đầy 0%' }),
     ).toBeInTheDocument();
     expect(calls.map((c) => c.url)).toContain(
-      `/lodging/calendar?from=2026-11-01&to=2027-11-01&propertyIds=${A17}`,
+      `/lodging/calendar?from=2026-10-31&to=2027-11-01&propertyIds=${A17}`,
     );
     await user.click(screen.getByRole('button', { name: /^Mở tháng 02\/2027/ }));
     expect(onSearch).toHaveBeenLastCalledWith({ from: '2027-02-01' });
@@ -473,14 +586,61 @@ describe('PropertyCalendarPage — other views', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await user.click(screen.getByRole('radio', { name: 'Đã qua' }));
     await waitFor(() =>
-      expect(calls.map((c) => c.url)).toContain(`/lodging/bookings?view=all&propertyId=${A17}`),
+      expect(calls.map((c) => c.url)).toContain(`/lodging/bookings?view=past&propertyId=${A17}`),
     );
-    // The only booking checks out after today, so "Đã qua" has none.
-    expect(await within(list).findByText('Không có booking nào.')).toBeInTheDocument();
   });
 });
 
 describe('PropertyCalendarPage — rooms', () => {
+  it('restarts the selection when another room is picked', async () => {
+    stubApi();
+    const user = userEvent.setup();
+    const onSearch = renderPage(H1, { from: '2026-11-01', unit: R1 });
+    await user.click(await cell(/^Thứ Ba 10\/11, trống/));
+    expect(screen.getByText(/Đã chọn nhận phòng 10\/11/)).toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: 'P102' }));
+    expect(onSearch).toHaveBeenLastCalledWith({ from: '2026-11-01', unit: R2 });
+    await waitFor(() => expect(screen.queryByText(/Đã chọn nhận phòng/)).toBeNull());
+    expect(await cell(/^Thứ Ba 10\/11, trống/)).toHaveAttribute('aria-pressed', 'false');
+    await user.click(await cell(/^Thứ Năm 12\/11, trống/));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByText(/Đã chọn nhận phòng 12\/11/)).toBeInTheDocument();
+  });
+
+  it('selects whole-place nights on "Cả căn" and never a partly booked day', async () => {
+    const calls = stubApi({
+      [`GET /lodging/properties/${H1}`]: {
+        status: 200,
+        body: { ...property, id: H1, code: 'H1', sellMode: 'rooms', units: [] },
+      },
+    });
+    const user = userEvent.setup();
+    renderPage(H1);
+    await screen.findByRole('radio', { name: 'Cả căn' });
+    expect(screen.queryByRole('button', { name: /Thứ Ba 03\/11/ })).toBeNull();
+    await user.click(await cell(/^Thứ Hai 09\/11, trống/));
+    await user.click(await cell(/^Thứ Ba 10\/11, trống/));
+    await screen.findByRole('dialog');
+    await waitFor(() => expect(calls.some((c) => c.key === 'POST /lodging/quote')).toBe(true));
+    expect(calls.find((c) => c.key === 'POST /lodging/quote')?.body).toMatchObject({
+      propertyId: H1,
+      whole: true,
+      unitIds: [],
+      checkIn: '2026-11-09',
+      checkOut: '2026-11-11',
+    });
+  });
+
+  it('drops a unit that is not a room of the property from the URL', async () => {
+    stubApi();
+    const onSearch = renderPage(H1, { from: '2026-11-01', unit: A17_UNIT });
+    await screen.findByRole('radio', { name: 'Cả căn' });
+    await waitFor(() =>
+      expect(onSearch).toHaveBeenCalledWith({ from: '2026-11-01' }, { replace: true }),
+    );
+    expect(screen.getByRole('radio', { name: 'Cả căn' })).toBeChecked();
+  });
+
   it('shows free rooms per day for the whole place and one room’s bookings when picked', async () => {
     stubApi();
     const user = userEvent.setup();

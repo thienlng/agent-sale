@@ -23,13 +23,19 @@ import { BookingStatusBadge } from '../booking-status-badge';
 import { BotBadge } from '../bookings-table';
 
 type ListFilter = 'upcoming' | 'past' | 'all';
+
+/** "06/11", or "06/11/2025" outside the current year. */
+const stayDate = (night: string, today: string) =>
+  night.slice(0, 4) === today.slice(0, 4)
+    ? dayMonth(night)
+    : `${dayMonth(night)}/${night.slice(0, 4)}`;
 const FILTERS: ListFilter[] = ['upcoming', 'past', 'all'];
 const ALL = '__all__';
 
 /**
  * Danh sách: the property's bookings (Sắp tới / Đã qua / Tất cả, and a status), with dates,
- * guest, phone, packages, total, status, source and the conversation link. "Đã qua" keeps the
- * stays that checked out before today from the newest-first "all" pages.
+ * guest, phone, packages, total, status, source and the conversation link. "Đã qua" lists the
+ * stays of the server's `past` view (check-out today or earlier, latest check-in first).
  */
 export function PropertyBookingsList({
   propertyId,
@@ -49,15 +55,13 @@ export function PropertyBookingsList({
   const [offset, setOffset] = useState(0);
   const parsedStatus = BookingStatusEnum.safeParse(status);
   const bookings = useBookings({
-    view: filter === 'upcoming' ? 'upcoming' : 'all',
+    view: filter,
     propertyId,
     ...(parsedStatus.success ? { status: parsedStatus.data } : {}),
     ...(offset ? { offset } : {}),
   });
   const rows = (bookings.data?.data ?? []).filter(
-    (b) =>
-      (filter !== 'past' || b.checkOut < today) &&
-      (!roomId || b.whole || b.unitIds.includes(roomId)),
+    (b) => !roomId || b.whole || b.unitIds.includes(roomId),
   );
   const reset =
     <T,>(set: (v: T) => void) =>
@@ -125,7 +129,7 @@ export function PropertyBookingsList({
       ) : (
         <ul className="grid divide-y divide-border rounded-lg border border-border">
           {rows.map((b) => (
-            <BookingLine key={b.id} booking={b} onOpen={onOpen} />
+            <BookingLine key={b.id} booking={b} today={today} onOpen={onOpen} />
           ))}
         </ul>
       )}
@@ -159,9 +163,11 @@ export function PropertyBookingsList({
 /** One booking: a click anywhere opens the sheet; the code button does it for the keyboard. */
 function BookingLine({
   booking: b,
+  today,
   onOpen,
 }: {
   booking: BookingDto;
+  today: string;
   onOpen: (id: string) => void;
 }) {
   const { t } = useTranslation('lodging');
@@ -185,7 +191,7 @@ function BookingLine({
           {b.code}
         </button>
         <span className="block">
-          {dayMonth(b.checkIn)} → {dayMonth(b.checkOut)}
+          {stayDate(b.checkIn, today)} → {stayDate(b.checkOut, today)}
         </span>
         <span className="block text-xs text-muted-foreground">
           {t('list.nights', { count: nightsBetween(b.checkIn, b.checkOut) })}

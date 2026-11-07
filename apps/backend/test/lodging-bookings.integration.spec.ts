@@ -974,4 +974,41 @@ describe('lodging v2 bookings over HTTP', () => {
     expect(max.properties[0]?.wholePrices).toHaveLength(62);
     expect(max.today).toBe(today);
   });
+
+  it('serves up to 371 nights for exactly one property', async () => {
+    const o = await signup();
+    const p = await villa(o.headers);
+    await villa(o.headers, 'A18');
+    const year = await ok(
+      await call(
+        o.headers,
+        'GET',
+        `/lodging/calendar?from=${night(0)}&to=${night(371)}&propertyIds=${p.id}`,
+      ),
+      CalendarDto,
+    );
+    expect(year.properties.map((x) => x.code)).toEqual(['A17']);
+    expect(year.properties[0]?.wholePrices).toHaveLength(371);
+    const tooLong = await call(
+      o.headers,
+      'GET',
+      `/lodging/calendar?from=${night(0)}&to=${night(372)}&propertyIds=${p.id}`,
+    );
+    expect(tooLong.statusCode, tooLong.body).toBe(400);
+  });
+
+  it('lists past stays of a property, latest check-in first', async () => {
+    const o = await signup();
+    const p = await villa(o.headers);
+    const other = await villa(o.headers, 'A18');
+    const older = await book(o.headers, stay(p.id, -5, -3, { status: 'confirmed' }));
+    const endsToday = await book(o.headers, stay(p.id, -2, 0, { status: 'confirmed' }));
+    await book(o.headers, stay(p.id, 0, 2, { status: 'confirmed' }));
+    await book(o.headers, stay(other.id, -4, -1, { status: 'confirmed' }));
+    const past = await ok(
+      await call(o.headers, 'GET', `/lodging/bookings?view=past&propertyId=${p.id}`),
+      BookingList,
+    );
+    expect(past.data.map((b) => b.id)).toEqual([endsToday.id, older.id]);
+  });
 });

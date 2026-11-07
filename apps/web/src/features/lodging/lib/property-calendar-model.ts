@@ -59,20 +59,34 @@ export function monthWeeks(month: string): string[][] {
   return Array.from({ length: days.length / 7 }, (_, w) => days.slice(w * 7, w * 7 + 7));
 }
 
-/** Nights [from, to) the calendar request of a view covers (at most 371). */
+/**
+ * Nights [from, to) the calendar request of a view covers (at most 371). It starts one night
+ * before what is shown, so a booking that starts on the first shown night is not clipped and
+ * reads as a real check-in.
+ */
 export function viewWindow(
   view: PropertyCalendarView,
   anchor: string,
 ): { from: string; to: string } {
   const month = monthStart(anchor);
-  if (view === 'quarter') return { from: month, to: addMonths(month, 3) };
-  if (view === 'year') return { from: month, to: addMonths(month, 12) };
+  if (view === 'quarter') return { from: addDays(month, -1), to: addMonths(month, 3) };
+  if (view === 'year') return { from: addDays(month, -1), to: addMonths(month, 12) };
   // Month and list: the month grid with its leading and trailing days.
   const weeks = monthWeeks(month);
   const first = weeks[0]?.[0] ?? month;
   const lastWeek = weeks[weeks.length - 1];
   const last = lastWeek?.[6] ?? month;
-  return { from: first, to: addDays(last, 1) };
+  return { from: addDays(first, -1), to: addDays(last, 1) };
+}
+
+/** "11/2026". */
+export function monthYearLabel(month: string): string {
+  return `${month.slice(5, 7)}/${month.slice(0, 4)}`;
+}
+
+/** `{month: '11', year: '2026'}` for the "Tháng {{month}}/{{year}}" strings. */
+export function monthParts(month: string): { month: string; year: string } {
+  return { month: month.slice(5, 7), year: month.slice(0, 4) };
 }
 
 /** Nights shown as "the visible range" by the side panel (adjacent-month days excluded). */
@@ -94,13 +108,19 @@ export function stateOfStatus(status: BookingStatus): DayState {
 /** State of a whole place over several rooms: free, some rooms free, or full. */
 export type SummaryState = 'free' | 'partial' | 'full';
 
-/** The rows a view shows: every row ("Cả căn" or a whole property) or one room. */
-export function rowsInScope(
+/**
+ * What a view shows of a property: one room (`unit` names an active room of a rooms property)
+ * or every row (a whole property, or "Cả căn"). An unknown unit falls back to every row.
+ */
+export function scopeOf(
   property: CalendarPropertyData,
   unitId: string | undefined,
-): CalendarRowData[] {
-  const room = unitId ? property.rows.find((r) => r.unitId === unitId) : undefined;
-  return room ? [room] : property.rows;
+): { room: CalendarRowData | undefined; rows: CalendarRowData[] } {
+  const room =
+    property.sellMode === 'rooms' && unitId
+      ? property.rows.find((r) => r.unitId === unitId)
+      : undefined;
+  return { room, rows: room ? [room] : property.rows };
 }
 
 /** Statuses whose total counts as booked revenue (as the server's stay totals). */
@@ -121,15 +141,29 @@ export interface RangeStats {
   revenue: number;
 }
 
-/** Side-panel figures of the rows in scope over the given nights. */
-export function rangeStats(rows: CalendarRowData[], nights: string[]): RangeStats {
+/**
+ * Side-panel figures of the rows in scope over the given nights. A booking's total is split
+ * evenly over the units it takes (`allRows` = every row of the property), and the rows in scope
+ * add their shares: "Cả căn" counts each booking once in full, while a room counts its share of
+ * a multi-room or whole-place stay, so the rooms' figures add up to the property's.
+ */
+export function rangeStats(
+  rows: CalendarRowData[],
+  nights: string[],
+  allRows: CalendarRowData[] = rows,
+): RangeStats {
   const first = nights[0];
   const end = nights.length ? addDays(nights[nights.length - 1] ?? '', 1) : '';
   const occ = rowOccupancy(rows, nights);
+  const unitsOf = new Map<string, number>();
+  for (const row of allRows)
+    for (const s of new Set(row.segments.map((x) => x.bookingId)))
+      unitsOf.set(s, (unitsOf.get(s) ?? 0) + 1);
   let nightsSold = 0;
-  const totals = new Map<string, number>();
+  let revenue = 0;
   if (first)
-    for (const row of rows)
+    for (const row of rows) {
+      const counted = new Set<string>();
       for (const s of row.segments) {
         if (s.kind !== 'stay' || !REVENUE_STATUSES.has(s.status)) continue;
         const from = s.from < first ? first : s.from;
@@ -137,15 +171,65 @@ export function rangeStats(rows: CalendarRowData[], nights: string[]): RangeStat
         const n = nightsBetween(from, to);
         if (n <= 0) continue;
         nightsSold += n;
-        totals.set(s.bookingId, s.totalSell ?? 0);
+        if (counted.has(s.bookingId)) continue;
+        counted.add(s.bookingId);
+        revenue += (s.totalSell ?? 0) / (unitsOf.get(s.bookingId) ?? 1);
       }
+    }
   const takenNights = occ.taken.reduce((a, b) => a + b, 0);
   return {
     pct: occ.pct,
     takenNights,
     totalNights: occ.total * nights.length,
     nightsSold,
-    revenue: [...totals.values()].reduce((a, b) => a + b, 0),
+    // Shares of a split total can be fractional; money stays whole đồng.
+    revenue: Math.round(revenue),
+  };
+}
+
+/** A check-in or check-out of the side panel, read from the calendar's own bookings. */
+export interface StayEvent {
+  bookingId: string;
+  code: string;
+  guestName: string;
+  /** The check-in or check-out night. */
+  night: string;
+}
+
+/**
+ * The next check-ins and check-outs (up to `max` each) of the rows in scope within the shown
+ * nights, from today on. The calendar window starts one night before the shown nights (see
+ * `viewWindow`), so a segment starting on the window's first night is a clipped earlier stay
+ * and one ending on its last night may continue: both are skipped.
+ */
+export function stayEvents(
+  rows: CalendarRowData[],
+  shown: string[],
+  today: string,
+  window: { from: string; to: string },
+  max = 5,
+): { checkIns: StayEvent[]; checkOuts: StayEvent[] } {
+  const first = shown[0];
+  if (!first) return { checkIns: [], checkOuts: [] };
+  const end = addDays(shown[shown.length - 1] ?? first, 1);
+  const after = first > today ? first : today;
+  const stays = new Map<string, CalendarSegmentData>();
+  for (const row of rows)
+    for (const s of row.segments) if (s.kind === 'stay') stays.set(s.bookingId, s);
+  const pick = (key: 'from' | 'to', ok: (s: CalendarSegmentData) => boolean) =>
+    [...stays.values()]
+      .filter((s) => ok(s) && s[key] >= after && s[key] < end)
+      .sort((a, b) => a[key].localeCompare(b[key]) || a.code.localeCompare(b.code))
+      .slice(0, max)
+      .map((s) => ({
+        bookingId: s.bookingId,
+        code: s.code,
+        guestName: s.guestName,
+        night: s[key],
+      }));
+  return {
+    checkIns: pick('from', (s) => s.from > window.from),
+    checkOuts: pick('to', (s) => s.to < window.to),
   };
 }
 
@@ -182,9 +266,12 @@ export function dayInfos(
   const prices = new Map(
     (single ? single.prices : property.wholePrices).map((n) => [n.night, n] as const),
   );
+  // A room shows its own date-range labels; a whole place shows its own and its rooms'.
   const labels = new Map<string, string>();
-  for (const n of [...property.wholePrices, ...property.rows.flatMap((r) => r.prices)])
-    if (n.label && !labels.has(n.night)) labels.set(n.night, n.label);
+  const labelled = single
+    ? single.prices
+    : [...property.wholePrices, ...rows.flatMap((r) => r.prices)];
+  for (const n of labelled) if (n.label && !labels.has(n.night)) labels.set(n.night, n.label);
   const out = new Map<string, DayInfo>();
   nights.forEach((night, i) => {
     const free = taken.filter((r) => r[i] === null).length;

@@ -141,7 +141,7 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 
 ## Hotel routes (T-160)
 
-- **Lịch căn** (`/app/calendar/$propertyId?view=month|quarter|year|list&from=&unit=`): one property's calendar, opened from the property name in a Lịch row or a phone month card; the search is the source of truth so links and Back restore the view. Details: [lodging](lodging.md) (Calendar).
+- **Lịch căn** (`/app/calendar/$propertyId?view=month|quarter|year|list&from=&unit=`): one property's calendar, opened from the property name in a Lịch row or a phone month card; the search is the source of truth so links and Back restore the view. Lịch itself keeps its window, filters, expanded rooms and "Tìm trống" search in its URL (`/app/calendar?from&nights&area&free&open&ci&co&adults&ages`), so "← Lịch" and Back return to the same grid. Details: [lodging](lodging.md) (Calendar).
 - A hotel business's sidebar shows **Lịch** (`/app/calendar`), **Booking** (`/app/bookings`) and **Căn hộ** (`/app/properties`, detail `/app/properties/$propertyId`) instead of Sản phẩm. Each page renders only for a hotel business (`HotelOnly`).
 - Redirects: `/app/accommodations` → `/app/properties`, `/app/stays` → `/app/bookings` (T-155 addresses); `/app/products` and `/app/products/{id}` → `/app/properties` for a hotel business.
 - The Inbox sales panel of a hotel business opens the booking sheet with the contact prefilled and lists the conversation's bookings. Workflow and API: [lodging](lodging.md).

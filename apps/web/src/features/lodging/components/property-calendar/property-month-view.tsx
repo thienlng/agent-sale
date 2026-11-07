@@ -1,15 +1,23 @@
-import { type MouseEvent, useMemo } from 'react';
+import { type KeyboardEvent, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils';
 
-import type {
-  CalendarSelection,
-  CellRef,
-  SelectModifiers,
+import {
+  type CalendarSelection,
+  type CellRef,
+  modifiers,
+  type SelectModifiers,
 } from '../../hooks/use-calendar-selection';
 import { type CalendarRowData, segmentSpans } from '../../lib/calendar-model';
-import { dayMonth, formatShortVnd, formatVnd, isoWeekday, weekdayLong } from '../../lib/format';
+import {
+  addDays,
+  dayMonth,
+  formatShortVnd,
+  formatVnd,
+  isoWeekday,
+  weekdayLong,
+} from '../../lib/format';
 import type { DayInfo } from '../../lib/property-calendar-model';
 import type { NoteFocus } from '../booking-night-notes';
 import { BookingBar, NoteDot } from '../calendar-booking-bar';
@@ -24,11 +32,6 @@ export interface MonthHandlers {
   /** Opens the booking sheet on "Ghi chú ngày"; absent without orders.manage. */
   onEditNightNote?: (bookingId: string, at: NoteFocus) => void;
 }
-
-const modifiers = (e: MouseEvent): SelectModifiers => ({
-  shift: e.shiftKey,
-  multi: e.ctrlKey || e.metaKey,
-});
 
 const cellBase =
   'relative flex h-16 w-full flex-col items-start gap-0.5 p-1 text-left text-xs tabular-nums outline-none focus-visible:z-[3] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:h-24 sm:p-1.5';
@@ -70,8 +73,31 @@ export function PropertyMonthView({
   const { t } = useTranslation('lodging');
   const now = Date.now();
   const inMonth = (night: string) => night.slice(0, 7) === month.slice(0, 7);
+  // Only a selection of the target on screen (this room, or the whole place) is drawn.
+  const ownSelection =
+    selection &&
+    selection.propertyId === propertyId &&
+    (roomId === null ? selection.whole : selection.unitIds.includes(roomId))
+      ? selection
+      : null;
   const selected = (night: string) =>
-    Boolean(selection && night >= selection.start && night <= selection.end);
+    Boolean(ownSelection && night >= ownSelection.start && night <= ownSelection.end);
+  // Arrow keys move between days (a week up or down); days without a button are skipped over.
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
+    const from = (e.target as HTMLElement).closest<HTMLElement>('[data-night]')?.dataset['night'];
+    if (!step || !from) return;
+    const first = weeks[0]?.[0] ?? from;
+    const last = weeks[weeks.length - 1]?.[6] ?? from;
+    for (let n = addDays(from, step); n >= first && n <= last; n = addDays(n, step)) {
+      const target = e.currentTarget.querySelector<HTMLElement>(`[data-night="${n}"] button`);
+      if (target) {
+        e.preventDefault();
+        target.focus();
+        return;
+      }
+    }
+  };
   const spans = useMemo(
     () => weeks.map((week) => (row ? segmentSpans(row, week) : [])),
     [weeks, row],
@@ -124,8 +150,9 @@ export function PropertyMonthView({
     <div
       role="grid"
       aria-label={t('cal.gridLabel')}
-      className="overflow-hidden rounded-lg border border-border"
+      className="overflow-hidden rounded-lg border border-border select-none"
       data-testid="pcal-month"
+      onKeyDown={onKeyDown}
     >
       <div role="row" className="grid grid-cols-7 border-b border-border bg-muted/40">
         {Array.from({ length: 7 }, (_, i) => (

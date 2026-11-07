@@ -1,18 +1,23 @@
 import { ChevronRight } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
-import { memo, type MouseEvent, type ReactNode, useMemo } from 'react';
+import { memo, type ReactNode, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-import type { CalendarSelection, CellRef, SelectModifiers } from '../hooks/use-calendar-selection';
+import {
+  type CalendarSelection,
+  type CellRef,
+  modifiers,
+  type SelectModifiers,
+} from '../hooks/use-calendar-selection';
 import type {
   AvailabilityOptionData,
   CalendarPropertyData,
   CalendarRowData,
 } from '../lib/calendar-model';
-import { segmentSpans, takenByNight } from '../lib/calendar-model';
+import { nightNoteLookup, segmentSpans, takenByNight } from '../lib/calendar-model';
 import { dayMonth, formatShortVnd, formatVnd, weekdayLong } from '../lib/format';
 import type { NoteFocus } from './booking-night-notes';
 import { BookingBar, NoteDot } from './calendar-booking-bar';
@@ -39,10 +44,6 @@ const col = (i: number) => ({ gridColumn: `${i + 2}`, gridRow: '1' });
 
 const cellClass =
   'relative flex h-10 w-full items-center justify-center text-xs tabular-nums outline-none focus-visible:z-[3] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset';
-
-function modifiers(e: MouseEvent): SelectModifiers {
-  return { shift: e.shiftKey, multi: e.ctrlKey || e.metaKey };
-}
 
 /** Night note text of a row by night (undefined = no note). */
 type NoteOf = (night: string) => string | undefined;
@@ -316,14 +317,11 @@ export const PropertyBlock = memo(function PropertyBlock({
   const inRange = (night: string) =>
     Boolean(selection && night >= selection.start && night <= selection.end);
   const rooms = property.sellMode === 'rooms';
-  const notes = useMemo(
-    () => new Map(property.notes.map((n) => [`${n.unitId ?? ''}|${n.night}`, n.text])),
-    [property.notes],
-  );
+  const noteAt = useMemo(() => nightNoteLookup(property.notes), [property.notes]);
   const noteFor =
     (unitId: string | null): NoteOf =>
     (night) =>
-      notes.get(`${unitId ?? ''}|${night}`);
+      noteAt(unitId, night);
   const capacity = t('cal.capacity', {
     adults: property.standardAdults,
     children: property.standardChildren,
@@ -333,7 +331,6 @@ export const PropertyBlock = memo(function PropertyBlock({
     <Link
       to="/app/calendar/$propertyId"
       params={{ propertyId: property.id }}
-      aria-label={t('pcal.open', { code: property.code })}
       className="min-w-0 flex-1 rounded-sm px-2 py-1 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
     >
       <div className="flex items-baseline gap-1.5">
@@ -344,13 +341,14 @@ export const PropertyBlock = memo(function PropertyBlock({
         {capacity}
         {rooms && ` · ${t('cal.rooms', { count: property.rows.length })}`}
       </div>
+      <span className="sr-only"> · {t('pcal.openSuffix')}</span>
     </Link>
   );
   const name = rooms ? (
     <div className="flex w-full min-w-0 items-center">
       <button
         type="button"
-        className="ml-0.5 shrink-0 rounded-sm p-1 text-muted-foreground hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="flex size-8 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         aria-expanded={expanded}
         aria-label={t('cal.expand', { code: property.code })}
         onClick={() => handlers.onToggle(property.id)}

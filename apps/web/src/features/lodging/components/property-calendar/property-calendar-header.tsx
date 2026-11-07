@@ -9,21 +9,21 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { CalendarPropertyData } from '../../lib/calendar-model';
 import {
   addMonths,
+  monthParts,
+  monthYearLabel,
   PROPERTY_CALENDAR_VIEWS,
   type PropertyCalendarView,
 } from '../../lib/property-calendar-model';
+import { lastCalendarSearch } from '../../lib/calendar-search';
 import { InternalNoteCard } from '../calendar-quick-view';
-
-const monthYear = (month: string) => `${month.slice(5, 7)}/${month.slice(0, 4)}`;
 
 /** "Tháng 11/2026" for a month, "11/2026 – 01/2027" for several. */
 export function periodLabel(t: TFunction, view: PropertyCalendarView, month: string): string {
-  if (view === 'month' || view === 'list')
-    return t('pcal.monthTitle', { month: month.slice(5, 7), year: month.slice(0, 4) });
+  if (view === 'month' || view === 'list') return t('pcal.monthTitle', monthParts(month));
   const months = view === 'quarter' ? 3 : 12;
   return t('pcal.rangeQuarter', {
-    from: monthYear(month),
-    to: monthYear(addMonths(month, months - 1)),
+    from: monthYearLabel(month),
+    to: monthYearLabel(addMonths(month, months - 1)),
   });
 }
 
@@ -70,6 +70,7 @@ export function PropertyCalendarHeader({
       <div className="grid gap-1">
         <Link
           to="/app/calendar"
+          search={lastCalendarSearch()}
           aria-label={t('pcal.backLabel')}
           className="inline-flex w-fit items-center gap-1 rounded-sm text-sm text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 /** A cell of the grid: a night on a unit row (or on a property row for whole stays). */
 export interface CellRef {
@@ -25,6 +25,21 @@ export interface SelectModifiers {
   multi?: boolean;
 }
 
+/** Selection modifiers of a click: shift extends, ctrl/cmd adds rooms. */
+export function modifiers(
+  e: Pick<MouseEvent, 'shiftKey' | 'ctrlKey' | 'metaKey'>,
+): SelectModifiers {
+  return { shift: e.shiftKey, multi: e.ctrlKey || e.metaKey };
+}
+
+/** True when the cell is on the same target as the selection (the whole place, or its rooms). */
+function sameTarget(current: CalendarSelection, cell: CellRef, multi: boolean): boolean {
+  if (current.propertyId !== cell.propertyId) return false;
+  if (current.whole) return !cell.room;
+  if (!cell.room || !cell.unitId) return false;
+  return multi || current.unitIds.includes(cell.unitId);
+}
+
 function fresh(cell: CellRef): CalendarSelection {
   return {
     propertyId: cell.propertyId,
@@ -42,7 +57,8 @@ export function nextSelection(
   cell: CellRef,
   mods: SelectModifiers = {},
 ): CalendarSelection {
-  const same = current?.propertyId === cell.propertyId;
+  // A click on another target (whole place vs room, or another room without ctrl/cmd) restarts.
+  const same = current ? sameTarget(current, cell, Boolean(mods.multi)) : false;
   if (current && same && mods.multi && cell.room && cell.unitId && !current.whole) {
     const has = current.unitIds.includes(cell.unitId);
     const unitIds = has
@@ -65,7 +81,11 @@ export function nextSelection(
  */
 export function useCalendarSelection(onComplete: (selection: CalendarSelection) => void) {
   const [selection, setSelection] = useState<CalendarSelection | null>(null);
-  const drag = useRef<{ origin: CellRef; moved: boolean } | null>(null);
+  const drag = useRef<{
+    origin: CellRef;
+    moved: boolean;
+    range: CalendarSelection | null;
+  } | null>(null);
   const suppressClick = useRef(false);
   const latest = useRef(selection);
   latest.current = selection;
@@ -89,25 +109,28 @@ export function useCalendarSelection(onComplete: (selection: CalendarSelection) 
   );
 
   const pointerDown = useCallback((cell: CellRef) => {
-    drag.current = { origin: cell, moved: false };
+    drag.current = { origin: cell, moved: false, range: null };
   }, []);
 
   const pointerEnter = useCallback((cell: CellRef) => {
     const d = drag.current;
-    if (!d || cell.propertyId !== d.origin.propertyId || cell.night === d.origin.night) return;
+    if (!d || cell.propertyId !== d.origin.propertyId || cell.room !== d.origin.room) return;
+    if (cell.night === d.origin.night && !d.moved) return;
     d.moved = true;
-    const base = fresh(d.origin);
     const [start, end] =
       cell.night < d.origin.night ? [cell.night, d.origin.night] : [d.origin.night, cell.night];
-    setSelection({ ...base, start, end });
+    // The range lives on the drag itself, so the release completes exactly what was dragged
+    // even when React has not rendered the last move yet.
+    d.range = { ...fresh(d.origin), start, end };
+    setSelection(d.range);
   }, []);
 
   const pointerUp = useCallback(() => {
     const d = drag.current;
     drag.current = null;
-    if (!d?.moved || !latest.current) return;
+    if (!d?.moved || !d.range) return;
     suppressClick.current = true;
-    apply({ ...latest.current, complete: true });
+    apply({ ...d.range, complete: true });
   }, [apply]);
 
   const clear = useCallback(() => {
@@ -124,10 +147,21 @@ export function useCalendarSelection(onComplete: (selection: CalendarSelection) 
     const esc = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && latest.current && !latest.current.complete) clear();
     };
+    // A cancelled pointer (native drag, scroll, lost focus) never releases: forget the drag so
+    // a later click does not complete a stale range.
+    const cancel = () => {
+      if (!drag.current) return;
+      drag.current = null;
+      if (latest.current && !latest.current.complete) setSelection(null);
+    };
     window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
+    window.addEventListener('blur', cancel);
     window.addEventListener('keydown', esc);
     return () => {
       window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+      window.removeEventListener('blur', cancel);
       window.removeEventListener('keydown', esc);
     };
   }, [pointerUp, clear]);

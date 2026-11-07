@@ -1,7 +1,7 @@
 import type { AvailabilityRequest } from '@agent-sales/contracts';
 import { Link } from '@tanstack/react-router';
 import { CircleAlert, House } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -14,6 +14,15 @@ import { useAvailability, useLodgingCalendar } from '../api/calendar';
 import type { BookingCreateInitial } from '../hooks/use-booking-draft';
 import { type CalendarSelection, useCalendarSelection } from '../hooks/use-calendar-selection';
 import { type AvailabilityOptionData, bestOptions, hasFreeNight } from '../lib/calendar-model';
+import {
+  type CalendarSearch,
+  compactCalendarSearch,
+  expandedOf,
+  findOf,
+  findParams,
+  openOf,
+  rememberCalendarSearch,
+} from '../lib/calendar-search';
 import { addDays, dayMonth, nightList, todayNight } from '../lib/format';
 import type { NoteFocus } from './booking-night-notes';
 import { BookingSheet } from './booking-sheet';
@@ -32,16 +41,37 @@ type SheetState =
  * Lịch (spec §5.1): the sales home page. Answers "ngày X–Y, N người, còn căn nào, bao
  * nhiêu tiền?" with the find bar, and places a hold from the grid in about three clicks.
  */
-export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
+export function CalendarPage({
+  search: url,
+  onSearch,
+}: {
+  /** The route's search: window, filters, expanded rows and the find search. */
+  search: CalendarSearch;
+  /** Replaces the search (the route rewrites the current history entry). */
+  onSearch: (next: CalendarSearch) => void;
+}) {
   const { t } = useTranslation('lodging');
   const mobile = useIsMobile();
-  const [start, setStart] = useState<string | null>(initialFrom ?? null);
-  const [rangeNights, setRangeNights] = useState<RangeNights>(14);
-  const [area, setArea] = useState('');
-  const [onlyFree, setOnlyFree] = useState(false);
-  const [search, setSearch] = useState<AvailabilityRequest | null>(null);
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const start = url.from ?? null;
+  const rangeNights: RangeNights = url.nights ?? 14;
+  const area = url.area ?? '';
+  const onlyFree = url.free ?? false;
+  const search = useMemo(() => findOf(url), [url]);
+  const expanded = useMemo(() => expandedOf(url), [url]);
   const [sheet, setSheet] = useState<SheetState>(null);
+  // Kept for the "← Lịch" link of a property's calendar.
+  useEffect(() => rememberCalendarSearch(url), [url]);
+  const latest = useRef(url);
+  latest.current = url;
+  const go = useCallback(
+    (patch: CalendarSearch) => onSearch(compactCalendarSearch({ ...latest.current, ...patch })),
+    [onSearch],
+  );
+  const setStart = (from: string | null) => go({ from: from ?? undefined });
+  const setRangeNights = (n: RangeNights) => go({ nights: n === 31 ? 31 : undefined });
+  const setArea = (a: string) => go({ area: a || undefined });
+  const setOnlyFree = (v: boolean) => go({ free: v || undefined });
+  const setSearch = (body: AvailabilityRequest | null) => go(findParams(body));
   // View-only members read the calendar and open bookings, but cannot select or hold.
   const canManage = useCan('orders.manage');
 
@@ -81,12 +111,11 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
       onPointerEnter: canManage ? pointerEnter : () => {},
       onOpenBooking: (bookingId) =>
         setSheet((s) => ({ mode: 'view', bookingId, key: (s?.key ?? 0) + 1 })),
-      onToggle: (id) =>
-        setExpanded((prev) => {
-          const next = new Set(prev);
-          if (!next.delete(id)) next.add(id);
-          return next;
-        }),
+      onToggle: (id) => {
+        const next = new Set(expandedOf(latest.current));
+        if (!next.delete(id)) next.add(id);
+        go({ open: openOf(next) });
+      },
       ...(canManage
         ? {
             onEditNightNote: (bookingId: string, noteAt: NoteFocus) =>
@@ -109,7 +138,7 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
           }
         : {}),
     }),
-    [canManage, select, pointerDown, pointerEnter, openCreate, search],
+    [canManage, select, pointerDown, pointerEnter, openCreate, search, go],
   );
 
   const all = useMemo(() => calendar.data?.properties ?? [], [calendar.data]);
@@ -135,10 +164,11 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
           ? t('find.result', { count: fitCount })
           : t('find.none');
 
-  const runSearch = (body: AvailabilityRequest) => {
-    setSearch(body);
-    if (body.checkIn < from || body.checkIn >= to) setStart(body.checkIn);
-  };
+  const runSearch = (body: AvailabilityRequest) =>
+    go({
+      ...findParams(body),
+      ...(body.checkIn < from || body.checkIn >= to ? { from: body.checkIn } : {}),
+    });
   const shift = (direction: -1 | 0 | 1) =>
     setStart(direction === 0 ? null : addDays(from, direction * nightsCount));
 
@@ -146,6 +176,7 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
     <div className="flex min-w-0 flex-col gap-3">
       <h1 className="text-xl font-semibold">{t('calendarTitle')}</h1>
       <FindAvailabilityBar
+        initial={search}
         active={search !== null}
         status={findStatus}
         onSearch={runSearch}

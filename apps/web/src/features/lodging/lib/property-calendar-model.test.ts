@@ -10,6 +10,7 @@ import {
   monthOccupancy,
   monthWeeks,
   rangeStats,
+  stayEvents,
   viewWindow,
   visibleNights,
 } from './property-calendar-model';
@@ -62,10 +63,10 @@ describe('property calendar model', () => {
   });
 
   it('asks for at most 371 nights in any view', () => {
-    expect(viewWindow('month', '2026-11-20')).toEqual({ from: '2026-10-26', to: '2026-12-07' });
-    expect(viewWindow('quarter', '2026-11-20')).toEqual({ from: '2026-11-01', to: '2027-02-01' });
+    expect(viewWindow('month', '2026-11-20')).toEqual({ from: '2026-10-25', to: '2026-12-07' });
+    expect(viewWindow('quarter', '2026-11-20')).toEqual({ from: '2026-10-31', to: '2027-02-01' });
     const year = viewWindow('year', '2027-03-05');
-    expect(year).toEqual({ from: '2027-03-01', to: '2028-03-01' });
+    expect(year).toEqual({ from: '2027-02-28', to: '2028-03-01' });
     expect(nightsBetween(year.from, year.to)).toBeLessThanOrEqual(371);
     expect(visibleNights('month', '2026-11-20')).toHaveLength(30);
   });
@@ -85,6 +86,56 @@ describe('property calendar model', () => {
     // Sold nights skip the hold; the whole-place stay is one booking.
     expect(stats.nightsSold).toBe(4);
     expect(stats.revenue).toBe(26_000_000);
+  });
+
+  it('gives a room its even share of a multi-room or whole-place total', () => {
+    const pair = seg({
+      bookingId: 'pair',
+      from: '2026-11-10',
+      to: '2026-11-12',
+      totalSell: 3_000_000,
+    });
+    const own = seg({
+      bookingId: 'own',
+      from: '2026-11-20',
+      to: '2026-11-21',
+      totalSell: 1_000_000,
+    });
+    const rows = [row('a', [pair, own]), row('b', [pair]), row('c', [])];
+    const nights = visibleNights('month', '2026-11-01');
+    expect(rangeStats([rows[0] as CalendarRowData], nights, rows).revenue).toBe(2_500_000);
+    expect(rangeStats([rows[1] as CalendarRowData], nights, rows).revenue).toBe(1_500_000);
+    expect(rangeStats(rows, nights, rows).revenue).toBe(4_000_000);
+  });
+
+  it('reads the next check-ins and check-outs from the window, skipping clipped stays', () => {
+    const window = { from: '2026-10-31', to: '2027-02-01' };
+    const shown = visibleNights('quarter', '2026-11-01');
+    const rows = [
+      row('a', [
+        // Clipped at the window's first night: an earlier check-in, but a real check-out.
+        seg({ bookingId: 'b0', code: 'BK-0', from: '2026-10-31', to: '2026-11-03' }),
+        seg({ bookingId: 'b1', code: 'BK-1', from: '2026-11-05', to: '2026-11-07' }),
+        seg({
+          bookingId: 'blk',
+          code: 'BK-B',
+          kind: 'block',
+          from: '2026-11-08',
+          to: '2026-11-09',
+        }),
+        // Ends on the window's last night: it may go on, so no check-out.
+        seg({ bookingId: 'b2', code: 'BK-2', from: '2027-01-30', to: '2027-02-01' }),
+      ]),
+    ];
+    const { checkIns, checkOuts } = stayEvents(rows, shown, '2026-11-02', window);
+    expect(checkIns.map((e) => [e.code, e.night])).toEqual([
+      ['BK-1', '2026-11-05'],
+      ['BK-2', '2027-01-30'],
+    ]);
+    expect(checkOuts.map((e) => [e.code, e.night])).toEqual([
+      ['BK-0', '2026-11-03'],
+      ['BK-1', '2026-11-07'],
+    ]);
   });
 
   it('gives each month its own occupancy', () => {

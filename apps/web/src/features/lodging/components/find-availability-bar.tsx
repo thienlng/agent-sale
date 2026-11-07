@@ -16,11 +16,14 @@ import { PartyInput } from './party-input';
  * [Nhận phòng] [Trả phòng] [Người lớn] [Trẻ em + tuổi] [Tìm].
  */
 export function FindAvailabilityBar({
+  initial,
   active,
   status,
   onSearch,
   onClear,
 }: {
+  /** The search restored from the URL (prefills the fields). */
+  initial?: AvailabilityRequest | null;
   active: boolean;
   /** One line under the bar: result count, nothing found or an error. */
   status: string | null;
@@ -29,9 +32,13 @@ export function FindAvailabilityBar({
 }) {
   const { t } = useTranslation('lodging');
   const id = useId();
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
-  const [party, setParty] = useState<PartyValue>(EMPTY_PARTY);
+  const [checkIn, setCheckIn] = useState(initial?.checkIn ?? '');
+  const [checkOut, setCheckOut] = useState(initial?.checkOut ?? '');
+  const [party, setParty] = useState<PartyValue>(
+    initial
+      ? { adults: initial.party.adults, childAges: initial.party.childAges ?? [] }
+      : EMPTY_PARTY,
+  );
   const [invalid, setInvalid] = useState(false);
 
   const submit = (e: FormEvent) => {

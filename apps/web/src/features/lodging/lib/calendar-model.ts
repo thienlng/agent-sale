@@ -83,3 +83,11 @@ export function nightLabels(properties: CalendarPropertyData[], nights: string[]
     return '';
   });
 }
+
+/** Night note text of a property by unit (null = the property itself) and night. */
+export function nightNoteLookup(
+  notes: CalendarPropertyData['notes'],
+): (unitId: string | null, night: string) => string | undefined {
+  const map = new Map(notes.map((n) => [`${n.unitId ?? ''}|${n.night}`, n.text]));
+  return (unitId, night) => map.get(`${unitId ?? ''}|${night}`);
+}

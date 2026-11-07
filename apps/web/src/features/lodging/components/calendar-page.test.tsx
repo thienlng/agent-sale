@@ -1,11 +1,13 @@
 import type { CalendarDto, PropertyDto, QuoteDto } from '@agent-sales/contracts';
 import { configure, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { renderWithRouter } from '@/testing/render';
 
+import type { CalendarSearch } from '../lib/calendar-search';
 import { CalendarPage } from './calendar-page';
 
 const toast = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }));
@@ -280,12 +282,25 @@ function stubApi(overrides: Record<string, Reply> = {}) {
   return calls;
 }
 
-function renderPage() {
-  return renderWithRouter(() => (
-    <TooltipProvider>
-      <CalendarPage initialFrom={FROM} />
-    </TooltipProvider>
-  ));
+/** Renders Lịch with its search in state, as the route keeps it in the URL. */
+function renderPage(initial: CalendarSearch = { from: FROM }) {
+  const onSearch = vi.fn();
+  function Harness() {
+    const [search, setSearch] = useState(initial);
+    return (
+      <TooltipProvider>
+        <CalendarPage
+          search={search}
+          onSearch={(next) => {
+            onSearch(next);
+            setSearch(next);
+          }}
+        />
+      </TooltipProvider>
+    );
+  }
+  renderWithRouter(() => <Harness />);
+  return onSearch;
 }
 
 const cell = (name: RegExp) => screen.findByRole('button', { name });
@@ -310,16 +325,65 @@ describe('CalendarPage', () => {
   it('links each property name to its own calendar and keeps the rooms toggle apart', async () => {
     stubApi();
     renderPage();
-    const link = await screen.findByRole('link', { name: 'Mở lịch căn A17' });
+    const link = await screen.findByRole('link', {
+      name: /^A17\s?Villa A17 Vinpearl.*Mở lịch căn$/,
+    });
     expect(link).toHaveAttribute('href', `/app/calendar/${A17}`);
-    expect(screen.getByRole('link', { name: 'Mở lịch căn H1' })).toHaveAttribute(
-      'href',
-      `/app/calendar/${H1}`,
-    );
+    expect(
+      screen.getByRole('link', { name: /^H1\s?Homestay Hoa Sứ.*Mở lịch căn$/ }),
+    ).toHaveAttribute('href', `/app/calendar/${H1}`);
     const toggle = screen.getByRole('button', { name: /Xem từng phòng của H1/ });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await userEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('keeps the window, expanded rows and search in the URL search and remembers it', async () => {
+    stubApi();
+    const user = userEvent.setup();
+    const onSearch = renderPage();
+    await cell(/^A17, Thứ Hai 02\/11, trống/);
+    await user.click(screen.getByRole('button', { name: 'Khoảng sau' }));
+    expect(onSearch).toHaveBeenLastCalledWith({ from: '2026-11-16' });
+    await user.click(await screen.findByRole('button', { name: /Xem từng phòng của H1/ }));
+    expect(onSearch).toHaveBeenLastCalledWith({ from: '2026-11-16', open: H1 });
+    await user.click(screen.getByRole('radio', { name: 'Tháng' }));
+    expect(onSearch).toHaveBeenLastCalledWith({ from: '2026-11-16', open: H1, nights: 31 });
+    expect(JSON.parse(sessionStorage.getItem('rapiz.lodging.calendarSearch') ?? '{}')).toEqual({
+      from: '2026-11-16',
+      open: H1,
+      nights: 31,
+    });
+  });
+
+  it('restores the grid from the URL search', async () => {
+    const calls = stubApi({
+      'POST /lodging/availability': { status: 200, body: { options: [] } },
+    });
+    renderPage({
+      from: FROM,
+      nights: 31,
+      open: H1,
+      ci: '2026-11-09',
+      co: '2026-11-11',
+      adults: 3,
+      ages: '5',
+    });
+    expect(await screen.findByRole('button', { name: /Xem từng phòng của H1/ })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(screen.getByRole('radio', { name: 'Tháng' })).toBeChecked();
+    expect(calls.map((c) => c.url)).toContain('/lodging/calendar?from=2026-11-02&to=2026-12-03');
+    const find = screen.getByRole('search');
+    expect(within(find).getByLabelText('Nhận phòng')).toHaveValue('2026-11-09');
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'POST /lodging/availability')?.body).toMatchObject({
+        checkIn: '2026-11-09',
+        checkOut: '2026-11-11',
+        party: { adults: 3, childAges: [5] },
+      }),
+    );
   });
 
   it('labels a hold with text, not only colour', async () => {
@@ -510,10 +574,9 @@ describe('CalendarPage', () => {
       renderPage();
       const full = await screen.findByRole('button', { name: 'A17 06/11: Đã kín' });
       expect(screen.queryByRole('radio', { name: 'Tháng' })).toBeNull();
-      expect(screen.getByRole('link', { name: 'Mở lịch căn A17' })).toHaveAttribute(
-        'href',
-        `/app/calendar/${A17}`,
-      );
+      expect(
+        screen.getByRole('link', { name: /^A17\s?Villa A17 Vinpearl.*Mở lịch căn$/ }),
+      ).toHaveAttribute('href', `/app/calendar/${A17}`);
       expect(calls.map((c) => c.url)).toContain('/lodging/calendar?from=2026-11-02&to=2026-12-03');
       await user.click(full);
       expect(

@@ -7,28 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 import { dayMonth, formatVnd } from '../../lib/format';
-import type { RangeStats } from '../../lib/property-calendar-model';
+import type { RangeStats, StayEvent } from '../../lib/property-calendar-model';
 import { HoldExpiry } from '../bookings-table';
-
-const LIST_MAX = 5;
-
-/** Bookings of the property that matter for the panel, from the upcoming list. */
-export function panelBookings(
-  bookings: BookingDto[],
-  range: { from: string; to: string; today: string },
-) {
-  const stays = bookings.filter((b) => b.kind === 'stay');
-  const after = range.from > range.today ? range.from : range.today;
-  const checkIns = stays
-    .filter((b) => b.checkIn >= after && b.checkIn < range.to)
-    .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
-    .slice(0, LIST_MAX);
-  const checkOuts = stays
-    .filter((b) => b.checkOut >= after && b.checkOut < range.to)
-    .sort((a, b) => a.checkOut.localeCompare(b.checkOut))
-    .slice(0, LIST_MAX);
-  return { checkIns, checkOuts };
-}
 
 function Figure({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -40,38 +20,44 @@ function Figure({ label, value, hint }: { label: string; value: string; hint?: s
   );
 }
 
+interface Line {
+  bookingId: string;
+  code: string;
+  guestName: string;
+  night: string;
+  extra?: ReactNode;
+}
+
 function BookingLines({
   title,
-  bookings,
-  date,
+  lines,
   onOpen,
-  children,
 }: {
   title?: string;
-  bookings: BookingDto[];
-  date: (b: BookingDto) => string;
+  lines: Line[];
   onOpen: (id: string) => void;
-  children?: (b: BookingDto) => ReactNode;
 }) {
   const { t } = useTranslation('lodging');
   return (
     <section className="grid min-w-0 gap-1.5">
       {title && <h3 className="text-xs font-semibold text-muted-foreground">{title}</h3>}
-      {bookings.length === 0 ? (
+      {lines.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t('pcal.stats.none')}</p>
       ) : (
         <ul className="grid min-w-0 gap-1">
-          {bookings.map((b) => (
-            <li key={b.id} className="min-w-0">
+          {lines.map((l) => (
+            <li key={l.bookingId} className="min-w-0">
               <button
                 type="button"
-                aria-label={t('pcal.stats.openBooking', { code: b.code })}
+                aria-label={t('pcal.stats.openBooking', { code: l.code })}
                 className="flex min-h-9 w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                onClick={() => onOpen(b.id)}
+                onClick={() => onOpen(l.bookingId)}
               >
-                <span className="w-11 shrink-0 tabular-nums text-muted-foreground">{date(b)}</span>
-                <span className="min-w-0 flex-1 truncate font-medium">{b.guestName || b.code}</span>
-                {children?.(b)}
+                <span className="w-11 shrink-0 tabular-nums text-muted-foreground">
+                  {dayMonth(l.night)}
+                </span>
+                <span className="min-w-0 flex-1 truncate font-medium">{l.guestName || l.code}</span>
+                {l.extra}
               </button>
             </li>
           ))}
@@ -94,8 +80,8 @@ export function PropertyCalendarStats({
   onOpenBooking,
 }: {
   stats: RangeStats;
-  checkIns: BookingDto[];
-  checkOuts: BookingDto[];
+  checkIns: StayEvent[];
+  checkOuts: StayEvent[];
   botHolds: BookingDto[];
   /** True while the previous range's data is still shown. */
   dimmed: boolean;
@@ -131,18 +117,8 @@ export function PropertyCalendarStats({
             />
           </div>
         </dl>
-        <BookingLines
-          title={t('pcal.stats.checkIns')}
-          bookings={checkIns}
-          date={(b) => dayMonth(b.checkIn)}
-          onOpen={onOpenBooking}
-        />
-        <BookingLines
-          title={t('pcal.stats.checkOuts')}
-          bookings={checkOuts}
-          date={(b) => dayMonth(b.checkOut)}
-          onOpen={onOpenBooking}
-        />
+        <BookingLines title={t('pcal.stats.checkIns')} lines={checkIns} onOpen={onOpenBooking} />
+        <BookingLines title={t('pcal.stats.checkOuts')} lines={checkOuts} onOpen={onOpenBooking} />
         <section className="grid min-w-0 gap-1.5">
           <h3 className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
             <Bot aria-hidden className="size-3.5" />
@@ -152,16 +128,19 @@ export function PropertyCalendarStats({
             <p className="text-sm text-muted-foreground">{t('pcal.stats.botHoldsNone')}</p>
           ) : (
             <BookingLines
-              bookings={botHolds}
-              date={(b) => dayMonth(b.checkIn)}
+              lines={botHolds.map((b) => ({
+                bookingId: b.id,
+                code: b.code,
+                guestName: b.guestName,
+                night: b.checkIn,
+                extra: (
+                  <span className="shrink-0 text-xs">
+                    <HoldExpiry at={b.holdExpiresAt} now={now} />
+                  </span>
+                ),
+              }))}
               onOpen={onOpenBooking}
-            >
-              {(b) => (
-                <span className="shrink-0 text-xs">
-                  <HoldExpiry at={b.holdExpiresAt} now={now} />
-                </span>
-              )}
-            </BookingLines>
+            />
           )}
         </section>
       </CardContent>

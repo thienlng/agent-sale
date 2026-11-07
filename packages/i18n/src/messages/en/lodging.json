@@ -704,7 +704,7 @@
   "pcal": {
     "back": "Calendar",
     "backLabel": "Back to the calendar of every property",
-    "open": "Open the calendar of {{code}}",
+    "openSuffix": "Open its calendar",
     "notFound": "This property was not found.",
     "prev": "Previous",
     "next": "Next",
@@ -725,6 +725,7 @@
     "dayTaken": "{{date}}, {{status}} {{code}}",
     "dayPartial": "{{date}}, {{free}}/{{total}} rooms free",
     "dayOpenMonth": "{{date}}, {{state}}. Open this month",
+    "dayOpenBooking": "{{date}}, {{state}} {{code}}. Open the booking",
     "monthOccupancy": "{{pct}}% occupied",
     "openMonth": "Open {{month}}/{{year}}, {{pct}}% occupied",
     "legend": {

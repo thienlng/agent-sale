@@ -1,18 +1,20 @@
 import { Link } from '@tanstack/react-router';
 import { CircleAlert } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCan } from '@/lib/permissions';
+import { cn } from '@/lib/utils';
 
 import { useBookings } from '../../api/bookings';
 import { useLodgingCalendar } from '../../api/calendar';
 import type { BookingCreateInitial } from '../../hooks/use-booking-draft';
 import { type CalendarSelection, useCalendarSelection } from '../../hooks/use-calendar-selection';
 import { botHoldPending } from '../../lib/bot-hold';
+import { nightNoteLookup } from '../../lib/calendar-model';
 import { addDays, dayMonth, nightList, todayNight } from '../../lib/format';
 import {
   addMonths,
@@ -25,7 +27,8 @@ import {
   type PropertyCalendarSearch,
   type PropertyCalendarView,
   rangeStats,
-  rowsInScope,
+  scopeOf,
+  stayEvents,
   VIEW_STEP_MONTHS,
   viewWindow,
   visibleNights,
@@ -35,7 +38,7 @@ import { BookingSheet } from '../booking-sheet';
 import { QuarterMonth, StateLegend, YearMonth } from './compact-months';
 import { PropertyBookingsList } from './property-bookings-list';
 import { PropertyCalendarHeader, UnitChips } from './property-calendar-header';
-import { panelBookings, PropertyCalendarStats } from './property-calendar-stats';
+import { PropertyCalendarStats } from './property-calendar-stats';
 import { type MonthHandlers, PropertyMonthView } from './property-month-view';
 
 type SheetState =
@@ -57,7 +60,8 @@ export function PropertyCalendarPage({
 }: {
   propertyId: string;
   search: PropertyCalendarSearch;
-  onSearch: (next: PropertyCalendarSearch) => void;
+  /** `replace` rewrites the current history entry (used to drop an invalid `unit`). */
+  onSearch: (next: PropertyCalendarSearch, options?: { replace?: boolean }) => void;
 }) {
   const { t } = useTranslation('lodging');
   const canManage = useCan('orders.manage');
@@ -66,37 +70,45 @@ export function PropertyCalendarPage({
   const win = viewWindow(view, month);
   const ids = useMemo(() => [propertyId], [propertyId]);
   const calendar = useLodgingCalendar({ from: win.from, to: win.to, propertyIds: ids });
-  const upcoming = useBookings({ view: 'upcoming', propertyId });
+  // Bot holds are not on the calendar's segments (no source there): ask for this property's.
+  const holds = useBookings({ view: 'holds', propertyId, source: 'bot' });
   const [sheet, setSheet] = useState<SheetState>(null);
 
   const property = calendar.data?.properties.find((p) => p.id === propertyId);
   const today = calendar.data?.today ?? todayNight();
-  const room =
-    property?.sellMode === 'rooms' && search.unit
-      ? property.rows.find((r) => r.unitId === search.unit)
-      : undefined;
-  const summary = property?.sellMode === 'rooms' && !room;
-  const rows = useMemo(
-    () => (property ? rowsInScope(property, room?.unitId) : []),
-    [property, room],
+  const scope = useMemo(
+    () => (property ? scopeOf(property, search.unit) : { room: undefined, rows: [] }),
+    [property, search.unit],
   );
+  const { room, rows } = scope;
+  const summary = property?.sellMode === 'rooms' && !room;
+  // keepPreviousData shows the last window while the next one loads: its nights are not this
+  // view's, so the body is shown muted and inert until the right window arrives.
+  const stale =
+    calendar.isPlaceholderData ||
+    (calendar.data !== undefined &&
+      (calendar.data.from !== win.from || calendar.data.to !== win.to));
   const shown = useMemo(() => visibleNights(view, month), [view, month]);
   const windowNights = useMemo(() => nightList(win.from, win.to), [win.from, win.to]);
   const days = useMemo(
     () => (property ? dayInfos(property, rows, summary, windowNights) : new Map()),
     [property, rows, summary, windowNights],
   );
-  const notes = useMemo(
-    () => new Map((property?.notes ?? []).map((n) => [`${n.unitId ?? ''}|${n.night}`, n.text])),
-    [property],
-  );
+  const noteAt = useMemo(() => nightNoteLookup(property?.notes ?? []), [property]);
   const noteOf = useCallback(
-    (night: string) => notes.get(`${room?.unitId ?? ''}|${night}`),
-    [notes, room],
+    (night: string) => noteAt(room?.unitId ?? null, night),
+    [noteAt, room],
   );
 
+  // An unknown or stale `unit` is never carried into later URLs.
+  const unit = property ? room?.unitId : search.unit;
   const go = (patch: PropertyCalendarSearch) =>
-    onSearch(compactSearch({ view, from: search.from, unit: search.unit, ...patch }));
+    onSearch(compactSearch({ view, from: search.from, unit, ...patch }));
+  const invalidUnit = Boolean(property && search.unit && !room && !stale);
+  useEffect(() => {
+    if (invalidUnit)
+      onSearch(compactSearch({ view: search.view, from: search.from }), { replace: true });
+  }, [invalidUnit, onSearch, search.view, search.from]);
   const openMonth = (m: string) => go({ view: 'month', from: m });
   const openBooking = useCallback(
     (bookingId: string) => setSheet((s) => ({ mode: 'view', bookingId, key: (s?.key ?? 0) + 1 })),
@@ -119,34 +131,46 @@ export function PropertyCalendarPage({
     [property],
   );
   const { selection, select, pointerDown, pointerEnter, clear } = useCalendarSelection(onComplete);
+  // A selection belongs to the room, view and window it was started on.
+  useEffect(() => clear(), [clear, room?.unitId, view, month]);
+  const interactive = canManage && !stale;
   const handlers = useMemo<MonthHandlers>(
     () => ({
-      // View-only members read the calendar and open bookings, but cannot select or hold.
-      onCell: canManage ? select : noop,
-      onPointerDown: canManage ? pointerDown : noop,
-      onPointerEnter: canManage ? pointerEnter : noop,
-      onOpenBooking: openBooking,
-      ...(canManage
+      // View-only members read the calendar and open bookings, but cannot select or hold;
+      // nobody acts on a window that is still loading.
+      onCell: interactive ? select : noop,
+      onPointerDown: interactive ? pointerDown : noop,
+      onPointerEnter: interactive ? pointerEnter : noop,
+      onOpenBooking: stale ? noop : openBooking,
+      ...(interactive
         ? {
             onEditNightNote: (bookingId: string, noteAt: NoteFocus) =>
               setSheet((s) => ({ mode: 'view', bookingId, noteAt, key: (s?.key ?? 0) + 1 })),
           }
         : {}),
     }),
-    [canManage, select, pointerDown, pointerEnter, openBooking],
+    [interactive, stale, select, pointerDown, pointerEnter, openBooking],
   );
 
-  const stats = useMemo(() => rangeStats(rows, shown), [rows, shown]);
-  const panel = useMemo(() => {
-    const list = (upcoming.data?.data ?? []).filter(
-      (b) => !room || b.whole || b.unitIds.includes(room.unitId),
-    );
-    const end = addDays(shown[shown.length - 1] ?? month, 1);
-    return {
-      ...panelBookings(list, { from: shown[0] ?? month, to: end, today }),
-      botHolds: list.filter(botHoldPending),
-    };
-  }, [upcoming.data, room, shown, month, today]);
+  const stats = useMemo(
+    () => rangeStats(rows, shown, property?.rows ?? rows),
+    [rows, shown, property],
+  );
+  const events = useMemo(
+    () =>
+      stayEvents(rows, shown, today, {
+        from: calendar.data?.from ?? win.from,
+        to: calendar.data?.to ?? win.to,
+      }),
+    [rows, shown, today, calendar.data, win.from, win.to],
+  );
+  const botHolds = useMemo(
+    () =>
+      (holds.data?.data ?? []).filter(
+        (b) => botHoldPending(b) && (!room || b.whole || b.unitIds.includes(room.unitId)),
+      ),
+    [holds.data, room],
+  );
 
   const months = useMemo(() => monthsFrom(month, view === 'quarter' ? 3 : 12), [view, month]);
   const monthPcts = useMemo(
@@ -261,13 +285,20 @@ export function PropertyCalendarPage({
         body
       ) : (
         <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
-          <div className="min-w-0">{body}</div>
+          <div
+            className={cn('min-w-0', stale && 'pointer-events-none opacity-50')}
+            aria-busy={stale}
+            inert={stale}
+            data-testid="pcal-body"
+          >
+            {body}
+          </div>
           <PropertyCalendarStats
             stats={stats}
-            checkIns={panel.checkIns}
-            checkOuts={panel.checkOuts}
-            botHolds={panel.botHolds}
-            dimmed={calendar.isPlaceholderData}
+            checkIns={events.checkIns}
+            checkOuts={events.checkOuts}
+            botHolds={botHolds}
+            dimmed={stale}
             onOpenBooking={openBooking}
           />
         </div>
