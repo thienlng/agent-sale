@@ -40,7 +40,8 @@ export function ImageLightbox({
   return (
     <Dialog open={image !== undefined} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="gap-3 sm:max-w-3xl"
+        // One shrinkable column: a wide photo must not widen the card past a phone screen.
+        className="grid-cols-[minmax(0,1fr)] gap-3 sm:max-w-3xl"
         onKeyDown={(e) => {
           if (e.key === 'ArrowLeft') step(-1);
           if (e.key === 'ArrowRight') step(1);
@@ -75,7 +76,7 @@ export function ImageLightbox({
                 alt={image.label}
                 draggable={false}
                 referrerPolicy="no-referrer"
-                className="max-h-[70vh] w-auto object-contain"
+                className="max-h-[70vh] w-auto max-w-full object-contain"
               />
               {count > 1 && (
                 <>

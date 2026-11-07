@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { useEnterToSend } from '@/hooks/use-enter-to-send';
 
 import {
   type AttachError,
@@ -35,7 +36,11 @@ export function TestChatComposer({
   const { t } = useTranslation();
   const { t: training } = useTranslation('training');
   const fileInput = useRef<HTMLInputElement>(null);
+  const textarea = useRef<HTMLTextAreaElement>(null);
   const canSend = (!!draft.trim() || attachments.length > 0) && !busy;
+  const enterToSend = useEnterToSend(textarea, () => {
+    if (canSend) onSend();
+  });
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -98,14 +103,10 @@ export function TestChatComposer({
           <ImagePlus />
         </Button>
         <Textarea
+          ref={textarea}
           value={draft}
           onChange={(e) => onDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-              e.preventDefault();
-              if (canSend) onSend();
-            }
-          }}
+          {...enterToSend}
           onPaste={onPaste}
           rows={1}
           maxLength={2000}

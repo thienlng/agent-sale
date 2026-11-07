@@ -178,9 +178,9 @@ describe('TestChat', () => {
 
       await userEvent.click(screen.getAllByRole('button', { name: 'Bỏ ảnh này' })[0]!);
       fireEvent.change(input, {
-        target: { files: [png('big.png', 'image/png', 3 * 1024 * 1024 + 1)] },
+        target: { files: [png('big.png', 'image/png', 20 * 1024 * 1024 + 1)] },
       });
-      expect(screen.getByRole('alert')).toHaveTextContent('tối đa 3 MB');
+      expect(screen.getByRole('alert')).toHaveTextContent('tối đa 20 MB');
       fireEvent.change(input, { target: { files: [png('x.gif', 'image/gif')] } });
       expect(screen.getByRole('alert')).toHaveTextContent('JPEG, PNG hoặc WebP');
       expect(screen.getAllByAltText('Ảnh đính kèm')).toHaveLength(2);
