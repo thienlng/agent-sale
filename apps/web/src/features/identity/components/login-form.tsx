@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router';
+import { ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,6 +14,7 @@ import { FormError } from './form-error';
 export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
   const { t } = useTranslation();
   const [pending, setPending] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Set once the password was right but the account wants a second factor.
   const [pending2fa, setPending2fa] = useState<{ email: string; password: string } | null>(null);
@@ -32,6 +34,7 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
     } catch (err) {
       const reason = err instanceof ApiClientError ? err.details?.['reason'] : undefined;
       if (reason === 'mfa_required') {
+        setPasswordVisible(false);
         setPending2fa({ email, password });
         return;
       }
@@ -121,16 +124,27 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
             {t('auth.forgotPassword')}
           </Link>
         </div>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-        />
+        <div className="login-password">
+          <Input
+            id="password"
+            name="password"
+            type={passwordVisible ? 'text' : 'password'}
+            autoComplete="current-password"
+            required
+          />
+          <button
+            type="button"
+            className="password-toggle"
+            aria-label={t(passwordVisible ? 'auth.hidePassword' : 'auth.showPassword')}
+            onClick={() => setPasswordVisible((value) => !value)}
+          >
+            {passwordVisible ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
+          </button>
+        </div>
       </div>
       <Button type="submit" size="lg" disabled={pending}>
         {pending ? t('auth.loggingIn') : t('auth.login')}
+        <ArrowRight size={18} aria-hidden />
       </Button>
       <p className="text-center text-sm text-muted-foreground">
         {t('auth.noAccount')}{' '}

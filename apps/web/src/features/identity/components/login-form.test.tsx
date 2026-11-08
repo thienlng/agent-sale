@@ -16,6 +16,20 @@ describe('LoginForm', () => {
     expect(screen.getByRole('link', { name: 'Đăng ký' })).toHaveAttribute('href', '/signup');
   });
 
+  it('reveals and masks the same password without submitting the form', async () => {
+    const { fetchStub, calls } = stubFetch({});
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <LoginForm onSuccess={() => {}} />);
+    const password = await screen.findByLabelText('Mật khẩu');
+    await userEvent.type(password, 'example-only');
+    await userEvent.click(screen.getByRole('button', { name: 'Hiện mật khẩu' }));
+    expect(password).toHaveAttribute('type', 'text');
+    await userEvent.click(screen.getByRole('button', { name: 'Ẩn mật khẩu' }));
+    expect(password).toHaveAttribute('type', 'password');
+    expect(password).toHaveValue('example-only');
+    expect(calls).toHaveLength(0);
+  });
+
   it('shows one generic message for a wrong email or password', async () => {
     const { fetchStub } = stubFetch({
       'POST /auth/login': {
