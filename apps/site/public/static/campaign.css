@@ -1,15 +1,15 @@
-/* Campaign cover: the edge of the dark field follows the fold of the Rapiz R. */
-.campaign-home .hero { color:var(--paper); background:var(--ink); }
-.hero .hero-scrim { background:var(--ink); clip-path:polygon(0 0,62% 0,49% 100%,0 100%); }
+/* Campaign cover: the edge of the light field follows the fold of the Rapiz R. */
+.campaign-home .hero { color:var(--ink); background:#f6efe7; }
+.hero .hero-scrim { background:#f6efe7; clip-path:polygon(0 0,62% 0,49% 100%,0 100%); }
 .hero .hero-stage { min-height:clamp(565px,43.8vw,745px); }
 .hero .hero-copy { padding-block:clamp(38px,4.2vw,74px); width:55%; }
-.hero .hero-label { color:#ebded3; }
+.hero .hero-label { color:var(--ink); }
 .hero .hero-label .slashes { background:repeating-linear-gradient(90deg,var(--orange) 0 4px,transparent 4px 8px); }
 .hero .hero-copy h1 { font-size:clamp(78px,7.1vw,122px); font-weight:820; line-height:.99; margin:23px 0; }
-.hero .hero-copy h1 em { color:var(--orange); }
-.hero .hero-deck { max-width:38ch; color:#e3dfd8; }
-.hero .hero-actions .text-link { color:#f5f2ec; }
-.hero .hero-actions .text-link:hover { color:var(--orange); }
+.hero .hero-copy h1 em { color:var(--rust); }
+.hero .hero-deck { max-width:38ch; color:#3a3836; }
+.hero .hero-actions .text-link { color:var(--ink); }
+.hero .hero-actions .text-link:hover { color:var(--rust); }
 .hero .hero-receipt { color:var(--ink); border-left:4px solid var(--orange); border-radius:4px; }
 .hero-index { background:var(--ink); color:var(--paper); border-block:1px solid #494843; }
 .hero-index .container { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); }
