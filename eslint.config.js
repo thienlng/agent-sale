@@ -197,6 +197,12 @@ export default defineConfig(
     rules: { 'no-console': 'off' },
   },
   {
+    // Plain browser scripts of the static marketing pages (no bundler, no module system).
+    files: ['apps/site/public/static/*.js'],
+    languageOptions: { sourceType: 'script' },
+    rules: { 'no-undef': 'off' },
+  },
+  {
     files: ['**/*.cjs'],
     languageOptions: {
       sourceType: 'commonjs',

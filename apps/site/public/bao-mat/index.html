@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f9f8f5">
+  <meta name="description" content="Dữ liệu mỗi doanh nghiệp tách riêng ở tầng cơ sở dữ liệu, phân quyền thành viên, xác thực hai lớp, nhật ký thao tác; bot cần khách xác nhận trước khi tạo đơn.">
+  <title>Bảo mật và dữ liệu: tách riêng, phân quyền, 2FA | Rapiz</title>
+  <link rel="canonical" href="https://rapiz.io/bao-mat/">
+  <meta property="og:title" content="Bảo mật và dữ liệu: tách riêng, phân quyền, 2FA | Rapiz">
+  <meta property="og:description" content="Dữ liệu mỗi doanh nghiệp tách riêng ở tầng cơ sở dữ liệu, phân quyền thành viên, xác thực hai lớp, nhật ký thao tác; bot cần khách xác nhận trước khi tạo đơn.">
+  <meta property="og:locale" content="vi_VN">
+  <link rel="icon" type="image/svg+xml" href="../images/rapiz-symbol.svg">
+  <link rel="preload" as="font" href="../fonts/inter-tight.woff2" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="../static/landing.css">
+  <link rel="stylesheet" href="../static/motion.css">
+  <link rel="stylesheet" href="../static/site.css">
+  <link rel="stylesheet" href="../static/brand.css">
+  <link rel="stylesheet" href="../static/utility-design.css">
+  <script defer src="../static/site.js"></script>
+  <script defer src="../static/motion.js"></script>
+</head>
+<body id="top">
+<!--#site-head-->
+<a class="skip" href="#main">Đến nội dung chính</a>
+<header class="site-head">
+  <div class="container head-inner">
+    <a class="brand" href="../index.html" aria-label="Rapiz, trang chủ"><img src="../images/rapiz-logo.svg" width="143" height="50" alt="Rapiz"></a>
+    <nav id="nav" aria-label="Điều hướng chính">
+      <div class="nav-group"><button type="button" class="nav-trigger" aria-expanded="false" aria-controls="nav-solutions">Giải pháp</button><div class="nav-panel" id="nav-solutions"><a href="../nganh/ban-le/"><strong>Bán lẻ online</strong><small>Tư vấn size, tra tồn và chốt đơn trong chat.</small></a><a href="../nganh/villa-homestay/"><strong>Villa & homestay</strong><small>Xem ngày trống, báo giá theo gói, giữ chỗ.</small></a><a href="../nganh/spa-salon/"><strong>Spa, salon, thẩm mỹ</strong><small>Tư vấn dịch vụ và ghi lịch hẹn đủ thông tin.</small></a><a href="../nganh/giao-duc/"><strong>Trung tâm giáo dục</strong><small>Ghi danh test trình độ và học thử.</small></a><a href="../nganh/phan-mem/"><strong>Phần mềm, SaaS</strong><small>Nhận yêu cầu demo, dùng thử; theo dõi MRR.</small></a></div></div><div class="nav-group"><button type="button" class="nav-trigger" aria-expanded="false" aria-controls="nav-features">Tính năng</button><div class="nav-panel" id="nav-features"><a href="../tinh-nang/ban-hang-ai/"><strong>Bot bán hàng AI</strong><small>Chốt đơn bằng nút xác nhận, không bịa giá.</small></a><a href="../tinh-nang/binh-luan-facebook/"><strong>Bình luận Facebook</strong><small>Trả lời theo bài đăng, nhắn riêng, ẩn bình luận xấu.</small></a><a href="../tinh-nang/hop-thu/"><strong>Hộp thư đội sale</strong><small>Bot và người làm chung, tiếp quản một chạm.</small></a><a href="../tinh-nang/dao-tao-ai/"><strong>Đào tạo AI</strong><small>Dạy bot như dạy nhân viên mới, có lịch sử.</small></a><a href="../tinh-nang/tro-ly-rapiz/"><strong>Trợ lý Rapiz</strong><small>Hỏi số liệu bằng tiếng Việt, nhận biểu đồ.</small></a><a href="../tinh-nang/khach-hang-thong-ke/"><strong>Khách hàng & thống kê</strong><small>Từ hội thoại đến đơn, đo được từng bước.</small></a></div></div><a href="../tich-hop/">Tích hợp</a><a href="../bang-gia/">Bảng giá</a><a class="nav-login" href="/login">Đăng nhập</a>
+    </nav>
+    <div class="head-actions">
+      <a class="head-login" href="/login">Đăng nhập</a>
+      <a class="head-cta" href="../dat-lich-demo/">Đặt lịch demo <span aria-hidden="true">↗</span></a>
+    </div>
+    <button class="nav-toggle" aria-controls="nav" aria-expanded="false" aria-label="Mở menu"><span></span><span></span></button>
+  </div>
+</header>
+<!--/site-head-->
+<main id="main" class="ut-page ut-bao-mat"><section class="ut-hero" aria-labelledby="page-title"><div class="container ut-hero-layout">
+      <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> BẢO MẬT & DỮ LIỆU</p><h1 id="page-title">Quyền truy cập,<br><em>trong tầm tay.</em></h1><p class="ut-deck">Bot làm việc trong phạm vi bạn cho phép. Dữ liệu mỗi doanh nghiệp tách riêng, thành viên có vai trò, thao tác quan trọng được ghi nhật ký và việc tốn tiền cần người xác nhận.</p>
+        <a href="#security-controls" class="ut-link">Xem các lớp bảo vệ <span aria-hidden="true">↓</span></a>
+      </div><figure class="ut-security-visual"><div class="ut-vault">
+          <div class="ut-vault-top"><span>Không gian doanh nghiệp</span><span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 4.6 3 8.4 7 10 4-1.6 7-5.4 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg></span></div>
+          <div class="ut-vault-symbol" aria-hidden="true"><i></i><i></i><img src="../images/rapiz-symbol.svg" width="96" height="83" alt=""></div>
+          <p>Dữ liệu tách riêng cho từng doanh nghiệp</p>
+        </div></figure>
+    </div></section><section class="sec ut-controls" id="security-controls" aria-labelledby="s1"><div class="container ut-control-layout">
+      <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> BẢO VỆ DỮ LIỆU</p><h2 id="s1">Dữ liệu mỗi doanh nghiệp<br><em>nằm riêng.</em></h2></div>
+      <div class="ut-control-list"><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.5" rx="7" ry="2.5"/><path d="M5 5.5v13c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-13M5 12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5"/></svg></div>
+      <div><h3>Dữ liệu tách riêng</h3><p>Mỗi doanh nghiệp có vùng dữ liệu riêng, được khoá ở tầng cơ sở dữ liệu bằng chính sách theo dòng.</p></div></article><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c.5-3.2 2.8-5 6-5s5.5 1.8 6 5M16 5a3 3 0 0 1 0 6M18 15c1.8.6 2.8 2.2 3 5"/></svg></div>
+      <div><h3>Vai trò và ghế</h3><p>Mời thành viên, gán vai trò, giới hạn số ghế theo gói. Thu hồi quyền ngay khi cần.</p></div></article><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 4.6 3 8.4 7 10 4-1.6 7-5.4 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg></div>
+      <div><h3>Xác thực hai lớp</h3><p>Bật 2FA cho tài khoản; đăng ký bằng mã xác thực email.</p></div></article><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 4v4h4M12 8v4l3 2"/></svg></div>
+      <div><h3>Nhật ký thao tác</h3><p>Thay đổi quan trọng được ghi lại: ai làm, làm gì, lúc nào.</p></div></article></div>
+    </div></section><section class="sec ut-controls" id="bot-controls" aria-labelledby="s2"><div class="container ut-control-layout">
+      <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> KIỂM SOÁT BOT</p><h2 id="s2">Bot làm trong phạm vi.<br><em>Người duyệt việc quan trọng.</em></h2></div>
+      <div class="ut-control-list"><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9 17.5 20 6.5"/></svg></div>
+      <div><h3>Khách xác nhận trước khi tạo đơn</h3><p>Đơn chỉ được tạo khi khách bấm nút xác nhận trên tóm tắt đơn.</p></div></article><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3.5"/><path d="M3 20c.6-3.4 3-5.5 6-5.5 1.5 0 2.8.5 3.9 1.3M15 15h6M18 12l3 3-3 3"/></svg></div>
+      <div><h3>Nhân viên duyệt đơn và giữ chỗ</h3><p>Đơn bot tạo mang nhãn riêng; giữ chỗ tự hết hạn nếu nhân viên chưa xác nhận.</p></div></article><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0V8ZM12 17v4"/></svg></div>
+      <div><h3>Hành động API có xác nhận</h3><p>Mỗi lần gọi API của bạn có bước xác nhận, và lệnh gọi vào mạng nội bộ bị chặn.</p></div></article><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h7"/><path d="m16 16 2 2 4-4"/></svg></div>
+      <div><h3>Trợ lý đề xuất, bạn duyệt</h3><p>Thay đổi do Trợ lý Rapiz soạn chỉ áp dụng sau khi chủ doanh nghiệp duyệt.</p></div></article><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M16 11v6M8 15h2M12 15h2"/></svg></div>
+      <div><h3>Không đoán số</h3><p>Giá, tồn, ngày trống tra từ dữ liệu; phép tính đi qua máy tính.</p></div></article><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19M9 7h6"/></svg></div>
+      <div><h3>Lịch sử và khôi phục</h3><p>Mọi chỉnh sửa đào tạo bot có lịch sử và khôi phục được.</p></div></article><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg></div>
+      <div><h3>Hết lượt thì chuyển người</h3><p>Khi hết lượt trả lời AI hoặc tài khoản tạm dừng, hội thoại về nhân viên, bot không trả lời thay.</p></div></article><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></div>
+      <div><h3>Giải thích được</h3><p>Hỏi trợ lý vì sao bot trả lời như vậy để thấy quy tắc và dữ liệu đã dùng.</p></div></article></div>
+    </div></section><section id="questions" class="faq" aria-labelledby="faq-title">
+  <div class="container faq-grid">
+    <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> CÂU HỎI THƯỜNG GẶP</p><h2 id="faq-title">Bạn muốn<br>biết <em>thêm?</em></h2></div>
+    <div class="faq-items"><details open><summary>Nhân viên của doanh nghiệp này có xem được dữ liệu doanh nghiệp khác không?</summary><p>Không. Dữ liệu tách riêng theo doanh nghiệp ở tầng cơ sở dữ liệu. Thành viên chỉ thấy doanh nghiệp họ được mời vào.</p></details><details><summary>Rapiz có dùng hội thoại của tôi cho khách khác không?</summary><p>Bot của bạn trả lời dựa trên dữ liệu doanh nghiệp bạn. Dữ liệu một doanh nghiệp không được dùng để trả lời khách của doanh nghiệp khác.</p></details><details><summary>Tôi muốn ngừng dùng bot ngay lập tức?</summary><p>Tắt bot cho từng hội thoại, cho từng kênh hoặc cho cả bot trong phần cài đặt. Hội thoại vẫn nằm trong hộp thư để nhân viên xử lý.</p></details><details><summary>Có cam kết tuân thủ tiêu chuẩn nào không?</summary><p>Trang này chỉ liệt kê những biện pháp đang chạy trong sản phẩm. Nếu doanh nghiệp bạn cần hồ sơ bảo mật cho thẩm định, hãy đặt lịch trao đổi với Rapiz.</p></details></div>
+  </div>
+</section><section class="sec tint" aria-labelledby="s4">
+  <div class="container">
+    <div class="sec-head-solo"><p class="kicker"><i class="slashes" aria-hidden="true"></i> XEM TIẾP</p><h2 id="s4">Rapiz còn <em>làm được gì?</em></h2></div>
+    <div class="related below"><a class="rel" href="../tich-hop/"><small>Nền tảng</small><strong>Tích hợp & kênh</strong><span>Messenger, website, KiotViet, API và webhook.</span><em>Xem chi tiết →</em></a><a class="rel" href="../tinh-nang/hop-thu/"><small>Tính năng</small><strong>Hộp thư đội sale</strong><span>Bot và người làm chung, tiếp quản một chạm.</span><em>Xem chi tiết →</em></a><a class="rel" href="../bang-gia/"><small>Nền tảng</small><strong>Bảng giá</strong><span>Bắt đầu miễn phí, nâng gói khi đội lớn lên.</span><em>Xem chi tiết →</em></a></div>
+  </div>
+</section><section class="close" aria-labelledby="close-title">
+  <img class="close-mark" src="../images/rapiz-symbol.svg" alt="" loading="lazy">
+  <div class="container">
+    <h2 id="close-title">Cần trao đổi<br><em>về bảo mật?</em></h2>
+    <div class="close-links"><a href="/signup" class="btn dark">Bắt đầu miễn phí <span aria-hidden="true">↗</span></a><a class="text-link" href="../dat-lich-demo/">Đặt lịch demo với Rapiz <span aria-hidden="true">→</span></a></div>
+  </div>
+</section></main>
+<!--#site-foot-->
+<footer class="site-foot">
+  <div class="container foot-grid">
+    <div class="foot-brand">
+      <a class="brand" href="../index.html" aria-label="Rapiz, trang chủ"><img src="../images/rapiz-logo-reverse.svg" width="137" height="48" alt="Rapiz" loading="lazy"></a>
+      <p>Nhân viên sale AI cho doanh nghiệp Việt. Tư vấn bằng dữ liệu của bạn, chốt đơn và giữ chỗ trong chat, gọi người khi cần.</p>
+      <div class="close-links"><a class="btn primary" href="/signup">Bắt đầu miễn phí <span aria-hidden="true">↗</span></a><a class="text-link" href="../dat-lich-demo/">Đặt lịch demo <span aria-hidden="true">→</span></a></div>
+    </div>
+    <nav class="foot-col" aria-label="Giải pháp"><p class="foot-title">Giải pháp</p><ul><li><a href="../nganh/ban-le/">Bán lẻ online</a></li><li><a href="../nganh/villa-homestay/">Villa & homestay</a></li><li><a href="../nganh/spa-salon/">Spa, salon, thẩm mỹ</a></li><li><a href="../nganh/giao-duc/">Trung tâm giáo dục</a></li><li><a href="../nganh/phan-mem/">Phần mềm, SaaS</a></li></ul></nav>
+    <nav class="foot-col" aria-label="Tính năng"><p class="foot-title">Tính năng</p><ul><li><a href="../tinh-nang/ban-hang-ai/">Bot bán hàng AI</a></li><li><a href="../tinh-nang/binh-luan-facebook/">Bình luận Facebook</a></li><li><a href="../tinh-nang/hop-thu/">Hộp thư đội sale</a></li><li><a href="../tinh-nang/dao-tao-ai/">Đào tạo AI</a></li><li><a href="../tinh-nang/tro-ly-rapiz/">Trợ lý Rapiz</a></li><li><a href="../tinh-nang/khach-hang-thong-ke/">Khách hàng & thống kê</a></li></ul></nav>
+    <nav class="foot-col" aria-label="Nền tảng"><p class="foot-title">Nền tảng</p><ul><li><a href="../tich-hop/">Tích hợp & kênh</a></li><li><a href="../bao-mat/">Bảo mật & dữ liệu</a></li><li><a href="../bang-gia/">Bảng giá</a></li><li><a href="../index.html#questions">Câu hỏi thường gặp</a></li></ul></nav>
+    <nav class="foot-col" aria-label="Tài khoản"><p class="foot-title">Tài khoản</p><ul><li><a href="/signup">Bắt đầu miễn phí</a></li><li><a href="/login">Đăng nhập</a></li><li><a href="../dat-lich-demo/">Đặt lịch demo</a></li></ul></nav>
+  </div>
+  <div class="container foot-base">
+    <span>© 2026 Rapiz</span>
+    <span>Hội thoại, đơn hàng và số liệu trên trang là minh họa, trừ khi ghi rõ.</span>
+    <a href="#top">Về đầu trang ↑</a>
+  </div>
+</footer>
+<!--/site-foot-->
+</body></html>

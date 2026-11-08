@@ -1,0 +1,37 @@
+/* Shared Rapiz palette, typography, navigation and framing. */
+:root {
+  --paper: #fcfbf8;
+  --ink: #1f1f1f;
+  --orange: #ff7a45;
+  --rust: #b54708;
+  --line: #dbd8d1;
+  --soft: #f1efe8;
+  --muted: #58564f;
+}
+.site-head { background: var(--paper); border-color: var(--ink); }
+.head-inner { height: 74px; }
+.head-actions .head-cta { background: var(--orange); color: var(--ink); border-radius:8px; }
+.head-actions .head-cta:hover { background:#ff956c; }
+.head-inner .brand img { width:145px; }
+.head-inner nav { gap:clamp(21px,2.4vw,38px); }
+.head-inner nav > a, .nav-trigger, .head-login { font-weight:650; }
+.nav-panel { top:calc(100% + 22px); border:1px solid var(--ink); border-radius:0 0 10px 10px; box-shadow:0 12px 26px #1f1f1f14; padding:14px; }
+.head-inner .nav-panel a { border-radius:3px; padding:14px 15px; }
+.nav-panel a[aria-current=page] { background:#fae6da; }
+.site-foot { position:relative; border-top:6px solid var(--orange); }
+.site-foot .foot-grid { gap:clamp(18px,2vw,42px); }
+.site-foot .foot-brand .brand img { width:158px; height:auto; }
+.site-foot .foot-brand .btn { color:var(--ink); }
+.site-foot .foot-base { border-color:#63625e; }
+.btn.primary { color:var(--ink); }
+:where(a,button,input,textarea,select,summary):focus-visible { outline:3px solid #c24e10; outline-offset:4px; }
+@media (max-width:760px) {
+  .head-inner { height:65px; }
+  .head-inner .brand img { width:118px; }
+  .head-inner nav { gap:0; }
+  .nav-panel { border:0; border-left:2px solid var(--orange); border-radius:0; padding:0 0 8px 12px; box-shadow:none; }
+  .head-inner .nav-panel a { padding:10px 8px; }
+}
+@media (max-width:380px) {
+  .head-inner .brand img { width:104px; }
+}

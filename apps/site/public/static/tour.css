@@ -1,0 +1,177 @@
+#platform {
+  padding-block: clamp(72px, 8vw, 128px);
+  background: #f7f6f2;
+  color: #1f1f1f;
+}
+#platform .tour-intro {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 36px;
+  margin-bottom: clamp(32px, 4vw, 60px);
+}
+#platform .tour-intro h2 {
+  margin: 0;
+  font: 800 clamp(2.9rem, 5.6vw, 5.6rem)/1.04 "Inter Tight", Inter, sans-serif;
+  letter-spacing: -.035em; word-spacing: .05em;
+}
+#platform .tour-intro em {
+  color: #b54708;
+  font-weight: 900;
+}
+#platform .tour-intro p,
+#platform .tour-caption p {
+  margin: 0;
+  color: #53534f;
+  font: 400 1rem/1.65 Inter, sans-serif;
+}
+#platform .tour-intro p { max-width: 38ch; }
+#platform .tour-tabs {
+  display: flex;
+  gap: clamp(20px, 3vw, 48px);
+  border-bottom: 1px solid #c9c8c1;
+}
+#platform .tour-tabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 52px;
+  margin-block-end: -1px;
+  border-bottom: 3px solid transparent;
+  color: #575751;
+  font: 650 clamp(.9rem, 1.2vw, 1.08rem)/1.25 Inter, sans-serif;
+  text-decoration: none;
+}
+#platform .tour-tabs a[aria-selected="true"] { color: #1f1f1f; border-color: #ff7a45; }
+#platform .tour-tabs a:hover { color: #1f1f1f; }
+#platform :focus-visible { outline: 2px solid #b54708; outline-offset: 4px; }
+#platform .tour-panel {
+  margin: clamp(16px, 2vw, 32px) 0 0;
+  scroll-margin-top: 132px;
+}
+#platform .tour-panel[hidden] { display: none; }
+#platform .tour-frame {
+  padding: clamp(8px, 2.6vw, 40px);
+  background: #e6e5de;
+  border-radius: 8px;
+}
+#platform .tour-frame img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  box-shadow: 0 3px 18px #1f1f1f14;
+}
+#platform .tour-caption {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-block: 24px 0;
+}
+#platform .tour-caption h3 {
+  margin: 0 0 5px;
+  font: 750 clamp(1.25rem, 2vw, 1.7rem)/1.18 "Inter Tight", Inter, sans-serif;
+  letter-spacing: -.025em;
+}
+#platform .tour-expand {
+  display: inline-flex;
+  align-items: center;
+  gap: .55em;
+  flex-shrink: 0;
+  min-height: 44px;
+  color: #282824;
+  font: 650 .9rem/1.4 Inter, sans-serif;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+#platform .tour-expand:hover { color: #b54708; }
+@media (max-width: 720px) {
+  #platform .tour-intro,
+  #platform .tour-caption { flex-direction: column; align-items: start; gap: 14px; }
+  #platform .tour-caption { gap: 4px; padding-top: 16px; }
+  #platform .tour-intro p { max-width: 48ch; }
+}
+
+#platform .tour-viewer {
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: clamp(12px, 3vw, 40px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 0;
+  background: #1f1f1f;
+  color: #f7f6f2;
+}
+#platform .tour-viewer[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: clamp(12px, 2vh, 24px);
+}
+#platform .tour-viewer::backdrop { background: #1f1f1f; }
+#platform .tour-viewer-bar,
+#platform .tour-viewer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+#platform .tour-viewer-bar h3 {
+  margin: 0;
+  font: 800 clamp(1.35rem, 3vw, 2.15rem)/1.15 "Inter Tight", Inter, sans-serif;
+  letter-spacing: -.03em;
+}
+#platform .tour-viewer button {
+  flex-shrink: 0;
+  min-height: 44px;
+  border: 1px solid #66665f;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+#platform .tour-viewer button:hover { background: #383832; }
+#platform .tour-viewer .tour-viewer-close {
+  width: 44px;
+  padding: 0;
+  font: 400 30px/1 Inter, sans-serif;
+}
+#platform .tour-viewer-zoom {
+  padding: 8px 16px;
+  font: 600 .95rem/1.2 Inter, sans-serif;
+}
+#platform .tour-viewer :focus-visible { outline: 2px solid #ff7a45; }
+#platform .tour-viewer-stage {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: #292926;
+  border-radius: 4px;
+  direction: ltr;
+}
+#platform .tour-viewer-stage img {
+  display: block;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  object-fit: contain;
+}
+#platform .tour-viewer-stage.tour-enlarged img {
+  width: max(120%, 2400px);
+  height: auto;
+}
+#platform .tour-viewer-footer p {
+  margin: 0;
+  max-width: 74ch;
+  color: #deded5;
+  font: 400 .95rem/1.55 Inter, sans-serif;
+}
+@media (max-width: 600px) {
+  #platform .tour-viewer-footer { flex-wrap: wrap; }
+}
