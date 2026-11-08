@@ -38,7 +38,7 @@ button{font:inherit;cursor:pointer;border:0;background:none;color:inherit;paddin
 form{display:flex;align-items:flex-end;gap:8px;padding:10px;border-top:1px solid #e4e4e4;background:#fff}
 form[hidden]{display:none}
 textarea,input[type=tel]{flex:1;min-width:0;font:inherit;font-size:16px;border:1px solid #d4d4d4;border-radius:8px;padding:8px 10px;resize:none;max-height:96px;color:#1f1f1f;background:#fff}
-textarea:focus,input[type=tel]:focus{outline:2px solid var(--c);outline-offset:-1px}
+textarea:focus,input[type=tel]:focus{outline:none;border-color:#1f1f1f}
 .ibtn{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;color:#5c5c5c}
 .ibtn:hover{background:#f0f0f0}
 .send{background:var(--c);color:#fff;padding:8px 14px;border-radius:8px;font-weight:600;flex:none}

@@ -38,7 +38,10 @@ tag defaults stay customer data and are unchanged by this rebrand.
   (popovers, dialogs, the assistant launcher). No glass, blur or translucent sticky bars.
 - Dashboard density is Compact: controls 44px (`h-11`); small controls (28/36px) keep a 44px hit
   area through an `after:` pseudo-element. Comfortable (48px) is for marketing and auth.
-- Focus: 2px ring in `--ring` (`#B54708`) with a 3px offset.
+- Focus: form fields (input, textarea, select, input group, checkbox, radio, switch, widget
+  composer) show no outer ring; their own 1px border turns Charcoal (`--foreground`), and an
+  invalid field keeps a 1px destructive border. Buttons, links and other controls keep the
+  keyboard-only 2px ring in `--ring` (`#B54708`) with a 3px offset.
 
 ## Surfaces
 
