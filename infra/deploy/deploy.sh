@@ -40,7 +40,9 @@ compose up -d --wait postgres redis object-storage
 bucket=$(grep -E '^S3_BUCKET=' .env | cut -d= -f2)
 exports=$(grep -E '^S3_EXPORT_BUCKET=' .env | cut -d= -f2)
 for b in "$bucket" "${exports:-$bucket-exports}"; do
-  compose exec -T object-storage sh -c "echo 's3.bucket.list' | weed shell" 2>/dev/null | grep -qx "$b" ||
+  # Lines look like "  rapiz<TAB>size:…": compare the first field exactly (rapiz ≠ rapiz-exports).
+  compose exec -T object-storage sh -c "echo 's3.bucket.list' | weed shell" 2>/dev/null |
+    awk '{print $1}' | grep -qxF "$b" ||
     compose exec -T object-storage sh -c "echo 's3.bucket.create -name $b' | weed shell" >/dev/null
 done
 
