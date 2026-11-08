@@ -99,8 +99,8 @@ jobs:
         env:
           TARGET: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
         run: |
-          scp -q infra/deploy/compose.yml infra/deploy/deploy.sh infra/deploy/backup.sh \
-            infra/deploy/set-host.sh infra/deploy/beta-gate.sh "$TARGET:/opt/apps/rapiz/"
+          # Every script and the postgres image context (backups, ADR-028); .env is never touched.
+          scp -q -r infra/deploy/compose.yml infra/deploy/*.sh infra/deploy/postgres "$TARGET:/opt/apps/rapiz/"
       - name: Deploy
         env:
           TARGET: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}

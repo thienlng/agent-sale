@@ -67,7 +67,7 @@ The server follows `/opt/infra/README.md` on the host: apps live in `/opt/apps/<
 
 Merge into `main`. CI runs; when it is green, the **Deploy** workflow does the rest:
 1. Builds both images and pushes them to GHCR, tagged with the commit SHA.
-2. Copies the `infra/deploy` scripts to `/opt/apps/rapiz`.
+2. Copies `compose.yml`, every `infra/deploy/*.sh` and `infra/deploy/postgres/` to `/opt/apps/rapiz`.
 3. Runs `./deploy.sh <sha>` on the server:
    - pull, and build the postgres image (cached);
    - start the stateful services;
