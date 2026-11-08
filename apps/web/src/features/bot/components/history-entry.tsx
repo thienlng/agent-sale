@@ -62,11 +62,11 @@ function ChangeRow({
   const { t } = useTranslation('training');
   return (
     <li className="flex items-start gap-2">
-      <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-md bg-primary-soft text-primary">
+      <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-md bg-primary-soft text-brand-text">
         <Pencil aria-hidden className="size-3.5" />
       </span>
       <p className="min-w-0 text-sm">
-        <span className="font-medium text-primary">{t('space.history.editVerb')}</span> {label}{' '}
+        <span className="font-medium text-brand-text">{t('space.history.editVerb')}</span> {label}{' '}
         <Value view={before} />
         <span aria-label={t('space.history.to')}> → </span>
         <Value view={after} />

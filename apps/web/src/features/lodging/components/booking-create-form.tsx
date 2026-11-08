@@ -249,7 +249,7 @@ export function BookingCreateForm({
                   </Label>
                   <Input
                     id={`${id}-name`}
-                    className="h-8"
+
                     maxLength={200}
                     value={draft.guestName}
                     aria-invalid={show('guestName') || undefined}
@@ -266,7 +266,7 @@ export function BookingCreateForm({
                   </Label>
                   <Input
                     id={`${id}-phone`}
-                    className="h-8 tabular-nums"
+                    className="tabular-nums"
                     type="tel"
                     maxLength={30}
                     value={draft.guestPhone}

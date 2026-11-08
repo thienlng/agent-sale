@@ -193,7 +193,7 @@ function SyncProgressCard({ progress }: { progress: ConnectionDto['progress'] })
     <Card>
       <CardContent className="flex flex-col gap-3">
         <p className="flex items-center gap-2 text-sm font-medium tabular-nums" aria-live="polite">
-          <LoaderCircle aria-hidden className="size-4 text-primary motion-safe:animate-spin" />
+          <LoaderCircle aria-hidden className="size-4 text-brand-text motion-safe:animate-spin" />
           {label}
         </p>
         {percent !== null ? <Progress value={percent} className="h-2" aria-label={label} /> : null}

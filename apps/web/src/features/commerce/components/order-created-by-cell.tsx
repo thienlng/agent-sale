@@ -50,7 +50,7 @@ export function OpenConversationLink({
           onClick={(e) => e.stopPropagation()}
           className={cn(
             buttonVariants({ variant: 'ghost', size: 'icon' }),
-            'gap-0 text-muted-foreground hover:text-primary',
+            'gap-0 text-muted-foreground hover:text-brand-text',
             className,
           )}
         >
@@ -78,7 +78,7 @@ export function BotBadge() {
 export function PendingReviewChip() {
   const { t } = useTranslation();
   return (
-    <span className="inline-flex h-5 items-center gap-1.5 rounded-full bg-warning-soft px-2 text-xs font-medium whitespace-nowrap text-amber-900 dark:text-amber-200">
+    <span className="inline-flex h-5 items-center gap-1.5 rounded-full bg-warning-soft px-2 text-xs font-medium whitespace-nowrap text-warning">
       <span className="size-1.5 shrink-0 rounded-full bg-warning" aria-hidden />
       {t('orders.review.pending')}
     </span>
@@ -90,7 +90,7 @@ function ApprovedChip({ order }: { order: OrderOrigin }) {
   const chip = (focusable: boolean) => (
     <span
       tabIndex={focusable ? 0 : undefined}
-      className="inline-flex h-5 items-center gap-1 rounded-full bg-muted px-2 text-xs font-medium whitespace-nowrap text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="inline-flex h-5 items-center gap-1 rounded-full bg-muted px-2 text-xs font-medium whitespace-nowrap text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring"
     >
       <Check className="size-3" aria-hidden />
       {t('orders.review.approved')}
@@ -119,7 +119,7 @@ function TestChatChip() {
       <TooltipTrigger asChild>
         <span
           tabIndex={0}
-          className="inline-flex h-5 items-center rounded-full border border-dashed px-2 text-xs whitespace-nowrap text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="inline-flex h-5 items-center rounded-full border border-dashed px-2 text-xs whitespace-nowrap text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring"
         >
           {t('orders.review.testChat')}
         </span>

@@ -35,7 +35,8 @@ export function ChannelTabs({
           onClick={() => onSection(tab)}
           className={cn(
             'shrink-0 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-foreground/80 hover:bg-muted',
-            section === tab && 'bg-primary-soft font-semibold text-primary hover:bg-primary-soft',
+            section === tab &&
+              'bg-primary-soft font-semibold text-brand-text hover:bg-primary-soft',
           )}
         >
           {tr(tab)}

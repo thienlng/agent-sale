@@ -71,7 +71,7 @@ export function DataSearch({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={placeholder}
-        className="h-9 pl-9"
+        className="pl-9"
       />
     </div>
   );
@@ -94,7 +94,7 @@ export function AddMenuButton({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button className="h-9" data-assistant-target={target}>
+        <Button size="sm" data-assistant-target={target}>
           <Plus />
           {label}
           <ChevronDown aria-hidden />
@@ -115,7 +115,7 @@ export function DataEmptyState({ message, children }: { message: string; childre
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
       <span className="flex size-16 items-center justify-center rounded-2xl bg-primary-soft">
-        <PackageOpen className="size-8 text-primary" aria-hidden />
+        <PackageOpen className="size-8 text-brand-text" aria-hidden />
       </span>
       <p className="max-w-sm text-sm text-foreground">{message}</p>
       {children}
@@ -157,7 +157,7 @@ export function DataPagination({
     <div className="flex flex-wrap items-center gap-2">
       <p className="mr-auto text-sm text-muted-foreground">{total}</p>
       <Select value={String(pageSize)} onValueChange={(value) => onPageSize(Number(value))}>
-        <SelectTrigger aria-label={t('data.pageSize')} className="h-9 w-20">
+        <SelectTrigger aria-label={t('data.pageSize')} className="w-20">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -198,4 +198,4 @@ export function DataPagination({
 
 /** Shared look of the data tables: bordered, muted header, horizontal scroll on phones. */
 export const tableFrame = 'overflow-hidden rounded-xl border';
-export const tableHeadRow = 'bg-muted hover:bg-muted [&>th]:font-medium [&>th]:text-primary';
+export const tableHeadRow = 'bg-muted hover:bg-muted [&>th]:font-medium [&>th]:text-brand-text';

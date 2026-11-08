@@ -81,7 +81,6 @@ export function DeleteBotDialog({
                 value={typed}
                 onChange={(e) => setTyped(e.target.value)}
                 autoComplete="off"
-                className="h-10"
               />
             </div>
           ) : null}

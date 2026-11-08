@@ -145,7 +145,7 @@ export function OrderExternalChip({
         <TooltipTrigger asChild>
           <span
             tabIndex={0}
-            className="rounded-4xl focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+            className="rounded-md focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
           >
             <StateBadge external={external} />
           </span>

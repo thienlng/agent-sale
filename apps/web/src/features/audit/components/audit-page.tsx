@@ -43,7 +43,7 @@ export function AuditPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-semibold">{t('team.audit.title')}</h2>
         <Select value={area} onValueChange={setArea}>
-          <SelectTrigger className="h-9 w-44" aria-label={t('team.audit.all')}>
+          <SelectTrigger className="w-44" aria-label={t('team.audit.all')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

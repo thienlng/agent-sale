@@ -36,7 +36,7 @@ export function IntegrationsEmpty({
         : null;
   return (
     <div className="flex flex-col items-center rounded-xl border border-dashed px-6 py-12 text-center">
-      <span className="mb-4 grid size-14 place-items-center rounded-2xl bg-primary-soft text-primary">
+      <span className="mb-4 grid size-14 place-items-center rounded-2xl bg-primary-soft text-brand-text">
         <Icon className="size-7" aria-hidden />
       </span>
       <h3 className="font-semibold">{title}</h3>

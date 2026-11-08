@@ -106,7 +106,7 @@ function Option({
       onClick={onSelect}
       className={cn(
         'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted',
-        selected && 'font-medium text-primary',
+        selected && 'font-medium text-brand-text',
       )}
     >
       <span className="flex min-w-0 flex-1 items-center gap-2">{children}</span>
@@ -175,7 +175,7 @@ export function InboxFilterPopover({
           size="icon-sm"
           aria-label={count ? t('channelInbox.v2.list.filterActive', { count }) : filterLabel}
           title={filterLabel}
-          className={cn('relative shrink-0', count > 0 && 'text-primary')}
+          className={cn('relative shrink-0', count > 0 && 'text-brand-text')}
         >
           <SlidersHorizontal />
           {count > 0 ? (
@@ -259,7 +259,7 @@ export function InboxFilterPopover({
                         max={draft.timeTo || localToday()}
                         value={draft.timeFrom}
                         onChange={(e) => patch({ timeFrom: e.target.value })}
-                        className="h-8 px-2 text-xs"
+                        className="px-2 text-xs"
                       />
                     </div>
                     <div className="flex min-w-0 flex-col gap-1">
@@ -273,7 +273,7 @@ export function InboxFilterPopover({
                         max={localToday()}
                         value={draft.timeTo}
                         onChange={(e) => patch({ timeTo: e.target.value })}
-                        className="h-8 px-2 text-xs"
+                        className="px-2 text-xs"
                       />
                     </div>
                     {rangeInvalid ? (
@@ -297,7 +297,7 @@ export function InboxFilterPopover({
                       onClick={() => setTagMode(m)}
                       className={cn(
                         'rounded-md border px-1 py-1 text-[11px] leading-tight hover:bg-muted',
-                        tagMode === m && 'border-primary bg-primary-soft text-primary',
+                        tagMode === m && 'border-primary bg-primary-soft text-brand-text',
                       )}
                     >
                       {tr(m)}

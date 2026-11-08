@@ -105,8 +105,9 @@ function MultiPicker({
     <Popover>
       <PopoverTrigger asChild>
         <Button
+          size="sm"
           variant="outline"
-          className="h-9 w-full justify-between font-normal"
+          className="w-full justify-between font-normal"
           aria-label={label}
         >
           <span className="truncate">
@@ -177,7 +178,7 @@ function RuleRow({
       editor = (
         <Input
           aria-label={valueLabel}
-          className="h-9"
+
           maxLength={200}
           value={typeof rule.value === 'string' ? rule.value : ''}
           onChange={(e) => onChange({ ...rule, value: e.target.value })}
@@ -194,14 +195,14 @@ function RuleRow({
             <Input
               type="date"
               aria-label={`${valueLabel} ${t('crm.filter.from')}`}
-              className="h-9"
+
               value={range.from}
               onChange={(e) => onChange({ ...rule, value: { from: e.target.value, to: range.to } })}
             />
             <Input
               type="date"
               aria-label={`${valueLabel} ${t('crm.filter.to')}`}
-              className="h-9"
+
               value={range.to}
               onChange={(e) =>
                 onChange({ ...rule, value: { from: range.from, to: e.target.value } })
@@ -212,7 +213,7 @@ function RuleRow({
           <Input
             type="date"
             aria-label={valueLabel}
-            className="h-9"
+
             value={typeof rule.value === 'string' ? rule.value : ''}
             onChange={(e) => onChange({ ...rule, value: e.target.value })}
           />
@@ -237,10 +238,7 @@ function RuleRow({
       )}
     >
       <Select value={rule.field} onValueChange={(v) => setField(v as ContactFilterField)}>
-        <SelectTrigger
-          className="h-9 w-full"
-          aria-label={`${t('crm.filter.fieldLabel')} ${index + 1}`}
-        >
+        <SelectTrigger className="w-full" aria-label={`${t('crm.filter.fieldLabel')} ${index + 1}`}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -261,10 +259,7 @@ function RuleRow({
           })
         }
       >
-        <SelectTrigger
-          className="h-9 w-full"
-          aria-label={`${t('crm.filter.operator')} ${index + 1}`}
-        >
+        <SelectTrigger className="w-full" aria-label={`${t('crm.filter.operator')} ${index + 1}`}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

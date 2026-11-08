@@ -52,12 +52,12 @@ export function TrainingTable({
                 <TableCell className="max-w-sm whitespace-normal">
                   <button
                     type="button"
-                    className="w-full text-left hover:text-primary focus-visible:underline"
+                    className="w-full text-left hover:text-brand-text focus-visible:underline"
                     onClick={() => onEdit(item)}
                   >
                     <h3 className="break-words font-medium">{item.title}</h3>
                     {item.trigger ? (
-                      <p className="mt-1 break-words text-xs text-primary">{item.trigger}</p>
+                      <p className="mt-1 break-words text-xs text-brand-text">{item.trigger}</p>
                     ) : null}
                     <p className="mt-1 line-clamp-2 break-words whitespace-pre-wrap text-xs text-muted-foreground">
                       {item.content}

@@ -44,7 +44,7 @@ function PipelineStrip({ contact, lookups }: { contact: ContactDto; lookups: Crm
                   )
                 }
                 className={cn(
-                  'rounded-full border px-3 py-1 text-xs transition-colors focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none',
+                  'rounded-full border px-3 py-1 text-xs transition-colors focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none',
                   on
                     ? 'font-semibold text-foreground'
                     : i < current
@@ -194,7 +194,7 @@ export function ContactOverviewTab({
       <section>
         <h3 className="mb-2 text-sm font-medium">{t('crm.detail.tasks')}</h3>
         <p className="flex items-center gap-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-          <ListTodo className="size-4 text-primary" aria-hidden />
+          <ListTodo className="size-4 text-brand-text" aria-hidden />
           {t('crm.detail.tasksSoon')}
         </p>
       </section>

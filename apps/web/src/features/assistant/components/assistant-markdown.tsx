@@ -180,7 +180,7 @@ function Inline({ text }: { text: string }): ReactNode {
           <a
             key={key}
             href={to}
-            className="font-medium text-primary underline underline-offset-2"
+            className="font-medium text-brand-text underline underline-offset-2"
             onClick={(event) => {
               if (!router || event.metaKey || event.ctrlKey || event.shiftKey) return;
               event.preventDefault();

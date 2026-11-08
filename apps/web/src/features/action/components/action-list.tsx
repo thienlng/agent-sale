@@ -83,7 +83,7 @@ export function ActionList({ botId }: { botId: string }) {
             value={query}
             placeholder={t('search')}
             onChange={(e) => setQuery(e.target.value)}
-            className="h-9 sm:w-72"
+            className="sm:w-72"
           />
         </div>
         <div className="flex flex-col gap-1.5">

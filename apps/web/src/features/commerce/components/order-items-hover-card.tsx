@@ -84,7 +84,7 @@ export function OrderItemsHoverCard({
                 setOpen(false);
               }
             }}
-            className="-mx-1 flex min-w-0 flex-col gap-0.5 rounded-md px-1 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="-mx-1 flex min-w-0 flex-col gap-0.5 rounded-md px-1 outline-none focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring"
           >
             {items.slice(0, CELL_LINES).map((i, idx) => (
               <span key={idx} className="truncate">

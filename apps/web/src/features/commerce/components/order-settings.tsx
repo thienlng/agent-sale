@@ -35,7 +35,7 @@ export function Chips<T extends string>({
             aria-pressed={on}
             onClick={() => onToggle(s)}
             className={cn(
-              'rounded-full border px-3 py-1.5 text-sm transition-colors focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none',
+              'rounded-full border px-3 py-1.5 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none',
               on
                 ? 'border-primary bg-primary-soft font-medium text-accent-foreground'
                 : 'hover:bg-muted',

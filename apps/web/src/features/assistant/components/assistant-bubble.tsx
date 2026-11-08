@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { toast } from 'sonner';
 
+import { BrandMark } from '@/components/logo';
 import { ApiClientError } from '@/lib/api-client';
 import { useAssistantOpenRequests, useAssistantRequest } from '@/lib/assistant-context';
 import { registerAssistantOpener } from '@/lib/assistant-launch';
@@ -15,7 +16,6 @@ import { openReportThread } from '../api/report-thread';
 import { LAUNCHER_INSET, useLauncherBottom } from '../hooks/use-launcher-bottom';
 import { useLauncherDrag } from '../hooks/use-launcher-drag';
 import { useAssistantUi } from '../stores/assistant-ui.store';
-import rabbitUrl from '@/assets/assistant-rabbit.png';
 
 // The panel (Sheet, chat, steps, spotlight) and its strings load on first open (docs/16 §1).
 const AssistantPanel = lazy(() =>
@@ -108,11 +108,15 @@ export function AssistantBubble() {
           {...drag.handlers}
           style={place}
           className={cn(
-            'fixed z-40 grid size-14 touch-none place-items-center rounded-full bg-primary text-primary-foreground shadow-lg select-none hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+            'fixed z-40 grid size-14 touch-none place-items-center rounded-full border border-sidebar-border bg-sidebar shadow-lg select-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none',
             drag.dragging ? 'cursor-grabbing shadow-xl' : 'transition',
           )}
         >
-          <img src={rabbitUrl} alt="" draggable={false} className="size-10 object-contain" />
+          <BrandMark className="h-6" />
+          <span
+            aria-hidden
+            className="absolute top-2 right-2 size-2.5 rounded-full bg-ai-brand ring-2 ring-sidebar"
+          />
         </button>
       )}
       {loaded ? (

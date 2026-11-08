@@ -63,7 +63,7 @@ function Strip({
               type="button"
               className={cn(
                 cell,
-                'w-full hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none',
+                'w-full hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none',
               )}
               onClick={() => onStage(stage)}
             >
@@ -82,7 +82,7 @@ function Strip({
             aria-expanded={showSoon}
             className={cn(
               cell,
-              'w-full hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none',
+              'w-full hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none',
             )}
             onClick={() => setShowSoon((v) => !v)}
           >

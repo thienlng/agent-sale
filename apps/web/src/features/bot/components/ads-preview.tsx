@@ -52,14 +52,14 @@ export function AdsPreview({
         </span>
       </div>
       <div className="flex items-center gap-2 border-b px-2 py-2">
-        <ChevronLeft className="size-4 text-primary" />
+        <ChevronLeft className="size-4 text-brand-text" />
         {avatar('size-7')}
         <div className="min-w-0 flex-1 leading-tight">
           <p className="truncate text-xs font-semibold">{botName}</p>
           <p className="text-[9px] text-muted-foreground">{t('space.ads.online')}</p>
         </div>
-        <Phone className="size-3.5 text-primary" />
-        <Video className="size-4 text-primary" />
+        <Phone className="size-3.5 text-brand-text" />
+        <Video className="size-4 text-brand-text" />
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col justify-end gap-2 overflow-y-auto p-2">
@@ -86,7 +86,7 @@ export function AdsPreview({
               {draft.buttons.map((b, i) => (
                 <p
                   key={i}
-                  className="truncate border-t px-3 py-1.5 text-center font-medium text-primary"
+                  className="truncate border-t px-3 py-1.5 text-center font-medium text-brand-text"
                 >
                   {b.title || '…'}
                 </p>
@@ -99,7 +99,7 @@ export function AdsPreview({
             {replies.map((q, i) => (
               <span
                 key={i}
-                className="shrink-0 rounded-full border border-primary px-2.5 py-1 text-[11px] text-primary"
+                className="shrink-0 rounded-full border border-primary px-2.5 py-1 text-[11px] text-brand-text"
               >
                 {q.title}
               </span>
@@ -108,13 +108,13 @@ export function AdsPreview({
         ) : null}
       </div>
 
-      <div className="flex items-center gap-2 px-2 py-2 text-primary">
+      <div className="flex items-center gap-2 px-2 py-2 text-brand-text">
         <Camera className="size-3.5" />
         <Image className="size-3.5" />
         <Mic className="size-3.5" />
         <span className="flex flex-1 items-center justify-between rounded-full bg-muted px-2 py-1 text-[10px] text-muted-foreground">
           Aa
-          <Smile className="size-3.5 text-primary" />
+          <Smile className="size-3.5 text-brand-text" />
         </span>
         <ThumbsUp className="size-4" />
       </div>

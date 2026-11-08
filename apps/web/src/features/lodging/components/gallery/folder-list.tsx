@@ -124,7 +124,7 @@ export function FolderList({
                 <button
                   type="button"
                   aria-label={t('media.open', { name: f.name })}
-                  className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left text-sm focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
                   onClick={() => onOpen(f.id)}
                 >
                   <span className="relative grid size-12 shrink-0 place-items-center overflow-hidden rounded-md bg-muted">

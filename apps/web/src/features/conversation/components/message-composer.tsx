@@ -415,7 +415,7 @@ function ScopedComposer({
                 <Button
                   size="icon-sm"
                   variant="ghost"
-                  className="text-primary"
+                  className="text-brand-text"
                   aria-label={t('channelInbox.meta.composer.like')}
                   title={t('channelInbox.meta.composer.like')}
                   disabled={sender.isPending || windowClosed || Boolean(saved.conflict)}

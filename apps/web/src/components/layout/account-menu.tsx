@@ -120,7 +120,7 @@ export function AccountMenu({
           ref={trigger}
           aria-label={t('account.open', { name: user.name })}
           // p-1 around the 36px avatar gives a 44px hit area.
-          className="relative rounded-full p-1 outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
+          className="relative rounded-full p-1 outline-none focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring"
         >
           <Avatar className="size-9">
             <AvatarFallback className="bg-primary-soft text-sm font-semibold text-accent-foreground">

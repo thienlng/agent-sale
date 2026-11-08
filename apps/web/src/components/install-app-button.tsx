@@ -30,7 +30,7 @@ export function InstallAppButton() {
         type="button"
         variant="ghost"
         size="sm"
-        className="h-8 gap-1 px-2 text-xs"
+        className="gap-1 px-2 text-xs"
         title={t('pwa.install.hint')}
         onClick={() => (ios ? setHelp(true) : void install())}
       >

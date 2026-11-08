@@ -182,7 +182,7 @@ function BookingLine({
       <div className="flex flex-wrap items-baseline gap-x-2 tabular-nums lg:block">
         <button
           type="button"
-          className="rounded-sm font-semibold hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="rounded-sm font-semibold hover:underline focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
           onClick={(e) => {
             stop(e);
             onOpen(b.id);

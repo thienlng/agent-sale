@@ -5,13 +5,13 @@ import { ApiClientError } from '@/lib/api-client';
 
 // Root fallbacks load before every route: native controls keep optional button/Slot/style helpers out of the entry graph.
 const actionClass =
-  'mt-2 inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+  'mt-2 inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring';
 
 export function NotFound() {
   const { t } = useTranslation();
   return (
     <div className="flex min-h-[60dvh] flex-col items-center justify-center gap-3 p-6 text-center">
-      <p className="text-5xl font-semibold text-primary">404</p>
+      <p className="text-5xl font-semibold text-brand-text">404</p>
       <h1 className="text-xl font-semibold">{t('errors.notFoundTitle')}</h1>
       <p className="max-w-sm text-muted-foreground">{t('errors.notFoundBody')}</p>
       <Link className={actionClass} to="/app/bots">

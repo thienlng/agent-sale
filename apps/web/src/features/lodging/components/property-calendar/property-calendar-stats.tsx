@@ -50,7 +50,7 @@ function BookingLines({
               <button
                 type="button"
                 aria-label={t('pcal.stats.openBooking', { code: l.code })}
-                className="flex min-h-9 w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="flex min-h-9 w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
                 onClick={() => onOpen(l.bookingId)}
               >
                 <span className="w-11 shrink-0 tabular-nums text-muted-foreground">

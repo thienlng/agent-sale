@@ -103,7 +103,7 @@ function FanpageDetails({ id }: { id: string }) {
               />
               <div className="min-w-0">
                 <a
-                  className="text-sm text-primary underline"
+                  className="text-sm text-brand-text underline"
                   href={`https://www.facebook.com/${post.id}`}
                   target="_blank"
                   rel="noreferrer"
@@ -130,7 +130,7 @@ function FanpageDetails({ id }: { id: string }) {
           {f.comments.data.data.map((c) => (
             <li key={c.id} className="space-y-2 rounded-lg border p-3">
               <a
-                className="text-sm text-primary underline"
+                className="text-sm text-brand-text underline"
                 href={`https://www.facebook.com/${c.postId}`}
                 target="_blank"
                 rel="noreferrer"

@@ -63,13 +63,13 @@ export function AssistantThreadList({
                   onClick={() => onPick(thread.id)}
                   aria-current={thread.id === currentId ? 'true' : undefined}
                   className={cn(
-                    'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none',
+                    'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none',
                     thread.id === currentId && 'bg-muted font-medium',
                   )}
                 >
                   <span className="min-w-0 flex-1 truncate">{thread.title || t('untitled')}</span>
                   {thread.pinned ? (
-                    <Pin className="size-3.5 shrink-0 text-primary" aria-label={t('pinned')} />
+                    <Pin className="size-3.5 shrink-0 text-brand-text" aria-label={t('pinned')} />
                   ) : null}
                 </button>
               </li>

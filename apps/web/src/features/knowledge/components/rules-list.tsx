@@ -94,14 +94,14 @@ function RuleRow({
       <button
         type="button"
         className={cn(
-          'min-w-0 flex-1 text-left hover:text-primary focus-visible:underline',
+          'min-w-0 flex-1 text-left hover:text-brand-text focus-visible:underline',
           !item.enabled && 'opacity-50',
         )}
         onClick={onEdit}
       >
         <h3 className="font-medium break-words">{item.title}</h3>
         {trigger ? (
-          <p className="mt-1 text-xs break-words text-primary">{t('rules.when', { trigger })}</p>
+          <p className="mt-1 text-xs break-words text-brand-text">{t('rules.when', { trigger })}</p>
         ) : null}
         <p className="mt-1 line-clamp-2 text-xs break-words whitespace-pre-wrap text-muted-foreground">
           {t('rules.then', { content: lowerFirst(item.content) })}
@@ -271,8 +271,9 @@ export function RulesList({ botId, introduction }: { botId: string; introduction
               </span>
             ) : null}
             <Button
+              size="sm"
               variant="outline"
-              className="h-9"
+
               data-assistant-target="scenario.starter"
               disabled={starter.isPending}
               onClick={addStarter}
@@ -281,7 +282,8 @@ export function RulesList({ botId, introduction }: { botId: string; introduction
               {t('rules.starter')}
             </Button>
             <Button
-              className="h-9"
+              size="sm"
+
               data-assistant-target="scenario.new"
               onClick={() => setEditor({ item: null })}
             >

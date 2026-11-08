@@ -40,10 +40,10 @@ export function FolderCard({
       <button
         type="button"
         onClick={onOpen}
-        className="flex w-full flex-col items-start gap-3 rounded-xl p-4 text-left focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        className="flex w-full flex-col items-start gap-3 rounded-xl p-4 text-left focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
       >
         <span className="flex size-9 items-center justify-center rounded-lg bg-primary-soft">
-          <Icon className="size-4.5 text-primary" aria-hidden />
+          <Icon className="size-4.5 text-brand-text" aria-hidden />
         </span>
         <span className="min-w-0 pr-8">
           <span className="block line-clamp-2 break-words font-semibold">{name}</span>

@@ -51,7 +51,7 @@ function OptionRow({
       />
       <Input
         aria-label={option.name}
-        className={cn('h-8 min-w-40 flex-1', option.archived && 'text-muted-foreground')}
+        className={cn('min-w-40 flex-1', option.archived && 'text-muted-foreground')}
         maxLength={60}
         value={name}
         onChange={(e) => setName(e.target.value)}

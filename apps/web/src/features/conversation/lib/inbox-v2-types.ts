@@ -13,7 +13,7 @@ import { z } from 'zod';
 export const InboxTagChip = z.object({
   id: z.string(),
   name: z.string(),
-  color: z.string().default('#f26b1d'),
+  color: z.string().default('#ff7a45'),
   /** The tag assignment on the conversation; needed to remove it. */
   assignmentId: z.string().optional(),
 });

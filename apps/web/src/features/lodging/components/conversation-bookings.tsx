@@ -59,7 +59,7 @@ export function ConversationBookings({
               <button
                 type="button"
                 onClick={() => setSheet({ key: Date.now(), mode: 'view', bookingId: b.id })}
-                className="grid w-full gap-1 rounded-lg border p-2 text-left text-sm hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="grid w-full gap-1 rounded-lg border p-2 text-left text-sm hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
               >
                 <span className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-medium tabular-nums">{b.code}</span>

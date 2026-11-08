@@ -1,99 +1,133 @@
-/* Rapiz design tokens — white base, saturated Rapiz orange (owner decision 2026-10-23).
-   Variable names follow shadcn/ui so its components pick the brand up unchanged; the extra
-   tokens (success, warning, bubbles, primary-soft) are Rapiz's own. Type: Space Grotesk with
-   JetBrains Mono accents (T-123), self-hosted by each app with their Vietnamese subsets.
-   docs/16 §1, docs/03 §6. Imported once by each app's global CSS, after tailwindcss. */
+/* Rapiz Precision tokens: Rapiz Orange #FF7A45 on a white/charcoal structure with achromatic
+   neutrals (brand identity v2.0 "Precision", Rapiz_Spacing_Standard and
+   Rapiz_Layout_Effects_Standard; summary in docs/designs/brand-identity-v2.md).
+   Rules carried by these values:
+   - Orange marks the primary action, selection and attention; it is not a decoration fill.
+   - Text on orange is Charcoal (6.37:1). White on #FF7A45 is 2.59:1 and fails WCAG AA.
+   - Orange text and focus on light surfaces use the accessible orange #B54708 (5.43:1).
+   - Neutrals carry no green, blue or beige cast. Semantic colours only mean states.
+   Variable names follow shadcn/ui so its components pick the brand up unchanged. */
 
 :root {
-  --radius: 0.625rem;
+  /* Precision radius roles: control 4px, card 8px, frame 12px. */
+  --radius: 0.25rem;
 
   --background: #ffffff;
-  --foreground: #231c18;
+  --foreground: #1f1f1f;
   --card: #ffffff;
-  --card-foreground: #231c18;
+  --card-foreground: #1f1f1f;
   --popover: #ffffff;
-  --popover-foreground: #231c18;
+  --popover-foreground: #1f1f1f;
 
-  --primary: #f26b1d;
-  /* Ink, not white, on orange: white on #f26b1d is 3.05:1 (fails WCAG AA), ink is ~5.5:1. */
-  --primary-foreground: #1f1612;
-  --primary-strong: #d9560b;
-  --primary-soft: #fff2e9;
+  --primary: #ff7a45;
+  --primary-foreground: #1f1f1f;
+  /* Pressed/hover orange: Rapiz Orange mixed toward Charcoal, still 3:1 against white. */
+  --primary-strong: #e8622e;
+  --primary-soft: #fff1eb;
+  /* Accessible orange for links, selected labels and focus rings on light surfaces. */
+  --brand-text: #b54708;
 
-  --secondary: #f7f4f2;
-  --secondary-foreground: #3a302a;
-  --muted: #f7f4f2;
-  --muted-foreground: #706761;
-  --accent: #fff2e9;
-  --accent-foreground: #9c3f06;
+  --secondary: #f4f4f4;
+  --secondary-foreground: #1f1f1f;
+  --muted: #f4f4f4;
+  --muted-foreground: #5d6470;
+  --accent: #f4f4f4;
+  --accent-foreground: #1f1f1f;
 
-  --destructive: #d23b2f;
-  --destructive-soft: #fdecea;
-  --success: #1e9e5a;
-  --success-soft: #e8f6ee;
-  --warning: #b7791f;
-  --warning-soft: #fdf4e3;
+  --destructive: #d92d20;
+  --destructive-soft: #fef3f2;
+  --success: #067647;
+  --success-soft: #ecfdf3;
+  --warning: #a15c07;
+  --warning-soft: #fffaeb;
 
-  --border: #ece6e1;
-  --input: #e3dcd6;
-  --ring: #f26b1d;
+  /* AI attribution only (agent-made drafts, suggestions); never a second action colour. */
+  --ai: #6941c6;
+  --ai-soft: #f4f1ff;
+  --ai-brand: #8b6cff;
 
-  --sidebar: #fbf9f8;
-  --sidebar-foreground: #3a302a;
-  --sidebar-primary: #f26b1d;
-  --sidebar-primary-foreground: #1f1612;
-  --sidebar-accent: #fff2e9;
-  --sidebar-accent-foreground: #9c3f06;
-  --sidebar-border: #ece6e1;
-  --sidebar-ring: #f26b1d;
+  --border: #e4e4e4;
+  --input: #c4c4c4;
+  --ring: #b54708;
 
-  --chart-1: #f26b1d;
-  --chart-2: #1e9e5a;
-  --chart-3: #3b82c4;
-  --chart-4: #b7791f;
-  --chart-5: #8a5cc2;
+  /* Charcoal navigation frames the work; orange marks the active place. */
+  --sidebar: #1f1f1f;
+  --sidebar-foreground: #e6e6e6;
+  --sidebar-primary: #ff7a45;
+  --sidebar-primary-foreground: #1f1f1f;
+  --sidebar-accent: #2e2e2e;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #333333;
+  --sidebar-ring: #ff7a45;
+  --sidebar-muted: #a3a3a3;
+
+  /* Charts: Charcoal and greys carry data, orange highlights; violet only for AI series. */
+  --chart-1: #ff7a45;
+  --chart-2: #1f1f1f;
+  --chart-3: #808080;
+  --chart-4: #8b6cff;
+  --chart-5: #bdbdbd;
 
   /* Chat bubbles: the customer side mirrors Messenger/Zalo greys, the bot side is Rapiz. */
-  --bubble-customer: #f1edea;
-  --bubble-bot: #f26b1d;
+  --bubble-customer: #f0f0f0;
+  --bubble-bot: #ff7a45;
+
+  /* Elevation roles (Layout & Effects standard): flat by default, shadows explain layers. */
+  --elevation-raised: 0 1px 2px #1f1f1f14, 0 2px 6px #1f1f1f0a;
+  --elevation-floating: 0 4px 12px #1f1f1f1a, 0 1px 3px #1f1f1f14;
+  --elevation-overlay: 0 16px 40px #1f1f1f29, 0 4px 12px #1f1f1f14;
+  --scrim: #1f1f1f8f;
 }
 
 .dark {
-  --background: #17130f;
-  --foreground: #f4efeb;
-  --card: #1e1915;
-  --card-foreground: #f4efeb;
-  --popover: #1e1915;
-  --popover-foreground: #f4efeb;
-  --primary-soft: #3a2213;
-  --secondary: #26201b;
-  --secondary-foreground: #f4efeb;
-  --muted: #26201b;
-  --muted-foreground: #b2a69e;
-  --accent: #3a2213;
-  --accent-foreground: #ffc49e;
-  --destructive-soft: #3a1714;
-  --success-soft: #13301f;
+  --background: #1f1f1f;
+  --foreground: #f5f5f5;
+  --card: #262626;
+  --card-foreground: #f5f5f5;
+  --popover: #2b2b2b;
+  --popover-foreground: #f5f5f5;
+  --primary-strong: #ff9466;
+  --primary-soft: #3a2519;
+  --brand-text: #ff7a45;
+  --secondary: #2e2e2e;
+  --secondary-foreground: #f5f5f5;
+  --muted: #2e2e2e;
+  --muted-foreground: #a8a8a8;
+  --accent: #333333;
+  --accent-foreground: #ffffff;
+  --destructive: #f97066;
+  --destructive-soft: #3b1a17;
+  --success: #47cd89;
+  --success-soft: #11291c;
+  --warning: #fdb022;
   --warning-soft: #33280f;
-  --border: #322a24;
-  --input: #3a3029;
-  --sidebar: #1b1612;
-  --sidebar-foreground: #e9e1db;
-  --sidebar-accent: #3a2213;
-  --sidebar-accent-foreground: #ffc49e;
-  --sidebar-border: #322a24;
-  --bubble-customer: #2a231e;
+  --ai: #b5a2ff;
+  --ai-soft: #2a2340;
+  --border: #383838;
+  --input: #5c5c5c;
+  --ring: #ff7a45;
+  --sidebar: #141414;
+  --sidebar-accent: #2b2b2b;
+  --sidebar-border: #2b2b2b;
+  --chart-2: #e6e6e6;
+  --chart-3: #8f8f8f;
+  --chart-5: #5c5c5c;
+  --bubble-customer: #333333;
+  --elevation-raised: 0 1px 2px #00000040;
+  --elevation-floating: 0 4px 12px #00000059;
+  --elevation-overlay: 0 16px 40px #00000073;
 }
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* Space Grotesk for text and headings, JetBrains Mono for small labels and codes (T-123).
-     Each app loads the files (@fontsource-variable/*); the fallbacks keep Vietnamese readable. */
-  --font-sans: 'Space Grotesk Variable', 'Space Grotesk', system-ui, sans-serif;
+  /* Inter for every task surface; Inter Tight (700-900, italic for brand moments) for display.
+     Monospace is the system stack and only for codes, IDs, tokens and logs. Each app loads
+     the font files (@fontsource-variable/*); the fallbacks keep Vietnamese readable. */
+  --font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-heading: var(--font-sans);
-  --font-mono:
-    'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: 'Inter Tight Variable', 'Inter Tight', var(--font-sans);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -113,6 +147,10 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-soft: var(--destructive-soft);
+  --color-brand-text: var(--brand-text);
+  --color-ai: var(--ai);
+  --color-ai-soft: var(--ai-soft);
+  --color-ai-brand: var(--ai-brand);
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
   --color-warning: var(--warning);
@@ -128,6 +166,7 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-muted: var(--sidebar-muted);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -136,11 +175,28 @@
   --color-bubble-customer: var(--bubble-customer);
   --color-bubble-bot: var(--bubble-bot);
 
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  /* Precision radius roles, mapped onto the shadcn class habits of this codebase:
+     rounded-md/lg = control 4px (buttons, inputs, menus), rounded-xl = card 8px,
+     rounded-2xl and up = frame 12px (dialogs, sheets, large stages). Nothing larger: no giant
+     rounded cards. Avatars and pills keep rounded-full. */
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.125rem;
+  --radius-md: 0.25rem;
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.75rem;
+  --radius-3xl: 0.75rem;
+  --radius-4xl: 0.75rem;
+
+  /* Flat by default: the small shadow steps vanish; larger ones map to the elevation roles. */
+  --shadow-2xs: 0 0 #0000;
+  --shadow-xs: 0 0 #0000;
+  --shadow-sm: 0 0 #0000;
+  --shadow: var(--elevation-raised);
+  --shadow-md: var(--elevation-raised);
+  --shadow-lg: var(--elevation-floating);
+  --shadow-xl: var(--elevation-overlay);
+  --shadow-2xl: var(--elevation-overlay);
 
   --text-xs: 0.75rem;
   --text-xs--line-height: 1.1rem;
@@ -162,19 +218,40 @@
   }
   html {
     @apply font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01';
   }
   body {
     @apply bg-background text-base text-foreground;
   }
-  /* Space Grotesk is wide; headings read better slightly tightened. */
   h1,
-  h2 {
-    letter-spacing: -0.02em;
+  h2,
+  h3 {
+    letter-spacing: -0.015em;
+  }
+  /* Numbers line up in tables, KPIs and money columns. */
+  table,
+  [data-slot='kpi'],
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 30%, transparent);
   }
   button:not(:disabled),
   [role='button']:not(:disabled) {
     cursor: pointer;
   }
+}
+
+/* Brand display: Inter Tight Black Italic for brand moments only (auth, empty states,
+   marketing); `font-display` alone gives the upright display face. Task interfaces stay
+   upright Inter. */
+@utility brand-italic {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: -0.025em;
+  line-height: 1;
 }
 
 @keyframes bubble-in {

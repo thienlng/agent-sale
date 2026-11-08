@@ -59,7 +59,7 @@ export function EditHistory({ botId }: { botId: string }) {
       variant="outline"
       aria-pressed={order === value}
       onClick={() => setOrder(value)}
-      className={cn(order === value && 'border-primary text-primary')}
+      className={cn(order === value && 'border-primary text-brand-text')}
     >
       {t(`space.history.${value}`)}
     </Button>
@@ -72,7 +72,7 @@ export function EditHistory({ botId }: { botId: string }) {
         <div className="flex items-center gap-2">
           <Input
             type="date"
-            className="h-9 w-auto"
+            className="w-auto"
             aria-label={t('space.history.from')}
             value={range.from}
             max={range.to || undefined}
@@ -83,7 +83,7 @@ export function EditHistory({ botId }: { botId: string }) {
           </span>
           <Input
             type="date"
-            className="h-9 w-auto"
+            className="w-auto"
             aria-label={t('space.history.to')}
             value={range.to}
             min={range.from || undefined}
@@ -98,10 +98,10 @@ export function EditHistory({ botId }: { botId: string }) {
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as HistoryTab)}>
         <TabsList variant="line" className="w-full justify-start border-b">
-          <TabsTrigger value="settings" className="flex-none px-2 data-active:text-primary">
+          <TabsTrigger value="settings" className="flex-none px-2 data-active:text-brand-text">
             {t('space.history.tabs.settings')}
           </TabsTrigger>
-          <TabsTrigger value="training" className="flex-none px-2 data-active:text-primary">
+          <TabsTrigger value="training" className="flex-none px-2 data-active:text-brand-text">
             {t('space.history.tabs.training')}
           </TabsTrigger>
         </TabsList>

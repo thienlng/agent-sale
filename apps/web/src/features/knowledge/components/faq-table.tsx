@@ -109,7 +109,7 @@ export function FaqTable({
               <TableCell className="whitespace-normal">
                 <button
                   type="button"
-                  className="text-left break-words hover:text-primary focus-visible:underline focus-visible:outline-none"
+                  className="text-left break-words hover:text-brand-text focus-visible:underline focus-visible:outline-none"
                   onClick={(e) => {
                     e.stopPropagation();
                     onOpen(faq);

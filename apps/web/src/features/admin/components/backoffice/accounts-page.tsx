@@ -47,7 +47,7 @@ function FilterSelect({
   const { t } = useTranslation('backoffice');
   return (
     <Select value={value ?? ALL} onValueChange={(v) => onChange(v === ALL ? undefined : v)}>
-      <SelectTrigger id={id} aria-label={label} className="h-9 w-44">
+      <SelectTrigger id={id} aria-label={label} className="w-44">
         <SelectValue placeholder={label} />
       </SelectTrigger>
       <SelectContent>
@@ -97,7 +97,7 @@ export function AccountsPage() {
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('accounts.search')}
             aria-label={t('accounts.search')}
-            className="h-9 pl-9"
+            className="pl-9"
             maxLength={100}
           />
         </div>

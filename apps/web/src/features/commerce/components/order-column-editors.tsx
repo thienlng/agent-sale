@@ -53,7 +53,6 @@ export function TextEditor({
             onSubmit();
           }
         }}
-        className="h-8"
       />
     </div>
   );
@@ -90,7 +89,6 @@ export function ChecklistEditor({
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t('orders.columnMenu.searchList')}
           aria-label={t('orders.columnMenu.searchListIn', { name: label })}
-          className="h-8"
         />
       ) : null}
       <div className="flex items-center gap-1 text-xs">
@@ -220,7 +218,7 @@ export function MoneyEditor({
               onSubmit();
             }
           }}
-          className="h-8 pr-6 text-right tabular-nums"
+          className="pr-6 text-right tabular-nums"
         />
         <span className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-xs text-muted-foreground">
           ₫
@@ -270,7 +268,7 @@ export function DateEditor({
               variant={active ? 'secondary' : 'outline'}
               size="sm"
               aria-pressed={active}
-              className={cn('justify-start font-normal', active && 'text-primary')}
+              className={cn('justify-start font-normal', active && 'text-brand-text')}
               onClick={() => onPreset(r)}
             >
               {t(`orders.columnMenu.presets.${p}`)}

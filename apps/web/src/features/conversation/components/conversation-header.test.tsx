@@ -94,7 +94,7 @@ describe('conversation header', () => {
       lastReadAt: new Date(2026, 9, 25, 14, 5).toISOString(),
       lastReadBy: { userId: 'user-lan', name: 'Lan' },
     });
-    expect(screen.getByText(`${V}unseen`).className).toContain('text-primary');
+    expect(screen.getByText(`${V}unseen`).className).toContain('text-brand-text');
     expect(screen.queryByText(/seenBy/)).not.toBeInTheDocument();
   });
 

@@ -112,7 +112,7 @@ export function WarehousesManager() {
           {warehouses.data.map((w) => (
             <li key={w.id} className="flex flex-col gap-3 rounded-xl border bg-card p-4">
               <div className="flex items-start gap-3">
-                <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">
+                <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary-soft text-brand-text">
                   <Warehouse className="size-5" aria-hidden />
                 </span>
                 <div className="min-w-0 flex-1">

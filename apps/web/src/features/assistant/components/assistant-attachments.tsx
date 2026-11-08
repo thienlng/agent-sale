@@ -263,7 +263,7 @@ export function AttachmentTray({ attachments }: { attachments: AssistantAttachme
     >
       {attachment.kind === 'sheet' ? (
         <div className="flex items-center gap-2 rounded-lg border bg-muted/40 px-2 py-1.5 text-sm">
-          <FileSpreadsheet className="size-4 shrink-0 text-primary" aria-hidden />
+          <FileSpreadsheet className="size-4 shrink-0 text-brand-text" aria-hidden />
           <span className="min-w-0 flex-1 truncate">{attachment.name}</span>
           {attachment.status === 'reading' ? (
             <span className="text-xs text-muted-foreground">{t('import.reading')}</span>
@@ -274,7 +274,7 @@ export function AttachmentTray({ attachments }: { attachments: AssistantAttachme
           ) : null}
           <button
             type="button"
-            className="rounded p-0.5 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+            className="rounded p-0.5 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
             aria-label={t('import.remove', { name: attachment.name })}
             disabled={creating}
             onClick={() => attachments.remove(null)}
@@ -306,7 +306,7 @@ export function AttachmentTray({ attachments }: { attachments: AssistantAttachme
                 ) : null}
                 <button
                   type="button"
-                  className="absolute top-0.5 right-0.5 rounded-full bg-background/90 p-0.5 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                  className="absolute top-0.5 right-0.5 rounded-full bg-background/90 p-0.5 focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
                   aria-label={t('import.remove', { name: p.name })}
                   disabled={creating}
                   onClick={() => attachments.remove(p.id)}
@@ -330,9 +330,9 @@ export function AttachmentTray({ attachments }: { attachments: AssistantAttachme
                 disabled={creating}
                 onClick={() => attachments.setGrouping(g)}
                 className={cn(
-                  'rounded-full border px-2.5 py-0.5 text-xs focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none',
+                  'rounded-full border px-2.5 py-0.5 text-xs focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none',
                   attachment.grouping === g
-                    ? 'border-primary bg-primary-soft text-primary'
+                    ? 'border-primary bg-primary-soft text-brand-text'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
               >

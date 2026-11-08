@@ -109,7 +109,7 @@ export function DrilldownSheet({
                           <Link
                             to="/app/contacts"
                             search={{ contact: r.contactId }}
-                            className="font-medium text-primary hover:underline"
+                            className="font-medium text-brand-text hover:underline"
                           >
                             {r.contactName || t('analytics.drilldown.noName')}
                           </Link>

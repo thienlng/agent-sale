@@ -90,7 +90,7 @@ function SuggestionCard({ suggestion }: { suggestion: AssistantSuggestionDto }) 
   return (
     <li className="flex flex-col gap-1 rounded-lg border bg-background px-3 py-2">
       <div className="flex items-center gap-2">
-        <Lightbulb className="size-4 shrink-0 text-primary" aria-hidden />
+        <Lightbulb className="size-4 shrink-0 text-brand-text" aria-hidden />
         <span className="min-w-0 flex-1 text-sm break-words">{suggestion.title}</span>
         <Button size="sm" disabled={decide.isPending} onClick={accept}>
           {t('suggestions.accept')}

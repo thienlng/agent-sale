@@ -28,7 +28,7 @@ export function ContactConversations({ contactId }: { contactId: string }) {
   if (!rows.length)
     return (
       <p className="flex items-center gap-2 rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-        <MessagesSquare className="size-5 text-primary" aria-hidden />
+        <MessagesSquare className="size-5 text-brand-text" aria-hidden />
         {t('crm.conversations.empty')}
       </p>
     );

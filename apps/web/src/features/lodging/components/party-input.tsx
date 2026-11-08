@@ -42,7 +42,7 @@ export function PartyInput({
           inputMode="numeric"
           min={0}
           max={1000}
-          className="h-8 w-16 tabular-nums"
+          className="w-16 tabular-nums"
           value={value.adults}
           onChange={(e) => onChange({ ...value, adults: clampInt(e.target.value, 0, 1000) })}
         />
@@ -57,7 +57,7 @@ export function PartyInput({
           inputMode="numeric"
           min={0}
           max={20}
-          className="h-8 w-16 tabular-nums"
+          className="w-16 tabular-nums"
           value={value.childAges.length}
           onChange={(e) => setChildren(clampInt(e.target.value, 0, 20))}
         />
@@ -73,7 +73,7 @@ export function PartyInput({
             inputMode="numeric"
             min={0}
             max={17}
-            className="h-8 w-16 tabular-nums"
+            className="w-16 tabular-nums"
             aria-invalid={age === null || undefined}
             value={age ?? ''}
             onChange={(e) => {

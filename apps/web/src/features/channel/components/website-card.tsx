@@ -60,7 +60,7 @@ export function WebsiteCard({
         onCheckedChange={(value) => onCheckedChange(value === true)}
         aria-label={ti('selectPage', { name: c.name })}
       />
-      <span className="grid size-12 shrink-0 place-items-center rounded-full bg-primary-soft text-primary">
+      <span className="grid size-12 shrink-0 place-items-center rounded-full bg-primary-soft text-brand-text">
         <Globe className="size-6" aria-hidden />
       </span>
       <div className="min-w-0 flex-1 space-y-1">

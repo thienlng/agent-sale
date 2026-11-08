@@ -69,7 +69,7 @@ export function AssigneeMenu({
             {current ? (
               <span
                 aria-hidden
-                className="grid size-4 shrink-0 place-items-center rounded-full bg-primary-soft text-[9px] font-semibold text-primary"
+                className="grid size-4 shrink-0 place-items-center rounded-full bg-primary-soft text-[9px] font-semibold text-brand-text"
               >
                 {(Array.from(current.name.trim())[0] ?? '?').toUpperCase()}
               </span>

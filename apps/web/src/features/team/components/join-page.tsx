@@ -67,7 +67,7 @@ export function JoinPage({ token }: { token: string }) {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-3">
-        <MailCheck className="size-6 text-primary" aria-hidden />
+        <MailCheck className="size-6 text-brand-text" aria-hidden />
         <h1 className="text-xl font-semibold tracking-tight">{t('team.join.title')}</h1>
       </div>
       {session ? (

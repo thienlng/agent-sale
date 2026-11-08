@@ -72,7 +72,7 @@ export function SetupGuide({
               <Link
                 to={step.to}
                 params={{ botId }}
-                className="flex items-center gap-3 rounded-xl border bg-muted/40 px-4 py-3 transition-colors hover:border-primary hover:bg-primary-soft focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+                className="flex items-center gap-3 rounded-xl border bg-muted/40 px-4 py-3 transition-colors hover:border-primary hover:bg-primary-soft focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
               >
                 <CircleCheck
                   aria-hidden

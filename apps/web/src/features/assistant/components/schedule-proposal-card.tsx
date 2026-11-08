@@ -66,7 +66,7 @@ export function ScheduleProposalCard({ proposal }: { proposal: AssistantProposal
         <p
           className={cn(
             'flex items-center gap-1 text-xs font-medium tracking-wide uppercase',
-            destructive ? 'text-destructive' : 'text-primary',
+            destructive ? 'text-destructive' : 'text-brand-text',
           )}
         >
           <CalendarClock className="size-3.5" aria-hidden />

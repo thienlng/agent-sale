@@ -86,7 +86,7 @@ export function QuarterMonth({
     <section className="grid min-w-0 content-start gap-2 rounded-lg border border-border p-2">
       <button
         type="button"
-        className="flex items-baseline justify-between gap-2 rounded-sm px-1 text-left hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="flex items-baseline justify-between gap-2 rounded-sm px-1 text-left hover:underline focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
         aria-label={t('pcal.openMonth', { ...monthParts(month), pct })}
         onClick={() => onOpenMonth(month)}
       >
@@ -165,7 +165,7 @@ export function YearMonth({
       type="button"
       data-month={month}
       aria-label={t('pcal.openMonth', { ...monthParts(month), pct })}
-      className="grid min-w-0 content-start gap-1.5 rounded-lg border border-border p-2 text-left hover:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      className="grid min-w-0 content-start gap-1.5 rounded-lg border border-border p-2 text-left hover:border-primary/60 focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
       onClick={() => onOpenMonth(month)}
     >
       <span className="flex items-baseline justify-between gap-2">

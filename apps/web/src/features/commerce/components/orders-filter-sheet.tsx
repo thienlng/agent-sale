@@ -45,7 +45,7 @@ export function OrdersFilterSheet({
   return (
     <Sheet onOpenChange={() => setSection(null)}>
       <SheetTrigger asChild>
-        <Button variant="outline" size="lg" className="h-9 md:hidden">
+        <Button variant="outline" size="lg" className="md:hidden">
           <SlidersHorizontal />
           {t('orders.columnMenu.mobile')}
           {active ? (
@@ -71,8 +71,8 @@ export function OrdersFilterSheet({
             return (
               <li key={m.id} className="border-b last:border-b-0">
                 <Collapsible open={open} onOpenChange={(o) => setSection(o ? m.id : null)}>
-                  <CollapsibleTrigger className="flex min-h-11 w-full items-center gap-2 text-left text-sm focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
-                    <span className={cn('font-medium', filtered && 'text-primary')}>
+                  <CollapsibleTrigger className="flex min-h-11 w-full items-center gap-2 text-left text-sm focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none">
+                    <span className={cn('font-medium', filtered && 'text-brand-text')}>
                       {t(m.header)}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-right text-xs text-muted-foreground">

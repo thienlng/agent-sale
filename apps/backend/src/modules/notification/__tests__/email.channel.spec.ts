@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Mailer } from '../../../common/email/mailer.js';
 import {
   EMAIL_BRAND_COLOR,
+  EMAIL_LINK_COLOR,
   EmailDisabledError,
   MailerEmailChannel,
   renderEmail,
@@ -37,6 +38,7 @@ describe('MailerEmailChannel', () => {
     expect(mail.html).toContain('&lt;script&gt;');
     expect(mail.html).toContain('Doanh thu &lt;hôm qua&gt;');
     expect(mail.html).toContain(EMAIL_BRAND_COLOR);
+    expect(mail.html).toContain(`color:${EMAIL_LINK_COLOR}`);
   });
 
   it('lets a provider failure through so the runner retries', async () => {

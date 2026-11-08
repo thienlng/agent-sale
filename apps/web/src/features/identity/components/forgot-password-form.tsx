@@ -88,7 +88,7 @@ export function ForgotPasswordForm({ onDone }: { onDone: () => void }) {
 
   const back = (
     <p className="text-center text-sm text-muted-foreground">
-      <Link to="/login" className="font-medium text-primary hover:underline">
+      <Link to="/login" className="font-medium text-brand-text hover:underline">
         {t('auth.reset.back')}
       </Link>
     </p>
@@ -112,7 +112,7 @@ export function ForgotPasswordForm({ onDone }: { onDone: () => void }) {
             maxLength={6}
             autoFocus
             required
-            className="h-10 tracking-[0.4em]"
+            className="tracking-[0.4em]"
           />
         </div>
         <div className="flex flex-col gap-2">
@@ -125,13 +125,12 @@ export function ForgotPasswordForm({ onDone }: { onDone: () => void }) {
             minLength={8}
             required
             aria-describedby="password-hint"
-            className="h-10"
           />
           <p id="password-hint" className="text-sm text-muted-foreground">
             {t('auth.passwordHint')}
           </p>
         </div>
-        <Button type="submit" size="lg" className="h-10" disabled={pending}>
+        <Button type="submit" size="lg" disabled={pending}>
           {pending ? t('auth.reset.submitting') : t('auth.reset.submit')}
         </Button>
         {back}
@@ -148,17 +147,9 @@ export function ForgotPasswordForm({ onDone }: { onDone: () => void }) {
       {error ? <FormError>{error}</FormError> : null}
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">{t('auth.email')}</Label>
-        <Input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          autoFocus
-          required
-          className="h-10"
-        />
+        <Input id="email" name="email" type="email" autoComplete="email" autoFocus required />
       </div>
-      <Button type="submit" size="lg" className="h-10" disabled={pending}>
+      <Button type="submit" size="lg" disabled={pending}>
         {pending ? t('auth.reset.sending') : t('auth.reset.send')}
       </Button>
       {back}

@@ -60,7 +60,7 @@ function SkippedList({ drafts }: { drafts: readonly ImportDraftDto[] }) {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex w-fit items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+        className="inline-flex w-fit items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
       >
         {t('import.card.skipped', { count: drafts.length })}
         <ChevronDown
@@ -119,7 +119,7 @@ function ImportReport({ batch, keys }: { batch: ImportBatchDto; keys: readonly s
                 <Link
                   to="/app/products/$productId"
                   params={{ productId: result.productId }}
-                  className="text-primary underline-offset-2 hover:underline"
+                  className="text-brand-text underline-offset-2 hover:underline"
                   aria-label={t('import.card.open', { name: draft.product?.name ?? key })}
                 >
                   {draft.product?.name ?? key}
@@ -195,7 +195,7 @@ export function ImportProposalCard({ proposal }: { proposal: AssistantProposalDt
       aria-label={t('proposals.label')}
     >
       <div className="min-w-0">
-        <p className="text-xs font-medium tracking-wide text-primary uppercase">
+        <p className="text-xs font-medium tracking-wide text-brand-text uppercase">
           {t('proposals.label')}
         </p>
         <p className="mt-1 font-medium break-words">
@@ -235,7 +235,7 @@ export function ImportProposalCard({ proposal }: { proposal: AssistantProposalDt
                 aria-expanded={showTable}
                 aria-controls={tableId}
                 onClick={() => setShowTable((v) => !v)}
-                className="inline-flex w-fit items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                className="inline-flex w-fit items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
               >
                 {showTable ? t('import.card.hideTable') : t('import.card.showTable')}
                 <ChevronDown

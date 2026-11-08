@@ -108,7 +108,7 @@ export function BotStatistics({
           <Link
             to="/app/analytics"
             search={toSearch(filters)}
-            className="self-start text-sm font-medium text-primary underline-offset-4 hover:underline"
+            className="self-start text-sm font-medium text-brand-text underline-offset-4 hover:underline"
           >
             {t('analytics.bot.openFull')}
           </Link>

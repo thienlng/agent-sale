@@ -139,7 +139,7 @@ export function FaqDialog({
                 {tt('profile.faqHint', { field: tt(`profile.fields.${topic}`) })}{' '}
                 <button
                   type="button"
-                  className="font-medium text-primary underline-offset-2 hover:underline"
+                  className="font-medium text-brand-text underline-offset-2 hover:underline"
                   onClick={() => goToField(profileFieldInputId(topic))}
                 >
                   {tt('profile.faqHintGo')}

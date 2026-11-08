@@ -94,7 +94,7 @@ function PolicyCard({
                       type="number"
                       min={1}
                       max={10}
-                      className="h-8 w-20"
+                      className="w-20"
                       aria-label={`${t('crm.distribution.weight')}: ${m.name}`}
                       value={weight}
                       onChange={(e) =>

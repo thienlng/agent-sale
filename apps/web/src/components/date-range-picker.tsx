@@ -70,7 +70,7 @@ export function DateRangePicker({
       }}
     >
       <PopoverTrigger asChild>
-        <Button variant="outline" className="h-9 justify-start gap-2 font-normal">
+        <Button size="sm" variant="outline" className="justify-start gap-2 font-normal">
           <CalendarDays className="text-muted-foreground" />
           <span className="tabular-nums">{label}</span>
         </Button>

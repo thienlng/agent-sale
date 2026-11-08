@@ -74,7 +74,7 @@ export function CalendarMobile({
                 <Link
                   to="/app/calendar/$propertyId"
                   params={{ propertyId: p.id }}
-                  className="-mx-1 flex min-h-11 min-w-0 items-center gap-2 rounded-sm px-1 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  className="-mx-1 flex min-h-11 min-w-0 items-center gap-2 rounded-sm px-1 hover:underline focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
                 >
                   <span className="font-semibold">{p.code}</span>
                   <span className="min-w-0 truncate font-normal text-muted-foreground">

@@ -174,7 +174,7 @@ export function ConversationRow({
                 ) : null}
                 {c.starred ? (
                   <Star
-                    className="size-3.5 shrink-0 fill-amber-400 text-amber-500"
+                    className="size-3.5 shrink-0 fill-primary text-primary"
                     role="img"
                     aria-label={t('channelInbox.meta.starred')}
                   />
@@ -235,7 +235,7 @@ export function ConversationRow({
                 ) : null}
                 {c.mode === 'bot' ? (
                   <Bot
-                    className="size-3 shrink-0 text-primary"
+                    className="size-3 shrink-0 text-ai"
                     role="img"
                     aria-label={v2('row.modeBot')}
                   />

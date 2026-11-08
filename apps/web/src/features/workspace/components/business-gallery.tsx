@@ -195,7 +195,7 @@ function BusinessCard({
       disabled={disabled}
       onClick={onOpen}
       aria-label={t('business.gallery.open', { name: business.workspaceName })}
-      className="group flex h-full w-full flex-col gap-4 rounded-xl border bg-card p-5 text-left shadow-xs transition hover:border-primary/40 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
+      className="group flex h-full w-full flex-col gap-4 rounded-xl border bg-card p-5 text-left shadow-xs transition hover:border-primary/40 hover:shadow-md focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
     >
       <div className="flex items-start gap-3">
         <BusinessAvatar
@@ -205,7 +205,7 @@ function BusinessCard({
           className="size-12 shrink-0"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold group-hover:text-primary">
+          <p className="truncate font-semibold group-hover:text-brand-text">
             {business.workspaceName}
           </p>
           {showAccount && business.accountName ? (

@@ -84,7 +84,7 @@ export function InboxFilterChips({
               type="button"
               aria-label={t('channelInbox.v2.list.removeChip', { label: text })}
               onClick={() => onState(removeChip(state, chip))}
-              className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary-soft px-2 py-0.5 text-xs text-primary hover:bg-primary-soft/70"
+              className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary-soft px-2 py-0.5 text-xs text-brand-text hover:bg-primary-soft/70"
             >
               {text}
               <X className="size-3" aria-hidden />

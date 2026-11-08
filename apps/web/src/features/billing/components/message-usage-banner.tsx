@@ -30,7 +30,7 @@ export function MessageUsageBanner() {
   return (
     <div
       role="status"
-      className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm"
+      className="mb-4 rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm"
     >
       <p className="font-medium">{t('billing.usage.nearTitle')}</p>
       <p className="text-muted-foreground">{t('billing.usage.nearBody', values)}</p>

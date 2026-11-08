@@ -139,7 +139,7 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
         {bot ? (
           <Link
             to="/app/channels"
-            className="mt-2 inline-flex text-sm font-medium text-primary hover:underline"
+            className="mt-2 inline-flex text-sm font-medium text-brand-text hover:underline"
           >
             {ti('openInventory')}
           </Link>
@@ -147,7 +147,7 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
       </header>
       <p className="rounded-lg bg-muted/60 px-4 py-3 text-sm">
         {ti('feedbackPrefix')}{' '}
-        <strong className="font-semibold text-primary">{ti('feedbackEmphasis')}</strong>
+        <strong className="font-semibold text-brand-text">{ti('feedbackEmphasis')}</strong>
       </p>
       <ConnectNotices integrations={integrations} />
       <div className="grid grid-cols-1 overflow-hidden rounded-xl border md:grid-cols-[15rem_minmax(0,1fr)]">

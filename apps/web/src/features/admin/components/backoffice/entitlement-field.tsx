@@ -47,7 +47,7 @@ export function EntitlementField({
           <Input
             id={id}
             inputMode="numeric"
-            className="h-9"
+
             disabled={unlimited}
             value={unlimited ? '' : toText(value)}
             aria-invalid={invalid}
@@ -106,7 +106,7 @@ export function EntitlementField({
           <Input
             id={`${id}-amount`}
             inputMode="numeric"
-            className="h-9"
+
             value={toText(allowance.amount)}
             aria-invalid={invalid}
             onChange={(e) => onChange({ ...allowance, amount: toNumber(e.target.value) })}
@@ -119,7 +119,7 @@ export function EntitlementField({
           <Input
             id={`${id}-days`}
             inputMode="numeric"
-            className="h-9"
+
             value={toText(allowance.periodDays)}
             aria-invalid={invalid}
             onChange={(e) => onChange({ ...allowance, periodDays: toNumber(e.target.value) })}

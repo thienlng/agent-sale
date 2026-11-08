@@ -49,7 +49,7 @@ function QuickFilter({
       onClick={onClick}
       className={cn(
         'flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[13px] whitespace-nowrap text-foreground/80 hover:bg-muted',
-        pressed && 'bg-primary-soft font-medium text-primary hover:bg-primary-soft',
+        pressed && 'bg-primary-soft font-medium text-brand-text hover:bg-primary-soft',
       )}
     >
       {label}
@@ -153,7 +153,7 @@ export function ConversationList({
               placeholder={tr('v2.list.search')}
               value={state.q}
               onChange={(event) => onState({ q: event.target.value })}
-              className="h-8 pl-8"
+              className="pl-8"
             />
           </div>
           <Button
@@ -212,7 +212,7 @@ export function ConversationList({
             <span>{meta('folder.viewing', { folder: meta(`folder.${state.status}`) })}</span>
             <button
               type="button"
-              className="font-medium text-primary hover:underline"
+              className="font-medium text-brand-text hover:underline"
               onClick={() => onState({ status: 'open' })}
             >
               {meta('folder.back')}

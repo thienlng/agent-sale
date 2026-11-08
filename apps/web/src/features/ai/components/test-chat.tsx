@@ -175,7 +175,7 @@ export function TestChat({
           <RotateCcw />
         </Button>
         <div className="min-w-0 flex-1 text-center">
-          <h2 className="text-lg font-semibold text-primary">{training('space.chat.title')}</h2>
+          <h2 className="font-display text-lg font-semibold">{training('space.chat.title')}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{training('space.chat.subtitle')}</p>
         </div>
         {onHide ? (
@@ -222,7 +222,7 @@ export function TestChat({
                       key={s}
                       type="button"
                       onClick={() => void send(s)}
-                      className="truncate rounded-lg border border-primary/60 bg-primary-soft/50 px-3 py-2 text-left text-sm text-primary transition-colors hover:bg-primary-soft focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+                      className="truncate rounded-lg border border-primary/60 bg-primary-soft/50 px-3 py-2 text-left text-sm text-brand-text transition-colors hover:bg-primary-soft focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
                     >
                       {s}
                     </button>
@@ -356,7 +356,7 @@ function QuickReplies({
           type="button"
           disabled={disabled}
           onClick={() => onPick(reply.title)}
-          className="min-h-8 rounded-full border border-primary/60 bg-background px-3.5 py-1 text-sm font-medium text-primary transition-colors hover:bg-primary-soft focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+          className="min-h-8 rounded-full border border-primary/60 bg-background px-3.5 py-1 text-sm font-medium text-brand-text transition-colors hover:bg-primary-soft focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
         >
           {reply.title}
         </button>

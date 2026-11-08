@@ -129,7 +129,7 @@ function SkillRow({
       <button
         type="button"
         onClick={() => onOpen(skill.ref)}
-        className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+        className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-muted focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
       >
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">{skill.title ?? skill.name}</span>
@@ -138,7 +138,7 @@ function SkillRow({
           </span>
         </span>
         {skill.provenance === 'shadow' ? (
-          <span className="shrink-0 text-xs text-primary">{t('skills.customised')}</span>
+          <span className="shrink-0 text-xs text-brand-text">{t('skills.customised')}</span>
         ) : skill.state === 'stale' ? (
           <span className="shrink-0 text-xs text-muted-foreground">{t('skills.stale')}</span>
         ) : null}

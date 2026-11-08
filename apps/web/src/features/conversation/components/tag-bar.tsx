@@ -160,7 +160,10 @@ export function TagBar({
                     ) : (
                       <>
                         {tr('none')}{' '}
-                        <Link to="/app/crm-settings/tags" className="text-primary hover:underline">
+                        <Link
+                          to="/app/crm-settings/tags"
+                          className="text-brand-text hover:underline"
+                        >
                           {tr('create')}
                         </Link>
                       </>
@@ -182,7 +185,7 @@ export function TagBar({
                           }}
                         >
                           <TagChip name={tag.name} color={tag.color} />
-                          {current ? <Check className="ml-auto size-4 text-primary" /> : null}
+                          {current ? <Check className="ml-auto size-4 text-brand-text" /> : null}
                         </CommandItem>
                       );
                     })}

@@ -56,7 +56,7 @@ export function StayDates({
           <Input
             id={`${id}-in`}
             type="date"
-            className="h-8 w-40 tabular-nums"
+            className="w-40 tabular-nums"
             value={checkIn}
             disabled={disableCheckIn}
             aria-invalid={(showError && !valid) || undefined}
@@ -70,7 +70,7 @@ export function StayDates({
           <Input
             id={`${id}-out`}
             type="date"
-            className="h-8 w-40 tabular-nums"
+            className="w-40 tabular-nums"
             min={checkIn || undefined}
             value={checkOut}
             aria-invalid={(showError && !valid) || undefined}

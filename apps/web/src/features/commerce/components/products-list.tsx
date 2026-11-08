@@ -165,7 +165,7 @@ export function ProductsList({
           to="/app/integrations/kiotviet"
           className="-my-2 inline-flex min-h-11 w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
-          <RefreshCw className="size-4 text-primary" aria-hidden />
+          <RefreshCw className="size-4 text-brand-text" aria-hidden />
           {pmsLink.lastSyncAt
             ? t('products.pmsBar', { time: formatRelativeTime(pmsLink.lastSyncAt) })
             : t('products.pmsBarPending')}
@@ -183,7 +183,7 @@ export function ProductsList({
             onChange={(e) => setText(e.target.value)}
             placeholder={word('search', 'products.search')}
             aria-label={word('search', 'products.search')}
-            className="h-9 pl-9"
+            className="pl-9"
           />
         </div>
         <Segmented
@@ -254,7 +254,7 @@ export function ProductsList({
                         <Link
                           to="/app/products/$productId"
                           params={{ productId: p.id }}
-                          className="text-primary hover:underline"
+                          className="text-brand-text hover:underline"
                           onClick={(e) => e.stopPropagation()}
                         >
                           {p.code}
@@ -293,7 +293,7 @@ export function ProductsList({
               {data && !data.data.length ? (
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={5} className="py-14 text-center text-muted-foreground">
-                    <Package className="mx-auto mb-3 size-8 text-primary" aria-hidden />
+                    <Package className="mx-auto mb-3 size-8 text-brand-text" aria-hidden />
                     {q || status === 'archived' || (pmsLink && source !== 'all')
                       ? word('empty', 'products.empty')
                       : word('emptyStart', 'products.emptyStart')}

@@ -1,225 +1,72 @@
+/* Rapiz Precision colours for the marketing site (same values as packages/ui/src/tokens.css).
+   Achromatic neutrals only; orange marks the main action and attention; text on orange is
+   Charcoal; orange text on light grounds uses the accessible #B54708. */
 :root {
-  --background: #fff;
   color-scheme: light;
+  --orange: #ff7a45;
+  --orange-strong: #e8622e;
+  --orange-text: #b54708;
+  --charcoal: #1f1f1f;
+  --charcoal-2: #2b2b2b;
+  --charcoal-line: #3a3a3a;
+  --on-dark: #f5f5f5;
+  --on-dark-muted: #a8a8a8;
+  --blush: #ffd9cf;
+  --violet: #6941c6;
+  --violet-soft: #f4f1ff;
+  --success: #067647;
+
+  --background: #ffffff;
+  --surface: #f4f4f4;
+  --foreground: #1f1f1f;
+  --muted: #5d6470;
+  --line: #e4e4e4;
+  --line-strong: #c4c4c4;
+  --focus: #b54708;
+  --scrim: #1f1f1f8f;
+  --elevation-overlay: 0 24px 64px -16px #1f1f1f3d, 0 4px 12px -4px #1f1f1f1f;
+
+  --gutter: 48px;
+  --section: 96px;
+  --radius-control: 4px;
+  --radius-card: 8px;
+  --radius-frame: 12px;
 }
-:root[data-theme='dark'] {
-  --background: #151615;
-  --ink: #eeeeea;
-  --muted: #b0b5a9;
-  --line: #343731;
-  --panel: #20221f;
+
+[data-theme='dark'] {
   color-scheme: dark;
+  --orange-text: #ff7a45;
+  --violet: #b5a2ff;
+  --violet-soft: #2a2340;
+  --success: #47cd89;
+  --background: #1f1f1f;
+  --surface: #262626;
+  --foreground: #f5f5f5;
+  --muted: #a8a8a8;
+  --line: #383838;
+  --line-strong: #5c5c5c;
+  --focus: #ff7a45;
+  --scrim: #000000a6;
+  --charcoal: #141414;
+  --charcoal-2: #262626;
+  --charcoal-line: #333333;
 }
-body {
-  background: var(--background);
-}
-.theme-toggle {
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  margin-left: 0;
-}
-.theme-toggle:hover {
-  background: var(--panel);
-}
-.theme-sun {
-  display: none;
-}
-[data-theme='dark'] .theme-sun {
-  display: block;
-}
-[data-theme='dark'] .theme-moon {
-  display: none;
-}
-.nav-cta {
-  margin-left: 0;
-}
-.scene-chat {
-  color: #20221f;
-}
-[data-theme='dark'] ::selection {
-  background: #735036;
-  color: #fff;
-}
-[data-theme='dark'] .brand-icon {
-  background: #fff;
-  border-radius: 9px;
-}
-[data-theme='dark'] .nav-cta,
-[data-theme='dark'] .primary {
-  color: #20221f;
-}
-[data-theme='dark'] .nav-cta:hover,
-[data-theme='dark'] .primary:hover {
-  background: #d4d9cc;
-}
-[data-theme='dark'] .secondary {
-  background: #2b2e27;
-  color: #d8ded0;
-}
-[data-theme='dark'] .secondary:hover {
-  background: #373c30;
-}
-[data-theme='dark'] .hero-label,
-[data-theme='dark'] .channels > p,
-[data-theme='dark'] .channel-list > span,
-[data-theme='dark'] .demo-copy > p.demo-note,
-[data-theme='dark'] .chat-brand small,
-[data-theme='dark'] .sample-label,
-[data-theme='dark'] .chat-date,
-[data-theme='dark'] .bot-name,
-[data-theme='dark'] .product-preview small,
-[data-theme='dark'] .product-preview div > span:not(#product-symbol),
-[data-theme='dark'] .chat-source,
-[data-theme='dark'] .chat-input,
-[data-theme='dark'] .handoff-preview p,
-[data-theme='dark'] .connection-section small,
-[data-theme='dark'] .connection-title,
-[data-theme='dark'] .connection-arrow,
-[data-theme='dark'] .step-number,
-[data-theme='dark'] .faq-list summary > span,
-[data-theme='dark'] .footer-top > p,
-[data-theme='dark'] .footer-bottom {
-  color: #a9b19e;
-}
-[data-theme='dark'] .industry-tabs button {
-  background: var(--background);
-  border-color: #41473a;
-}
-[data-theme='dark'] .industry-tabs button[aria-selected='true'] {
-  background: #3c2c20;
-  color: #ffbd8d;
-  border-color: #7f5436;
-}
-[data-theme='dark'] .industry-tabs button:hover {
-  background: #2b3024;
-}
-[data-theme='dark'] .chat-stage {
-  background: #23271f;
-}
-[data-theme='dark'] .chat-window,
-[data-theme='dark'] .file,
-[data-theme='dark'] .handoff-preview {
-  background: #1a1d18;
-  border-color: #3a4033;
-}
-[data-theme='dark'] .chat-header {
-  border-color: #343b2b;
-}
-[data-theme='dark'] .sample-label {
-  background: #2b3124;
-}
-[data-theme='dark'] .customer {
-  background: #2d3327;
-}
-[data-theme='dark'] .bot {
-  background: #392b20;
-}
-[data-theme='dark'] .product-preview,
-[data-theme='dark'] .chat-input {
-  border-color: #3a4033;
-}
-[data-theme='dark'] .product-art {
-  background: #44483a;
-}
-[data-theme='dark'] .product-art > span {
-  color: #ccd7b9;
-}
-[data-theme='dark'] .chat-input > span:last-child {
-  background: #353e2b;
-  color: #c2ceb2;
-}
-[data-theme='dark'] .file > span,
-[data-theme='dark'] .file > b {
-  color: #a7b48f;
-}
-[data-theme='dark'] .human-avatar {
-  background: #3e4b31;
-  border-color: #2c3523;
-  color: #d6e2c6;
-}
-[data-theme='dark'] .flow-line {
-  border-color: #536146;
-}
-[data-theme='dark'] .connection-panel {
-  background: #1c2019;
-  border-color: #363e2d;
-}
-[data-theme='dark'] .connection-row {
-  border-color: #343b2b;
-}
-[data-theme='dark'] .connection-row .channel-icon {
-  color: #afbd9a;
-}
-[data-theme='dark'] .step-number {
-  border-color: #505b43;
-}
-[data-theme='dark'] .closing {
-  background: var(--panel);
-}
-[data-theme='dark'] .closing > .rabbit-avatar {
-  background: #fff;
-}
-[data-theme='dark'] .closing > .rabbit-avatar img {
-  mix-blend-mode: normal;
-}
-[data-theme='dark'] .skip {
-  color: #20221f;
-}
-[data-theme='dark'] dialog {
-  background: var(--background);
-}
-[data-theme='dark'] dialog::backdrop {
-  background: #0009;
-}
-[data-theme='dark'] .header nav a:hover,
-[data-theme='dark'] .footer-top a:hover,
-[data-theme='dark'] .footer-top button:hover {
-  color: #ffb880;
-}
-@media (max-width: 1000px) and (min-width: 701px) {
-  .header {
-    gap: 17px;
-  }
-  .header nav {
-    gap: 17px;
-  }
-  .nav-cta {
-    padding-inline: 17px;
+
+@media (max-width: 1000px) {
+  :root {
+    --gutter: 32px;
+    --section: 80px;
   }
 }
-@media (max-width: 700px) {
-  .theme-toggle {
-    margin-left: auto;
-    width: 30px;
-    height: 30px;
-  }
-  .nav-cta {
-    margin-left: 0;
-  }
-  .header {
-    gap: 10px;
-  }
-  [data-theme='dark'] .header nav {
-    background: var(--background);
+@media (max-width: 740px) {
+  :root {
+    --gutter: 24px;
+    --section: 48px;
   }
 }
-[data-theme='dark'] .team-art .handoff-preview {
-  background: #ffffffed;
-  border-color: #ffe1dd;
-  color: #414a38;
-}
-[data-theme='dark'] .team-art .handoff-preview p {
-  color: #69705e;
-}
-[data-theme='dark'] .rabbit-lineup,
-[data-theme='dark'] .setup-heading-art > img {
-  filter: invert(1);
-  mix-blend-mode: screen;
+@media (max-width: 440px) {
+  :root {
+    --gutter: 16px;
+    --section: 40px;
+  }
 }

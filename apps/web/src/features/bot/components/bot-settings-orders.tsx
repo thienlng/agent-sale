@@ -42,7 +42,7 @@ function NullableMoneyInput({
         inputMode="numeric"
         autoComplete="off"
         aria-describedby={describedBy}
-        className="h-10 pr-8 text-right tabular-nums"
+        className="pr-8 text-right tabular-nums"
         value={text}
         onChange={(e) => {
           const digits = e.target.value.replace(/\D/g, '').slice(0, 9);

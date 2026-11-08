@@ -112,7 +112,7 @@ export function ConnectionCard({
         <Button
           variant="ghost"
           size="icon"
-          className="shrink-0 text-primary"
+          className="shrink-0 text-brand-text"
           disabled={!canReconnect}
           aria-label={`${t('channelInbox.reconnect')}: ${c.name}`}
           title={t('channelInbox.reconnect')}

@@ -77,7 +77,7 @@ export function TestChatComposer({
           <AttachmentThumbs items={attachments} onRemove={onRemoveFile} />
         </div>
       ) : null}
-      <div className="flex items-end gap-2 rounded-2xl border bg-background p-1.5 pl-1.5 focus-within:border-primary focus-within:ring-3 focus-within:ring-primary/15">
+      <div className="flex items-end gap-2 rounded-xl border border-input bg-background p-1.5 pl-1.5 focus-within:border-ring">
         <input
           ref={fileInput}
           type="file"

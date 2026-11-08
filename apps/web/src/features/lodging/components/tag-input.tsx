@@ -43,7 +43,7 @@ export function TagChips({
               type="button"
               className={cn(
                 chip,
-                'hover:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+                'hover:border-primary focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none',
               )}
               onClick={(e) => {
                 e.stopPropagation();
@@ -129,7 +129,7 @@ export function TagInput({
             <button
               type="button"
               aria-label={t('tags.remove', { tag })}
-              className="rounded-full p-0.5 hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="rounded-full p-0.5 hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
               onClick={() => onChange(value.filter((x) => x !== tag))}
             >
               <X aria-hidden className="size-3" />
@@ -140,7 +140,7 @@ export function TagInput({
       <Input
         aria-label={t('tags.add')}
         placeholder={t('tags.addPlaceholder')}
-        className="h-8 w-60"
+        className="w-60"
         maxLength={MAX_TAG_LENGTH}
         disabled={full}
         value={text}
