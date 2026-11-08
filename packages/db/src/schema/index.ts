@@ -22,3 +22,4 @@ export * from './assistant.js';
 export * from './notification.js';
 export * from './api-key.js';
 export * from './developer.js';
+export * from './dataexport.js';

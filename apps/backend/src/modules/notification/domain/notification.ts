@@ -8,7 +8,9 @@ export type NotificationType =
   | 'assistant.alert'
   | 'assistant.schedule_paused'
   | 'inbox.handoff'
-  | 'inbox.message';
+  | 'inbox.message'
+  | 'dataexport.ready'
+  | 'dataexport.failed';
 export type NotificationChannelKind = 'email' | 'push';
 export type DeliveryStatus = 'queued' | 'sending' | 'sent' | 'failed' | 'skipped';
 

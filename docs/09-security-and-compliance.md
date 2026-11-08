@@ -134,7 +134,7 @@ Preny has weak legal documentation (policies dated before the company's founding
 
 ## 10. Data subject rights & data lifecycle
 
-- Export all workspace data (CSV/JSON) — prevents lock-in, and is also a selling point.
+- Export all workspace data (CSV/JSON) — prevents lock-in, and is also a selling point. Built (SET-10): capability `data.export` (owner and admin, never an API-key scope); the ZIP lives in a private bucket (`S3_EXPORT_BUCKET`), never the public media bucket, for 7 days; downloads go through a one-time link (32 random bytes, SHA-256 at rest, 5 minutes, one use, `Cache-Control: no-store`, `Referrer-Policy: no-referrer`); text that a spreadsheet would run as a formula is prefixed with `'`; secrets, tokens and key material are never exported; audit events `workspace.data_exported` and `workspace.data_export_downloaded`.
 - Delete end customers on request: delete/anonymize profile + messages + media; record audit; backups expire automatically on a schedule (stated clearly in the policy).
 - Workspace deletion: 30-day soft delete → hard delete + delete object storage + revoke channel tokens.
 - Default retention (configurable per plan): messages 24 months; raw webhooks 30 days; technical logs 30 days; ai_runs prompt details 90 days (metrics kept longer).

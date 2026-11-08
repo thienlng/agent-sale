@@ -35,10 +35,14 @@ compose build -q postgres
 if [[ -n $(compose ps -q --status running postgres 2>/dev/null) ]]; then ./backup.sh; fi
 compose up -d --wait postgres redis object-storage
 
-# The bucket must exist before the first upload; creating an existing one is harmless.
+# The buckets must exist before the first upload; creating an existing one is harmless. The
+# media bucket is public-read (compose `anonymous` identity); the exports bucket (SET-10) is not.
 bucket=$(grep -E '^S3_BUCKET=' .env | cut -d= -f2)
-compose exec -T object-storage sh -c "echo 's3.bucket.list' | weed shell" 2>/dev/null | grep -qw "$bucket" ||
-  compose exec -T object-storage sh -c "echo 's3.bucket.create -name $bucket' | weed shell" >/dev/null
+exports=$(grep -E '^S3_EXPORT_BUCKET=' .env | cut -d= -f2)
+for b in "$bucket" "${exports:-$bucket-exports}"; do
+  compose exec -T object-storage sh -c "echo 's3.bucket.list' | weed shell" 2>/dev/null | grep -qw "$b" ||
+    compose exec -T object-storage sh -c "echo 's3.bucket.create -name $b' | weed shell" >/dev/null
+done
 
 compose run --rm migrate
 

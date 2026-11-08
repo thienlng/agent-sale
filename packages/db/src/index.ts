@@ -3,6 +3,12 @@ export * from './tenant.js';
 export { accountContextSql, withAccount } from './account.js';
 export * from './outbox.js';
 export * from './audit.js';
+export {
+  exportTable,
+  type ExportColumn,
+  type ExportTableSpec,
+  type ExportTable as DbExportTable,
+} from './export.js';
 export * from './platform-audit.js';
 export { backfillAccounts, type AccountBackfillReport } from './account-backfill.js';
 export {

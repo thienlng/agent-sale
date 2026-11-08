@@ -42,6 +42,8 @@ export const CAPABILITIES = [
   'analytics.view',
   /** API keys and webhooks of the shop (ADR-022). */
   'developer.manage',
+  /** Download a copy of all the shop's data (SET-10). Owner and admin only; never an API scope. */
+  'data.export',
 ] as const;
 export const Capability = z.enum(CAPABILITIES);
 export type Capability = z.infer<typeof Capability>;

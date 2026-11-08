@@ -16,6 +16,8 @@ import {
 
 import { DB_TENANT } from '../../common/db/db.module.js';
 import { KNOWLEDGE_FACADE } from './api/knowledge.facade.js';
+import { KNOWLEDGE_EXPORT } from './api/knowledge-export.js';
+import { KnowledgeExportSource } from './infrastructure/export/knowledge.export.js';
 import { KnowledgeFacadeImpl } from './application/knowledge.facade.impl.js';
 import { KNOWLEDGE_UOW } from './application/ports/knowledge-unit-of-work.js';
 import {
@@ -26,6 +28,11 @@ import {
 /** FAQ knowledge. No HTTP of its own: the bot module exposes /bots/{botId}/faqs. */
 @Module({
   providers: [
+    {
+      provide: KNOWLEDGE_EXPORT,
+      inject: [{ token: DB_TENANT, optional: true }],
+      useFactory: (db: Database | null | undefined) => new KnowledgeExportSource(db ?? null),
+    },
     {
       provide: BOT_MEDIA_STORAGE,
       useFactory: () => {
@@ -55,6 +62,6 @@ import {
     },
     { provide: KNOWLEDGE_FACADE, useClass: KnowledgeFacadeImpl },
   ],
-  exports: [KNOWLEDGE_FACADE, TRAINING_FACADE, MEDIA_FACADE],
+  exports: [KNOWLEDGE_FACADE, TRAINING_FACADE, MEDIA_FACADE, KNOWLEDGE_EXPORT],
 })
 export class KnowledgeModule {}

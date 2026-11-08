@@ -8,3 +8,4 @@ export {
   type ConversationRunner,
 } from './conversation.facade.js';
 export * from './conversation.events.js';
+export { CONVERSATION_EXPORT } from './conversation-export.js';

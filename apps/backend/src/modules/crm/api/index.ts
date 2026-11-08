@@ -19,3 +19,4 @@ export {
   type PushableContact,
   type UpsertExternalContactResult,
 } from './contact-sync.facade.js';
+export { CRM_EXPORT } from './crm-export.js';

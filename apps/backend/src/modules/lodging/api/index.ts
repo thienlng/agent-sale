@@ -16,3 +16,4 @@ export {
   type StayRevenue,
 } from './lodging.facade.js';
 export * from './lodging.events.js';
+export { LODGING_EXPORT } from './lodging-export.js';

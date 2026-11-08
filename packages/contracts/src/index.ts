@@ -17,6 +17,7 @@ import { saasRoutes } from './saas/saas.routes.js';
 import { assistantRoutes } from './assistant/assistant.routes.js';
 import { notificationRoutes } from './notification/notification.routes.js';
 import { developerRoutes } from './developer/developer.routes.js';
+import { dataExportRoutes } from './dataexport/dataexport.routes.js';
 import { integrationRoutes } from './integration/integration.routes.js';
 import { healthRoutes } from './health/health.routes.js';
 import { identityRoutes } from './identity/identity.routes.js';
@@ -73,6 +74,8 @@ export * from './notification/notification.routes.js';
 export * from './saas/saas.events.js';
 export * from './developer/developer.schema.js';
 export * from './developer/developer.routes.js';
+export * from './dataexport/dataexport.schema.js';
+export * from './dataexport/dataexport.routes.js';
 export * from './developer/public-events.js';
 export * from './integration/integration.schema.js';
 export * from './integration/integration.routes.js';
@@ -123,6 +126,7 @@ export const allRoutes = [
   ...assistantRoutes,
   ...notificationRoutes,
   ...developerRoutes,
+  ...dataExportRoutes,
 ] as const;
 
 export * from './knowledge/media.schema.js';
