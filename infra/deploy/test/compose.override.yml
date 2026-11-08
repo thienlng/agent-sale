@@ -1,0 +1,13 @@
+# Test only (backup-e2e.sh): a second SeaweedFS as the off-site destination.
+services:
+  offsite:
+    image: chrislusf/seaweedfs:latest
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        cat > /tmp/s3.json <<JSON
+        {"identities":[{"name":"o","credentials":[{"accessKey":"offsite","secretKey":"offsitesecret"}],
+          "actions":["Admin","Read","Write","List","Tagging"]}]}
+        JSON
+        exec weed server -dir=/data -s3 -s3.config=/tmp/s3.json -master.volumeSizeLimitMB=64 -volume.max=0
+    networks: [default]

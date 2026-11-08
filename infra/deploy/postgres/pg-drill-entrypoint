@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Restore container (ADR-028): on an empty volume, fetch a WAL-G base backup (DRILL_BACKUP, default
+# LATEST), then replay archived WAL to its end or to DRILL_TARGET_TIME and promote. Never archives.
+# Used by restore-drill.sh and for restores (docs/runbooks/backup-and-restore.md).
+set -euo pipefail
+PGDATA=${PGDATA:-/var/lib/postgresql/data}
+if [[ ! -s $PGDATA/PG_VERSION ]]; then
+  wal-g backup-fetch "$PGDATA" "${DRILL_BACKUP:-LATEST}"
+  touch "$PGDATA/recovery.signal"
+  chown -R postgres:postgres "$PGDATA"
+  chmod 700 "$PGDATA"
+fi
+target=()
+if [[ -n ${DRILL_TARGET_TIME:-} ]]; then
+  target=(-c "recovery_target_time=$DRILL_TARGET_TIME" -c recovery_target_action=promote)
+fi
+exec gosu postgres postgres -c archive_mode=off -c 'restore_command=wal-g wal-fetch %f %p' "${target[@]}"
