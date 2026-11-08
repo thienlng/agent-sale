@@ -1,0 +1,102 @@
+.rh-section {
+  background: #eae7df;
+  color: #252421;
+  padding-block: clamp(76px, 8vw, 132px);
+}
+.rh-intro {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 40px;
+  margin-bottom: clamp(28px, 4vw, 60px);
+}
+.rh-kicker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 17px;
+  color: #45433d;
+  font: 700 11px/1.4 Inter,sans-serif;
+  letter-spacing: .14em;
+}
+.rh-intro h2 {max-width: 21ch; text-wrap: balance}
+.rh-intro > p {
+  max-width: 40ch;
+  color: #50504a;
+  font: 400 clamp(16px, 1.25vw, 19px)/1.6 Inter,sans-serif;
+}
+.rh-workspace {
+  overflow: hidden;
+  border: 1px solid #44433d;
+  border-radius: 12px;
+  background: #292926;
+  font: 500 15px/1.5 Inter,sans-serif;
+}
+.rh-workspace [hidden] {display: none}
+.rh-appbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 15px clamp(16px, 2.6vw, 40px);
+  color: #faf8f2;
+  background: #22221f;
+  border-bottom: 1px solid #494944;
+}
+.rh-appname {display: flex; gap: 11px; align-items: center; font-weight: 650}
+.rh-appname img {width: 24px}
+.rh-example {color: #c7c5bc; font-size: 12px}
+.rh-columns {display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr)}
+.rh-chat {background: #fcfbf7; padding: clamp(22px, 3vw, 48px)}
+.rh-chathead {display: flex; gap: 13px; align-items: center; padding-bottom: 22px; border-bottom: 1px solid #d9d6cd}
+.rh-chathead strong {display: block; font: 720 18px/1.25 "Inter Tight",Inter,sans-serif}
+.rh-chathead small {color: #666258; font-size: 12px}
+.rh-avatar {display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; color: #474738; background: #e2e3ca; font: 750 20px/1 "Inter Tight",Inter,sans-serif}
+.rh-thread {display: grid; gap: 20px; padding-block: 25px 10px}
+.rh-message {max-width: 83%; justify-self: start}
+.rh-message > span {display: block; margin-bottom: 5px; font-size: 12px; font-weight: 650; color: #655f54}
+.rh-message p {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 2px 13px 13px 13px;
+  background: #ebe8df;
+  color: #26251f;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+.rh-agent, .rh-staff {justify-self: end}
+.rh-agent span, .rh-staff span {text-align: right}
+.rh-agent p, .rh-staff p {border-radius: 13px 2px 13px 13px}
+.rh-agent p {background: #f8dfd1}
+.rh-staff p {background: #343530; color: #fffdf7}
+.rh-case {display: flex; flex-direction: column; align-items: flex-start; color: #faf8f3; padding: clamp(22px, 3vw, 48px)}
+.rh-status {display: flex; gap: 8px; align-items: center; color: #ffab83; font-size: 12px; font-weight: 650}
+.rh-status::before {content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor}
+.rh-case h3 {margin: 16px 0 6px; font: 750 clamp(22px, 2.1vw, 34px)/1.15 "Inter Tight",Inter,sans-serif; letter-spacing: -.025em}
+.rh-case dl {margin: 0}
+.rh-case dt, .rh-profile h4 {font-size: 13px; font-weight: 700; margin: 16px 0 4px}
+.rh-case dd {margin: 0; max-width: 42ch; color: #d0cec5; line-height: 1.48}
+.rh-profile {width: 100%; margin-top: 20px; border-top: 1px solid #505049}
+.rh-profile p {display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding-top: 4px; font-size: 13px}
+.rh-profile span {color: #b9b7ae}
+.rh-profile strong {font-weight: 550}
+.rh-actions {display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 22px}
+.rh-primary, .rh-reset {min-height: 42px; border-radius: 8px; padding: 9px 15px; font: 650 14px/1.35 Inter,sans-serif; cursor: pointer}
+.rh-primary {border: 1px solid #ff7a45; background: #ff7a45; color: #1f1f1f}
+.rh-primary b {margin-left: 7px}
+.rh-primary:hover {background: #ff985e}
+.rh-reset {border: 1px solid #817f72; background: transparent; color: #f8f6f0}
+.rh-reset:hover {border-color: #fbf8f3}
+.rh-compose {border-top: 1px solid #d9d6cd; padding-top: 16px; margin-top: 12px; display: grid; gap: 8px; justify-items: start}
+.rh-compose label {font-size: 13px; font-weight: 650}
+.rh-compose textarea {width: 100%; resize: vertical; min-height: 82px; border-radius: 7px; border: 1px solid #878373; color: #292822; background: white; padding: 9px 12px; font: inherit}
+.rh-workspace :focus-visible {outline: 3px solid #f08747; outline-offset: 3px}
+.rh-sr {position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap}
+@media(max-width: 760px) {
+  .rh-intro {align-items: flex-start; flex-direction: column; gap: 18px}
+  .rh-intro > p {max-width: 52ch}
+  .rh-columns {grid-template-columns: 1fr}
+  .rh-chat, .rh-case {padding: 22px 18px}
+  .rh-message {max-width: 92%}
+  .rh-example {font-size: 11px}
+}

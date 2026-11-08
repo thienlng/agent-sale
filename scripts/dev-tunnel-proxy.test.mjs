@@ -105,7 +105,15 @@ test('development tunnel preserves HTTP routing and dispatches WebSocket upgrade
   await once(proxy.stdout, 'data');
 
   await t.test('root and root query remain marketing HTTP requests', async () => {
-    for (const path of ['/', '/?campaign=qa', '/images/qa.png', '/_astro/qa.js']) {
+    for (const path of [
+      '/',
+      '/?campaign=qa',
+      '/images/qa.png',
+      '/static/site.js',
+      '/nganh/ban-le/',
+      '/bang-gia',
+      '/bang-gia/',
+    ]) {
       const response = await read(proxyPort, path);
       assert.equal(response.name, 'site');
       assert.equal(response.path, path);
