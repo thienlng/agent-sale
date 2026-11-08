@@ -284,9 +284,6 @@ BACKUP_S3_REGION=us-east-1
 BACKUP_S3_BUCKET=offsite-test
 BACKUP_S3_ACCESS_KEY=offsite
 BACKUP_S3_SECRET_KEY=offsitesecret
-BACKUP_WALG_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
-BACKUP_RCLONE_PASSWORD=test-password
-BACKUP_RCLONE_SALT=test-salt
 ENV
 compose build -q postgres
 compose up -d --wait postgres object-storage offsite
