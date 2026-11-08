@@ -51,6 +51,17 @@ tag defaults stay customer data and are unchanged by this rebrand.
 
 ## Logo
 
-The R symbol plus RAPIZ wordmark, from the brand repository masters (`apps/web/src/components/logo.tsx`,
-`apps/site/src/components/Logo.astro`, `apps/web/public/brand/`). App icons are the orange R on a
-charcoal square. A rabbit or mascot never stands in for the R mark.
+The primary logo is the **Primary / Faceted** master (`releases/logo-v2/svg/rapiz-logo-faceted.svg`):
+the orange R with hard-edged facets (white at 12%, Charcoal at 20%) plus the RAPIZ wordmark. It is
+used everywhere the product shows its logo:
+
+- `apps/web/public/brand/` holds the release files unchanged (`rapiz-logo-faceted.svg`,
+  `rapiz-symbol-faceted.svg`).
+- `apps/web/src/components/logo.tsx` and `apps/site/src/components/Logo.astro` inline the same
+  master paths so the wordmark can follow `currentColor` (white on charcoal surfaces); the release
+  has no faceted file with a white wordmark.
+- App icons, favicons and the PWA icons are the faceted symbol group from the release placed on a
+  charcoal square. Only the notification badge (`icons/badge-96.png`) stays a flat single-colour
+  silhouette, because the platform uses its alpha channel alone.
+
+The flat masters are not used in the product. A rabbit or mascot never stands in for the R mark.

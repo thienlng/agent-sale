@@ -3,15 +3,49 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
 /*
- * Rapiz Logo v2 master paths (brand identity release logo-v2, unchanged geometry): the slim
- * orange R symbol (180 x 154 units) and the outlined Inter Tight Black Italic RAPIZ wordmark.
- * Never redraw, stretch, rotate or recolour the symbol; the wordmark follows `currentColor`
- * so it is Charcoal on light surfaces and white on the charcoal sidebar.
+ * Rapiz Logo v2 "Primary / Faceted" master (brand identity release logo-v2, unchanged geometry):
+ * the slim orange R symbol (180 x 154 units) with its hard-edged light and dark facets, and the
+ * outlined Inter Tight Black Italic RAPIZ wordmark. Never redraw, stretch, rotate or recolour the
+ * symbol; the wordmark follows `currentColor` so it is Charcoal on light surfaces and white on
+ * the charcoal sidebar.
  */
 const SYMBOL_PATHS = [
   'M14.4 0H156.6L180 41L162 75L139.5 85L171 136L121.5 125L85.5 85L114.3 58H126L134.969 41H55.8L14.4 0Z',
   'M42.3 56H87.3L56.7 121L0 154L42.3 56Z',
 ];
+/** Lit facets: white at 12% over the orange. */
+const FACET_LIGHT_PATHS = [
+  'M14.4 0 55.8 41H86.4L45 0H14.4Z',
+  'M114.3 58H126L139.5 85H85.5L114.3 58Z',
+  'M42.3 56H87.3L72 89L42.3 56Z',
+];
+/** Shaded facets: Charcoal at 20% over the orange. */
+const FACET_DARK_PATHS = [
+  'M156.6 0 180 41 162 75 139.5 85 126 58 134.969 41 156.6 0Z',
+  'M85.5 85H139.5L121.5 125L85.5 85Z',
+  'M72 89 56.7 121 0 154 72 89Z',
+];
+
+/** The faceted symbol in its own 180 x 154 unit frame. */
+function SymbolPaths() {
+  return (
+    <g fill="#FF7A45">
+      {SYMBOL_PATHS.map((d) => (
+        <path key={d} d={d} />
+      ))}
+      <g fill="#FFFFFF" fillOpacity={0.12}>
+        {FACET_LIGHT_PATHS.map((d) => (
+          <path key={d} d={d} />
+        ))}
+      </g>
+      <g fill="#1F1F1F" fillOpacity={0.2}>
+        {FACET_DARK_PATHS.map((d) => (
+          <path key={d} d={d} />
+        ))}
+      </g>
+    </g>
+  );
+}
 
 const WORDMARK_PATHS = [
   'M-1.285 87 13.196 0H50.799Q60.491 0 67.148 3.562Q73.804 7.123 76.723 13.721Q79.643 20.319 78.125 29.545Q76.607 38.887 71.381 45.31Q66.155 51.733 58.156 55.003Q50.156 58.272 40.172 58.272H17.75L20.903 39.938H38.537Q42.683 39.938 45.806 38.916Q48.93 37.895 50.915 35.588Q52.901 33.282 53.485 29.545Q54.36 23.998 51.266 21.429Q48.171 18.86 42.04 18.918H33.749L22.421 87ZM45.777 87 31.18 47.062H56.404L71.468 87Z',
@@ -21,7 +55,7 @@ const WORDMARK_PATHS = [
   'M277.407 87 279.626 73.921 329.958 19.035H288.852L292.005 0H363.006L360.904 13.079 310.572 67.965H351.679L348.409 87Z',
 ];
 
-/** The orange R alone. Decorative: give it a label at the call site when it stands alone. */
+/** The faceted orange R alone. Decorative: give it a label at the call site when it stands alone. */
 export function BrandMark({ className }: { className?: string }) {
   return (
     <svg
@@ -30,11 +64,7 @@ export function BrandMark({ className }: { className?: string }) {
       focusable="false"
       className={cn('h-6 w-auto shrink-0', className)}
     >
-      <g fill="#FF7A45">
-        {SYMBOL_PATHS.map((d) => (
-          <path key={d} d={d} />
-        ))}
-      </g>
+      <SymbolPaths />
     </svg>
   );
 }
@@ -52,11 +82,7 @@ export function Logo({ className, markOnly }: { className?: string; markOnly?: b
       ) : (
         // Master lockup: symbol at (0,0), wordmark cap top 37 units lower at x=200.
         <svg viewBox="-2 0 566 154" aria-hidden focusable="false" className="h-6 w-auto shrink-0">
-          <g fill="#FF7A45">
-            {SYMBOL_PATHS.map((d) => (
-              <path key={d} d={d} />
-            ))}
-          </g>
+          <SymbolPaths />
           <g fill="currentColor" transform="translate(200 37)">
             {WORDMARK_PATHS.map((d) => (
               <path key={d} d={d} />
