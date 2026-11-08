@@ -1,15 +1,5 @@
-/* Campaign cover: the edge of the dark field follows the fold of the Rapiz R. */
-.campaign-home .hero { color:var(--paper); background:var(--ink); }
-.hero .hero-scrim { background:var(--ink); clip-path:polygon(0 0,62% 0,49% 100%,0 100%); }
-.hero .hero-stage { min-height:clamp(565px,43.8vw,745px); }
-.hero .hero-copy { padding-block:clamp(38px,4.2vw,74px); width:55%; }
-.hero .hero-label { color:#ebded3; }
+/* Campaign layer. The hero itself keeps landing.css: full-bleed art under a light fade. */
 .hero .hero-label .slashes { background:repeating-linear-gradient(90deg,var(--orange) 0 4px,transparent 4px 8px); }
-.hero .hero-copy h1 { font-size:clamp(78px,7.1vw,122px); font-weight:820; line-height:.99; margin:23px 0; }
-.hero .hero-copy h1 em { color:var(--orange); }
-.hero .hero-deck { max-width:38ch; color:#e3dfd8; }
-.hero .hero-actions .text-link { color:#f5f2ec; }
-.hero .hero-actions .text-link:hover { color:var(--orange); }
 .hero .hero-receipt { color:var(--ink); border-left:4px solid var(--orange); border-radius:4px; }
 .hero-index { background:var(--ink); color:var(--paper); border-block:1px solid #494843; }
 .hero-index .container { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); }
@@ -111,19 +101,11 @@
 .campaign-home #pricing .plan.featured :is(.for,.price-note,.price span,.ticks li) { color:#ddd9d1; }
 .campaign-home .faq { border-top:1px solid var(--line); }
 @media (min-width:761px) and (max-width:1040px) {
-  .hero .hero-copy h1 { font-size:clamp(62px,7.2vw,78px); }
-  .hero .hero-stage { min-height:520px; }
   .industry-board { grid-template-columns:1fr; }
   .industry-board .scenario-options { flex-direction:row; flex-wrap:wrap; gap:18px; }
   .campaign-home .channel-row { flex-direction:column; align-items:stretch; gap:8px; padding-block:10px; }
 }
 @media (max-width:760px) {
-  .hero .hero-stage { min-height:0; padding-bottom:clamp(220px,52vw,345px); }
-  .hero .hero-copy { width:100%; padding-block:34px 14px; }
-  .hero .hero-copy h1 { font-size:clamp(45px,13.8vw,78px); margin-block:18px 15px; }
-  .hero .hero-deck { max-width:40ch; font-size:15px; }
-  .hero .hero-art { top:auto; bottom:0; height:clamp(340px,75vw,480px); }
-  .hero .hero-scrim { clip-path:polygon(0 0,100% 0,100% 55%,0 72%); }
   .hero-index .container { grid-template-columns:repeat(2,1fr); }
   .hero-index a { padding:10px 13px; font-size:12px; }
   .hero-index a:nth-child(odd) { padding-left:0; border-left:0; }
