@@ -100,38 +100,51 @@ New `docs/runbooks/backup-and-restore.md`, linked from `deploy-vps.md` (which re
 
 ## Phase 2 — workspace data export (`SET-10`)
 
+As built (2026-11-08); differences from the first draft are noted.
+
 ### 2.1 User flow
 
-Settings → new **"Dữ liệu"** section → "Xuất toàn bộ dữ liệu" with a checkbox "Kèm ảnh và tệp" (off by default; can be large). Only members with the new permission `workspace.export` (owner and admin roles) see it. Clicking starts an export; the section lists recent exports with status (`queued`, `running`, `ready`, `failed`, `expired`), size and a download button. When ready the owner gets an in-app notification and an email. Downloads expire after **7 days**; the file is then deleted.
+Settings → new **"Dữ liệu"** tab (`/app/settings/data`) → "Xuất toàn bộ dữ liệu" with a checkbox "Kèm ảnh và tệp" (off by default; can be large). Only members with the new capability `data.export` (owner and admin; never an API-key scope) see it. Clicking starts an export; the tab lists recent exports with status (`queued`, `running`, `ready`, `failed`, `expired`), size and a download button, refreshing while one runs. When ready the requester gets an in-app notification and an email (`dataexport.ready`; `dataexport.failed` on failure) linking to the tab. Files are deleted after **7 days**.
 
-Limits: one running export per workspace, at most 3 per workspace per day.
+Limits: one queued or running export per workspace (409, enforced by a unique index), at most 3 per workspace per 24 hours, failed ones not counted (429); 503 when object storage is not configured.
+
+Download: `POST /data-exports/{id}/link` returns a **one-time link** (32 random bytes, stored as SHA-256, valid 5 minutes, one use) to `GET /data-exports/download/{token}`, which streams the ZIP with no auth header so the browser downloads it directly (draft: API streaming with the bearer token, which the SPA could only do by buffering the whole file).
 
 ### 2.2 Archive contents
 
-A ZIP named `rapiz-<workspace slug>-<UTC date>.zip`:
+A ZIP named `rapiz-<business slug>-<UTC date>.zip`:
 
-- `README.txt` (Vietnamese): what each file is, every column, timestamps in UTC ISO 8601, money in VND integers.
-- One **CSV per entity** (UTF-8 with BOM so Excel shows Vietnamese correctly, RFC 4180 quoting), stable ids kept so files can be joined: `customers.csv` (from `contacts`), `customer_notes.csv`, `conversations.csv`, `messages.csv`, `orders.csv`, `order_items.csv`, `products.csv`, `knowledge_items.csv` (FAQ/training), `lodging_properties.csv`, `lodging_units.csv`, `lodging_bookings.csv`, `requests.csv` (saas/education/spa), `members.csv`, `billing_history.csv`. Entities a workspace has no rows for still get a header-only file.
-- `bots.json` — bot configuration (persona, instructions, actions), without secrets.
-- `media/` (only when "Kèm ảnh và tệp" is on) — files referenced by the rows above, with the CSVs pointing at their relative paths.
+- `README.txt` in the requester's language: what the files are, how ids join them, UTC ISO 8601 times, VND integers, the formula prefix, what is never included, rows per file, media copied/skipped.
+- One **CSV per data kind** (UTF-8 with BOM, RFC 4180, CRLF), ids kept so files join. Each data-owning module declares its own files:
+  - workspace: `business.csv`, `members.csv`; dataexport adds `people.csv` (member names and emails through the identity facade, since `users` is not tenant-readable)
+  - crm: `customers.csv`, `customer_notes.csv`, `customer_history.csv` (bot-recorded requests of saas/education/spa are history entries; draft: a separate `requests.csv`), `customer_tags.csv`
+  - conversation: `conversations.csv`, `messages.csv`
+  - commerce: `products.csv`, `product_variants.csv`, `orders.csv`, `order_items.csv`, `stay_requests.csv`
+  - knowledge: `knowledge_items.csv`, `training_items.csv`
+  - lodging: `lodging_properties.csv`, `lodging_units.csv`, `lodging_packages.csv`, `lodging_rates.csv`, `lodging_bookings.csv` (units of a booking in a column), `lodging_night_notes.csv`
+  - bot: `bots.csv` (configuration as JSON columns; draft: `bots.json`)
+  - saas: `saas_subscriptions.csv`, `saas_plans.csv`, `saas_subscription_history.csv`
+- `media/<key>` (only with "Kèm ảnh và tệp"): Rapiz-stored objects referenced by media columns (product pictures, training media, lodging cover photos, message attachments), up to 20 000 files and a 3 GiB budget per export (the archive must stay below the ZIP32 limit: `fflate` cannot write ZIP64; data alone above 3.9 GiB fails as `too_large`); links outside Rapiz storage (e.g. expired Facebook CDN URLs) stay links and are counted in the README.
 
-Never exported: channel access tokens, API keys, webhook secrets, password hashes, email codes, other workspaces' data, platform-internal tables (ledger internals beyond the workspace's own billing history, audit internals).
+Never exported: channel access tokens, API keys, webhook secrets, password hashes, email codes, internal search text, versions and sync bookkeeping, other workspaces' data. **Billing history is not exported** (draft: `billing_history.csv`): payments and account subscriptions are account-level tables readable only by `app_system`; the Billing page shows them.
+
+Text a spreadsheet would run as a formula (`=`, `@`, leading tab/CR, `+`/`-` not followed by a plain number such as a phone) is prefixed with `'`.
 
 ### 2.3 Architecture
 
-- New backend module **`dataexport`**, created with `pnpm gen module dataexport` (tier and allowed imports per `docs/ARCHITECTURE.md`). It owns the `data_exports` table (`id`, `workspace_id`, `requested_by`, `include_media`, `status`, `object_key`, `size_bytes`, `error_code`, `created_at`, `finished_at`, `expires_at`) with RLS on `workspace_id` (ADR-004).
-- It **does not read other modules' tables.** Each data-owning module (crm, conversation, commerce, knowledge, lodging, saas, bot, team, billing) exposes an export method on its public `api/` facade (shape shared as a `WorkspaceExportSource` type in `packages/contracts`: file name, column list, async row pages, referenced media keys) and `dataexport` imports only those facades, per `docs/ARCHITECTURE.md`. Each source reads its own tables under the workspace's RLS context in pages/cursors (no full-table loads; performance budget in `docs/16-performance-and-scale.md`).
-- The job runs on the **worker** (BullMQ queue `dataexport`), streams rows into a streaming ZIP writer and uploads with S3 multipart to a **separate private bucket `rapiz-exports`** (the `rapiz` bucket allows anonymous read, so exports must never go there). The API streams the download after checking the permission and workspace; no public or presigned URL is handed out.
-- Every export request and download writes an audit event (`workspace.data_exported`, `workspace.data_export_downloaded`) as required by `docs/09-security-and-compliance.md`.
-- A daily worker job deletes expired objects and marks rows `expired`.
-- Logs carry ids, counts, sizes and error codes only — never row content.
+- New backend module **`dataexport`** (tier 3), created with `pnpm gen module dataexport`. It owns `data_exports` (migration 0070, RLS on `workspace_id`; worker and link download use `app_system`).
+- It **does not read other modules' tables.** `packages/contracts` defines `ExportTable` / `WorkspaceExportSource`; each data-owning module exports a `<MODULE>_EXPORT` token from its `api/`, implemented in its `infrastructure/export/` with `exportTable()` from `packages/db/src/export.ts` (column SQL over the module's own table, keyset pages of 500 by `id`, each page a short tenant transaction also filtered on `workspace_id`; `time: true` columns are written as ISO UTC).
+- Jobs use the repo's **Postgres lease pattern** (draft: BullMQ, which has no processor in the repo yet): the API inserts a `queued` row; `DataExportRunner.tick()` in the worker (every 10 s) expires old files, claims one row (`for update skip locked`, 30-minute lease renewed while building, finishing writes guarded by `status = 'running'` and the attempt number, per-attempt object key, retried once, then `lease_expired` with a `dataexport.failed` notification; a unique partial index allows one active export per workspace), writes the ZIP to a temp file with `fflate` (synchronous chunk writes, so memory stays at one page or one media chunk), uploads it to the **private bucket** `S3_EXPORT_BUCKET` (default `<S3_BUCKET>-exports`; production's `anonymous` identity and the edge `/media/*` route only reach `S3_BUCKET`) and notifies.
+- Audit: `workspace.data_exported` (with the request, same transaction) and `workspace.data_export_downloaded` (with the link use).
+- Logs carry ids, sizes and error codes only.
 
 ### 2.4 Testing
 
-- Per source: tenant-isolation test (rows of workspace B never appear in A's export), column/header test, secrets-exclusion test.
-- Job: end-to-end test that builds an export for a seeded workspace, opens the ZIP and checks file list, headers, BOM and row counts; failure path sets `failed` with an error code; expiry job.
-- API: permission test (staff without `workspace.export` gets 403), rate-limit test, cross-workspace download denied.
-- Web: the "Dữ liệu" section states (empty, running, ready, failed, expired) and the permission gate.
+- `packages/db/src/export.integration.test.ts`: paging, tenant isolation, `where`, identifier check (real Postgres, RLS probe table).
+- Each source: a spec checking file names, unique snake_case headers and media columns.
+- `dataexport` unit specs: CSV quoting and formula prefix, file name slug, ZIP layout (BOM, pages, README, media copy/skip/dedup, temp cleanup on failure), media key parsing.
+- `apps/backend/test/data-export.integration.spec.ts` (HTTP + Postgres, every module's real SQL): permission (sales 403), one at a time (409), build, archive contents and isolation from another workspace, formula prefix, one-time link (second use 404, other workspace 404), audit events, notification, daily limit (429), expiry deleting the file.
+- Web: the Data tab states and the download flow.
 
 ### 2.5 Out of scope
 

@@ -12,3 +12,4 @@ export {
   type TrainingFacade,
 } from './training.facade.js';
 export { MEDIA_FACADE, type MediaFacade } from './media.facade.js';
+export { KNOWLEDGE_EXPORT } from './knowledge-export.js';

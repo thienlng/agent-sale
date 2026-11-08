@@ -19,6 +19,8 @@ import { BILLING_RUNNER, type BillingRunner } from '../modules/billing/api/index
 import { BillingModule } from '../modules/billing/billing.module.js';
 import { DEVELOPER_RUNNER, type DeveloperRunner } from '../modules/developer/api/index.js';
 import { DeveloperModule } from '../modules/developer/developer.module.js';
+import { DATAEXPORT_RUNNER, type DataExportRunner } from '../modules/dataexport/api/index.js';
+import { DataexportModule } from '../modules/dataexport/dataexport.module.js';
 import { INTEGRATION_RUNNER, type IntegrationRunner } from '../modules/integration/api/index.js';
 import { IntegrationModule } from '../modules/integration/integration.module.js';
 import { NOTIFICATION_RUNNER, type NotificationRunner } from '../modules/notification/api/index.js';
@@ -42,6 +44,7 @@ import { SaasModule } from '../modules/saas/saas.module.js';
     DeveloperModule,
     NotificationModule,
     AssistantModule,
+    DataexportModule,
   ],
 })
 class WorkerModule {}
@@ -121,6 +124,19 @@ const webhookTimer = setInterval(() => {
       webhooksBusy = false;
     });
 }, 2000);
+// Whole-workspace data exports (SET-10): expire old files, build one queued export per tick.
+const dataExports = ctx.get<DataExportRunner>(DATAEXPORT_RUNNER);
+let exportsBusy = false;
+const exportTimer = setInterval(() => {
+  if (exportsBusy) return;
+  exportsBusy = true;
+  void dataExports
+    .tick()
+    .catch(() => logger.error('Data export tick failed'))
+    .finally(() => {
+      exportsBusy = false;
+    });
+}, 10_000);
 // Owner assistant background jobs (the review): Postgres-leased, up to 3 per tick (ruling 1c-R1).
 const assistant = ctx.get<AssistantRunner>(ASSISTANT_RUNNER);
 let assistantBusy = false;
@@ -185,6 +201,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const)
     clearInterval(assistantTimer);
     clearInterval(notificationTimer);
     clearInterval(scheduleTimer);
+    clearInterval(exportTimer);
   });
 logger.info(
   { queues },

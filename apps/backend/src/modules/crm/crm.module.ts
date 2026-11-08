@@ -5,6 +5,7 @@ import { DB_TENANT } from '../../common/db/db.module.js';
 import { IdentityModule } from '../identity/identity.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { CONTACT_SYNC_FACADE } from './api/contact-sync.facade.js';
+import { CRM_EXPORT } from './api/crm-export.js';
 import { CRM_FACADE } from './api/crm.facade.js';
 import { ConversationTagsService } from './application/conversation-tags.service.js';
 import { ContactService } from './application/contact.service.js';
@@ -17,6 +18,7 @@ import { DistributionService } from './application/distribution.service.js';
 import { CRM_STORE } from './application/ports/crm-store.js';
 import { SavedViewService } from './application/saved-view.service.js';
 import { TagAssignmentService } from './application/tag-assignment.service.js';
+import { CrmExportSource } from './infrastructure/export/crm.export.js';
 import { DrizzleCrmStore } from './infrastructure/persistence/crm.drizzle-store.js';
 import { UnavailableCrmStore } from './infrastructure/persistence/unavailable-store.js';
 import { ContactsController } from './interface/http/contacts.controller.js';
@@ -34,6 +36,11 @@ import { CustomerRequestsController } from './interface/http/customer-requests.c
       useFactory: (db: Database | null | undefined) =>
         db ? new DrizzleCrmStore(db) : new UnavailableCrmStore(),
     },
+    {
+      provide: CRM_EXPORT,
+      inject: [{ token: DB_TENANT, optional: true }],
+      useFactory: (db: Database | null | undefined) => new CrmExportSource(db ?? null),
+    },
     ContactService,
     CustomerRequestService,
     CrmSettingsService,
@@ -46,6 +53,6 @@ import { CustomerRequestsController } from './interface/http/customer-requests.c
     ContactSyncService,
     { provide: CONTACT_SYNC_FACADE, useExisting: ContactSyncService },
   ],
-  exports: [CRM_FACADE, CONTACT_SYNC_FACADE],
+  exports: [CRM_FACADE, CONTACT_SYNC_FACADE, CRM_EXPORT],
 })
 export class CrmModule {}

@@ -30,3 +30,4 @@ export {
   type PushableOrder,
   type PushProblem,
 } from './order-push.facade.js';
+export { COMMERCE_EXPORT } from './commerce-export.js';

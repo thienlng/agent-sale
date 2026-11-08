@@ -1449,7 +1449,8 @@
       "profile": "Business profile",
       "security": "Security",
       "audit": "Change log",
-      "developers": "Developers"
+      "developers": "Developers",
+      "data": "Data"
     },
     "profile": {
       "title": "Business information",
@@ -1563,6 +1564,44 @@
         "flower": "Flowers and gifts",
         "baby": "Mother and baby"
       }
+    },
+    "data": {
+      "title": "Data export",
+      "hint": "Download all of the business’s data in one ZIP file.",
+      "points": {
+        "csv": "Each kind of data (customers, conversations, orders…) is a CSV file that opens in Excel, with a README describing the contents.",
+        "secrets": "Passwords, connection tokens and secret keys are never included.",
+        "retention": "The file is kept for 7 days, then deleted. Only owners and admins can export and download."
+      },
+      "includeMedia": "Include pictures and files",
+      "includeMediaHint": "The ZIP can be very large and takes longer to prepare.",
+      "start": "Export all data",
+      "remaining": "{{count}} exports left today",
+      "limitReached": "All {{limit}} exports for today are used. Try again tomorrow.",
+      "inProgress": "Preparing the file; this list updates by itself.",
+      "started": "Export started. The file will be ready in a few minutes.",
+      "recent": "Recent exports",
+      "empty": "No exports yet.",
+      "loadError": "Could not load the list. Reload the page to try again.",
+      "withMedia": "With pictures and files",
+      "dataOnly": "Data only",
+      "expires": "Expires {{date}}",
+      "failedHint": "The file could not be prepared. Export again.",
+      "download": "Download",
+      "status": {
+        "queued": "Queued",
+        "running": "Preparing",
+        "ready": "Ready",
+        "failed": "Failed",
+        "expired": "Expired"
+      },
+      "errors": {
+        "running": "An export is still being prepared. Wait for it to finish, then try again.",
+        "limit": "Today’s exports are used up. Try again tomorrow.",
+        "unavailable": "Data export is not available on the server yet. Contact support.",
+        "gone": "This file can no longer be downloaded. Export again."
+      },
+      "denied": "Only owners and admins can export data."
     }
   },
   "analytics": {

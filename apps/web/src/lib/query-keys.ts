@@ -33,6 +33,7 @@ export const queryKeys = {
   profile: (ws: string) => ['ws', ws, 'profile'] as const,
   logo: (ws: string, version: string | null) => ['ws', ws, 'logo', version] as const,
   audit: (ws: string) => ['ws', ws, 'audit'] as const,
+  dataExports: (ws: string) => ['ws', ws, 'data-exports'] as const,
   llmProviders: ['admin', 'llm', 'providers'] as const,
   hermesLogin: (providerId: string) => ['admin', 'llm', 'hermes-login', providerId] as const,
   providerModels: (providerId: string) => ['admin', 'llm', 'models', providerId] as const,

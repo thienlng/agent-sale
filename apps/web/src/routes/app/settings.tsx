@@ -9,11 +9,13 @@ export const Route = createFileRoute('/app/settings')({
     const { t } = useTranslation();
     const canAudit = useCan('audit.view');
     const canDevelop = useCan('developer.manage');
+    const canExport = useCan('data.export');
     const tabs = [
       { to: '/app/settings/profile', key: 'wsettings.tabs.profile', show: true },
       { to: '/app/settings/security', key: 'wsettings.tabs.security', show: true },
       { to: '/app/settings/audit', key: 'wsettings.tabs.audit', show: canAudit },
       { to: '/app/settings/developers', key: 'wsettings.tabs.developers', show: canDevelop },
+      { to: '/app/settings/data', key: 'wsettings.tabs.data', show: canExport },
     ] as const;
     return (
       <section className="flex flex-col gap-5">

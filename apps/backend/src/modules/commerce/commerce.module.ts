@@ -9,6 +9,8 @@ import { CrmModule } from '../crm/crm.module.js';
 import { IdentityModule } from '../identity/identity.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { COMMERCE_FACADE } from './api/commerce.facade.js';
+import { COMMERCE_EXPORT } from './api/commerce-export.js';
+import { CommerceExportSource } from './infrastructure/export/commerce.export.js';
 import { CATALOG_FACADE } from './api/catalog.facade.js';
 import { CATALOG_SYNC_FACADE } from './api/catalog-sync.facade.js';
 import { CatalogSyncService } from './application/catalog-sync.service.js';
@@ -39,6 +41,11 @@ import { CommerceUnavailableError } from './domain/commerce.errors.js';
   imports: [IdentityModule, WorkspaceModule, BotModule, CrmModule],
   controllers: [CatalogController, OrdersController, LodgingController],
   providers: [
+    {
+      provide: COMMERCE_EXPORT,
+      inject: [{ token: DB_TENANT, optional: true }],
+      useFactory: (db: Database | null | undefined) => new CommerceExportSource(db ?? null),
+    },
     {
       provide: LODGING_STORE,
       inject: [{ token: DB_TENANT, optional: true }],
@@ -81,6 +88,12 @@ import { CommerceUnavailableError } from './domain/commerce.errors.js';
     OrderPushService,
     { provide: ORDER_PUSH_FACADE, useExisting: OrderPushService },
   ],
-  exports: [COMMERCE_FACADE, CATALOG_FACADE, CATALOG_SYNC_FACADE, ORDER_PUSH_FACADE],
+  exports: [
+    COMMERCE_FACADE,
+    CATALOG_FACADE,
+    CATALOG_SYNC_FACADE,
+    ORDER_PUSH_FACADE,
+    COMMERCE_EXPORT,
+  ],
 })
 export class CommerceModule {}

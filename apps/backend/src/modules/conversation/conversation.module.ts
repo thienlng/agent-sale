@@ -12,6 +12,8 @@ import { NotificationModule } from '../notification/notification.module.js';
 import { TeamModule } from '../team/team.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { CONVERSATION_FACADE, CONVERSATION_RUNNER } from './api/conversation.facade.js';
+import { CONVERSATION_EXPORT } from './api/conversation-export.js';
+import { ConversationExportSource } from './infrastructure/export/conversation.export.js';
 import { ConversationFacadeImpl } from './application/conversation.facade.impl.js';
 import { InboxAlerts } from './application/inbox-alerts.js';
 import { NOTIFICATION_FACADE, type NotificationFacade } from '../notification/api/index.js';
@@ -41,6 +43,11 @@ import { ConversationController } from './interface/http/conversation.controller
   controllers: [ConversationController],
   providers: [
     {
+      provide: CONVERSATION_EXPORT,
+      inject: [{ token: DB_TENANT, optional: true }],
+      useFactory: (db: Database | null | undefined) => new ConversationExportSource(db ?? null),
+    },
+    {
       provide: CONVERSATION_STORE,
       inject: [{ token: DB_TENANT, optional: true }],
       useFactory: (db: Database | null | undefined) =>
@@ -67,6 +74,6 @@ import { ConversationController } from './interface/http/conversation.controller
     MetaInboxProcessor,
     { provide: CONVERSATION_RUNNER, useExisting: MetaInboxProcessor },
   ],
-  exports: [CONVERSATION_FACADE, CONVERSATION_RUNNER],
+  exports: [CONVERSATION_FACADE, CONVERSATION_RUNNER, CONVERSATION_EXPORT],
 })
 export class ConversationModule {}

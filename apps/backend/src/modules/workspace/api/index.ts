@@ -8,3 +8,4 @@ export {
   type WorkspaceMembership,
 } from './workspace.facade.js';
 export * from './workspace.events.js';
+export { WORKSPACE_EXPORT } from './workspace-export.js';

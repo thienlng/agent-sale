@@ -8,6 +8,7 @@ import { BillingModule } from '../billing/billing.module.js';
 import { CrmModule } from '../crm/crm.module.js';
 import { IdentityModule } from '../identity/identity.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
+import { SAAS_EXPORT } from './api/saas-export.js';
 import { SAAS_RUNNER } from './api/saas.runner.js';
 import { HqSyncHandler } from './application/event-handlers/hq-sync.handler.js';
 import { HQ_WORKSPACE, HqContext } from './application/hq-context.js';
@@ -22,6 +23,7 @@ import { SaasReminderService } from './application/saas-reminder.service.js';
 import { SaasRunnerImpl } from './application/saas.runner.impl.js';
 import { SaasSubscriptionService } from './application/saas-subscription.service.js';
 import { SaasUnavailableError } from './domain/saas.errors.js';
+import { SaasExportSource } from './infrastructure/export/saas.export.js';
 import { DrizzleSaasStore } from './infrastructure/persistence/saas.drizzle-store.js';
 import { DrizzleSaasSystemStore } from './infrastructure/persistence/saas-system.drizzle-store.js';
 import { SaasSubscriptionsController } from './interface/http/saas.controller.js';
@@ -66,7 +68,12 @@ const unavailable = () => Promise.reject(new SaasUnavailableError());
     HqReconcileService,
     SaasRunnerImpl,
     { provide: SAAS_RUNNER, useExisting: SaasRunnerImpl },
+    {
+      provide: SAAS_EXPORT,
+      inject: [{ token: DB_TENANT, optional: true }],
+      useFactory: (db: Database | null | undefined) => new SaasExportSource(db ?? null),
+    },
   ],
-  exports: [SAAS_RUNNER],
+  exports: [SAAS_RUNNER, SAAS_EXPORT],
 })
 export class SaasModule {}

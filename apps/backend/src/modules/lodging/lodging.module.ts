@@ -11,6 +11,7 @@ import {
   LODGING_CATALOG_FACADE,
   LODGING_FACADE,
 } from './api/lodging.facade.js';
+import { LODGING_EXPORT } from './api/lodging-export.js';
 import { LodgingBotCatalog } from './application/bot-catalog.js';
 import { BookingService } from './application/booking.service.js';
 import { LodgingBotHolds } from './application/bot-hold.service.js';
@@ -25,6 +26,7 @@ import { LODGING_STORE, type LodgingStore } from './application/ports/lodging-st
 import { PropertyService } from './application/property.service.js';
 import { RatesService } from './application/rates.service.js';
 import { LodgingUnavailableError } from './domain/lodging.errors.js';
+import { LodgingExportSource } from './infrastructure/export/lodging.export.js';
 import { DrizzleLodgingStore } from './infrastructure/persistence/lodging.drizzle-store.js';
 import { BookingsController } from './interface/http/bookings.controller.js';
 import { CalendarController } from './interface/http/calendar.controller.js';
@@ -75,7 +77,12 @@ import { PropertiesController } from './interface/http/properties.controller.js'
     { provide: LODGING_FACADE, useClass: LodgingFacadeImpl },
     { provide: LODGING_CATALOG_FACADE, useClass: LodgingBotCatalog },
     { provide: LODGING_BOT_FACADE, useClass: LodgingBotHolds },
+    {
+      provide: LODGING_EXPORT,
+      inject: [{ token: DB_TENANT, optional: true }],
+      useFactory: (db: Database | null | undefined) => new LodgingExportSource(db ?? null),
+    },
   ],
-  exports: [LODGING_FACADE, LODGING_CATALOG_FACADE, LODGING_BOT_FACADE],
+  exports: [LODGING_FACADE, LODGING_CATALOG_FACADE, LODGING_BOT_FACADE, LODGING_EXPORT],
 })
 export class LodgingModule {}

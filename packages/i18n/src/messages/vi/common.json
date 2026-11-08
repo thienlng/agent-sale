@@ -1444,7 +1444,8 @@
       "profile": "Hồ sơ business",
       "security": "Bảo mật",
       "audit": "Nhật ký",
-      "developers": "Nhà phát triển"
+      "developers": "Nhà phát triển",
+      "data": "Dữ liệu"
     },
     "profile": {
       "title": "Thông tin business",
@@ -1558,6 +1559,44 @@
         "flower": "Hoa, quà tặng",
         "baby": "Mẹ và bé"
       }
+    },
+    "data": {
+      "title": "Xuất dữ liệu",
+      "hint": "Tải về toàn bộ dữ liệu của doanh nghiệp trong một tệp ZIP.",
+      "points": {
+        "csv": "Mỗi loại dữ liệu (khách hàng, hội thoại, đơn hàng…) là một tệp CSV mở được bằng Excel, kèm tệp README giải thích nội dung.",
+        "secrets": "Không bao giờ chứa mật khẩu, mã kết nối hay khóa bí mật.",
+        "retention": "Tệp được giữ 7 ngày rồi tự xóa. Chỉ chủ doanh nghiệp và quản trị viên xuất và tải được."
+      },
+      "includeMedia": "Kèm ảnh và tệp",
+      "includeMediaHint": "Tệp ZIP có thể rất lớn và mất lâu hơn để tạo.",
+      "start": "Xuất toàn bộ dữ liệu",
+      "remaining": "Còn {{count}} lượt hôm nay",
+      "limitReached": "Đã dùng hết {{limit}} lượt xuất hôm nay. Thử lại vào ngày mai.",
+      "inProgress": "Đang tạo tệp, danh sách tự cập nhật.",
+      "started": "Đã bắt đầu xuất dữ liệu. Tệp sẽ sẵn sàng trong ít phút.",
+      "recent": "Các lần xuất gần đây",
+      "empty": "Chưa có lần xuất nào.",
+      "loadError": "Không tải được danh sách. Tải lại trang để thử lại.",
+      "withMedia": "Kèm ảnh và tệp",
+      "dataOnly": "Chỉ dữ liệu",
+      "expires": "Hết hạn {{date}}",
+      "failedHint": "Không tạo được tệp. Hãy xuất lại.",
+      "download": "Tải về",
+      "status": {
+        "queued": "Đang chờ",
+        "running": "Đang tạo",
+        "ready": "Sẵn sàng",
+        "failed": "Lỗi",
+        "expired": "Đã hết hạn"
+      },
+      "errors": {
+        "running": "Đang có một lần xuất chưa xong. Chờ nó hoàn tất rồi thử lại.",
+        "limit": "Đã dùng hết lượt xuất hôm nay. Thử lại vào ngày mai.",
+        "unavailable": "Tính năng xuất dữ liệu chưa sẵn sàng trên máy chủ. Liên hệ bộ phận hỗ trợ.",
+        "gone": "Tệp này không còn tải được. Hãy xuất lại."
+      },
+      "denied": "Chỉ chủ doanh nghiệp hoặc quản trị viên mới xuất được dữ liệu."
     }
   },
   "analytics": {

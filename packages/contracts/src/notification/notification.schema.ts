@@ -10,6 +10,9 @@ export const NotificationType = z.enum([
   'inbox.handoff',
   /** A customer wrote in a conversation staff are handling (T-190). */
   'inbox.message',
+  /** A whole-workspace data export is ready to download, or failed (SET-10). */
+  'dataexport.ready',
+  'dataexport.failed',
 ]);
 export type NotificationType = z.infer<typeof NotificationType>;
 
