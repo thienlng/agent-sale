@@ -1,48 +1,54 @@
 # apps/site — Rapiz marketing site
 
-Static Astro site served at the root domain (`rapiz.vn`); the dashboard (`apps/web`) lives at
-`app.rapiz.vn` (docs/04, ADR-009). Moved here from the standalone `ai-sale-landingpage`
-repository in T-121; its design records are in `docs/designs/T-121/`.
+Static pages served at the root of the public host; the dashboard (`apps/web`) shares the host and
+owns every other path (`/login`, `/signup`, `/app/…`). The pages are plain HTML, CSS and JS in
+`public/`; Astro only copies them to `dist/` so the build, preview and Docker steps stay the same.
 
 ```bash
-pnpm --filter @agent-sales/site dev        # http://localhost:4321
-pnpm --filter @agent-sales/site build      # static output in dist/
+pnpm --filter @agent-sales/site build      # copies public/ to dist/
+pnpm --filter @agent-sales/site preview    # http://localhost:4321
 pnpm --filter @agent-sales/site test:e2e   # Playwright against `astro preview` on :4322
 ```
 
-## Links into the dashboard
+## Pages
 
-"Dùng thử miễn phí" goes to `<app>/signup` and "Đăng nhập" to `<app>/login`
-(`src/lib/app-links.ts`). `<app>` is `PUBLIC_APP_URL`; defaults are `http://localhost:5173` in
-`astro dev` and `https://app.rapiz.vn` in builds. The dashboard links back with `VITE_SITE_URL`
-(account menu "Trang chủ Rapiz", logo on the sign-in pages).
+| Path | Source |
+|---|---|
+| `/` | `public/index.html` (hand-written; header, footer and plan cards are generated blocks) |
+| `/nganh/*/` | Industry pages: retail, villa and homestay, spa and salon, education, software |
+| `/tinh-nang/*/` | Feature pages: sales bot, Facebook comments, inbox, AI training, assistant, customers and analytics |
+| `/tich-hop/`, `/bao-mat/`, `/bang-gia/`, `/dat-lich-demo/` | Integrations, security, pricing, demo request |
 
-### Behind the dev tunnel (live Meta testing)
+Static files live in `public/static/` (CSS and JS), `public/images/` and `public/fonts/`. The
+production routes for these paths are in `infra/deploy/Caddyfile` and, for the dev tunnel, in
+`scripts/dev-tunnel-proxy.mjs`; a new top-level folder needs a route in both.
 
-`scripts/dev-tunnel-proxy.mjs` serves the site at `/` (plus `/images`, `/fonts`, `/_astro`) of the
-public tunnel host and the dashboard everywhere else, mirroring rapiz.vn / app.rapiz.vn. Run
-`pnpm --filter @agent-sales/site serve:tunnel` (same-origin build in `dist-tunnel/`, preview on
-:4323); the dashboard's "Trang chủ Rapiz" links resolve to `/` when it is opened through the tunnel.
-Rebuild with the same command after editing the site.
+## Editing content
 
-Dashboard hot-reload WebSocket upgrades use the `vite-hmr` subprotocol (and `vite-ping` while Vite reconnects) and go to the web dev
-server even at `/?token=...`; normal root HTTP requests still go to the marketing site. Run
-`node --test scripts/dev-tunnel-proxy.test.mjs` from the repository root to check HTTP and
-WebSocket routing against isolated local upstreams (no live page or provider calls).
+Sub-pages are generated. Edit the copy and data in `tools/site_content.py` (layout in
+`tools/build_site.py`), then run:
 
-On phones the header keeps one call to action (free trial); "Đăng nhập" moves into the menu.
+```bash
+python3 apps/site/tools/build_site.py
+```
 
-## Content and assets
+It rewrites every `public/<slug>/index.html` and the marked blocks of `public/index.html`
+(`<!--#site-head-->`, `<!--#site-foot-->`, `<!--#plans-->`, `<!--#plan-cards-->`). Do not edit
+generated pages by hand; the next build overwrites them. `public/` is excluded from Prettier for
+the same reason.
 
-- The demo conversations are illustrative scenarios in `src/pages/index.astro`, not an AI call.
-- Visual identity follows brand identity v2 "Precision" (`docs/designs/brand-identity-v2.md`):
-  charcoal header and footer, flat white sections, a charcoal product-demo ground and one orange
-  closing band. The logo is inline SVG (`src/components/Logo.astro`); favicons are in
-  `public/brand/`. There are no mascot images; `prefers-reduced-motion` turns off the chat
-  bubble animation and smooth scrolling.
-- Fonts (shared with the dashboard): Inter for text, headings and UI, Inter Tight (italic 900 only
-  for brand display moments such as the hero "24/7"), self-hosted via `@fontsource-variable/*` (OFL-1.1; notices in
-  `THIRD_PARTY_NOTICES.md`, licence texts served at `/licenses/`). `e2e/fonts.spec.ts` checks they
-  render Vietnamese with no third-party font requests.
-- Light/dark: the header toggle stores the choice as `rapiz-theme` in localStorage; first visit
-  follows the system. Colours are in `src/styles/theme.css`.
+- Plan prices and limits come from plan version 1 in `packages/db/migrations/0015_billing.sql`.
+  Update `PLANS` and `COMPARE` when a new plan version is published.
+- `FEATURES.vi.md` lists which features the pages may promise and the honesty rules (labels for
+  Beta and upcoming channels, illustrated conversations marked as such, no competitor names).
+- Copy is Vietnamese marketing text written without AI tells: no em dashes, no repeated heading
+  formulas, no invented customers or numbers.
+- The demo request form (`/dat-lich-demo/`) posts JSON to the form's `data-endpoint` when it is
+  set; without it the page only shows a local preview of the request.
+
+## Assets
+
+- Fonts: Inter and Inter Tight, self-hosted in `public/fonts/` (OFL-1.1, notices in
+  `THIRD_PARTY_NOTICES.md`). The pages make no third-party requests; `e2e/landing.spec.ts` checks it.
+- Logos come from the brand repository unchanged (`public/images/rapiz-*.svg`). Product screenshots
+  show demo data; the retail photo is CC0 (see the notices).

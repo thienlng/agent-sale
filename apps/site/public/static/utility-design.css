@@ -1,0 +1,130 @@
+/* Commercial and platform page layouts */
+.ut-page {--ut-surface: #ece9e0; --ut-text: #242421; --ut-muted: #5b574e; --ut-rule: #c8c4b9}
+.ut-page h1 {font: 825 clamp(58px,6.65vw,104px)/.995 var(--display); letter-spacing: -.047em; word-spacing: .04em; margin: 24px 0 20px}
+.ut-page h1 em {font-weight: 900; color: var(--rust)}
+.ut-hero {padding-block: clamp(58px,7vw,110px); border-bottom: 1px solid var(--ut-rule)}
+.ut-hero-layout, .ut-intake-layout {display: grid; grid-template-columns: minmax(0,1.18fr) minmax(0,.82fr); gap: clamp(35px,6.5vw,110px); align-items: center}
+.ut-deck {max-width: 52ch; color: var(--ut-muted); font-size: clamp(16px,1.25vw,19px); line-height: 1.65}
+.ut-link {display: inline-flex; gap: 14px; align-items: center; margin-top: 26px; font-weight: 700; border-bottom: 1px solid currentColor; padding-bottom: 4px}
+.ut-link:hover {color: var(--rust)}
+.ut-link span {font-size: 1.22em}
+.ut-bang-gia .ut-hero {background: #eee9dc}
+.ut-capacity {padding: clamp(20px,3.25vw,50px); background: #292925; color: #fff8ea; border-radius: 2px; position: relative; overflow: hidden}
+.ut-capacity::before {content: ""; position: absolute; inset: 0 0 auto; height: 7px; background: var(--orange)}
+.ut-cap-head, .ut-capacity li {display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px solid #575750}
+.ut-cap-head {font-size: 13px; color: #cccabf; padding-bottom: 10px}
+.ut-capacity ul, .ut-channel-list {list-style: none; margin: 0; padding: 0}
+.ut-capacity li {padding-block: 9px; font: 650 clamp(18px,1.5vw,24px)/1.4 var(--display)}
+.ut-capacity li:last-child {border: 0}
+.ut-capacity b {font: 850 clamp(30px,3.1vw,52px)/1 var(--display); letter-spacing: -.045em; color: var(--orange); font-variant-numeric: tabular-nums}
+.ut-bang-gia .plans {gap: 0; background: white; border: 1px solid #c7c3b7; border-radius: 6px; overflow: hidden}
+.ut-bang-gia .plan, .ut-bang-gia .plan.featured {border: none; border-radius: 0; border-inline-end: 1px solid var(--ut-rule); padding: 40px clamp(16px,1.65vw,28px) 24px}
+.ut-bang-gia .plan:last-child {border-inline-end: 0}
+.ut-bang-gia .plan.featured {background: #f8e4d7}
+.ut-bang-gia .plan .badge {inset: 0 0 auto; background: #322d28; color: #fff8eb; border-radius: 0; padding: 7px 12px; font-size: 10px; letter-spacing: .06em}
+.ut-bang-gia .plans-top {padding-top: 18px; border-top: 2px solid var(--ink)}
+.ut-bang-gia #compare-plans {background: #edeee6}
+.ut-bang-gia .table-wrap {border-radius: 4px}
+.ut-bang-gia .compare caption {font-size: clamp(23px,2.5vw,40px); padding: 22px}
+.ut-bang-gia .compare thead th {background: #292925; color: white}
+.ut-bang-gia .compare tr.group th {background: #dedfd4; color: #484940}
+.ut-bang-gia .compare td.no {color: #68665e}
+
+.ut-tich-hop .ut-hero {color: #fff8ed; background: #262521; border: 0; position: relative; overflow: hidden}
+.ut-tich-hop .ut-hero h1 em, .ut-tich-hop .ut-hero .ut-link {color: #ff9970}
+.ut-tich-hop .ut-hero .kicker, .ut-tich-hop .ut-deck {color: #ddd7cd}
+.ut-channel-art {
+  min-height: clamp(220px,25vw,390px); isolation: isolate; display: grid; grid-template-columns: 1fr 1fr;
+  align-items: center; justify-items: center; position: relative; border: 1px solid #59564e;
+  background-color: #32312c; background-image: radial-gradient(#686359 1px,transparent 1px); background-size: 18px 18px;
+}
+.ut-channel-art > img {width: clamp(78px,11.5vw,165px); height: auto; padding: 18px; justify-self: end; margin-right: 14%; background: #272621; border: 1px solid #736b5c}
+.ut-channel-logos {display: grid; gap: 11px; justify-self: start; margin-left: 19%; z-index: 1}
+.ut-channel-logos span {background: #efede4; color: #2b2b26; width: clamp(42px,4vw,62px); aspect-ratio: 1; display: grid; place-items: center; border: 1px solid #faf5e8}
+.ut-channel-logos svg {width: 52%; height: 52%}
+.ut-wire {position: absolute; left: 17%; top: 50%; height: 1px; width: 63%; background: #ff9d70; z-index: -1}
+.ut-wire::before, .ut-wire::after {content:""; position:absolute; left: 0; width: 47%; height: clamp(52px,4.8vw,73px); border: solid #ff9d70; border-width: 1px 1px 0 0; bottom: 0}
+.ut-wire::after {bottom: auto; top: 0; transform: scaleY(-1)}
+.ut-index-head {display: flex; gap: 32px; justify-content: space-between; align-items: flex-end}
+.ut-index-head h2, .ut-control-layout h2 {margin: 15px 0 0}
+.ut-index-head > p {max-width: 38ch; color: var(--ut-muted); font-size: 16px; line-height: 1.6}
+.ut-channel-list {margin-top: 32px; border-top: 2px solid var(--ut-text)}
+.ut-channel-list li {display: grid; grid-template-columns: 44px minmax(0,.85fr) minmax(0,1.1fr) 108px; gap: 20px; align-items: center; padding: 23px 0; border-bottom: 1px solid var(--ut-rule)}
+.ut-channel-icon, .ut-control-icon {display: grid; place-items: center; width: 42px; aspect-ratio: 1; background: #ede9df}
+.ut-channel-icon svg, .ut-control-icon svg {width: 24px; height: 24px}
+.ut-channel-list h3, .ut-control-list h3 {font: 750 clamp(19px,1.65vw,26px)/1.18 var(--display); letter-spacing: -.025em}
+.ut-channel-list h3 a:hover {color: var(--rust); text-decoration: underline}
+.ut-channel-list p, .ut-control-list p {color: var(--ut-muted); line-height: 1.65; font-size: 15px}
+.ut-status {display: inline-flex; align-items: center; gap: 7px; justify-self: end; font-size: 12px; white-space: nowrap; font-weight: 650}
+.ut-status::before {content: ""; width: 7px; height: 7px; border-radius: 50%; background: #79766b}
+.ut-status.live::before {background: #367255}
+.ut-status.beta::before {background: var(--rust)}
+.ut-tich-hop .duo {gap: 0; border: 1px solid #b6b2a5; border-radius: 0}
+.ut-tich-hop .duo-card {border: 0; border-radius: 0; padding: clamp(22px,3vw,46px)}
+.ut-tich-hop .duo-card + .duo-card {border-inline-start: 1px solid #c9c4b6}
+.ut-tich-hop .duo-card .kicker {color: #96421b}
+
+.ut-bao-mat .ut-hero {background: #e5e6de}
+.ut-security-visual {display: grid; place-items: center; padding: clamp(16px,2.5vw,38px); background: #41433a; margin: 0}
+.ut-vault {position: relative; width: 100%; background: #2b2d27; color: #f3f2e8; border: 1px solid #757769}
+.ut-vault-top {display: flex; justify-content: space-between; gap: 15px; align-items: center; padding: 15px 18px; border-bottom: 1px solid #56594c; font: 620 13px/1.4 Inter,sans-serif}
+.ut-vault-top svg {width: 21px; display: block; color: #ff9b66}
+.ut-vault-symbol {height: clamp(142px,15vw,210px); display: grid; place-items: center; position: relative; overflow: hidden; background-image: radial-gradient(#606154 1px,transparent 1px); background-size: 14px 14px}
+.ut-vault-symbol i {position: absolute; width: 106px; height: 106px; border: 1px solid #969784; transform: rotate(-9deg); background: #3c4036}
+.ut-vault-symbol i:nth-child(2) {transform: translate(7px,0) rotate(5deg); background: #30332c}
+.ut-vault-symbol img {position: relative; width: 82px; height: auto}
+.ut-vault p {margin: 0; border-top: 1px solid #56594c; padding: 12px 16px; color: #d1d2c6; font-size: 13px}
+.ut-control-layout {display: grid; grid-template-columns: minmax(0,.84fr) minmax(0,1.16fr); gap: clamp(32px,6vw,94px)}
+.ut-control-list {border-top: 2px solid #38392f}
+.ut-control-list article {display: flex; align-items: flex-start; gap: 16px; padding-block: 21px; border-bottom: 1px solid var(--ut-rule)}
+.ut-control-icon {flex: none; background: #e7e7dc}
+.ut-control-list p {margin-top: 6px}
+.ut-bao-mat #bot-controls {background: #ebece3}
+
+.ut-intake {background: #f3eee3; padding-block: clamp(46px,5.5vw,94px)}
+.ut-intake-layout {grid-template-columns: minmax(0,.88fr) minmax(0,1.12fr); align-items: start; gap: clamp(28px,5vw,82px)}
+.ut-intake h1 {font-size: clamp(52px,5.7vw,92px)}
+.ut-agenda {display: grid; grid-template-columns: auto minmax(0,1fr); gap: clamp(15px,2.2vw,34px); margin-top: 30px; padding: 23px 0; border-block: 1px solid #bcb6a7}
+.ut-time {display: flex; flex-direction: column; align-self: start; padding: 8px 12px 12px; background: var(--orange); color: #21211d}
+.ut-time b {font: 850 clamp(48px,4vw,66px)/1 var(--display); letter-spacing: -.05em}
+.ut-time span {font-size: 14px; font-weight: 650}
+.ut-agenda h2,.ut-form-intro h2 {font: 760 25px/1.12 var(--display); letter-spacing: -.025em}
+.ut-agenda .ticks {font-size: 14px; color: #57534b; margin-top: 10px; gap: 7px}
+.ut-demo-form {border-color: #cec8b9; border-radius: 5px; border-top: 5px solid #272620; gap: 14px 18px}
+.ut-form-intro {grid-column: 1 / -1; padding-bottom: 14px; border-bottom: 1px solid #ddd9cc}
+.ut-form-intro p {font-size: 14px; line-height: 1.55; margin-top: 6px; max-width: 50ch; color: var(--ut-muted)}
+.ut-demo-form [hidden] {display: none}
+.ut-demo-form .form-done {background: transparent; color: var(--ut-text); padding: 0}
+.ut-demo-form .form-done strong {color: var(--ut-text)}
+.ut-demo-form .form-done dl {display: grid; grid-template-columns: 110px minmax(0,1fr); margin-block: 18px; border-top: 1px solid var(--ut-rule)}
+.ut-demo-form .form-done dt,.ut-demo-form .form-done dd {padding: 8px 2px; margin: 0; border-bottom: 1px solid var(--ut-rule); overflow-wrap: anywhere}
+.ut-demo-form .form-done dt {font-size: 13px; color: var(--ut-muted)}
+.ut-demo-form .form-done dd {font-size: 14px; font-weight: 600; white-space: pre-line}
+@media(max-width: 979px) {
+  .ut-bang-gia .plan:nth-child(2) {border-inline-end: 0}
+  .ut-bang-gia .plan:nth-child(-n+2) {border-bottom: 1px solid var(--ut-rule)}
+}
+@media(max-width: 800px) {
+  .ut-hero-layout,.ut-intake-layout,.ut-control-layout {grid-template-columns: minmax(0,1fr); gap: 30px}
+  .ut-channel-art {min-height: 220px}
+  .ut-channel-list li {grid-template-columns: 38px 1fr auto; gap: 6px 12px}
+  .ut-channel-list p {grid-column: 2 / -1; grid-row: 2}
+  .ut-channel-icon {grid-row: 1 / 3; width: 36px; align-self: start}
+  .ut-channel-list h3 {grid-column: 2}
+  .ut-index-head {display: grid; gap: 15px}
+  .ut-tich-hop .duo-card + .duo-card {border-inline-start: 0; border-top: 1px solid #c9c4b6}
+  .ut-vault-symbol {height: 152px}
+}
+@media(max-width: 585px) {
+  .ut-page h1 {font-size: clamp(47px,11.5vw,65px)}
+  .ut-page .plan, .ut-page .plan.featured {border-inline-end: 0; border-bottom: 1px solid var(--ut-rule)}
+  .ut-capacity li {padding-block: 7px}
+  .ut-security-visual {padding: 12px}
+  .ut-channel-list li {grid-template-columns: 32px minmax(0,1fr)}
+  .ut-channel-list p {grid-row: auto}
+  .ut-channel-icon {width: 32px}
+  .ut-status {grid-column: 2; justify-self: start}
+  .ut-agenda {grid-template-columns: minmax(0,1fr)}
+  .ut-time {width: fit-content; flex-direction: row; align-items: baseline; gap: 5px}
+  .ut-demo-form {padding: 16px}
+}

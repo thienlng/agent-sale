@@ -23,7 +23,8 @@ const bucket = process.env.S3_BUCKET || 'rapiz-local';
 
 // The landing page owns the root and its static folders, as rapiz.vn does in production; the
 // dashboard keeps every other path (/login, /signup, /app/…), as app.rapiz.vn does.
-const SITE_PATH = /^\/(?:$|\?|index\.html|(?:images|fonts|_astro)\/)/;
+const SITE_PATH =
+  /^\/(?:$|\?|index\.html|(?:images|fonts|static|nganh|tinh-nang)\/|(?:tich-hop|bao-mat|bang-gia|dat-lich-demo)(?:\/|$|\?))/;
 
 // Public object reads: only a plain key is forwarded (no traversal, no empty or encoded-slash
 // segments, no query such as ?list-type=2), re-encoded segment by segment.
