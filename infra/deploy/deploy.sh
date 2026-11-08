@@ -38,7 +38,8 @@ compose up -d --wait postgres redis object-storage
 # The buckets must exist before the first upload; creating an existing one is harmless. The
 # media bucket is public-read (compose `anonymous` identity); the exports bucket (SET-10) is not.
 bucket=$(grep -E '^S3_BUCKET=' .env | cut -d= -f2)
-exports=$(grep -E '^S3_EXPORT_BUCKET=' .env | cut -d= -f2)
+# Optional; unset means <S3_BUCKET>-exports (grep finds nothing: not an error under pipefail).
+exports=$(grep -E '^S3_EXPORT_BUCKET=' .env | cut -d= -f2 || true)
 for b in "$bucket" "${exports:-$bucket-exports}"; do
   # Lines look like "  rapiz<TAB>size:…": compare the first field exactly (rapiz ≠ rapiz-exports).
   compose exec -T object-storage sh -c "echo 's3.bucket.list' | weed shell" 2>/dev/null |
