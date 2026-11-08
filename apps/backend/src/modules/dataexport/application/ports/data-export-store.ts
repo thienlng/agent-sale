@@ -6,11 +6,14 @@ export const DATA_EXPORT_STORE = Symbol('DATA_EXPORT_STORE');
 export interface DataExportStore {
   list(workspaceId: string, limit: number): Promise<DataExportRecord[]>;
   get(workspaceId: string, id: string): Promise<DataExportRecord | null>;
-  /** Exports requested since `since` (the daily limit). */
+  /** Exports requested since `since` that did not fail (the daily limit). */
   countSince(workspaceId: string, since: Date): Promise<number>;
   /** A queued or running export exists. */
   hasActive(workspaceId: string): Promise<boolean>;
-  /** Inserts a queued export and its audit event (`workspace.data_exported`) in one transaction. */
+  /**
+   * Inserts a queued export and its audit event (`workspace.data_exported`) in one transaction;
+   * throws `DataExportInProgressError` when one is already queued or running (unique index).
+   */
   create(input: {
     id: string;
     workspaceId: string;
@@ -26,11 +29,19 @@ export interface DataExportStore {
    * as running with a lease; exports out of attempts are failed with `lease_expired` first.
    */
   claim(now: Date, leaseMs: number, maxAttempts: number): Promise<DataExportRecord | null>;
+  /** Running exports whose last lease lapsed with no attempt left become `failed` (`lease_expired`). */
+  failLapsed(now: Date, maxAttempts: number): Promise<DataExportRecord[]>;
+  /**
+   * The lease-holder writes: they apply only while the row is still `running` at this attempt
+   * (false = the lease was lost to another worker).
+   */
+  renewLease(id: string, attempt: number, until: Date): Promise<boolean>;
   finishReady(
     id: string,
+    attempt: number,
     r: { objectKey: string; sizeBytes: number; at: Date; expiresAt: Date },
-  ): Promise<void>;
-  finishFailed(id: string, errorCode: string, at: Date): Promise<void>;
+  ): Promise<boolean>;
+  finishFailed(id: string, attempt: number, errorCode: string, at: Date): Promise<boolean>;
   /** Ready exports past `expires_at` become `expired`; returns them so their files are deleted. */
   expireDue(now: Date, limit: number): Promise<DataExportRecord[]>;
   /**

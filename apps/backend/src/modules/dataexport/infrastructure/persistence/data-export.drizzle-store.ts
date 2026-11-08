@@ -16,8 +16,19 @@ import { workspaceId as asWorkspaceId } from '@agent-sales/shared';
 
 import type { DataExportStore } from '../../application/ports/data-export-store.js';
 import type { DataExportRecord } from '../../domain/data-export.js';
+import { DataExportInProgressError } from '../../domain/dataexport.errors.js';
 
 const t = schema.dataExports;
+
+/** The row is still being built by this attempt (no other worker took the lease over). */
+const held = (id: string, attempt: number) =>
+  and(eq(t.id, id), eq(t.status, 'running'), eq(t.attempts, attempt));
+
+function isUniqueViolation(e: unknown): boolean {
+  for (let c: unknown = e; c && typeof c === 'object'; c = (c as { cause?: unknown }).cause)
+    if ((c as { code?: unknown }).code === '23505') return true;
+  return false;
+}
 type Row = typeof t.$inferSelect;
 
 function toRecord(r: Row): DataExportRecord {
@@ -73,7 +84,13 @@ export class DrizzleDataExportStore implements DataExportStore {
       const [r] = await tx
         .select({ n: sql<number>`count(*)::int` })
         .from(t)
-        .where(and(eq(t.workspaceId, ws), gte(t.createdAt, since)));
+        .where(
+          and(
+            eq(t.workspaceId, ws),
+            gte(t.createdAt, since),
+            inArray(t.status, ['queued', 'running', 'ready', 'expired']),
+          ),
+        );
       return r?.n ?? 0;
     });
   }
@@ -112,6 +129,10 @@ export class DrizzleDataExportStore implements DataExportStore {
       });
       if (!r) throw new Error('data_exports insert returned no row');
       return toRecord(r);
+    }).catch((e: unknown) => {
+      // data_exports_active_idx: one queued or running export per workspace.
+      if (isUniqueViolation(e)) throw new DataExportInProgressError();
+      throw e;
     });
   }
 
@@ -128,15 +149,13 @@ export class DrizzleDataExportStore implements DataExportStore {
 
   claim(now: Date, leaseMs: number, maxAttempts: number): Promise<DataExportRecord | null> {
     return withSystem(this.system, async (tx) => {
-      await tx
-        .update(t)
-        .set({ status: 'failed', errorCode: 'lease_expired', finishedAt: now, leaseUntil: null })
-        .where(and(eq(t.status, 'running'), lt(t.leaseUntil, now), gte(t.attempts, maxAttempts)));
       const lease = new Date(now.getTime() + leaseMs);
       const rows = await tx.execute<{ id: string }>(sql`
         with picked as (
           select id from data_exports
-          where status = 'queued' or (status = 'running' and lease_until < ${now.toISOString()}::timestamptz)
+          where status = 'queued'
+             or (status = 'running' and lease_until < ${now.toISOString()}::timestamptz
+                 and attempts < ${maxAttempts})
           order by created_at
           limit 1
           for update skip locked
@@ -152,32 +171,69 @@ export class DrizzleDataExportStore implements DataExportStore {
     });
   }
 
-  async finishReady(
-    id: string,
-    r: { objectKey: string; sizeBytes: number; at: Date; expiresAt: Date },
-  ): Promise<void> {
-    await withSystem(this.system, (tx) =>
-      tx
-        .update(t)
-        .set({
-          status: 'ready',
-          objectKey: r.objectKey,
-          sizeBytes: r.sizeBytes,
-          finishedAt: r.at,
-          expiresAt: r.expiresAt,
-          leaseUntil: null,
-          errorCode: null,
-        })
-        .where(eq(t.id, id)),
+  failLapsed(now: Date, maxAttempts: number): Promise<DataExportRecord[]> {
+    return withSystem(this.system, async (tx) =>
+      (
+        await tx
+          .update(t)
+          .set({ status: 'failed', errorCode: 'lease_expired', finishedAt: now, leaseUntil: null })
+          .where(and(eq(t.status, 'running'), lt(t.leaseUntil, now), gte(t.attempts, maxAttempts)))
+          .returning()
+      ).map(toRecord),
     );
   }
 
-  async finishFailed(id: string, errorCode: string, at: Date): Promise<void> {
-    await withSystem(this.system, (tx) =>
-      tx
-        .update(t)
-        .set({ status: 'failed', errorCode, finishedAt: at, leaseUntil: null })
-        .where(eq(t.id, id)),
+  renewLease(id: string, attempt: number, until: Date): Promise<boolean> {
+    return withSystem(
+      this.system,
+      async (tx) =>
+        (
+          await tx
+            .update(t)
+            .set({ leaseUntil: until })
+            .where(held(id, attempt))
+            .returning({ id: t.id })
+        ).length === 1,
+    );
+  }
+
+  finishReady(
+    id: string,
+    attempt: number,
+    r: { objectKey: string; sizeBytes: number; at: Date; expiresAt: Date },
+  ): Promise<boolean> {
+    return withSystem(
+      this.system,
+      async (tx) =>
+        (
+          await tx
+            .update(t)
+            .set({
+              status: 'ready',
+              objectKey: r.objectKey,
+              sizeBytes: r.sizeBytes,
+              finishedAt: r.at,
+              expiresAt: r.expiresAt,
+              leaseUntil: null,
+              errorCode: null,
+            })
+            .where(held(id, attempt))
+            .returning({ id: t.id })
+        ).length === 1,
+    );
+  }
+
+  finishFailed(id: string, attempt: number, errorCode: string, at: Date): Promise<boolean> {
+    return withSystem(
+      this.system,
+      async (tx) =>
+        (
+          await tx
+            .update(t)
+            .set({ status: 'failed', errorCode, finishedAt: at, leaseUntil: null })
+            .where(held(id, attempt))
+            .returning({ id: t.id })
+        ).length === 1,
     );
   }
 

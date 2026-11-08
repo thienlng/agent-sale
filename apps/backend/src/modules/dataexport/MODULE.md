@@ -5,13 +5,18 @@
 **Owned tables:** `data_exports` (migration 0070; schema in `packages/db/src/schema/dataexport.ts`).
 
 **Public API (`api/`):**
+
 - `DATAEXPORT_RUNNER` → `DataExportRunner.tick()`: run by the `worker` entry every 10 s (expire old files, build one queued export).
 - HTTP: `GET/POST /data-exports`, `POST /data-exports/{id}/link` (capability `data.export`, owner and admin), `GET /data-exports/download/{token}` (public; the one-time token is the credential).
 
 **Consumes:** the `<MODULE>_EXPORT` sources of `workspace`, `crm`, `conversation`, `commerce`, `knowledge`, `lodging`, `bot` and `saas` (each module declares its own files and columns with `exportTable()` from `@agent-sales/db`); `workspace` (business name, members, account), `identity` (member names and emails for `people.csv`) and `notification` (`dataexport.ready` / `dataexport.failed`, in-app and email).
 
 **Invariants:**
-- One queued or running export per business; at most 3 requests per business per 24 hours.
+
+- One queued or running export per business (unique index); at most 3 requests per business per 24 hours, failed ones not counted.
+- The lease holder renews its lease while building and finishes only while it still holds it (`running` at its `attempts`); each attempt writes its own object key.
+- Archives stay below ZIP32 limits: media stop at a 3 GiB budget (the rest stay links), data alone above 3.9 GiB fails as `too_large`.
+- A worker sweeps temp folders of dead builds on its first tick.
 - Archives go to the private exports bucket (`S3_EXPORT_BUCKET`, default `<S3_BUCKET>-exports`), never the public media bucket; files expire after 7 days.
 - A download link is 32 random bytes, stored only as its SHA-256, valid 5 minutes and once.
 - Every request and download writes an audit event (`workspace.data_exported`, `workspace.data_export_downloaded`).

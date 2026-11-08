@@ -30,7 +30,10 @@ export function renderReadme(
       input.includeMedia
         ? `media/: ${input.counts.mediaFiles} pictures and files stored by Rapiz` +
           (input.counts.mediaSkipped
-            ? `; ${input.counts.mediaSkipped} links kept only as links (outside Rapiz or gone).`
+            ? `; ${input.counts.mediaSkipped} links kept only as links (outside Rapiz or gone)`
+            : '') +
+          (input.counts.mediaOverBudget
+            ? `; ${input.counts.mediaOverBudget} more left as links because the archive reached its size limit.`
             : '.')
         : 'Pictures and files are not included (links stay in the CSV files).',
       '',
@@ -52,7 +55,10 @@ export function renderReadme(
     input.includeMedia
       ? `media/: ${input.counts.mediaFiles} ảnh và tệp lưu trên Rapiz` +
         (input.counts.mediaSkipped
-          ? `; ${input.counts.mediaSkipped} liên kết chỉ giữ dạng link (ngoài Rapiz hoặc đã bị xoá).`
+          ? `; ${input.counts.mediaSkipped} liên kết chỉ giữ dạng link (ngoài Rapiz hoặc đã bị xoá)`
+          : '') +
+        (input.counts.mediaOverBudget
+          ? `; ${input.counts.mediaOverBudget} tệp khác chỉ giữ dạng link vì tệp ZIP đã đạt giới hạn dung lượng.`
           : '.')
       : 'Không kèm ảnh và tệp (các liên kết vẫn có trong tệp CSV).',
     '',

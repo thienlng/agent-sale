@@ -24,16 +24,27 @@ export interface DataExportRecord {
   expiresAt: Date | null;
 }
 
-/** Object key of an export in the private bucket: never guessable from outside. */
-export function exportObjectKey(workspaceId: string, exportId: string): string {
-  return `exports/${workspaceId}/${exportId}.zip`;
+/**
+ * Archives stay below ZIP32 limits (the writer cannot write ZIP64): media stop at the budget
+ * (the rest stay links, counted in the README) and an archive whose data alone passes the cap
+ * fails as `too_large` instead of producing a corrupt file.
+ */
+export const EXPORT_MEDIA_BUDGET_BYTES = 3 * 1024 ** 3;
+export const EXPORT_MAX_ARCHIVE_BYTES = 3.9 * 1024 ** 3;
+
+/**
+ * Object key of an export in the private bucket, per attempt: a worker that lost its lease
+ * removes only its own file.
+ */
+export function exportObjectKey(workspaceId: string, exportId: string, attempt: number): string {
+  return `exports/${workspaceId}/${exportId}-${attempt}.zip`;
 }
 
 /** `rapiz-<business slug>-<UTC date>.zip`; the slug is ASCII (Vietnamese marks removed). */
 export function exportFileName(businessName: string, at: Date): string {
   const slug = businessName
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/đ/g, 'd')
     .replace(/Đ/g, 'D')
     .toLowerCase()

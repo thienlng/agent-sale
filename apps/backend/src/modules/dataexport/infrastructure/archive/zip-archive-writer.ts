@@ -1,21 +1,23 @@
 import { closeSync, openSync, statSync, writeSync } from 'node:fs';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { ExportTable } from '@agent-sales/contracts';
 import { Zip, ZipDeflate, ZipPassThrough } from 'fflate';
 
-import type {
-  ArchiveCounts,
-  ExportArchiveWriter,
-  ExportFileStorage,
-  WrittenArchive,
+import {
+  type ArchiveCounts,
+  ArchiveTooLargeError,
+  type ExportArchiveWriter,
+  type ExportFileStorage,
+  type WrittenArchive,
 } from '../../application/ports/export-files.js';
 import { CSV_BOM, csvLine } from '../../domain/csv.js';
+import { EXPORT_MAX_ARCHIVE_BYTES, EXPORT_MEDIA_BUDGET_BYTES } from '../../domain/data-export.js';
 
 const encoder = new TextEncoder();
-/** Media copied per export at most; the rest stay as links (README says how many). */
+/** Media copied per export at most (also the byte budget); the rest stay as links (README says how many). */
 const MAX_MEDIA_FILES = 20_000;
 
 /**
@@ -26,26 +28,54 @@ export class ZipArchiveWriter implements ExportArchiveWriter {
   constructor(
     private readonly media: Pick<ExportFileStorage, 'readMedia'>,
     private readonly dir: string = tmpdir(),
+    private readonly limits = {
+      mediaBudgetBytes: EXPORT_MEDIA_BUDGET_BYTES,
+      maxArchiveBytes: EXPORT_MAX_ARCHIVE_BYTES,
+    },
   ) {}
+
+  async sweep(olderThanMs: number): Promise<void> {
+    const cutoff = Date.now() - olderThanMs;
+    for (const name of await readdir(this.dir).catch(() => [] as string[])) {
+      if (!name.startsWith('rapiz-export-')) continue;
+      const folder = join(this.dir, name);
+      const info = await stat(folder).catch(() => null);
+      if (info && info.mtimeMs < cutoff) await rm(folder, { recursive: true, force: true });
+    }
+  }
 
   async write(input: {
     tables: readonly ExportTable[];
     includeMedia: boolean;
     readme: (counts: ArchiveCounts) => string;
+    heartbeat?: () => Promise<void>;
   }): Promise<WrittenArchive> {
+    const heartbeat = input.heartbeat ?? (async () => undefined);
     const folder = await mkdtemp(join(this.dir, 'rapiz-export-'));
     const path = join(folder, 'export.zip');
     const cleanup = () => rm(folder, { recursive: true, force: true });
     const fd = openSync(path, 'w', 0o600);
     let failure: Error | null = null;
     let done = false;
+    let written = 0;
     const zip = new Zip((err, chunk, final) => {
       if (err) failure = err;
-      else if (chunk.length) writeSync(fd, chunk);
+      else if (chunk.length) {
+        writeSync(fd, chunk);
+        written += chunk.length;
+      }
       if (final) done = true;
     });
+    const checkSize = () => {
+      if (written > this.limits.maxArchiveBytes) throw new ArchiveTooLargeError();
+    };
     try {
-      const counts: ArchiveCounts = { rows: {}, mediaFiles: 0, mediaSkipped: 0 };
+      const counts: ArchiveCounts = {
+        rows: {},
+        mediaFiles: 0,
+        mediaSkipped: 0,
+        mediaOverBudget: 0,
+      };
       const mediaUrls = new Set<string>();
       for (const table of input.tables) {
         const entry = new ZipDeflate(table.file, { level: 6 });
@@ -58,17 +88,19 @@ export class ZipArchiveWriter implements ExportArchiveWriter {
         for await (const page of table.rows()) {
           entry.push(encoder.encode(page.map(csvLine).join('')));
           rows += page.length;
+          checkSize();
           for (const row of page)
             for (const i of mediaAt) for (const url of urlsOf(row[i])) mediaUrls.add(url);
         }
         entry.push(new Uint8Array(0), true);
         counts.rows[table.file] = rows;
         if (failure) throw failure;
+        await heartbeat();
       }
       const copied = new Set<string>();
       for (const url of mediaUrls) {
-        if (copied.size >= MAX_MEDIA_FILES) {
-          counts.mediaSkipped++;
+        if (copied.size >= MAX_MEDIA_FILES || written >= this.limits.mediaBudgetBytes) {
+          counts.mediaOverBudget++;
           continue;
         }
         const object = await this.media.readMedia(url).catch(() => null);
@@ -79,16 +111,21 @@ export class ZipArchiveWriter implements ExportArchiveWriter {
         copied.add(object.key);
         const entry = new ZipPassThrough(`media/${object.key}`);
         zip.add(entry);
-        for await (const chunk of object.body) entry.push(chunk);
+        for await (const chunk of object.body) {
+          entry.push(chunk);
+          checkSize();
+        }
         entry.push(new Uint8Array(0), true);
         counts.mediaFiles++;
         if (failure) throw failure;
+        if (counts.mediaFiles % 50 === 0) await heartbeat();
       }
       const readme = new ZipDeflate('README.txt', { level: 6 });
       zip.add(readme);
       readme.push(encoder.encode(CSV_BOM + input.readme(counts)), true);
       zip.end();
       if (failure) throw failure;
+      checkSize();
       if (!done) throw new Error('zip did not finish');
       closeSync(fd);
       return { path, sizeBytes: statSync(path).size, counts, cleanup };

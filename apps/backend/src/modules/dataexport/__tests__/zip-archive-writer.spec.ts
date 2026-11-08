@@ -4,6 +4,7 @@ import type { ExportCell, ExportTable } from '@agent-sales/contracts';
 import { unzipSync, strFromU8 } from 'fflate';
 import { describe, expect, it } from 'vitest';
 
+import { ArchiveTooLargeError } from '../application/ports/export-files.js';
 import { ZipArchiveWriter } from '../infrastructure/archive/zip-archive-writer.js';
 import { mediaKey } from '../infrastructure/storage/s3-export-storage.js';
 
@@ -144,5 +145,69 @@ describe('media in nested JSON', () => {
     expect(Object.keys(unzipSync(readFileSync(out.path)))).toContain(`media/${KEY}`);
     expect(reads).toEqual([`/media/${KEY}`]);
     await out.cleanup();
+  });
+});
+
+describe('size limits, heartbeat and sweep', () => {
+  const big = (n: number) =>
+    `/media/products/11111111-1111-4111-8111-111111111111/${n}2222222-2222-4222-8222-222222222222.jpg`;
+  const media = {
+    readMedia: async (url: string) => {
+      const key = mediaKey(url);
+      return key ? { key, body: bytes('X'.repeat(4000)) } : null;
+    },
+  };
+
+  it('stops copying media at the budget and counts the rest', async () => {
+    const urls = [1, 2, 3, 4, 5].map(big);
+    const out = await new ZipArchiveWriter(media, undefined, {
+      mediaBudgetBytes: 1,
+      maxArchiveBytes: 10_000_000,
+    }).write({
+      tables: [table('products.csv', ['id', 'image_urls'], [[['1', urls]]], ['image_urls'])],
+      includeMedia: true,
+      readme: (c) => JSON.stringify(c),
+    });
+    expect(out.counts.mediaFiles + out.counts.mediaOverBudget).toBe(5);
+    expect(out.counts.mediaOverBudget).toBeGreaterThan(0);
+    await out.cleanup();
+  });
+
+  it('fails as too large instead of writing past the ZIP32 limit', async () => {
+    const rows = Array.from({ length: 200 }, (_, i) => [String(i), 'x'.repeat(200)]);
+    await expect(
+      new ZipArchiveWriter(media, undefined, { mediaBudgetBytes: 1, maxArchiveBytes: 500 }).write({
+        tables: [table('t.csv', ['id', 'v'], [rows])],
+        includeMedia: false,
+        readme: () => '',
+      }),
+    ).rejects.toBeInstanceOf(ArchiveTooLargeError);
+  });
+
+  it('calls the heartbeat after each table', async () => {
+    let beats = 0;
+    const out = await new ZipArchiveWriter(media).write({
+      tables: [table('a.csv', ['id'], [[['1']]]), table('b.csv', ['id'], [])],
+      includeMedia: false,
+      readme: () => '',
+      heartbeat: async () => void beats++,
+    });
+    expect(beats).toBe(2);
+    await out.cleanup();
+  });
+
+  it('sweeps temp folders of dead builds only', async () => {
+    const { mkdtemp, mkdir, utimes, readdir } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const dir = await mkdtemp(join(tmpdir(), 'sweep-test-'));
+    const old = join(dir, 'rapiz-export-old');
+    await mkdir(old);
+    await mkdir(join(dir, 'rapiz-export-new'));
+    await mkdir(join(dir, 'other'));
+    const past = new Date(Date.now() - 3_600_000);
+    await utimes(old, past, past);
+    await new ZipArchiveWriter(media, dir).sweep(60_000);
+    expect((await readdir(dir)).sort()).toEqual(['other', 'rapiz-export-new']);
   });
 });

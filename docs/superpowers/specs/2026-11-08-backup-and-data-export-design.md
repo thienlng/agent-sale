@@ -106,7 +106,7 @@ As built (2026-11-08); differences from the first draft are noted.
 
 Settings → new **"Dữ liệu"** tab (`/app/settings/data`) → "Xuất toàn bộ dữ liệu" with a checkbox "Kèm ảnh và tệp" (off by default; can be large). Only members with the new capability `data.export` (owner and admin; never an API-key scope) see it. Clicking starts an export; the tab lists recent exports with status (`queued`, `running`, `ready`, `failed`, `expired`), size and a download button, refreshing while one runs. When ready the requester gets an in-app notification and an email (`dataexport.ready`; `dataexport.failed` on failure) linking to the tab. Files are deleted after **7 days**.
 
-Limits: one queued or running export per workspace (409), at most 3 per workspace per 24 hours (429); 503 when object storage is not configured.
+Limits: one queued or running export per workspace (409, enforced by a unique index), at most 3 per workspace per 24 hours, failed ones not counted (429); 503 when object storage is not configured.
 
 Download: `POST /data-exports/{id}/link` returns a **one-time link** (32 random bytes, stored as SHA-256, valid 5 minutes, one use) to `GET /data-exports/download/{token}`, which streams the ZIP with no auth header so the browser downloads it directly (draft: API streaming with the bearer token, which the SPA could only do by buffering the whole file).
 
@@ -124,7 +124,7 @@ A ZIP named `rapiz-<business slug>-<UTC date>.zip`:
   - lodging: `lodging_properties.csv`, `lodging_units.csv`, `lodging_packages.csv`, `lodging_rates.csv`, `lodging_bookings.csv` (units of a booking in a column), `lodging_night_notes.csv`
   - bot: `bots.csv` (configuration as JSON columns; draft: `bots.json`)
   - saas: `saas_subscriptions.csv`, `saas_plans.csv`, `saas_subscription_history.csv`
-- `media/<key>` (only with "Kèm ảnh và tệp"): Rapiz-stored objects referenced by media columns (product pictures, training media, lodging cover photos, message attachments), up to 20 000 per export; links outside Rapiz storage (e.g. expired Facebook CDN URLs) stay links and are counted in the README.
+- `media/<key>` (only with "Kèm ảnh và tệp"): Rapiz-stored objects referenced by media columns (product pictures, training media, lodging cover photos, message attachments), up to 20 000 files and a 3 GiB budget per export (the archive must stay below the ZIP32 limit: `fflate` cannot write ZIP64; data alone above 3.9 GiB fails as `too_large`); links outside Rapiz storage (e.g. expired Facebook CDN URLs) stay links and are counted in the README.
 
 Never exported: channel access tokens, API keys, webhook secrets, password hashes, email codes, internal search text, versions and sync bookkeeping, other workspaces' data. **Billing history is not exported** (draft: `billing_history.csv`): payments and account subscriptions are account-level tables readable only by `app_system`; the Billing page shows them.
 
@@ -134,7 +134,7 @@ Text a spreadsheet would run as a formula (`=`, `@`, leading tab/CR, `+`/`-` not
 
 - New backend module **`dataexport`** (tier 3), created with `pnpm gen module dataexport`. It owns `data_exports` (migration 0070, RLS on `workspace_id`; worker and link download use `app_system`).
 - It **does not read other modules' tables.** `packages/contracts` defines `ExportTable` / `WorkspaceExportSource`; each data-owning module exports a `<MODULE>_EXPORT` token from its `api/`, implemented in its `infrastructure/export/` with `exportTable()` from `packages/db/src/export.ts` (column SQL over the module's own table, keyset pages of 500 by `id`, each page a short tenant transaction also filtered on `workspace_id`; `time: true` columns are written as ISO UTC).
-- Jobs use the repo's **Postgres lease pattern** (draft: BullMQ, which has no processor in the repo yet): the API inserts a `queued` row; `DataExportRunner.tick()` in the worker (every 10 s) expires old files, claims one row (`for update skip locked`, 30-minute lease, retried once, then `lease_expired`), writes the ZIP to a temp file with `fflate` (synchronous chunk writes, so memory stays at one page or one media chunk), uploads it to the **private bucket** `S3_EXPORT_BUCKET` (default `<S3_BUCKET>-exports`; production's `anonymous` identity and the edge `/media/*` route only reach `S3_BUCKET`) and notifies.
+- Jobs use the repo's **Postgres lease pattern** (draft: BullMQ, which has no processor in the repo yet): the API inserts a `queued` row; `DataExportRunner.tick()` in the worker (every 10 s) expires old files, claims one row (`for update skip locked`, 30-minute lease renewed while building, finishing writes guarded by `status = 'running'` and the attempt number, per-attempt object key, retried once, then `lease_expired` with a `dataexport.failed` notification; a unique partial index allows one active export per workspace), writes the ZIP to a temp file with `fflate` (synchronous chunk writes, so memory stays at one page or one media chunk), uploads it to the **private bucket** `S3_EXPORT_BUCKET` (default `<S3_BUCKET>-exports`; production's `anonymous` identity and the edge `/media/*` route only reach `S3_BUCKET`) and notifies.
 - Audit: `workspace.data_exported` (with the request, same transaction) and `workspace.data_export_downloaded` (with the link use).
 - Logs carry ids, sizes and error codes only.
 

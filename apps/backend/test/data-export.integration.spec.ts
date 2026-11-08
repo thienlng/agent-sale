@@ -8,7 +8,11 @@ import { and, eq, schema } from '@agent-sales/db';
 import { strFromU8, unzipSync } from 'fflate';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import type { WorkspaceExportSource } from '@agent-sales/contracts';
+import { newId } from '@agent-sales/shared';
+
 import { DATAEXPORT_RUNNER, type DataExportRunner } from '../src/modules/dataexport/api/index.js';
+import { EXPORT_SOURCES } from '../src/modules/dataexport/application/data-export.runner.js';
 import {
   EXPORT_FILE_STORAGE,
   type ExportFileStorage,
@@ -200,5 +204,117 @@ describe('data export', () => {
     const list = DataExportList.parse((await h.call(mai.h, 'GET', '/data-exports')).json());
     expect(list.data.find((x) => x.id === ids[0])?.status).toBe('expired');
     expect((await h.call(mai.h, 'POST', `/data-exports/${ids[0]}/link`)).statusCode).toBe(409);
+  });
+
+  it('fails with source_failed when a module cannot be read, notifies, and keeps the quota', async () => {
+    const tu = await h.user('tu@export.vn', 'Tu');
+    const sources = h.app.get<WorkspaceExportSource[]>(EXPORT_SOURCES);
+    const broken: WorkspaceExportSource = {
+      exportTables: () => [
+        {
+          file: 'broken.csv',
+          columns: ['a'],
+          rows: () => ({
+            [Symbol.asyncIterator]: () => ({ next: () => Promise.reject(new Error('db down')) }),
+          }),
+        },
+      ],
+    };
+    sources.push(broken);
+    try {
+      for (let i = 0; i < 3; i++) {
+        expect((await h.call(tu.h, 'POST', '/data-exports', {})).statusCode).toBe(201);
+        expect(await runner.tick()).toBe(1);
+      }
+    } finally {
+      sources.splice(sources.indexOf(broken), 1);
+    }
+    const list = DataExportList.parse((await h.call(tu.h, 'GET', '/data-exports')).json());
+    expect(list.data.map((x) => [x.status, x.errorCode])).toEqual([
+      ['failed', 'source_failed'],
+      ['failed', 'source_failed'],
+      ['failed', 'source_failed'],
+    ]);
+    // Failed exports do not use up the day.
+    expect(list.usedToday).toBe(0);
+    expect((await h.call(tu.h, 'POST', '/data-exports', {})).statusCode).toBe(201);
+    const failedNotes = await h.owner.db
+      .select({ type: schema.notifications.type })
+      .from(schema.notifications)
+      .where(
+        and(
+          eq(schema.notifications.userId, tu.userId),
+          eq(schema.notifications.type, 'dataexport.failed'),
+        ),
+      );
+    expect(failedNotes).toHaveLength(3);
+    expect(await runner.tick()).toBe(1);
+  });
+
+  it('accepts one of two simultaneous requests', async () => {
+    const vy = await h.user('vy@export.vn', 'Vy');
+    const codes = (
+      await Promise.all([
+        h.call(vy.h, 'POST', '/data-exports', {}),
+        h.call(vy.h, 'POST', '/data-exports', {}),
+      ])
+    ).map((r) => r.statusCode);
+    expect(codes.sort()).toEqual([201, 409]);
+    expect(await runner.tick()).toBe(1);
+  });
+
+  it('retries a lapsed lease once, then fails it as lease_expired', async () => {
+    const xa = await h.user('xa@export.vn', 'Xa');
+    const past = new Date(Date.now() - 60_000);
+    const retry = newId();
+    const dead = newId();
+    await h.owner.db.insert(schema.dataExports).values([
+      {
+        id: retry,
+        workspaceId: xa.ownWorkspace,
+        requestedByUserId: xa.userId,
+        status: 'running',
+        attempts: 1,
+        leaseUntil: past,
+        createdAt: new Date(Date.now() - 120_000),
+      },
+    ]);
+    expect(await runner.tick()).toBe(1);
+    const [rebuilt] = await h.owner.db
+      .select()
+      .from(schema.dataExports)
+      .where(eq(schema.dataExports.id, retry));
+    expect(rebuilt).toMatchObject({ status: 'ready', attempts: 2 });
+    expect(rebuilt!.objectKey).toMatch(/-2\.zip$/);
+
+    await h.owner.db.insert(schema.dataExports).values({
+      id: dead,
+      workspaceId: xa.ownWorkspace,
+      requestedByUserId: xa.userId,
+      status: 'running',
+      attempts: 2,
+      leaseUntil: past,
+    });
+    await runner.tick();
+    const [failed] = await h.owner.db
+      .select()
+      .from(schema.dataExports)
+      .where(eq(schema.dataExports.id, dead));
+    expect(failed).toMatchObject({ status: 'failed', errorCode: 'lease_expired' });
+  });
+
+  it('refuses a link after 5 minutes', async () => {
+    const yen = await h.user('yen@export.vn', 'Yen');
+    const r = await h.call(yen.h, 'POST', '/data-exports', {});
+    const id = DataExportDto.parse(r.json()).id;
+    await runner.tick();
+    const link = DataExportLink.parse(
+      (await h.call(yen.h, 'POST', `/data-exports/${id}/link`)).json(),
+    );
+    await h.owner.db
+      .update(schema.dataExports)
+      .set({ downloadTokenExpiresAt: new Date(Date.now() - 1000) })
+      .where(eq(schema.dataExports.id, id));
+    expect((await download(link.url)).statusCode).toBe(404);
   });
 });

@@ -24,6 +24,7 @@ import {
   type ExportArchiveWriter,
   type ExportFileStorage,
   type WrittenArchive,
+  ArchiveTooLargeError,
 } from './ports/export-files.js';
 import { renderReadme } from './readme.js';
 
@@ -31,7 +32,7 @@ export const EXPORT_SOURCES = Symbol('EXPORT_SOURCES');
 export const SETTINGS_DATA_PATH = '/app/settings/data';
 
 /** Stable failure codes (`data_exports.error_code`); logs carry the code, never row content. */
-type StepCode = 'source_failed' | 'upload_failed';
+type StepCode = 'source_failed' | 'upload_failed' | 'too_large';
 const stepError = (code: StepCode): Error & { exportCode: StepCode } =>
   Object.assign(new Error(code), { exportCode: code });
 const stepCode = (e: unknown): string =>
@@ -55,20 +56,41 @@ export class DataExportRunnerImpl implements DataExportRunner {
     @Inject(NOTIFICATION_FACADE) private readonly notifications: NotificationFacade,
   ) {}
 
+  #swept = false;
+
   async tick(now = new Date()): Promise<number> {
+    if (!this.#swept) {
+      this.#swept = true;
+      await this.writer.sweep(EXPORT_LEASE_MS).catch(() => undefined);
+    }
     for (const old of await this.store.expireDue(now, 20)) {
       if (old.objectKey) await this.files.remove(old.objectKey).catch(() => undefined);
+    }
+    for (const lapsed of await this.store.failLapsed(now, EXPORT_MAX_ATTEMPTS)) {
+      this.#log.error(`export ${lapsed.id} failed: lease_expired`);
+      await this.#notifyFailed(lapsed);
     }
     if (!this.files.available()) return 0;
     const job = await this.store.claim(now, EXPORT_LEASE_MS, EXPORT_MAX_ATTEMPTS);
     if (!job) return 0;
-    await this.#run(job, now);
+    await this.#run(job);
     return 1;
   }
 
-  async #run(job: DataExportRecord, now: Date): Promise<void> {
+  async #run(job: DataExportRecord): Promise<void> {
     const ws = job.workspaceId as WorkspaceId;
+    const attempt = job.attempts;
+    const key = exportObjectKey(ws, job.id, attempt);
     let archive: WrittenArchive | null = null;
+    let uploaded = false;
+    let lost = false;
+    const heartbeat = async () => {
+      const until = new Date(Date.now() + EXPORT_LEASE_MS);
+      if (!(await this.store.renewLease(job.id, attempt, until))) {
+        lost = true;
+        throw new Error('lease_lost');
+      }
+    };
     try {
       const business = await this.workspaces.getById(ws);
       const locale = await this.notifications.recipientLocale(job.requestedByUserId);
@@ -77,6 +99,7 @@ export class DataExportRunnerImpl implements DataExportRunner {
         .write({
           tables,
           includeMedia: job.includeMedia,
+          heartbeat,
           readme: (counts) =>
             renderReadme(locale, {
               businessName: business.name,
@@ -85,33 +108,50 @@ export class DataExportRunnerImpl implements DataExportRunner {
               includeMedia: job.includeMedia,
             }),
         })
-        .catch(() => {
-          throw stepError('source_failed');
+        .catch((e: unknown) => {
+          throw e instanceof ArchiveTooLargeError
+            ? stepError('too_large')
+            : stepError('source_failed');
         });
-      const key = exportObjectKey(ws, job.id);
+      await heartbeat();
       await this.files.upload(key, archive.path, archive.sizeBytes).catch(() => {
         throw stepError('upload_failed');
       });
+      uploaded = true;
       const at = new Date();
-      await this.store.finishReady(job.id, {
+      const won = await this.store.finishReady(job.id, attempt, {
         objectKey: key,
         sizeBytes: archive.sizeBytes,
         at,
         expiresAt: new Date(at.getTime() + EXPORT_KEEP_DAYS * 86_400_000),
       });
+      if (!won) {
+        lost = true;
+        throw new Error('lease_lost');
+      }
       this.#log.log(`export ${job.id} ready (${archive.sizeBytes} bytes)`);
       await this.#notify(job, 'dataexport.ready', locale, business.name);
     } catch (e) {
+      if (uploaded) await this.files.remove(key).catch(() => undefined);
+      if (lost) {
+        // Another worker holds this export now; it finishes and notifies.
+        this.#log.warn(`export ${job.id} attempt ${attempt}: lease lost`);
+        return;
+      }
       const code = stepCode(e);
       this.#log.error(`export ${job.id} failed: ${code}`);
-      await this.store.finishFailed(job.id, code, now);
-      const locale = await this.notifications
-        .recipientLocale(job.requestedByUserId)
-        .catch(() => 'vi' as const);
-      await this.#notify(job, 'dataexport.failed', locale, null);
+      if (await this.store.finishFailed(job.id, attempt, code, new Date()))
+        await this.#notifyFailed(job);
     } finally {
       await archive?.cleanup();
     }
+  }
+
+  async #notifyFailed(job: DataExportRecord): Promise<void> {
+    const locale = await this.notifications
+      .recipientLocale(job.requestedByUserId)
+      .catch(() => 'vi' as const);
+    await this.#notify(job, 'dataexport.failed', locale, null);
   }
 
   /** Names and emails of everyone who was a member (users are global; read through identity). */

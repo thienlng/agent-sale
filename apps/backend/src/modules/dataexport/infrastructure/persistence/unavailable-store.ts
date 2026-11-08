@@ -11,7 +11,9 @@ export class UnavailableDataExportStore implements DataExportStore {
   setLink = () => Promise.reject(new DataExportUnavailableError());
   consumeLink = () => Promise.reject(new DataExportUnavailableError());
   claim = () => Promise.resolve(null);
-  finishReady = () => Promise.resolve();
-  finishFailed = () => Promise.resolve();
+  failLapsed = () => Promise.resolve([]);
+  renewLease = () => Promise.resolve(false);
+  finishReady = () => Promise.resolve(false);
+  finishFailed = () => Promise.resolve(false);
   expireDue = () => Promise.resolve([]);
 }

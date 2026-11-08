@@ -24,6 +24,9 @@ CREATE TABLE data_exports (
   expires_at timestamptz
 );
 CREATE INDEX data_exports_workspace_idx ON data_exports(workspace_id, created_at DESC);
+-- One queued or running export per workspace (a double request answers 409).
+CREATE UNIQUE INDEX data_exports_active_idx ON data_exports(workspace_id)
+  WHERE status IN ('queued','running');
 CREATE INDEX data_exports_queue_idx ON data_exports(created_at) WHERE status IN ('queued','running');
 CREATE INDEX data_exports_expiry_idx ON data_exports(expires_at) WHERE status = 'ready';
 CREATE UNIQUE INDEX data_exports_token_idx ON data_exports(download_token_hash)

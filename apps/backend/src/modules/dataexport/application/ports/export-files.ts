@@ -24,6 +24,8 @@ export interface ArchiveCounts {
   mediaFiles: number;
   /** Media URLs that could not be copied (outside Rapiz storage, or gone). */
   mediaSkipped: number;
+  /** Media left out because the archive reached its size budget. */
+  mediaOverBudget: number;
 }
 
 export interface WrittenArchive {
@@ -40,5 +42,16 @@ export interface ExportArchiveWriter {
     tables: readonly ExportTable[];
     includeMedia: boolean;
     readme: (counts: ArchiveCounts) => string;
+    /** Called after each table and every 50 media files (the runner renews its lease). */
+    heartbeat?: () => Promise<void>;
   }): Promise<WrittenArchive>;
+  /** Deletes temp folders of builds older than `olderThanMs` (a worker that died mid-build). */
+  sweep(olderThanMs: number): Promise<void>;
+}
+
+/** The archive would pass the ZIP32 limit with its data alone. */
+export class ArchiveTooLargeError extends Error {
+  constructor() {
+    super('too_large');
+  }
 }
