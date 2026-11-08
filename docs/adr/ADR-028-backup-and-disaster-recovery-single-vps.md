@@ -34,4 +34,5 @@ Details: [design spec](../superpowers/specs/2026-11-08-backup-and-data-export-de
 - If the destination is unreachable for long, WAL accumulates in `pg_wal` and can fill the disk; the check alerts at 5 GB / 85 % disk well before that.
 - Restores depend on the owner keeping the break-glass kit; losing it makes the off-site backups unreadable.
 - The off-site provider becomes a (cheap) external dependency for backups only; no live service depends on it, so the self-hosting constraint for running services holds.
-- The local `pg_dump` remains for fast on-host restores and pre-deploy backups, with retention reduced to 7 days.
+- The local `pg_dump` remains for fast on-host restores and now runs before every deploy; retention drops to 7 days once off-site backups are configured.
+- The first deploy of this change recreates Postgres on the project image; a failure there has no automatic rollback (the previous release uses the same compose file), so it is rolled out by hand in a quiet window after building the image on the server.

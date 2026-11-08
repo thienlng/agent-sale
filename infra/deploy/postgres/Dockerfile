@@ -8,7 +8,7 @@ ARG RCLONE_VERSION=v1.75.2
 ARG RCLONE_SHA256=349ac8fba6ff65d6247043f1750cdcb518ec5d500ef91463a10d37c0ccdf3702
 RUN set -eux; \
   apt-get update; \
-  apt-get install -y --no-install-recommends ca-certificates curl unzip age; \
+  apt-get install -y --no-install-recommends ca-certificates curl unzip age jq; \
   curl -fsSL -o /tmp/walg.tgz "https://github.com/wal-g/wal-g/releases/download/${WALG_VERSION}/wal-g-pg-ubuntu-20.04-amd64.tar.gz"; \
   echo "${WALG_SHA256}  /tmp/walg.tgz" | sha256sum -c -; \
   tar -xzf /tmp/walg.tgz -C /tmp; \

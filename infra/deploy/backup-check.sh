@@ -52,7 +52,10 @@ for a in "${alerts[@]}"; do
     touch "$mark"
     continue
   fi
-  [[ -n $to ]] || continue
+  if [[ -z $to ]]; then
+    touch "$mark"
+    continue
+  fi
   if send_email "$to" "[Rapiz ${host:-server}] backup alert: $key" "$text See docs/runbooks/backup-and-restore.md."; then
     touch "$mark"
   fi

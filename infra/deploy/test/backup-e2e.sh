@@ -101,6 +101,8 @@ sleep 2
 psqlq "insert into t(note) values ('after')" >/dev/null
 psqlq "select pg_switch_wal()" >/dev/null
 waitfor '[[ $(ready_wal) == 0 ]]'
+# A base backup after the target: the point-in-time restore must start from the one before.
+bash ./backup-nightly.sh >> backups/offsite.log 2>&1 || { cat backups/offsite.log; die "third nightly failed"; }
 DRILL_TABLES=t DRILL_FRESHNESS=t.at bash ./restore-drill.sh >> backups/drills.log 2>&1 || { cat backups/drills.log; die "drill failed"; }
 grep -q 'drill ok' backups/drills.log || die "drill not logged"
 [[ -z $(docker volume ls -q -f name=rapiz-bktest_pgdrill) ]] || die "drill volume left behind"
@@ -109,9 +111,15 @@ DRILL_TARGET_TIME=$target compose up -d pgdrill >/dev/null 2>&1
 waitfor '[[ $(compose exec -T pgdrill psql -U rapiz_owner -d rapiz -Atc "select not pg_is_in_recovery()" 2>/dev/null) == t ]]' 90
 rows=$(compose exec -T pgdrill psql -U rapiz_owner -d rapiz -Atc "select string_agg(note, ',' order by id) from t")
 [[ $rows == before,mid ]] || die "point-in-time restore returned '$rows'"
+compose up -d --remove-orphans postgres >/dev/null 2>&1
+[[ -n $(compose ps -q --status running pgdrill) ]] || die "deploy's --remove-orphans removed pgdrill"
+compose stop pgdrill >/dev/null 2>&1
+DRILL_TARGET_TIME='2000-01-01 00:00:00+00' compose up -d pgdrill >/dev/null 2>&1
+waitfor '[[ -z $(compose ps -q --status running pgdrill) ]]' 15
+compose logs pgdrill 2>&1 | grep -q 'restored for' || die "reused volume with another target not refused"
 compose rm -sf pgdrill >/dev/null 2>&1
 docker volume rm -f rapiz-bktest_pgdrill >/dev/null
-ok "drill passes; point-in-time restore stops at the target"
+ok "drill passes; point-in-time restore picks the right base backup, stops at the target, refuses a reused volume"
 
 # Check ------------------------------------------------------------------------------------------
 out=$(BACKUP_CHECK_DRY_RUN=1 bash ./backup-check.sh)

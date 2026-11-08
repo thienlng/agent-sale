@@ -17,14 +17,23 @@ export RCLONE_CONFIG_OFFSITE_TYPE=s3 RCLONE_CONFIG_OFFSITE_PROVIDER=Other \
   RCLONE_CONFIG_OFFSITE_NO_CHECK_BUCKET=true
 export RCLONE_CONFIG_SRC_TYPE=s3 RCLONE_CONFIG_SRC_PROVIDER=SeaweedFS RCLONE_CONFIG_SRC_ENDPOINT="$S3_ENDPOINT" \
   RCLONE_CONFIG_SRC_ACCESS_KEY_ID="$S3_ACCESS_KEY" RCLONE_CONFIG_SRC_SECRET_ACCESS_KEY="$S3_SECRET_KEY"
-RCLONE_CONFIG_MEDIA_PASSWORD=$(rclone obscure "$BACKUP_RCLONE_PASSWORD")
-RCLONE_CONFIG_MEDIA_PASSWORD2=$(rclone obscure "$BACKUP_RCLONE_SALT")
+# Through stdin, so the secrets never show in a process list.
+RCLONE_CONFIG_MEDIA_PASSWORD=$(printf '%s' "$BACKUP_RCLONE_PASSWORD" | rclone obscure -)
+RCLONE_CONFIG_MEDIA_PASSWORD2=$(printf '%s' "$BACKUP_RCLONE_SALT" | rclone obscure -)
 export RCLONE_CONFIG_MEDIA_TYPE=crypt RCLONE_CONFIG_MEDIA_REMOTE="offsite:$bucket/media" \
   RCLONE_CONFIG_MEDIA_PASSWORD RCLONE_CONFIG_MEDIA_PASSWORD2
 quiet=(--stats 0 --log-level NOTICE)
 
 case ${1:-} in
   media)
+    # A lost or wrong source bucket must not empty the off-site copy (it would only survive 30 days
+    # in deleted/). BACKUP_MEDIA_FORCE=1 after checking that the source really shrank.
+    have=$(rclone lsf -R --files-only --fast-list media:current "${quiet[@]}" 2>/dev/null | wc -l)
+    now=$(rclone lsf -R --files-only --fast-list "src:$S3_BUCKET" "${quiet[@]}" | wc -l)
+    if ((have > 20 && now * 2 < have)) && [[ ${BACKUP_MEDIA_FORCE:-} != 1 ]]; then
+      echo "media: source has $now objects, off-site $have; refusing to sync (BACKUP_MEDIA_FORCE=1 to override)" >&2
+      exit 1
+    fi
     rclone sync "src:$S3_BUCKET" media:current --backup-dir "media:deleted/$(date -u +%F)" \
       --fast-list --transfers 8 "${quiet[@]}"
     ;;
@@ -43,7 +52,8 @@ case ${1:-} in
     done
     ;;
   verify)
-    rclone lsf -R --files-only "src:$S3_BUCKET" "${quiet[@]}" | shuf -n "${2:-20}" | while read -r key; do
+    # Objects older than the last nightly sync only; newer ones are not off-site yet.
+    rclone lsf -R --files-only --min-age "${BACKUP_VERIFY_MIN_AGE:-26h}" "src:$S3_BUCKET" "${quiet[@]}" | shuf -n "${2:-20}" | while read -r key; do
       a=$(rclone cat "src:$S3_BUCKET/$key" "${quiet[@]}" | sha256sum)
       b=$(rclone cat "media:current/$key" "${quiet[@]}" | sha256sum)
       [[ $a == "$b" ]] || { echo "verify: $key differs off-site" >&2; exit 1; }

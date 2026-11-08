@@ -40,7 +40,7 @@ Production is one VPS (`/opt/apps/rapiz`, Docker Compose, `infra/deploy/compose.
 | PostgreSQL base backup | WAL-G `backup-push` | nightly 19:00 UTC (02:00 Vietnam) | 30 full backups (`delete retain FULL 30`) → PITR over 30 days |
 | Object storage bucket `rapiz` | `rclone sync` from SeaweedFS S3 to an rclone `crypt` remote; overwritten or deleted objects moved with `--backup-dir` to `media:deleted/<UTC date>/` (same crypt remote) | nightly, after the base backup | live mirror + deleted/overwritten objects for 30 days |
 | `.env`, `compose.yml` | `tar` → `age` encryption → rclone copy to `config/<UTC timestamp>.tar.age` | nightly | 30 copies |
-| Local `pg_dump` (existing `backup.sh`) | kept for fast on-host restores and the pre-deploy backups in the runbook | daily + before deploys | **7 days** (down from 14; off-site copies replace the long tail) |
+| Local `pg_dump` (existing `backup.sh`) | kept for fast on-host restores; `deploy.sh` also runs it before every deploy | daily + before deploys | **7 days** once off-site is configured (off-site copies replace the long tail), 14 days until then |
 
 **Not backed up, on purpose:** Redis (BullMQ queues and caches; a lost queue is rebuilt by the outbox/reconcile jobs, and inbound webhooks are idempotent), the `hermes` volume (test-only ChatGPT login; production uses the OpenAI API), Caddy volumes (certificates are re-issued).
 

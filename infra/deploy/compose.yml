@@ -179,6 +179,7 @@ services:
     environment:
       <<: *walg-env
       DRILL_TARGET_TIME: ${DRILL_TARGET_TIME:-}
+      DRILL_BACKUP: ${DRILL_BACKUP:-}
     volumes: [pgdrill:/var/lib/postgresql/data]
     shm_size: 256m
     networks: [default]

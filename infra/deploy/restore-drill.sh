@@ -9,6 +9,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 . ./backup-lib.sh
 configured || { log "drill: off-site not configured"; exit 0; }
+backup_lock
 tables=${DRILL_TABLES:-workspaces conversations conversation_messages orders contacts}
 fresh=${DRILL_FRESHNESS:-conversation_messages.created_at}
 timeout=${DRILL_TIMEOUT:-3600}
@@ -23,6 +24,10 @@ fail() {
   status_set drill_failed
   exit 1
 }
+if [[ -n $(compose ps -aq pgdrill 2>/dev/null) ]]; then
+  log "drill: skipped, pgdrill is in use (a manual restore?); remove it when done"
+  exit 0
+fi
 trap cleanup EXIT
 
 db_bytes=$(pg_q "select pg_database_size('rapiz')")
@@ -43,8 +48,10 @@ until [[ $(compose exec -T pgdrill psql -U rapiz_owner -d rapiz -Atc 'select not
     fail "restore container stopped: $(compose logs --tail 5 pgdrill 2>&1 | tr '\n' ' ')"
   sleep 5
 done
-read -r -a prod <<<"$(pg_q "$query")"
-read -r -a drill <<<"$(compose exec -T pgdrill psql -U rapiz_owner -d rapiz -Atc "$query")"
+prod_out=$(pg_q "$query") || fail "cannot query production"
+drill_out=$(compose exec -T pgdrill psql -U rapiz_owner -d rapiz -Atc "$query") || fail "cannot query the restored copy"
+read -r -a prod <<<"$prod_out"
+read -r -a drill <<<"$drill_out"
 i=0
 for t in $tables; do
   ((drill[i] * 100 >= prod[i] * 99)) || fail "$t: restored ${drill[i]} rows, production has ${prod[i]}"

@@ -7,6 +7,8 @@ set -uo pipefail
 cd "$(dirname "$0")" || exit 1
 . ./backup-lib.sh
 configured || { log "backup: off-site not configured"; exit 0; }
+backup_lock
+trim_logs
 failed=0
 step() {
   local name=$1

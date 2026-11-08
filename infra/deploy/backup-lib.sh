@@ -32,9 +32,26 @@ send_email() {
   local key
   key=$(env_get RESEND_API_KEY)
   [[ -n $key ]] || { log "send_email: RESEND_API_KEY is not set"; return 1; }
-  curl -fsS -m 20 https://api.resend.com/emails \
-    -H "Authorization: Bearer $key" -H 'Content-Type: application/json' \
+  # The key goes through stdin (curl --config -), never on the command line.
+  printf 'header = "Authorization: Bearer %s"\n' "$key" | curl -fsS -m 20 --config - https://api.resend.com/emails \
+    -H 'Content-Type: application/json' \
     -d "$(printf '{"from":"%s","to":["%s"],"subject":"%s","text":"%s"}' "$(env_get EMAIL_FROM)" "$1" "$2" "$3")" >/dev/null
+}
+
+# backup_lock: one backup job at a time (nightly, drill, local dump); exits 0 if another runs.
+backup_lock() {
+  mkdir -p backups
+  exec 9>backups/.lock
+  flock -n 9 || { log "another backup job is running; skipped"; exit 0; }
+}
+
+# trim_logs: keep the last 5000 lines of each backup log over 5 MB.
+trim_logs() {
+  local f
+  for f in backups/*.log; do
+    if [[ ! -f $f ]] || (($(stat -c %s "$f") <= 5 * 1024 * 1024)); then continue; fi
+    tail -n 5000 "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+  done
 }
 
 # install_backup_cron <app dir>: idempotent crontab lines for every backup script (server clock UTC).
