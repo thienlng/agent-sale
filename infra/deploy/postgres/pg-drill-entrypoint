@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Restore container (ADR-028). On an empty volume: fetch a WAL-G base backup, then replay archived
+# WAL to its end, or to DRILL_TARGET_TIME, and promote. With a target and no DRILL_BACKUP it picks
+# the newest base backup that finished before the target. Never archives. Used by restore-drill.sh
+# and for restores (docs/runbooks/backup-and-restore.md). A volume restored for another target is
+# refused: remove it first.
+set -euo pipefail
+PGDATA=${PGDATA:-/var/lib/postgresql/data}
+target_time=${DRILL_TARGET_TIME:-}
+marker=$PGDATA/.rapiz-restore-target
+if [[ -s $PGDATA/PG_VERSION ]]; then
+  if [[ $(cat "$marker" 2>/dev/null) != "$target_time" ]]; then
+    echo "pgdrill: this volume was restored for '$(cat "$marker" 2>/dev/null)', not '$target_time'." >&2
+    echo "pgdrill: docker compose rm -sf pgdrill && docker volume rm <project>_pgdrill, then start again." >&2
+    exit 1
+  fi
+else
+  backup=${DRILL_BACKUP:-}
+  if [[ -z $backup && -n $target_time ]]; then
+    cutoff=$(date -u -d "$target_time" +%s)
+    backup=$(wal-g backup-list --json --detail 2>/dev/null |
+      jq -r --argjson cutoff "$cutoff" '[.[] | select((.finish_time | sub("\\.[0-9]+"; "") | sub("Z$"; "") | strptime("%Y-%m-%dT%H:%M:%S") | mktime) < $cutoff)] | sort_by(.finish_time) | last | .backup_name // empty')
+    [[ -n $backup ]] || { echo "pgdrill: no base backup finished before $target_time" >&2; exit 1; }
+  fi
+  echo "pgdrill: restoring ${backup:-LATEST}${target_time:+ to $target_time}" >&2
+  wal-g backup-fetch "$PGDATA" "${backup:-LATEST}"
+  touch "$PGDATA/recovery.signal"
+  printf '%s' "$target_time" > "$marker"
+  chown -R postgres:postgres "$PGDATA"
+  chmod 700 "$PGDATA"
+fi
+target=()
+if [[ -n $target_time ]]; then
+  target=(-c "recovery_target_time=$target_time" -c recovery_target_action=promote)
+fi
+exec gosu postgres postgres -c archive_mode=off -c 'restore_command=wal-g wal-fetch %f %p' "${target[@]}"

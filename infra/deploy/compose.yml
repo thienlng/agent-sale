@@ -19,11 +19,42 @@ x-app: &app
     driver: json-file
     options: { max-size: 10m, max-file: '3' }
 
+# WAL-G settings shared by postgres and the restore container (ADR-028). Empty BACKUP_S3_BUCKET
+# = off-site backups off; wal-g-archive then lets Postgres recycle WAL as before.
+x-walg-env: &walg-env
+  BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+  WALG_S3_PREFIX: s3://${BACKUP_S3_BUCKET:-none}/wal-g
+  AWS_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+  AWS_REGION: ${BACKUP_S3_REGION:-auto}
+  AWS_S3_FORCE_PATH_STYLE: 'true'
+  AWS_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY:-}
+  AWS_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_KEY:-}
+  WALG_LIBSODIUM_KEY: ${BACKUP_WALG_KEY:-}
+  WALG_LIBSODIUM_KEY_TRANSFORM: base64
+  WALG_COMPRESSION_METHOD: zstd
+  PGHOST: /var/run/postgresql
+  PGUSER: rapiz_owner
+  PGDATABASE: rapiz
+
 services:
   postgres:
-    image: pgvector/pgvector:pg16
+    # pgvector + WAL-G, rclone and age (infra/deploy/postgres, ADR-028), built on the server by
+    # deploy.sh. Archiving is always on; wal-g-archive is a no-op until BACKUP_S3_BUCKET is set.
+    image: rapiz-postgres:local
+    build: ./postgres
     restart: unless-stopped
+    command:
+      [
+        'postgres',
+        '-c',
+        'archive_mode=on',
+        '-c',
+        'archive_command=/usr/local/bin/wal-g-archive %p',
+        '-c',
+        'archive_timeout=60',
+      ]
     environment:
+      <<: *walg-env
       POSTGRES_USER: rapiz_owner
       POSTGRES_PASSWORD: ${POSTGRES_OWNER_PASSWORD:?set in .env}
       POSTGRES_DB: rapiz
@@ -34,7 +65,8 @@ services:
       timeout: 3s
       retries: 30
     shm_size: 256m
-    networks: [backend]
+    # default: egress to the off-site bucket for WAL archiving (no published port).
+    networks: [default, backend]
     logging: *logging
 
   redis:
@@ -126,6 +158,33 @@ services:
     networks: [default, backend]
     logging: *logging
 
+  # Off-site media and config copies (infra/deploy/postgres/rapiz-backup); run by backup-nightly.sh
+  # and restore-drill.sh, and by hand for restores (docs/runbooks/backup-and-restore.md).
+  backup:
+    image: rapiz-postgres:local
+    pull_policy: never
+    profiles: [tools]
+    env_file: .env
+    entrypoint: ['rapiz-backup']
+    volumes: ['./.env:/cfg/.env:ro', './compose.yml:/cfg/compose.yml:ro']
+    networks: [default, backend]
+    logging: *logging
+
+  # Throwaway restore target of restore-drill.sh and of point-in-time restores (runbook).
+  pgdrill:
+    image: rapiz-postgres:local
+    pull_policy: never
+    profiles: [tools]
+    entrypoint: ['pg-drill-entrypoint']
+    environment:
+      <<: *walg-env
+      DRILL_TARGET_TIME: ${DRILL_TARGET_TIME:-}
+      DRILL_BACKUP: ${DRILL_BACKUP:-}
+    volumes: [pgdrill:/var/lib/postgresql/data]
+    shm_size: 256m
+    networks: [default]
+    logging: *logging
+
   edge:
     image: ${RAPIZ_IMAGE:-ghcr.io/thienlng/agent-sale}/edge:${RAPIZ_TAG:-latest}
     restart: unless-stopped
@@ -152,6 +211,7 @@ networks:
 
 volumes:
   pgdata:
+  pgdrill:
   redisdata:
   s3data:
   caddydata:

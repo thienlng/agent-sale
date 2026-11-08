@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Off-site copies of media and config (ADR-028), run in the `backup` tools container:
+#   rapiz-backup media          sync bucket S3_BUCKET to media:current (encrypted); replaced or
+#                               deleted objects move to media:deleted/<UTC date>
+#   rapiz-backup config         tar .env + compose.yml, encrypt to BACKUP_AGE_RECIPIENT, upload
+#   rapiz-backup prune          drop media:deleted days and config archives beyond 30
+#   rapiz-backup verify [n]     compare n random objects with their off-site copies; newest config exists
+#   rapiz-backup rclone <args>  rclone with the remotes below (restores, see the runbook)
+# Remotes: src: (SeaweedFS), offsite: (BACKUP_S3_*), media: (crypt over offsite:<bucket>/media).
+set -euo pipefail
+: "${BACKUP_S3_BUCKET:?BACKUP_S3_BUCKET is not set}" "${BACKUP_RCLONE_PASSWORD:?}" "${BACKUP_RCLONE_SALT:?}"
+keep=30
+bucket=$BACKUP_S3_BUCKET
+export RCLONE_CONFIG_OFFSITE_TYPE=s3 RCLONE_CONFIG_OFFSITE_PROVIDER=Other \
+  RCLONE_CONFIG_OFFSITE_ENDPOINT="$BACKUP_S3_ENDPOINT" RCLONE_CONFIG_OFFSITE_REGION="${BACKUP_S3_REGION:-auto}" \
+  RCLONE_CONFIG_OFFSITE_ACCESS_KEY_ID="$BACKUP_S3_ACCESS_KEY" RCLONE_CONFIG_OFFSITE_SECRET_ACCESS_KEY="$BACKUP_S3_SECRET_KEY" \
+  RCLONE_CONFIG_OFFSITE_NO_CHECK_BUCKET=true
+export RCLONE_CONFIG_SRC_TYPE=s3 RCLONE_CONFIG_SRC_PROVIDER=SeaweedFS RCLONE_CONFIG_SRC_ENDPOINT="$S3_ENDPOINT" \
+  RCLONE_CONFIG_SRC_ACCESS_KEY_ID="$S3_ACCESS_KEY" RCLONE_CONFIG_SRC_SECRET_ACCESS_KEY="$S3_SECRET_KEY"
+# Through stdin, so the secrets never show in a process list.
+RCLONE_CONFIG_MEDIA_PASSWORD=$(printf '%s' "$BACKUP_RCLONE_PASSWORD" | rclone obscure -)
+RCLONE_CONFIG_MEDIA_PASSWORD2=$(printf '%s' "$BACKUP_RCLONE_SALT" | rclone obscure -)
+export RCLONE_CONFIG_MEDIA_TYPE=crypt RCLONE_CONFIG_MEDIA_REMOTE="offsite:$bucket/media" \
+  RCLONE_CONFIG_MEDIA_PASSWORD RCLONE_CONFIG_MEDIA_PASSWORD2
+quiet=(--stats 0 --log-level NOTICE)
+
+case ${1:-} in
+  media)
+    # A lost or wrong source bucket must not empty the off-site copy (it would only survive 30 days
+    # in deleted/). BACKUP_MEDIA_FORCE=1 after checking that the source really shrank.
+    have=$(rclone lsf -R --files-only --fast-list media:current "${quiet[@]}" 2>/dev/null | wc -l)
+    now=$(rclone lsf -R --files-only --fast-list "src:$S3_BUCKET" "${quiet[@]}" | wc -l)
+    if ((have > 20 && now * 2 < have)) && [[ ${BACKUP_MEDIA_FORCE:-} != 1 ]]; then
+      echo "media: source has $now objects, off-site $have; refusing to sync (BACKUP_MEDIA_FORCE=1 to override)" >&2
+      exit 1
+    fi
+    rclone sync "src:$S3_BUCKET" media:current --backup-dir "media:deleted/$(date -u +%F)" \
+      --fast-list --transfers 8 "${quiet[@]}"
+    ;;
+  config)
+    : "${BACKUP_AGE_RECIPIENT:?BACKUP_AGE_RECIPIENT is not set}"
+    tar -C /cfg -czf - .env compose.yml | age -r "$BACKUP_AGE_RECIPIENT" |
+      rclone rcat "offsite:$bucket/config/$(date -u +%Y%m%dT%H%M%SZ).tar.gz.age" "${quiet[@]}"
+    ;;
+  prune)
+    cutoff=$(date -u -d "$keep days ago" +%F)
+    { rclone lsf media:deleted --dirs-only "${quiet[@]}" 2>/dev/null || true; } | sed 's:/$::' | while read -r day; do
+      if [[ $day < $cutoff ]]; then rclone purge "media:deleted/$day" "${quiet[@]}"; fi
+    done
+    rclone lsf "offsite:$bucket/config" --files-only "${quiet[@]}" | sort | head -n "-$keep" | while read -r f; do
+      rclone deletefile "offsite:$bucket/config/$f" "${quiet[@]}"
+    done
+    ;;
+  verify)
+    # Objects older than the last nightly sync only; newer ones are not off-site yet.
+    rclone lsf -R --files-only --min-age "${BACKUP_VERIFY_MIN_AGE:-26h}" "src:$S3_BUCKET" "${quiet[@]}" | shuf -n "${2:-20}" | while read -r key; do
+      a=$(rclone cat "src:$S3_BUCKET/$key" "${quiet[@]}" | sha256sum)
+      b=$(rclone cat "media:current/$key" "${quiet[@]}" | sha256sum)
+      [[ $a == "$b" ]] || { echo "verify: $key differs off-site" >&2; exit 1; }
+    done
+    newest=$(rclone lsf "offsite:$bucket/config" --files-only "${quiet[@]}" | sort | tail -1)
+    [[ -n $newest ]] || { echo "verify: no config archive off-site" >&2; exit 1; }
+    echo "verify: ok (newest config $newest)"
+    ;;
+  rclone) shift; exec rclone "$@" ;;
+  *) echo "usage: rapiz-backup media|config|prune|verify [n]|rclone <args>" >&2; exit 2 ;;
+esac

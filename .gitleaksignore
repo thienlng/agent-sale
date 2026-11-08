@@ -30,3 +30,5 @@ f39ee0f9ee0511cc90e39ba4ad8ddd652cc9f1a6:packages/ai-core/src/agent/safety.test.
 2d958d6c5e4bf0460821ecdbf9afc1ccc1fb4767:apps/backend/test/assistant.integration.spec.ts:generic-api-key:1032
 2d958d6c5e4bf0460821ecdbf9afc1ccc1fb4767:packages/ai-core/src/agent/safety.test.ts:curl-auth-header:117
 2d958d6c5e4bf0460821ecdbf9afc1ccc1fb4767:packages/ai-core/src/agent/safety.test.ts:jwt:194
+# Backup plan (ADR-028): synthetic base64 of "0123456789abcdef..." in an early test fixture, removed later.
+32e02f3fa72f5dd35c735dbcfcadc9b702cf418e:docs/superpowers/plans/2026-11-08-backup-dr-phase1.md:generic-api-key:287

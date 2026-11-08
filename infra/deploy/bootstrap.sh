@@ -5,7 +5,9 @@
 # `docker` group, /opt/apps/rapiz owned by deploy, and the external Docker network `proxy`
 # of the server's Nginx Proxy Manager.
 # Copies the server files, writes /opt/apps/rapiz/.env with freshly generated secrets (an
-# existing file is never overwritten) and installs the daily backup in deploy's crontab.
+# existing file is never overwritten) and installs the backup cron lines (ADR-028). Off-site
+# backups start once ./backup-keys.sh has run and BACKUP_S3_* are filled in .env
+# (docs/runbooks/backup-and-restore.md).
 set -euo pipefail
 
 HOST=${1:?usage: bootstrap.sh <public-host>}
@@ -20,7 +22,9 @@ mkdir -p "$DIR/backups"
 chmod 750 "$DIR" "$DIR/backups"
 if [[ $HERE != "$DIR" ]]; then
   install -m 644 "$HERE/compose.yml" "$DIR/compose.yml"
-  for f in deploy.sh backup.sh set-host.sh beta-gate.sh; do install -m 755 "$HERE/$f" "$DIR/$f"; done
+  for f in deploy.sh backup.sh set-host.sh beta-gate.sh backup-lib.sh backup-nightly.sh backup-check.sh \
+    restore-drill.sh backup-keys.sh; do install -m 755 "$HERE/$f" "$DIR/$f"; done
+  rm -rf "$DIR/postgres" && cp -r "$HERE/postgres" "$DIR/postgres"
 fi
 
 if [[ ! -f $DIR/.env ]]; then
@@ -76,7 +80,6 @@ else
   echo "$DIR/.env exists; left unchanged"
 fi
 
-# Daily database backup at 03:15 server time, 14 days kept (see backup.sh).
-line="15 3 * * * $DIR/backup.sh >> $DIR/backups/backup.log 2>&1"
-{ crontab -l 2>/dev/null | grep -vF "$DIR/backup.sh" || true; echo "$line"; } | crontab -
-echo "bootstrap done"
+# Local dump, off-site backup, health check and restore drill (backup-lib.sh, ADR-028).
+(cd "$DIR" && . ./backup-lib.sh && install_backup_cron "$DIR")
+echo "bootstrap done; next: ./backup-keys.sh, store the kit, fill BACKUP_* in .env (docs/runbooks/backup-and-restore.md)"

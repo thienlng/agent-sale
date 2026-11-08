@@ -108,9 +108,14 @@ On-call: rotation, PagerDuty/Opsgenie; blameless postmortem for every Sev1/Sev2 
 
 ## 7. Backup & DR
 
-- Postgres: 14-day PITR + daily snapshots kept for 30 days, cross-region.
-- Object storage: versioning + lifecycle.
-- **Monthly restore drills** (measure real RTO/RPO), with results recorded.
+Single-VPS production (today, [ADR-028](adr/ADR-028-backup-and-disaster-recovery-single-vps.md), [runbook](runbooks/backup-and-restore.md)):
+
+- Postgres: WAL-G continuous WAL archiving (RPO ≤ 1 min) + nightly base backups, 30 kept → point-in-time recovery over 30 days, encrypted, in an off-site S3-compatible bucket.
+- Object storage: nightly encrypted `rclone` copy; replaced/deleted objects kept 30 days.
+- Server config (`.env`): nightly, age-encrypted; the private key lives only in the owner's break-glass kit.
+- **Weekly automated restore drill** (records the real database RTO) and a 5-minute check that emails alerts.
+
+Multi-node target: 14-day PITR + daily snapshots kept for 30 days, cross-region (pgBackRest with Patroni), object storage versioning + lifecycle, monthly restore drills. ADR-028 is superseded when production moves there.
 
 ### One-off: import linked product pictures
 

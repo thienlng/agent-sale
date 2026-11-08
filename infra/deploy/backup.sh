@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
-# Database dump into /opt/apps/rapiz/backups (cron, daily). Keeps 14 days. Copy the dumps off the
-# server too: a backup on the same disk does not survive losing the server.
-# Restore: docs/runbooks/deploy-vps.md#restore.
+# Local database dump into /opt/apps/rapiz/backups (cron daily, and by deploy.sh before each deploy).
+# Keeps 7 days once off-site backups are configured, 14 days until then.
+# It does not survive losing the server: off-site, point-in-time backups are backup-nightly.sh and
+# WAL archiving (ADR-028). Restore: docs/runbooks/backup-and-restore.md.
 set -euo pipefail
 cd "$(dirname "$0")"
+. ./backup-lib.sh
+keep=14
+if configured; then keep=7; fi
 file=backups/rapiz-$(date -u +%Y%m%dT%H%M%SZ).dump
-docker compose --env-file .env exec -T postgres pg_dump -U rapiz_owner -d rapiz -Fc > "$file.tmp"
+compose exec -T postgres pg_dump -U rapiz_owner -d rapiz -Fc > "$file.tmp"
 mv "$file.tmp" "$file"
-find backups -name 'rapiz-*.dump' -mtime +14 -delete
+find backups -name 'rapiz-*.dump' -mtime "+$keep" -delete
 echo "$(date -u +%FT%TZ) wrote $file ($(du -h "$file" | cut -f1))"

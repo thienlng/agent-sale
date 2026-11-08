@@ -27,7 +27,12 @@ fi
 tag=$arg
 export RAPIZ_TAG=$tag
 echo "deploying $tag (current: ${current:-none})"
-[[ ${RAPIZ_SKIP_PULL:-} == 1 ]] || compose pull --quiet
+[[ ${RAPIZ_SKIP_PULL:-} == 1 ]] || compose pull --quiet --ignore-buildable
+# Project postgres image with the backup tools (postgres/, ADR-028); cached after the first build.
+compose build -q postgres
+# Local dump before anything changes (backup.sh, restore: docs/runbooks/deploy-vps.md). Stops the
+# deploy if it fails. Skipped on a fresh server where Postgres does not run yet.
+if [[ -n $(compose ps -q --status running postgres 2>/dev/null) ]]; then ./backup.sh; fi
 compose up -d --wait postgres redis object-storage
 
 # The bucket must exist before the first upload; creating an existing one is harmless.
@@ -52,5 +57,8 @@ if [[ $current != "$tag" ]]; then
   echo "$current" > .previous-tag
 fi
 echo "$tag" > .deployed-tag
+# Backup cron lines (ADR-028); idempotent, so every deploy keeps them current.
+. ./backup-lib.sh
+install_backup_cron "$PWD"
 docker image prune -f --filter until=168h >/dev/null
 echo "deployed $tag"
