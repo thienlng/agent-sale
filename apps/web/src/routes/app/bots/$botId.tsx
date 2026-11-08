@@ -92,7 +92,7 @@ function BotSpace() {
             onClick={() => setChatOpen(true)}
             aria-label={t('playground.show')}
             title={t('playground.show')}
-            className="text-primary"
+            className="text-brand-text"
           >
             <MessageSquareText />
           </Button>

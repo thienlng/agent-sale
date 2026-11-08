@@ -105,7 +105,7 @@ export function CustomerAvatar({
   return (
     <span
       className={cn(
-        'relative grid shrink-0 place-items-center rounded-full bg-primary-soft font-semibold text-primary',
+        'relative grid shrink-0 place-items-center rounded-full bg-primary-soft font-semibold text-brand-text',
         SIZES[size],
       )}
     >

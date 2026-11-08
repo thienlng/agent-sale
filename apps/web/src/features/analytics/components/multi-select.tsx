@@ -44,8 +44,9 @@ export function MultiSelect({
       <Popover>
         <PopoverTrigger asChild>
           <Button
+            size="sm"
             variant="outline"
-            className="h-9 w-full min-w-40 justify-between font-normal"
+            className="w-full min-w-40 justify-between font-normal"
             disabled={disabled}
           >
             <span className="truncate">{summary}</span>

@@ -322,7 +322,7 @@ export function AssistantPanel() {
         >
           {dragging ? (
             <div
-              className="pointer-events-none absolute inset-2 z-10 grid place-items-center rounded-xl border-2 border-dashed border-primary bg-background/90 text-sm font-medium text-primary"
+              className="pointer-events-none absolute inset-2 z-10 grid place-items-center rounded-xl border-2 border-dashed border-primary bg-background/90 text-sm font-medium text-brand-text"
               aria-hidden
             >
               {t('import.dropHere')}

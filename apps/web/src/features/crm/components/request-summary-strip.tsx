@@ -25,7 +25,7 @@ export function RequestSummaryStrip(props: {
 
 const CELL = 'rounded-xl border bg-card px-4 py-3 text-left';
 const CLICKABLE =
-  'w-full hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none';
+  'w-full hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none';
 
 function Strip({
   industry,

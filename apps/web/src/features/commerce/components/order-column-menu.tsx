@@ -200,13 +200,13 @@ export function ColumnMenuBody({
                 type="button"
                 aria-pressed={sortDir === dir}
                 onClick={() => sortBy(sortColumn, dir)}
-                className="flex min-h-8 items-center gap-2 rounded-md px-1.5 text-left hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                className="flex min-h-8 items-center gap-2 rounded-md px-1.5 text-left hover:bg-muted focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
               >
                 <Icon className="size-4 text-muted-foreground" aria-hidden />
                 <span className="flex-1">
                   {t(dir === 'asc' ? 'orders.columnMenu.sortAsc' : 'orders.columnMenu.sortDesc')}
                 </span>
-                {sortDir === dir ? <Check className="size-4 text-primary" aria-hidden /> : null}
+                {sortDir === dir ? <Check className="size-4 text-brand-text" aria-hidden /> : null}
               </button>
             );
           })}
@@ -279,8 +279,8 @@ export function OrderColumnMenu({
         type="button"
         aria-label={columnStateLabel(t, spec, search, pending)}
         className={cn(
-          'group -mx-1.5 inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-xs font-medium whitespace-nowrap hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none data-[state=open]:bg-muted',
-          filtered || dir ? 'text-primary' : 'text-muted-foreground',
+          'group -mx-1.5 inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-xs font-medium whitespace-nowrap hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none data-[state=open]:bg-muted',
+          filtered || dir ? 'text-brand-text' : 'text-muted-foreground',
           align === 'right' && 'flex-row-reverse',
         )}
       >

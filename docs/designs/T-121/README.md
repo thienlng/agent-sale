@@ -10,3 +10,7 @@ Paths inside them refer to that old repository: `research/`, `scripts/verify*.mj
 - `2026-10-24-rapiz-landing.md` — implementation plan.
 - `QA-REVIEW.md`, `REFERENCE-NOTES.md` — review and reference notes.
 - `ASSET-SELECTION.md`, `asset-inventory.json` — which rabbit illustrations are used where.
+
+> **Superseded (2026-11-08):** the site now follows brand identity v2 "Precision"
+> (`docs/designs/brand-identity-v2.md`). The rabbit illustrations and the Space Grotesk /
+> JetBrains Mono typography described in these records were removed; keep the records as history.

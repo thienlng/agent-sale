@@ -97,7 +97,7 @@ export function LayoutCustomizeDialog({
                   aria-checked={preset === p}
                   onClick={() => setPreference('theme_preset', p)}
                   className={cn(
-                    'flex flex-col items-center gap-1 rounded-lg border p-2 text-xs transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none',
+                    'flex flex-col items-center gap-1 rounded-lg border p-2 text-xs transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none',
                     preset === p && 'border-primary bg-primary-soft',
                   )}
                 >

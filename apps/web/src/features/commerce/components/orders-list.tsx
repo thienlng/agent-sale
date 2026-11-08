@@ -85,11 +85,11 @@ function OrderCards({ rows }: { rows: OrderSummaryDto[] }) {
           <Link
             to="/app/orders/$orderId"
             params={{ orderId: o.id }}
-            className="flex flex-col gap-2 rounded-xl border bg-card p-3 focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+            className="flex flex-col gap-2 rounded-xl border bg-card p-3 focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
           >
             <div className="flex items-center justify-between gap-2">
               <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-                <span className="font-medium text-primary tabular-nums">{o.code}</span>
+                <span className="font-medium text-brand-text tabular-nums">{o.code}</span>
                 {o.createdByKind === 'bot' ? <BotBadge /> : null}
                 {o.createdByKind === 'bot' && o.reviewState === 'pending' ? (
                   <PendingReviewChip />
@@ -358,7 +358,7 @@ export function OrdersList({
               {(data && !rows.length) || unavailable ? (
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={colCount} className="py-16 text-center text-muted-foreground">
-                    <PackageOpen className="mx-auto mb-3 size-8 text-primary" aria-hidden />
+                    <PackageOpen className="mx-auto mb-3 size-8 text-brand-text" aria-hidden />
                     {unavailable ? (
                       t('orders.unavailable')
                     ) : hasAnyFilter(search) || data?.counts['all'] ? (

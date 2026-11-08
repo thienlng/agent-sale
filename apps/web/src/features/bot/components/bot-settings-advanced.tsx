@@ -77,7 +77,7 @@ export function BotSettingsAdvanced({
     };
     return (
       <Field id={id} label={t(`settings.${key}`)} {...(opts.hint ? { hint: opts.hint } : {})}>
-        {opts.multiline ? <Textarea rows={3} {...props} /> : <Input className="h-10" {...props} />}
+        {opts.multiline ? <Textarea rows={3} {...props} /> : <Input {...props} />}
       </Field>
     );
   };
@@ -89,7 +89,7 @@ export function BotSettingsAdvanced({
         <Link
           to="/app/bots/$botId/instructions"
           params={{ botId }}
-          className="font-medium text-primary underline-offset-4 hover:underline"
+          className="font-medium text-brand-text underline-offset-4 hover:underline"
         >
           {t('settings.guidanceLink')}
         </Link>
@@ -97,7 +97,7 @@ export function BotSettingsAdvanced({
         <Link
           to="/app/bots/$botId/knowledge"
           params={{ botId }}
-          className="font-medium text-primary underline-offset-4 hover:underline"
+          className="font-medium text-brand-text underline-offset-4 hover:underline"
         >
           {t('settings.factsLink')}
         </Link>
@@ -113,7 +113,7 @@ export function BotSettingsAdvanced({
             value={draft.settings.creativity}
             onValueChange={(v) => set('creativity', v as BotSettings['creativity'])}
           >
-            <SelectTrigger id="setting-creativity" className="h-10 w-full sm:w-80">
+            <SelectTrigger id="setting-creativity" className="w-full sm:w-80">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -153,7 +153,7 @@ export function BotSettingsAdvanced({
             min={1}
             max={1440}
             required
-            className="h-10 sm:w-40"
+            className="sm:w-40"
             value={draft.settings.humanTakeoverMinutes}
             onChange={(e) => set('humanTakeoverMinutes', Number(e.target.value))}
           />

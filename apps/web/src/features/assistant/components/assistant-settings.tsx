@@ -103,7 +103,7 @@ export function AssistantSettings({ onOpenMemory }: { onOpenMemory: () => void }
           <button
             type="button"
             onClick={onOpenMemory}
-            className="flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+            className="flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
           >
             <Brain className="size-4 text-muted-foreground" aria-hidden />
             <span className="flex-1">{t('showMemory')}</span>

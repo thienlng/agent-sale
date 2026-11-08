@@ -71,7 +71,7 @@ function IconAction({
         aria-keyshortcuts={shortcut}
         disabled={disabled}
         onClick={onClick}
-        className={cn(pressed && 'border-primary/40 bg-primary-soft text-primary')}
+        className={cn(pressed && 'border-primary/40 bg-primary-soft text-brand-text')}
       >
         {children}
       </Button>
@@ -133,7 +133,7 @@ export function ConversationHeader({
   const locked = busy || !canEdit;
   const seen =
     c.unreadCount > 0 ? (
-      <span className="font-medium text-primary">{v2('unseen')}</span>
+      <span className="font-medium text-brand-text">{v2('unseen')}</span>
     ) : seenAt && c.lastReadBy?.userId !== userId ? (
       c.lastReadBy?.name ? (
         v2('seenBy', { name: c.lastReadBy.name, time: seenAt })

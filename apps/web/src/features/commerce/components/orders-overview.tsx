@@ -97,7 +97,7 @@ export function OrdersOverview() {
               className={cn(
                 'flex flex-col items-start gap-1 rounded-xl border bg-card p-4 text-left transition-colors',
                 selectable &&
-                  'hover:border-primary/60 focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none',
+                  'hover:border-primary/60 focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none',
                 active && 'border-primary bg-primary-soft',
                 !selectable && 'cursor-default',
               )}

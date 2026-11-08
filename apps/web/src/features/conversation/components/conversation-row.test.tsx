@@ -190,7 +190,7 @@ describe('conversation row', () => {
     const { unmount } = renderRow({ mode: 'bot' });
     expect(
       screen.getByRole('img', { name: 'channelInbox.v2.row.modeBot' }).getAttribute('class'),
-    ).toContain('text-primary');
+    ).toContain('text-ai');
     unmount();
     renderRow({ mode: 'human' });
     expect(

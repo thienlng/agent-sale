@@ -72,7 +72,7 @@ export function BotList({ business }: { business?: BotBusinessContext }) {
                     params={{ botId: bot.id }}
                     className="flex min-w-0 flex-1 items-center gap-4 px-5 py-4 focus-visible:bg-muted focus-visible:outline-none"
                   >
-                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary-soft text-primary">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary-soft text-brand-text">
                       <Bot className="size-5" aria-hidden />
                     </span>
                     <span className="min-w-0 flex-1">
@@ -140,7 +140,7 @@ export function BotList({ business }: { business?: BotBusinessContext }) {
             </ul>
           ) : (
             <div className="flex flex-col items-center rounded-xl border border-dashed px-6 py-16 text-center">
-              <span className="grid size-14 place-items-center rounded-full bg-primary-soft text-primary">
+              <span className="grid size-14 place-items-center rounded-full bg-primary-soft text-brand-text">
                 <Bot className="size-7" aria-hidden />
               </span>
               <h2 className="mt-4 text-lg font-semibold">{t('bots.emptyTitle')}</h2>

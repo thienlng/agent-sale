@@ -331,7 +331,7 @@ export const PropertyBlock = memo(function PropertyBlock({
     <Link
       to="/app/calendar/$propertyId"
       params={{ propertyId: property.id }}
-      className="min-w-0 flex-1 rounded-sm px-2 py-1 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      className="min-w-0 flex-1 rounded-sm px-2 py-1 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
     >
       <div className="flex items-baseline gap-1.5">
         <span className="text-sm font-semibold">{property.code}</span>
@@ -348,7 +348,7 @@ export const PropertyBlock = memo(function PropertyBlock({
     <div className="flex w-full min-w-0 items-center">
       <button
         type="button"
-        className="flex size-8 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="flex size-8 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
         aria-expanded={expanded}
         aria-label={t('cal.expand', { code: property.code })}
         onClick={() => handlers.onToggle(property.id)}

@@ -155,7 +155,7 @@ export function InternalNoteCard({
             aria-label={t('cal.internalNote', { code })}
             aria-expanded={open}
             aria-describedby={noteId}
-            className="mr-1 shrink-0 rounded-sm p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="mr-1 shrink-0 rounded-sm p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
             onClick={() => setOpen((o) => !o)}
           >
             <StickyNote aria-hidden className="size-3.5" />

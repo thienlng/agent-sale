@@ -80,7 +80,7 @@ function LearningNotice({
       {item.kind === 'skill' && item.state === 'pending_approval' ? (
         <button
           type="button"
-          className="shrink-0 font-medium text-primary hover:underline"
+          className="shrink-0 font-medium text-brand-text hover:underline"
           onClick={onOpenSkills}
         >
           {t('learning.view')}

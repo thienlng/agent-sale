@@ -298,7 +298,7 @@ export function TrainingItems({
           onChange={setSearch}
           placeholder={scenario ? t('data.instructions.search') : t('search')}
         />
-        <Button className="ml-auto h-9" onClick={() => setEditor({ item: null })}>
+        <Button size="sm" className="ml-auto" onClick={() => setEditor({ item: null })}>
           <Plus />
           {scenario ? t('data.instructions.add') : t('add')}
         </Button>

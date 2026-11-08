@@ -106,7 +106,7 @@ function Row({
       aria-current={active ? 'true' : undefined}
       aria-label={`${tr('author', { id: shortId(c.authorId) })}: ${c.text || tr('noText')}`}
       className={cn(
-        'flex w-full flex-col gap-1 border-b px-3 py-2.5 text-left outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring',
+        'flex w-full flex-col gap-1 border-b px-3 py-2.5 text-left outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring',
         active && 'bg-muted',
       )}
     >

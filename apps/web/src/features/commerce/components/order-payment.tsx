@@ -122,7 +122,7 @@ export function PaymentPanel({
           </div>
           <div className="flex justify-between gap-4 font-medium">
             <dt>{amounts.remaining < 0 ? t('orderForm.overpaid') : t('orderForm.remaining')}</dt>
-            <dd className={cn('tabular-nums', amounts.remaining > 0 && 'text-primary')}>
+            <dd className={cn('tabular-nums', amounts.remaining > 0 && 'text-brand-text')}>
               {formatVnd(Math.abs(amounts.remaining))}
             </dd>
           </div>

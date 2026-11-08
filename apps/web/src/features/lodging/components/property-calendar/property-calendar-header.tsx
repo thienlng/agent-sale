@@ -72,7 +72,7 @@ export function PropertyCalendarHeader({
           to="/app/calendar"
           search={lastCalendarSearch()}
           aria-label={t('pcal.backLabel')}
-          className="inline-flex w-fit items-center gap-1 rounded-sm text-sm text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="inline-flex w-fit items-center gap-1 rounded-sm text-sm text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
         >
           <ArrowLeft aria-hidden className="size-4" />
           {t('pcal.back')}

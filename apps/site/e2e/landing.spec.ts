@@ -8,17 +8,6 @@ function trackErrors(page: Page) {
   return errors;
 }
 
-async function loadAllImages(page: Page) {
-  await page.locator('img[loading=lazy]').evaluateAll((imgs) =>
-    Promise.all(
-      (imgs as HTMLImageElement[]).map((img) => {
-        img.loading = 'eager';
-        return img.decode();
-      }),
-    ),
-  );
-}
-
 const noOverflow = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 
@@ -53,13 +42,9 @@ test('content, demo tabs, dialog, FAQ and layout at every width', async ({ page 
   await page.setViewportSize({ width: 1440, height: 1000 });
   const response = await page.goto('/', { waitUntil: 'networkidle' });
   expect(response!.status()).toBe(200);
-  await loadAllImages(page);
-  await expect(page.locator('.friend-animation')).toHaveCount(6);
-  const assets = await page
-    .locator('img[src^="/images/friends/"]')
-    .evaluateAll((imgs) => imgs.map((img) => img.getAttribute('src')));
-  expect(new Set(assets).size).toBe(13);
-  expect(await page.locator('.rabbit').getAttribute('src')).toMatch(/\.gif$/);
+  // Brand v2: the logo is inline SVG (no mascot images), header wordmark plus R marks.
+  await expect(page.locator('.header .brand svg')).toHaveCount(1);
+  await expect(page.locator('img[src^="/images/"]')).toHaveCount(0);
 
   for (const industry of ['beauty', 'education', 'service', 'fashion']) {
     await page.locator(`[data-industry="${industry}"]`).click();
@@ -103,16 +88,14 @@ test('content, demo tabs, dialog, FAQ and layout at every width', async ({ page 
   expect(errors).toEqual([]);
 });
 
-test('reduced motion swaps every animation for its still frame', async ({ page }) => {
+test('reduced motion turns off the chat bubble animation', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/', { waitUntil: 'networkidle' });
-  expect(await page.locator('.rabbit').getAttribute('src')).toMatch(/still\.png$/);
-  await loadAllImages(page);
-  for (const friend of await page.locator('.friend-animation').all()) {
-    expect(await friend.evaluate((img) => (img as HTMLImageElement).currentSrc)).toMatch(
-      /-still\.png$/,
-    );
-  }
+  await page.locator('[data-industry="education"]').click();
+  const animation = await page
+    .locator('#bot-message')
+    .evaluate((el) => getComputedStyle(el).animationName);
+  expect(animation).toBe('none');
 });
 
 test('theme follows the system, persists a manual choice and syncs across tabs', async ({

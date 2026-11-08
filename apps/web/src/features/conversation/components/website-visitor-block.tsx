@@ -23,7 +23,7 @@ function PageLink({ url, title }: { url: string; title?: string | null }) {
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="block truncate text-xs text-primary hover:underline"
+          className="block truncate text-xs text-brand-text hover:underline"
         >
           {shortUrl(url)}
         </a>

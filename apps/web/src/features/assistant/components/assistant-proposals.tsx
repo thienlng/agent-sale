@@ -152,7 +152,7 @@ function PendingProposal({ proposal }: { proposal: AssistantProposalDto }) {
         <p
           className={cn(
             'text-xs font-medium tracking-wide uppercase',
-            action.destructive ? 'text-destructive' : 'text-primary',
+            action.destructive ? 'text-destructive' : 'text-brand-text',
           )}
         >
           {t('proposals.label')}
@@ -186,7 +186,7 @@ function PendingProposal({ proposal }: { proposal: AssistantProposalDto }) {
             aria-expanded={showPreview}
             aria-controls={previewId}
             onClick={() => setShowPreview((v) => !v)}
-            className="inline-flex w-fit items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+            className="inline-flex w-fit items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
           >
             {showPreview ? t('proposals.hidePreview') : t('proposals.showPreview')}
             <ChevronDown

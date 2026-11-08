@@ -123,7 +123,7 @@ export function DeliveriesSheet({
         </SheetHeader>
         <div className="flex flex-col gap-3 px-4 pb-4">
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="h-9 w-44" aria-label={t('deliveries.all')}>
+            <SelectTrigger className="w-44" aria-label={t('deliveries.all')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

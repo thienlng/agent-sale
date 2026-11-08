@@ -102,7 +102,6 @@ export function CreateBotDialog({
               onChange={(e) => setName(e.target.value)}
               placeholder={t('bots.namePlaceholder')}
               autoFocus
-              className="h-10"
             />
           </div>
           <div className="flex flex-col gap-2">

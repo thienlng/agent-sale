@@ -81,7 +81,7 @@ export function OrdersToolbar({
           onChange={(e) => setText(e.target.value)}
           placeholder={t('orders.search')}
           aria-label={t('orders.search')}
-          className="h-9 pl-9"
+          className="pl-9"
         />
       </div>
 
@@ -99,7 +99,7 @@ export function OrdersToolbar({
                 type="button"
                 onClick={() => onChange(c.clear)}
                 aria-label={t('orders.filters.remove', { name: c.label })}
-                className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
               >
                 <X className="size-3.5" aria-hidden />
               </button>
@@ -122,7 +122,7 @@ export function OrdersToolbar({
         <OrdersFilterSheet search={search} onChange={onChange} ctx={ctx} />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9">
+            <Button variant="outline" size="sm">
               <Columns3 />
               <span className="hidden sm:inline">{t('orders.filters.columns')}</span>
             </Button>
@@ -146,7 +146,7 @@ export function OrdersToolbar({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button variant="outline" size="sm" className="h-9" onClick={onExport} disabled={exporting}>
+        <Button variant="outline" size="sm" onClick={onExport} disabled={exporting}>
           <Download />
           <span className="hidden sm:inline">
             {exporting ? t('orders.filters.exporting') : t('orders.filters.export')}

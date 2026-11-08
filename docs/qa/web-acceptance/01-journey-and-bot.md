@@ -33,7 +33,7 @@ Use the shared fixture/evidence rules in [the data guide](data-and-oracles.md). 
 - **Priority / environment:** P2 / ISOLATED.
 - **Preconditions and data:** Fresh context; both system color modes; storage-blocked variant.
 - **Steps:** Check system initial theme; toggle manually; reload; synchronize another tab; block storage and toggle again; inspect Vietnamese text and font loading.
-- **Expected result:** Space Grotesk body/headings and JetBrains Mono accents render Vietnamese; self-hosted font requests succeed; manual theme persists/syncs when storage works and remains usable if storage fails.
+- **Expected result:** Inter body/headings and the Inter Tight display figures render Vietnamese; self-hosted font requests succeed; manual theme persists/syncs when storage works and remains usable if storage fails.
 - **Independent evidence:** Computed fonts, loaded same-origin font files, visible diacritics and theme state; no third-party font assumption.
 - **Cleanup:** Reset theme and close test contexts.
 - **Execution status:** NOT_RUN. Record the actual run in the execution ledger.

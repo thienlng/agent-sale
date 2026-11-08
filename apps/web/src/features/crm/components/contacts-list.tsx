@@ -127,7 +127,7 @@ export function ContactsList({
             <button
               type="button"
               onClick={() => open(c.id)}
-              className="flex w-full flex-col gap-1 rounded-xl border bg-card p-3 text-left focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+              className="flex w-full flex-col gap-1 rounded-xl border bg-card p-3 text-left focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
             >
               <span className="flex items-center justify-between gap-2">
                 <span className="flex min-w-0 items-center gap-2">
@@ -211,7 +211,7 @@ export function ContactsList({
               {(data && !rows.length) || unavailable ? (
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={span} className="py-16 text-center text-muted-foreground">
-                    <UsersRound className="mx-auto mb-3 size-8 text-primary" aria-hidden />
+                    <UsersRound className="mx-auto mb-3 size-8 text-brand-text" aria-hidden />
                     {unavailable
                       ? t('crm.unavailable')
                       : filtered

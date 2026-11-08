@@ -44,7 +44,7 @@ export function PaymentsPage() {
         value={status ?? ALL}
         onValueChange={(v) => setStatus(v === ALL ? undefined : (v as Status))}
       >
-        <SelectTrigger aria-label={t('payments.status')} className="h-9 w-48">
+        <SelectTrigger aria-label={t('payments.status')} className="w-48">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

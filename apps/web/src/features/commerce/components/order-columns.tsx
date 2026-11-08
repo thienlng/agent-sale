@@ -38,7 +38,7 @@ export const ORDER_COLUMNS: readonly OrderColumn[] = [
     header: 'orders.col.code',
     defaultVisible: true,
     fixed: true,
-    cell: (o) => <span className="font-medium text-primary tabular-nums">{o.code}</span>,
+    cell: (o) => <span className="font-medium text-brand-text tabular-nums">{o.code}</span>,
     csv: (o) => o.code,
   },
   {

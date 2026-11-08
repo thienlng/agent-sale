@@ -122,7 +122,7 @@ export function SignupForm({
       {error ? <FormError>{error}</FormError> : null}
       <div className="flex flex-col gap-2">
         <Label htmlFor="name">{t('auth.name')}</Label>
-        <Input id="name" name="name" autoComplete="name" required className="h-10" />
+        <Input id="name" name="name" autoComplete="name" required />
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">{t('auth.email')}</Label>
@@ -134,12 +134,11 @@ export function SignupForm({
             autoComplete="email"
             required
             defaultValue={defaultEmail}
-            className="h-10"
           />
           <Button
             type="button"
             variant="outline"
-            className="h-10 shrink-0"
+            className="shrink-0"
             disabled={sending || wait > 0}
             onClick={() => void sendCode()}
           >
@@ -168,7 +167,7 @@ export function SignupForm({
           maxLength={6}
           required
           aria-describedby="code-hint"
-          className="h-10 tracking-[0.4em]"
+          className="tracking-[0.4em]"
         />
         <p id="code-hint" className="text-sm text-muted-foreground">
           {t('auth.verify.spamHint')}
@@ -184,18 +183,17 @@ export function SignupForm({
           minLength={8}
           required
           aria-describedby="password-hint"
-          className="h-10"
         />
         <p id="password-hint" className="text-sm text-muted-foreground">
           {t('auth.passwordHint')}
         </p>
       </div>
-      <Button type="submit" size="lg" className="h-10" disabled={pending}>
+      <Button type="submit" size="lg" disabled={pending}>
         {pending ? t('auth.signingUp') : t('auth.signup')}
       </Button>
       <p className="text-center text-sm text-muted-foreground">
         {t('auth.haveAccount')}{' '}
-        <Link to="/login" className="font-medium text-primary hover:underline">
+        <Link to="/login" className="font-medium text-brand-text hover:underline">
           {t('auth.login')}
         </Link>
       </p>

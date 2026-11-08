@@ -68,7 +68,7 @@ export function StockEditor({
                         <Input
                           aria-label={`${v.sku} ${w.name} ${t('products.stock.onHand')}`}
                           inputMode="numeric"
-                          className="ml-auto h-8 w-24 text-right tabular-nums"
+                          className="ml-auto w-24 text-right tabular-nums"
                           value={draft}
                           onChange={(e) =>
                             setCounts({
@@ -118,7 +118,7 @@ export function StockEditor({
       {warehouses.data && !warehouses.data.length ? (
         <p className="mt-3 text-sm text-muted-foreground">
           {t('warehouses.empty')}{' '}
-          <Link to="/app/order-settings/warehouses" className="text-primary hover:underline">
+          <Link to="/app/order-settings/warehouses" className="text-brand-text hover:underline">
             {t('orderForm.goWarehouses')}
           </Link>
         </p>

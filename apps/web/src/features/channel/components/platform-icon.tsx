@@ -79,9 +79,9 @@ const MARKS: Record<PlatformKey, (props: IconProps) => ReactNode> = {
 const TILE: Record<PlatformKey, string> = {
   all: 'bg-primary text-primary-foreground',
   pending: 'bg-warning-soft text-warning',
-  facebook: 'bg-primary-soft text-primary',
+  facebook: 'bg-primary-soft text-brand-text',
   instagram: 'bg-destructive-soft text-destructive',
-  zalo: 'bg-primary-soft text-primary',
+  zalo: 'bg-primary-soft text-brand-text',
   lazada: 'bg-muted text-muted-foreground',
   tiktok: 'bg-foreground text-background',
   website: 'bg-muted text-muted-foreground',
@@ -119,5 +119,5 @@ export function ProviderGlyph({
 }) {
   const Mark =
     provider === 'facebook' ? FacebookMark : provider === 'website' ? Globe : InstagramMark;
-  return <Mark className={cn('size-4 text-primary', className)} />;
+  return <Mark className={cn('size-4 text-brand-text', className)} />;
 }

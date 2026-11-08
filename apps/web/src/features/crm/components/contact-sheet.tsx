@@ -100,7 +100,7 @@ export function ContactSheet({
             </TabsContent>
             <TabsContent value="files" className="pt-3">
               <p className="flex items-center gap-2 rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-                <FolderLock className="size-5 text-primary" aria-hidden />
+                <FolderLock className="size-5 text-brand-text" aria-hidden />
                 {t('crm.detail.filesSoon')}
               </p>
             </TabsContent>

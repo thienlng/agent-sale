@@ -97,7 +97,7 @@ export default function AssistantChart({ chart }: { chart: AssistantChartSpec })
               <span className="text-muted-foreground">
                 {chart.kind === 'pie' ? String(name) : (config[String(name)]?.label ?? name)}
               </span>
-              <span className="font-mono font-medium text-foreground tabular-nums">
+              <span className="font-medium text-foreground tabular-nums">
                 {formatValue(chart.unit, Number(value))}
               </span>
             </div>

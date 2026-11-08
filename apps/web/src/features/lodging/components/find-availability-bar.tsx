@@ -74,7 +74,7 @@ export function FindAvailabilityBar({
           <Input
             id={`${id}-in`}
             type="date"
-            className="h-8 w-36 tabular-nums"
+            className="w-36 tabular-nums"
             value={checkIn}
             aria-invalid={invalid || undefined}
             onChange={(e) => setCheckIn(e.target.value)}
@@ -87,7 +87,7 @@ export function FindAvailabilityBar({
           <Input
             id={`${id}-out`}
             type="date"
-            className="h-8 w-36 tabular-nums"
+            className="w-36 tabular-nums"
             min={checkIn || undefined}
             value={checkOut}
             aria-invalid={invalid || undefined}
@@ -95,12 +95,12 @@ export function FindAvailabilityBar({
           />
         </div>
         <PartyInput value={party} onChange={setParty} compact />
-        <Button type="submit" size="sm" className="h-8">
+        <Button type="submit" size="sm">
           <Search aria-hidden />
           {t('find.search')}
         </Button>
         {active && (
-          <Button type="button" variant="ghost" size="sm" className="h-8" onClick={clear}>
+          <Button type="button" variant="ghost" size="sm" onClick={clear}>
             <X aria-hidden />
             {t('find.clear')}
           </Button>

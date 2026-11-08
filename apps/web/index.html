@@ -4,12 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#f26b1d" />
+    <meta name="theme-color" content="#1f1f1f" />
     <meta
       name="description"
       content="Rapiz — bot bán hàng AI cho cửa hàng và doanh nghiệp Việt Nam."
     />
-    <link rel="icon" href="/favicon.png" type="image/png" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.png" type="image/png" sizes="64x64" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <!-- use-credentials: the beta gate (Basic Auth) answers 401 to a manifest fetched without them. -->
     <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
@@ -28,7 +29,7 @@
       }
       .boot img {
         width: 56px;
-        height: 56px;
+        height: auto;
         animation: boot 1.2s ease-in-out infinite;
       }
       @keyframes boot {
@@ -38,7 +39,7 @@
       }
       /* .dark is set by the preferences boot script injected first in <head>. */
       .dark .boot {
-        background: #17130f;
+        background: #1f1f1f;
       }
       @media (prefers-reduced-motion: reduce) {
         .boot img {
@@ -50,7 +51,7 @@
   <body>
     <div id="root">
       <div class="boot" aria-hidden="true">
-        <img src="/logo.png" alt="" width="56" height="56" />
+        <img src="/brand/rapiz-symbol-faceted.svg" alt="" width="56" height="50" />
       </div>
     </div>
     <script type="module" src="/src/main.tsx"></script>

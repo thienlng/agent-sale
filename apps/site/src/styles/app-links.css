@@ -3,16 +3,16 @@
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  padding: 0 6px;
-  font-size: 13px;
+  padding: 0 8px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #cfcfcf;
   white-space: nowrap;
 }
 .nav-login:hover {
-  color: #a95020;
+  color: #ffffff;
 }
 .nav-cta {
-  display: inline-flex;
-  align-items: center;
   white-space: nowrap;
 }
 .header nav .nav-login-mobile {
@@ -23,41 +23,33 @@
 .dialog-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
 }
 
-/* Icon-only theme switch: keep the 30–32px circle but give it a 44px hit area. */
+/* Icon-only theme switch: keep the 36px square but give it a 44px hit area. */
 .theme-toggle {
   position: relative;
 }
 .theme-toggle::after {
   content: '';
   position: absolute;
-  inset: -7px;
+  inset: -4px;
 }
 
-[data-theme='dark'] .nav-login:hover {
-  color: #f0a067;
-}
-
-@media (max-width: 1000px) {
-  .nav-login {
-    font-size: 12px;
-  }
-}
-
-@media (max-width: 700px) {
+@media (max-width: 740px) {
   /* The phone header keeps one call to action; "log in" moves into the menu. */
   .nav-login {
     display: none;
   }
   .header nav .nav-login-mobile {
-    display: block;
+    display: flex;
     font-weight: 600;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid #333333;
   }
   .header .nav-cta {
     min-height: 44px;
+    padding-inline: 16px;
+    font-size: 14px;
   }
   .closing-actions,
   .dialog-actions {
@@ -66,5 +58,10 @@
   .closing-actions .button,
   .dialog-actions .button {
     width: 100%;
+  }
+}
+@media (max-width: 380px) {
+  .header .nav-cta {
+    padding-inline: 12px;
   }
 }

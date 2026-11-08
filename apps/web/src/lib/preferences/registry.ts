@@ -50,7 +50,7 @@ export const storageKey = (key: PreferenceKey) => `rapiz.pref.${key}`;
 
 /** Swatch shown next to each preset in the picker (its light-mode primary). */
 export const PRESET_SWATCH: Record<PreferenceValues['theme_preset'], string> = {
-  rapiz: '#f26b1d',
+  rapiz: '#ff7a45',
   ocean: '#2563eb',
   forest: '#15803d',
   graphite: '#27272a',

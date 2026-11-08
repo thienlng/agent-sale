@@ -50,7 +50,7 @@ export function HoldMinutesControl() {
         inputMode="numeric"
         min={MIN}
         max={MAX}
-        className="h-8 w-20 tabular-nums"
+        className="w-20 tabular-nums"
         value={text}
         disabled={stored === undefined}
         aria-invalid={(text !== '' && !valid) || undefined}

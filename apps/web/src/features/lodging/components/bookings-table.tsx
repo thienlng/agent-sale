@@ -98,7 +98,7 @@ export function BookingsTable({
                 <div className="flex flex-col items-start gap-1">
                   <button
                     type="button"
-                    className="rounded-sm font-semibold tabular-nums hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    className="rounded-sm font-semibold tabular-nums hover:underline focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
                     onClick={(e) => {
                       e.stopPropagation();
                       onOpen(b.id);

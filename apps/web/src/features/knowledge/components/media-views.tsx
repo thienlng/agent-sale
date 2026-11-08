@@ -57,7 +57,7 @@ export function FolderGrid({
         <DataSearch value={query} onChange={setQuery} placeholder={t('data.media.search')} />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="h-9">
+            <Button size="sm" variant="outline">
               {t('data.media.sort')}
               <ArrowDownUp aria-hidden />
             </Button>
@@ -72,7 +72,7 @@ export function FolderGrid({
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button className="ml-auto h-9" onClick={onAdd}>
+        <Button size="sm" className="ml-auto" onClick={onAdd}>
           <FolderPlus />
           {t('data.media.addFolder')}
         </Button>
@@ -142,7 +142,7 @@ export function FolderView({
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-        <Button className="h-9" onClick={onAdd}>
+        <Button size="sm" onClick={onAdd}>
           <ImagePlus />
           {t('data.media.addImage')}
         </Button>

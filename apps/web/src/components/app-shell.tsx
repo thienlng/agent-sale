@@ -84,7 +84,7 @@ export function AppShell({
     <TooltipProvider delayDuration={0}>
       <SidebarProvider
         defaultOpen={sidebarOpenByDefault()}
-        style={{ '--header-height': '3.25rem' } as CSSProperties}
+        style={{ '--header-height': '3.5rem' } as CSSProperties}
       >
         {adminLayer || accountLayer ? (
           <AccountSidebar />
@@ -95,14 +95,18 @@ export function AppShell({
           <header
             className={[
               'flex h-(--header-height) shrink-0 items-center gap-2 border-b bg-background px-3 md:px-4',
-              // Sticky navbar: stays visible with a translucent, blurred background.
+              // Sticky navbar: stays visible on a solid surface (brand effects: no blur by default).
               '[html[data-navbar-style=sticky]_&]:sticky [html[data-navbar-style=sticky]_&]:top-0 [html[data-navbar-style=sticky]_&]:z-30',
-              '[html[data-navbar-style=sticky]_&]:rounded-t-[inherit] [html[data-navbar-style=sticky]_&]:bg-background/95 [html[data-navbar-style=sticky]_&]:backdrop-blur-md',
+              '[html[data-navbar-style=sticky]_&]:rounded-t-[inherit]',
             ].join(' ')}
           >
             <SidebarTrigger className="-ml-1" aria-label={t('nav.toggleSidebar')} />
             <Separator orientation="vertical" className="mx-1 data-[orientation=vertical]:h-4" />
-            {section ? <span className="truncate text-base font-medium">{t(section)}</span> : null}
+            {section ? (
+              <span className="truncate font-display text-base font-semibold tracking-[-0.01em]">
+                {t(section)}
+              </span>
+            ) : null}
             <div className="ml-auto flex items-center gap-1">
               {headerActions}
               <AccountMenu planDialog={planDialog} />

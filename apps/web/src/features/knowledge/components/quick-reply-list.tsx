@@ -64,7 +64,7 @@ function ImageFilterButton({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" className="h-9" aria-label={t('data.quick.filter')}>
+        <Button size="sm" variant="outline" aria-label={t('data.quick.filter')}>
           {t('data.quick.filter')}
           {value !== 'all' ? (
             <span className="size-1.5 rounded-full bg-primary" aria-hidden />
@@ -149,7 +149,8 @@ export function QuickReplyList({ botId }: { botId: string }) {
           </div>
         </div>
         <Button
-          className="ml-auto h-9"
+          size="sm"
+          className="ml-auto"
           data-assistant-target="quick-reply.new"
           onClick={() => setEditor({ item: null })}
         >

@@ -20,7 +20,7 @@ export function TestChatSteps({ steps }: { steps: readonly Step[] }) {
         aria-expanded={open}
         aria-controls={listId}
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1 rounded-sm hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+        className="inline-flex items-center gap-1 rounded-sm hover:text-foreground focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
       >
         <ChevronRight
           className={cn('size-3.5 shrink-0 transition-transform', open && 'rotate-90')}

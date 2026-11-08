@@ -112,7 +112,7 @@ export function MessageThread({
               {m.id === dividerId ? (
                 <div
                   role="separator"
-                  className="flex items-center gap-2 text-[11px] font-medium text-primary"
+                  className="flex items-center gap-2 text-[11px] font-medium text-brand-text"
                 >
                   <span className="h-px flex-1 bg-primary/40" />
                   {t('channelInbox.v2.thread.newDivider')}
@@ -137,7 +137,7 @@ export function MessageThread({
                   </span>
                 ) : null}
                 {m.sender === 'bot' && firstOfRun ? (
-                  <span className="mb-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-primary">
+                  <span className="mb-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-ai">
                     <Bot className="size-3" aria-hidden />
                     {t('channelInbox.v2.thread.bot')}
                   </span>

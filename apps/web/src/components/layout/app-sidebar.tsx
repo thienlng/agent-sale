@@ -173,8 +173,8 @@ function NavGroup({
 }) {
   return (
     <SidebarGroup>
-      {/* Mono, uppercase and spaced: a quiet section marker that never competes with the items. */}
-      <SidebarGroupLabel className="font-mono text-[0.6875rem] tracking-[0.12em] uppercase">
+      {/* Uppercase and spaced: a quiet section marker that never competes with the items. */}
+      <SidebarGroupLabel className="text-[0.6875rem] tracking-[0.08em] uppercase">
         {label}
       </SidebarGroupLabel>
       <SidebarMenu>
@@ -214,11 +214,11 @@ function NavItems({
               </Link>
             </SidebarMenuButton>
             {!ready ? (
-              <SidebarMenuBadge className="font-normal text-muted-foreground">
+              <SidebarMenuBadge className="font-normal text-sidebar-muted">
                 {t('nav.comingSoon')}
               </SidebarMenuBadge>
             ) : beta ? (
-              <SidebarMenuBadge className="font-normal text-muted-foreground">
+              <SidebarMenuBadge className="font-normal text-sidebar-muted">
                 {t('nav.beta')}
               </SidebarMenuBadge>
             ) : waiting && waiting.count > 0 ? (
@@ -257,8 +257,11 @@ export function AppSidebar({
           <SidebarMenuItem>
             <SidebarMenuButton asChild size="lg" tooltip={t('app.name')}>
               <Link to="/app/overview">
-                <Logo className="group-data-[collapsible=icon]:hidden" />
-                <Logo markOnly className="hidden group-data-[collapsible=icon]:inline-flex" />
+                <Logo className="group-data-[collapsible=icon]:hidden [&_svg]:h-5! [&_svg]:w-auto!" />
+                <Logo
+                  markOnly
+                  className="hidden group-data-[collapsible=icon]:inline-flex [&_svg]:h-4! [&_svg]:w-auto!"
+                />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

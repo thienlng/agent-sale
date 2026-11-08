@@ -113,7 +113,7 @@ export function MediaRow({
             value={item.caption}
             maxLength={300}
             placeholder={folderName}
-            className="h-8"
+
             onChange={(e) => onCaptionChange(e.target.value)}
           />
         ) : (

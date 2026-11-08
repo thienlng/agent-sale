@@ -32,7 +32,7 @@ export function AttachmentThumbs({
               type="button"
               onClick={() => onRemove(a.id)}
               aria-label={t('playground.removeImage')}
-              className="absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full bg-foreground text-background focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+              className="absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full bg-foreground text-background focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
             >
               <X className="size-3" aria-hidden />
             </button>

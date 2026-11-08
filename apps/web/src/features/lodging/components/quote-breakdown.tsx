@@ -118,7 +118,7 @@ function AdjustmentInput({
     <Input
       id={id}
       inputMode="numeric"
-      className="h-8 tabular-nums"
+      className="tabular-nums"
       value={text}
       onChange={(e) => {
         const raw = e.target.value.replace(/[^\d.,\s-]/g, '');
@@ -242,7 +242,7 @@ export function QuoteBreakdown({
         <Input
           id={`${id}-manual`}
           inputMode="numeric"
-          className="h-8 tabular-nums"
+          className="tabular-nums"
           placeholder={quote && quote.totalSell !== null ? formatVnd(quote.totalSell) : ''}
           value={price.manualTotal ?? ''}
           disabled={useAuto}
@@ -281,7 +281,7 @@ export function QuoteBreakdown({
           </Label>
           <Input
             id={`${id}-reason`}
-            className="h-8"
+
             maxLength={300}
             value={price.adjustmentReason}
             onChange={(e) => onPriceChange({ ...price, adjustmentReason: e.target.value })}

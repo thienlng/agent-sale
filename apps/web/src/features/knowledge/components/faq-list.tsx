@@ -123,7 +123,7 @@ export function FaqList({ botId }: { botId: string }) {
           placeholder={t('data.faq.search')}
         />
         {selected.size ? (
-          <Button variant="destructive" className="h-9" onClick={() => setConfirmBulk(true)}>
+          <Button size="sm" variant="destructive" onClick={() => setConfirmBulk(true)}>
             <Trash2 />
             {t('data.delete')} ({selected.size})
           </Button>

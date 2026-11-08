@@ -81,7 +81,7 @@ function PlanRow({ plan }: { plan: SaasPlanDto }) {
       <div className="flex flex-wrap items-center gap-2">
         <Input
           aria-label={t('saas.plans.name')}
-          className="h-8 min-w-40 flex-1"
+          className="min-w-40 flex-1"
           maxLength={120}
           value={name}
           onChange={(e) => setName(e.target.value)}

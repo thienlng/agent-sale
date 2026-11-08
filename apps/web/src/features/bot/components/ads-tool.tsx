@@ -65,7 +65,7 @@ export function AdsTool({ bot }: { bot: BotDto }) {
               value={draft?.type ?? ''}
               onValueChange={(type) => setDraft(emptyAdsDraft(type as AdsMessageType))}
             >
-              <SelectTrigger id="ads-type" className="h-10 w-full">
+              <SelectTrigger id="ads-type" className="w-full">
                 <SelectValue placeholder={t('space.ads.typePlaceholder')} />
               </SelectTrigger>
               <SelectContent>

@@ -44,7 +44,7 @@ export function DevicePushButton() {
     >
       {/* A phone, not a bell: the bell next to it is the account's notification list. */}
       {on ? (
-        <SmartphoneNfc className="text-primary" />
+        <SmartphoneNfc className="text-brand-text" />
       ) : (
         <Smartphone className="text-muted-foreground" />
       )}

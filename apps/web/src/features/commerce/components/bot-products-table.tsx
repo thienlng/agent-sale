@@ -89,7 +89,7 @@ function ProductRow({
             <Link
               to="/app/products/$productId"
               params={{ productId: product.id }}
-              className="line-clamp-2 font-medium break-words hover:text-primary"
+              className="line-clamp-2 font-medium break-words hover:text-brand-text"
               onClick={(e) => e.stopPropagation()}
             >
               {product.name}
@@ -175,7 +175,7 @@ export function BotProductsTable({ botId, selecting }: { botId: string; selectin
             onChange={(e) => setText(e.target.value)}
             placeholder={t('data.products.search')}
             aria-label={t('data.products.search')}
-            className="h-9 pl-9"
+            className="pl-9"
           />
         </div>
         <div className="ml-auto flex gap-2">
@@ -191,7 +191,7 @@ export function BotProductsTable({ botId, selecting }: { botId: string; selectin
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button className="h-9">
+              <Button size="sm">
                 <Plus />
                 {t('data.products.add')}
                 <ChevronDown aria-hidden />
@@ -212,7 +212,7 @@ export function BotProductsTable({ botId, selecting }: { botId: string; selectin
         <div className="overflow-x-auto">
           <Table className="min-w-[760px]">
             <TableHeader>
-              <TableRow className="bg-muted hover:bg-muted [&>th]:font-medium [&>th]:text-primary">
+              <TableRow className="bg-muted hover:bg-muted [&>th]:font-medium [&>th]:text-brand-text">
                 {selecting ? (
                   <TableHead className="w-14 text-center">{t('data.products.colSelect')}</TableHead>
                 ) : null}
@@ -251,7 +251,7 @@ export function BotProductsTable({ botId, selecting }: { botId: string; selectin
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={columns} className="py-14 text-center">
                     <span className="mx-auto mb-3 flex size-16 items-center justify-center rounded-2xl bg-primary-soft">
-                      <PackageOpen className="size-8 text-primary" aria-hidden />
+                      <PackageOpen className="size-8 text-brand-text" aria-hidden />
                     </span>
                     {products.isError ? (
                       <span role="alert">
@@ -285,7 +285,7 @@ export function BotProductsTable({ botId, selecting }: { botId: string; selectin
             setPage(1);
           }}
         >
-          <SelectTrigger aria-label={t('data.pageSize')} className="h-9 w-20">
+          <SelectTrigger aria-label={t('data.pageSize')} className="w-20">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

@@ -197,7 +197,7 @@ function SourceCard({
       <div className="flex items-center gap-2">
         <p className="text-xs font-medium text-muted-foreground">{label ?? tr('source')}</p>
         <a
-          className="ml-auto inline-flex items-center gap-1 text-xs text-primary underline-offset-4 hover:underline"
+          className="ml-auto inline-flex items-center gap-1 text-xs text-brand-text underline-offset-4 hover:underline"
           href={postLink(c.postId, post?.permalink)}
           target="_blank"
           rel="noopener noreferrer"

@@ -143,7 +143,7 @@ export function OrderLines({
   if (!lines.length) {
     return (
       <p className="flex items-center gap-2 rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-        <PackageSearch className="size-5 text-primary" aria-hidden />
+        <PackageSearch className="size-5 text-brand-text" aria-hidden />
         {t('orderForm.pickHint')}
       </p>
     );
@@ -177,7 +177,7 @@ export function OrderLines({
             <Input
               aria-label={t('orderForm.qty')}
               inputMode="numeric"
-              className="h-8 w-14 text-center tabular-nums"
+              className="w-14 text-center tabular-nums"
               value={l.qty}
               onChange={(e) =>
                 set(i, {

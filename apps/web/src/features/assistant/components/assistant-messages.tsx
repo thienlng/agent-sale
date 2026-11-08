@@ -4,6 +4,7 @@ import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
+import { BrandMark } from '@/components/logo';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
@@ -13,7 +14,6 @@ import { NAVIGATE_FOLLOW_UP_TEXT } from '../utils/navigate-follow-up';
 import { AssistantMarkdown } from './assistant-markdown';
 import { AssistantProposal } from './assistant-proposals';
 import { AssistantStepList, AssistantSteps } from './assistant-steps';
-import rabbitUrl from '@/assets/assistant-rabbit.png';
 
 /** Lazy, so recharts loads only when an answer has a chart (docs/16). */
 const AssistantChart = lazy(() => import('./assistant-chart'));
@@ -29,7 +29,7 @@ function AnswerFeedback({ message }: { message: AssistantMessageDto }) {
     );
   }
   const base =
-    'inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none aria-pressed:text-primary';
+    'inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none aria-pressed:text-brand-text';
   return (
     <span className="ml-auto inline-flex items-center gap-0.5">
       <button
@@ -74,7 +74,7 @@ function AssistantAnswer({ message }: { message: AssistantMessageDto }) {
             type="button"
             aria-expanded={showSteps}
             onClick={() => setShowSteps((v) => !v)}
-            className="inline-flex w-fit items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+            className="inline-flex w-fit items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
           >
             {showSteps ? t('hideSteps') : t('showSteps')}
             <ChevronDown
@@ -171,8 +171,8 @@ export function AssistantMessages({
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
       {messages.length === 0 && proposals.length === 0 && !pendingTurn ? (
         <div className="flex flex-col items-center px-6 py-12 text-center">
-          <span className="grid size-14 place-items-center rounded-full bg-primary">
-            <img src={rabbitUrl} alt="" className="size-10 object-contain" />
+          <span className="grid size-14 place-items-center rounded-full bg-sidebar">
+            <BrandMark className="h-6" />
           </span>
           <p className="mt-4 font-semibold">{t('emptyTitle')}</p>
           <p className="mt-1 max-w-xs text-sm text-muted-foreground">{t('emptyBody')}</p>

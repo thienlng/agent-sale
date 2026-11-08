@@ -35,10 +35,13 @@ On phones the header keeps one call to action (free trial); "Đăng nhập" move
 ## Content and assets
 
 - The demo conversations are illustrative scenarios in `src/pages/index.astro`, not an AI call.
-- Rabbit illustrations are in `public/images/` (selection rationale: `docs/designs/T-121/ASSET-SELECTION.md`);
-  every animation has a still frame for `prefers-reduced-motion`.
-- Fonts (T-123, shared with the dashboard): Space Grotesk for text and headings, JetBrains Mono
-  for small uppercase labels, self-hosted via `@fontsource-variable/*` (OFL-1.1; notices in
+- Visual identity follows brand identity v2 "Precision" (`docs/designs/brand-identity-v2.md`):
+  charcoal header and footer, flat white sections, a charcoal product-demo ground and one orange
+  closing band. The logo is inline SVG (`src/components/Logo.astro`); favicons are in
+  `public/brand/`. There are no mascot images; `prefers-reduced-motion` turns off the chat
+  bubble animation and smooth scrolling.
+- Fonts (shared with the dashboard): Inter for text, headings and UI, Inter Tight (italic 900 only
+  for brand display moments such as the hero "24/7"), self-hosted via `@fontsource-variable/*` (OFL-1.1; notices in
   `THIRD_PARTY_NOTICES.md`, licence texts served at `/licenses/`). `e2e/fonts.spec.ts` checks they
   render Vietnamese with no third-party font requests.
 - Light/dark: the header toggle stores the choice as `rapiz-theme` in localStorage; first visit

@@ -94,7 +94,6 @@ export function ModelPicker({
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
                   placeholder={t('admin.filterModels', { count: discover.data.models.length })}
-                  className="h-9"
                 />
                 <ul className="max-h-64 overflow-y-auto">
                   {models.length ? (

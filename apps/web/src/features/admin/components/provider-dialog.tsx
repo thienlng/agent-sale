@@ -147,7 +147,6 @@ export function ProviderDialog({
                   onChange={(e) => setName(e.target.value.trim())}
                   aria-invalid={Boolean(nameError)}
                   aria-describedby="p-name-hint"
-                  className="h-10"
                 />
                 <p
                   id="p-name-hint"
@@ -161,7 +160,7 @@ export function ProviderDialog({
               <div className="flex flex-col gap-2">
                 <Label htmlFor="p-kind">{t('admin.kind')}</Label>
                 <Select value={kind} onValueChange={(v) => setKind(v as LlmProviderKind)}>
-                  <SelectTrigger id="p-kind" className="h-10 w-full">
+                  <SelectTrigger id="p-kind" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -191,7 +190,7 @@ export function ProviderDialog({
               }
               aria-invalid={Boolean(urlError)}
               aria-describedby="p-url-hint"
-              className="h-10 font-mono text-sm"
+              className="font-mono text-sm"
             />
             <p
               id="p-url-hint"
@@ -215,7 +214,7 @@ export function ProviderDialog({
                 placeholder={
                   provider?.apiKeyHint ? t('admin.apiKeyKeep', { hint: provider.apiKeyHint }) : ''
                 }
-                className="h-10 min-w-0 font-mono"
+                className="min-w-0 font-mono"
               />
               <Button
                 type="button"
@@ -260,7 +259,7 @@ export function ProviderDialog({
                     }))
                   }
                 >
-                  <SelectTrigger id="p-structured" className="h-10 w-full">
+                  <SelectTrigger id="p-structured" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -284,7 +283,6 @@ export function ProviderDialog({
                   onChange={(e) =>
                     setOptions((o) => ({ ...o, timeoutMs: Number(e.target.value) || 20_000 }))
                   }
-                  className="h-10"
                 />
               </div>
               <label className="flex items-center gap-3 text-sm sm:col-span-2">

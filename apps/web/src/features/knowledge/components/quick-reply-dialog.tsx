@@ -42,7 +42,7 @@ function LibraryPicker({
               title={image.title}
               onClick={() => onPick(image.mediaUrl ?? '')}
               className={cn(
-                'relative block aspect-square w-full overflow-hidden rounded-lg border bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+                'relative block aspect-square w-full overflow-hidden rounded-lg border bg-muted focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none',
                 active && 'border-primary ring-2 ring-primary',
               )}
             >

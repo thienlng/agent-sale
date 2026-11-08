@@ -37,7 +37,7 @@ export function PanelProfileHeader({
             href={externalUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-0.5 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+            className="mt-0.5 inline-flex items-center gap-1 text-xs text-brand-text hover:underline"
           >
             {tr('v2.header.openOn', { provider })}
             <ExternalLink className="size-3" aria-hidden />

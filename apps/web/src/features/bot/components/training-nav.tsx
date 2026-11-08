@@ -55,7 +55,7 @@ const SETTINGS: Item[] = [
 const DEVELOPMENT: Item[] = [{ to: '/app/bots/$botId/ads-tool', key: 'adsTool', icon: Megaphone }];
 
 const itemClass =
-  'flex shrink-0 items-center gap-2.5 border-r-2 border-transparent px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none data-[status=active]:border-primary data-[status=active]:bg-primary-soft data-[status=active]:font-medium data-[status=active]:text-primary';
+  'flex shrink-0 items-center gap-2.5 border-r-2 border-transparent px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none data-[status=active]:border-primary data-[status=active]:bg-primary-soft data-[status=active]:font-medium data-[status=active]:text-brand-text';
 
 function NavLink({
   botId,

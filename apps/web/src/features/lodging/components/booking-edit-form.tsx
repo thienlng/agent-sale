@@ -243,7 +243,7 @@ export function BookingEditForm({
                 </Label>
                 <Input
                   id={`${id}-name`}
-                  className="h-8"
+
                   value={guestName}
                   aria-invalid={(submitted && !guestName.trim()) || undefined}
                   onChange={(e) => setGuestName(e.target.value)}
@@ -259,7 +259,7 @@ export function BookingEditForm({
                 <Input
                   id={`${id}-phone`}
                   type="tel"
-                  className="h-8 tabular-nums"
+                  className="tabular-nums"
                   value={guestPhone}
                   onChange={(e) => setGuestPhone(e.target.value)}
                 />

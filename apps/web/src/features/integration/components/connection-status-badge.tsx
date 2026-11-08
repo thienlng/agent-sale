@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 
 const LOOK: Record<ConnectionStatus, { icon: LucideIcon; className: string }> = {
   connected: { icon: CircleCheck, className: 'bg-success-soft text-success' },
-  syncing: { icon: LoaderCircle, className: 'bg-primary/10 text-primary' },
+  syncing: { icon: LoaderCircle, className: 'bg-primary/10 text-brand-text' },
   error: { icon: CircleAlert, className: 'bg-destructive/10 text-destructive' },
   disconnected: { icon: CircleAlert, className: 'bg-muted text-muted-foreground' },
 };

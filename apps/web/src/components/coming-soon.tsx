@@ -8,7 +8,7 @@ export function ComingSoon({ titleKey }: { titleKey: string }) {
     <section>
       <h1 className="text-2xl font-semibold tracking-tight">{t(titleKey)}</h1>
       <div className="mt-8 flex max-w-xl items-center gap-4 rounded-xl border border-dashed p-6 text-muted-foreground">
-        <Hammer className="size-6 shrink-0 text-primary" aria-hidden />
+        <Hammer className="size-6 shrink-0 text-brand-text" aria-hidden />
         {t('common.comingSoonBody')}
       </div>
     </section>

@@ -128,13 +128,12 @@ export function CreateBusinessPage() {
             maxLength={NAME_MAX}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="h-10"
           />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="business-industry">{t('auth.industry')}</Label>
           <Select value={industry} onValueChange={(v) => setIndustry(v as Industry)}>
-            <SelectTrigger id="business-industry" className="h-10 w-full">
+            <SelectTrigger id="business-industry" className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -150,7 +149,7 @@ export function CreateBusinessPage() {
           <div className="flex flex-col gap-2">
             <Label htmlFor="business-account">{t('business.accountLabel')}</Label>
             <Select value={accountId} onValueChange={setAccountId}>
-              <SelectTrigger id="business-account" className="h-10 w-full">
+              <SelectTrigger id="business-account" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

@@ -13,7 +13,7 @@ export function EnableNotificationsButton() {
       type="button"
       variant="ghost"
       size="sm"
-      className="h-8 shrink-0 gap-1 px-2 text-xs"
+      className="shrink-0 gap-1 px-2 text-xs"
       title={t('channelInbox.v2.notifications.enableHint')}
       onClick={request}
     >

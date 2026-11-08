@@ -193,7 +193,7 @@ export function ConversationView({
         />
         <Link
           to="/app/crm-settings/tags"
-          className="mt-2 inline-block text-xs text-primary hover:underline"
+          className="mt-2 inline-block text-xs text-brand-text hover:underline"
         >
           {tr('meta.panel.manageTags')}
         </Link>

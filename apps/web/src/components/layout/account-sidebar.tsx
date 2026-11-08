@@ -44,8 +44,11 @@ export function AccountSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton asChild size="lg" tooltip={t('app.name')}>
               <Link to="/app/overview" onClick={close}>
-                <Logo className="group-data-[collapsible=icon]:hidden" />
-                <Logo markOnly className="hidden group-data-[collapsible=icon]:inline-flex" />
+                <Logo className="group-data-[collapsible=icon]:hidden [&_svg]:h-5! [&_svg]:w-auto!" />
+                <Logo
+                  markOnly
+                  className="hidden group-data-[collapsible=icon]:inline-flex [&_svg]:h-4! [&_svg]:w-auto!"
+                />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

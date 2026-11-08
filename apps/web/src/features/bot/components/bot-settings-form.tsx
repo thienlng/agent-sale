@@ -53,10 +53,10 @@ export function BotSettingsForm({ bot }: { bot: BotDto }) {
 
       <Tabs defaultValue="basic" className="gap-6">
         <TabsList variant="line" className="w-full justify-start border-b">
-          <TabsTrigger value="basic" className="flex-none px-1 data-active:text-primary">
+          <TabsTrigger value="basic" className="flex-none px-1 data-active:text-brand-text">
             {training('space.settings.basic')}
           </TabsTrigger>
-          <TabsTrigger value="advanced" className="flex-none px-1 data-active:text-primary">
+          <TabsTrigger value="advanced" className="flex-none px-1 data-active:text-brand-text">
             {training('space.settings.advanced')}
           </TabsTrigger>
         </TabsList>
@@ -76,7 +76,7 @@ export function BotSettingsForm({ bot }: { bot: BotDto }) {
       {dirty ? (
         <div
           data-assistant-avoid
-          className="sticky bottom-4 z-10 flex items-center justify-between gap-4 rounded-xl border bg-background/95 px-4 py-3 shadow-lg backdrop-blur animate-in fade-in slide-in-from-bottom-2"
+          className="sticky bottom-4 z-10 flex items-center justify-between gap-4 rounded-xl border bg-background px-4 py-3 shadow-lg animate-in fade-in slide-in-from-bottom-2"
         >
           <span className="text-sm text-muted-foreground">{t('settings.unsaved')}</span>
           <div className="flex gap-2">

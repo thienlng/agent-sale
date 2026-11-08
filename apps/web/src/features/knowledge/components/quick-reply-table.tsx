@@ -42,7 +42,7 @@ export function QuickReplyTable({
           const shortcut = displayShortcut(item);
           return (
             <TableRow key={item.id}>
-              <TableCell className="font-medium break-all whitespace-normal text-primary">
+              <TableCell className="font-medium break-all whitespace-normal text-brand-text">
                 {shortcut}
               </TableCell>
               <TableCell className="whitespace-normal">

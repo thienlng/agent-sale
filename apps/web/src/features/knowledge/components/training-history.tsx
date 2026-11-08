@@ -24,7 +24,7 @@ export function TrainingHistory({ botId }: { botId: string }) {
         </div>
       ) : !history.data?.length ? (
         <div className="rounded-xl border border-dashed px-4 py-14 text-center">
-          <History className="mx-auto size-8 text-primary" />
+          <History className="mx-auto size-8 text-brand-text" />
           <h3 className="mt-3 font-semibold">{t('historyEmpty')}</h3>
           <p className="mt-1 text-sm text-muted-foreground">{t('historyEmptyBody')}</p>
         </div>

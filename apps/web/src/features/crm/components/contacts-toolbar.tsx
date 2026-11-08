@@ -65,7 +65,7 @@ function ColumnsMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="h-9">
+        <Button variant="outline" size="sm">
           <Columns3 />
           <span className="hidden sm:inline">{t('crm.columns.title')}</span>
         </Button>
@@ -140,7 +140,7 @@ function ViewsMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="h-9 max-w-56 justify-between gap-2 font-normal">
+        <Button size="sm" variant="outline" className="max-w-56 justify-between gap-2 font-normal">
           <Bookmark className="text-muted-foreground" />
           <span className="truncate font-medium">{current?.name ?? t('crm.views.all')}</span>
           <ChevronDown className="text-muted-foreground" />
@@ -289,7 +289,7 @@ export function ContactsToolbar({
           onChange={(e) => setText(e.target.value)}
           placeholder={t('crm.search')}
           aria-label={t('crm.search')}
-          className="h-9 pl-9"
+          className="pl-9"
         />
       </div>
 
@@ -297,7 +297,7 @@ export function ContactsToolbar({
 
       <Popover open={filterOpen} onOpenChange={setFilterOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" className="h-9 gap-2 font-normal">
+          <Button size="sm" variant="outline" className="gap-2 font-normal">
             <ListFilter className="text-muted-foreground" />
             {t('crm.filter.button')}
             {active ? (
@@ -329,7 +329,7 @@ export function ContactsToolbar({
         value={search.sort ?? 'createdAt_desc'}
         onValueChange={(v) => onChange({ sort: v as SortKey })}
       >
-        <SelectTrigger className="h-9 w-40" aria-label={t('crm.sort.label')}>
+        <SelectTrigger className="w-40" aria-label={t('crm.sort.label')}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

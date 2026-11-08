@@ -18,7 +18,7 @@ export function LockedHint({ id, retailer }: { id: string; retailer: string | nu
           href={`https://${retailer}.kiotviet.vn`}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex min-h-11 items-center gap-1 font-medium text-primary hover:underline md:min-h-0"
+          className="inline-flex min-h-11 items-center gap-1 font-medium text-brand-text hover:underline md:min-h-0"
         >
           {t('products.lockedHint')}
           <ExternalLink className="size-3.5" aria-hidden />

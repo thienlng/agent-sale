@@ -71,16 +71,15 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
             inputMode={recovery ? 'text' : 'numeric'}
             autoFocus
             required
-            className="h-10"
           />
         </div>
-        <Button type="submit" size="lg" className="h-10" disabled={pending}>
+        <Button type="submit" size="lg" disabled={pending}>
           {pending ? t('auth.loggingIn') : t('auth.mfa.verify')}
         </Button>
         <div className="flex items-center justify-between text-sm">
           <button
             type="button"
-            className="font-medium text-primary hover:underline"
+            className="font-medium text-brand-text hover:underline"
             onClick={() => {
               setRecovery((r) => !r);
               setError(null);
@@ -113,19 +112,12 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
       {error ? <FormError>{error}</FormError> : null}
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">{t('auth.email')}</Label>
-        <Input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          className="h-10"
-        />
+        <Input id="email" name="email" type="email" autoComplete="email" required />
       </div>
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <Label htmlFor="password">{t('auth.password')}</Label>
-          <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+          <Link to="/forgot-password" className="text-sm text-brand-text hover:underline">
             {t('auth.forgotPassword')}
           </Link>
         </div>
@@ -135,15 +127,14 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
           type="password"
           autoComplete="current-password"
           required
-          className="h-10"
         />
       </div>
-      <Button type="submit" size="lg" className="h-10" disabled={pending}>
+      <Button type="submit" size="lg" disabled={pending}>
         {pending ? t('auth.loggingIn') : t('auth.login')}
       </Button>
       <p className="text-center text-sm text-muted-foreground">
         {t('auth.noAccount')}{' '}
-        <Link to="/signup" className="font-medium text-primary hover:underline">
+        <Link to="/signup" className="font-medium text-brand-text hover:underline">
           {t('auth.signup')}
         </Link>
       </p>

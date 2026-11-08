@@ -51,7 +51,7 @@ export function WizardCredentialsStep({
         onChange={onChange}
       />
       <Collapsible className="group/where rounded-lg border">
-        <CollapsibleTrigger className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm font-medium focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+        <CollapsibleTrigger className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none">
           <ChevronRight
             aria-hidden
             className="size-4 shrink-0 transition-transform group-data-[state=open]/where:rotate-90"
@@ -68,7 +68,7 @@ export function WizardCredentialsStep({
             href={KIOTVIET_API_GUIDE}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex min-h-11 items-center gap-1.5 self-start text-sm font-medium text-primary underline-offset-4 hover:underline"
+            className="inline-flex min-h-11 items-center gap-1.5 self-start text-sm font-medium text-brand-text underline-offset-4 hover:underline"
           >
             {t('wizard.guideLink')}
             <ExternalLink aria-hidden className="size-4" />

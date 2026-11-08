@@ -36,7 +36,7 @@ function Pick({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       type="button"
-      className="max-w-56 truncate text-left font-medium hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="max-w-56 truncate text-left font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring"
       onClick={onClick}
     >
       {label}

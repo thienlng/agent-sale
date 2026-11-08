@@ -3,9 +3,11 @@
 @import 'shadcn/tailwind.css';
 @import '@agent-sales/ui/tokens.css';
 @import '@agent-sales/ui/presets.css';
-/* Self-hosted variable fonts (OFL-1.1, see THIRD_PARTY_NOTICES.md); Vietnamese subsets included. */
-@import '@fontsource-variable/space-grotesk';
-@import '@fontsource-variable/jetbrains-mono';
+/* Self-hosted variable fonts (OFL-1.1, see THIRD_PARTY_NOTICES.md); Vietnamese subsets included.
+   Inter for the interface, Inter Tight (upright and italic) for brand display moments. */
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/inter-tight';
+@import '@fontsource-variable/inter-tight/wght-italic.css';
 
 /* Test-chat dock in the bot space: sticks below the header and fills the rest of the
    viewport, whatever the navbar style and sidebar variant (inset adds a 0.5rem frame). */

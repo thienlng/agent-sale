@@ -145,7 +145,7 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
             type="search"
             aria-label={t('list.searchLabel')}
             placeholder={t('list.search')}
-            className="h-8 pl-8"
+            className="pl-8"
             maxLength={100}
             value={q}
             onChange={(e) => reset(setQ)(e.target.value)}

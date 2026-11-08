@@ -113,7 +113,7 @@ export function MetricCard({
       {onOpen && ok ? (
         <button
           type="button"
-          className="mt-0 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="mt-0 text-left outline-none focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring"
           onClick={onOpen}
           aria-label={t('analytics.drilldown.title', { metric: name })}
         >

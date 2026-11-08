@@ -137,7 +137,7 @@ export function ContactHistoryTab({
           value={type ?? ALL}
           onValueChange={(v) => setType(v === ALL ? undefined : (v as ContactHistoryType))}
         >
-          <SelectTrigger className="h-9 w-48" aria-label={t('crm.history.allTypes')}>
+          <SelectTrigger className="w-48" aria-label={t('crm.history.allTypes')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -150,7 +150,7 @@ export function ContactHistoryTab({
           </SelectContent>
         </Select>
         <Select value={order} onValueChange={(v) => setOrder(v as 'desc' | 'asc')}>
-          <SelectTrigger className="h-9 w-40" aria-label={t('crm.history.newest')}>
+          <SelectTrigger className="w-40" aria-label={t('crm.history.newest')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

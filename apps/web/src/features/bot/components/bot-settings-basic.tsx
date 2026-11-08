@@ -43,7 +43,7 @@ function Choice<V extends string>({
 }) {
   return (
     <Select value={value} onValueChange={(v) => onChange(v as V)}>
-      <SelectTrigger id={id} className="h-10 w-full">
+      <SelectTrigger id={id} className="w-full">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -82,7 +82,7 @@ export function BotSettingsBasic({
           <span className="text-sm font-semibold">{t('space.settings.avatar')}</span>
           <span
             aria-hidden
-            className="grid size-10 place-items-center rounded-full bg-primary text-base font-semibold text-white"
+            className="grid size-10 place-items-center rounded-full bg-primary text-base font-semibold text-primary-foreground"
             style={validColour ? { backgroundColor: settings.themeColor } : undefined}
           >
             {draft.name.trim().charAt(0).toUpperCase() || '?'}
@@ -94,7 +94,7 @@ export function BotSettingsBasic({
           </Label>
           <Input
             id="setting-name"
-            className="h-10"
+
             maxLength={80}
             required
             aria-invalid={problems.includes('name')}
@@ -165,7 +165,7 @@ export function BotSettingsBasic({
             <Input
               type="time"
               required
-              className="h-10"
+
               aria-label={t('space.settings.scheduleStart')}
               aria-invalid={problems.includes('replySchedule')}
               value={settings.replySchedule.start}
@@ -177,7 +177,7 @@ export function BotSettingsBasic({
             <Input
               type="time"
               required
-              className="h-10"
+
               aria-label={t('space.settings.scheduleEnd')}
               aria-invalid={problems.includes('replySchedule')}
               value={settings.replySchedule.end}

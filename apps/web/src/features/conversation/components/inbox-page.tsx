@@ -265,7 +265,7 @@ function InboxWorkspace({
       data-content-padding="false"
       // Fixed to the viewport (minus the top bar) at every width: `flex-1` would override the height and
       // let a long thread stretch the whole page.
-      className="flex h-[calc(100svh-3.25rem)] w-full min-w-0 flex-col overflow-hidden bg-muted/40 md:gap-2 md:p-2"
+      className="flex h-[calc(100svh-var(--header-height))] w-full min-w-0 flex-col overflow-hidden bg-muted/40 md:gap-2 md:p-2"
     >
       <header className="hidden shrink-0 items-center gap-3 px-1 md:flex">
         <h2 className="text-lg font-semibold">{meta('title')}</h2>

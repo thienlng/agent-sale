@@ -17,7 +17,7 @@ export function TrainingPurpose({
       className="flex items-start gap-3 rounded-xl border bg-muted/30 p-4"
       aria-label={t(`purpose.${kind}.title`)}
     >
-      <Icon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
+      <Icon className="mt-0.5 size-5 shrink-0 text-brand-text" aria-hidden />
       <div className="min-w-0 space-y-1 text-sm">
         <h2 className="font-semibold">{t(`purpose.${kind}.title`)}</h2>
         <p>{t(`purpose.${kind}.body`)}</p>
@@ -25,7 +25,7 @@ export function TrainingPurpose({
         <Link
           to={kind === 'facts' ? '/app/bots/$botId/instructions' : '/app/bots/$botId/knowledge'}
           params={{ botId }}
-          className="inline-flex pt-1 font-medium text-primary underline-offset-4 hover:underline"
+          className="inline-flex pt-1 font-medium text-brand-text underline-offset-4 hover:underline"
         >
           {t(`purpose.${kind}.link`)}
         </Link>
