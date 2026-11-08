@@ -17,7 +17,8 @@ import { lodgingKeys } from './keys';
 
 /**
  * Units with per-night prices and occupying bookings for nights `from` ≤ n < `to`
- * (at most 62). Without `propertyIds` the server returns every active property.
+ * (at most 62, or 371 for exactly one property). Without `propertyIds` the server returns
+ * every active property.
  */
 export function useLodgingCalendar(range: {
   from: string;

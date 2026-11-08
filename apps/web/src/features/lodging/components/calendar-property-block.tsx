@@ -1,20 +1,26 @@
-import { ChevronRight, StickyNote, Tag } from 'lucide-react';
-import { memo, type MouseEvent, type ReactNode, useMemo } from 'react';
+import { ChevronRight } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { memo, type ReactNode, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-import type { CalendarSelection, CellRef, SelectModifiers } from '../hooks/use-calendar-selection';
+import {
+  type CalendarSelection,
+  type CellRef,
+  modifiers,
+  type SelectModifiers,
+} from '../hooks/use-calendar-selection';
 import type {
   AvailabilityOptionData,
   CalendarPropertyData,
   CalendarRowData,
 } from '../lib/calendar-model';
-import { segmentSpans, takenByNight } from '../lib/calendar-model';
-import { clockTime, dayMonth, formatShortVnd, formatVnd, weekdayLong } from '../lib/format';
+import { nightNoteLookup, segmentSpans, takenByNight } from '../lib/calendar-model';
+import { dayMonth, formatShortVnd, formatVnd, weekdayLong } from '../lib/format';
 import type { NoteFocus } from './booking-night-notes';
-import { STATUS_STYLE } from './booking-status-badge';
+import { BookingBar, NoteDot } from './calendar-booking-bar';
 import { BookingQuickView, CellTip, InternalNoteCard, NightNoteTip } from './calendar-quick-view';
 import { FitPackages } from './fit-packages';
 
@@ -33,31 +39,14 @@ export interface CellHandlers {
   onHold?: (option: AvailabilityOptionData) => void;
 }
 
-const HOLD_WARN_MS = 15 * 60_000;
-
 /** Grid column of night index `i` (column 1 is the sticky property column). */
 const col = (i: number) => ({ gridColumn: `${i + 2}`, gridRow: '1' });
 
 const cellClass =
   'relative flex h-10 w-full items-center justify-center text-xs tabular-nums outline-none focus-visible:z-[3] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset';
 
-function modifiers(e: MouseEvent): SelectModifiers {
-  return { shift: e.shiftKey, multi: e.ctrlKey || e.metaKey };
-}
-
 /** Night note text of a row by night (undefined = no note). */
 type NoteOf = (night: string) => string | undefined;
-
-/** Small dot in the corner of a cell that has a night note (above the booking bar). */
-function NoteDot() {
-  return (
-    <span
-      aria-hidden
-      data-note-dot=""
-      className="pointer-events-none absolute top-0.5 right-0.5 z-[3] size-1.5 rounded-full bg-primary"
-    />
-  );
-}
 
 interface RowProps {
   label: string;
@@ -187,56 +176,14 @@ function UnitRow({
           </div>
         );
       })}
-      {segmentSpans(row, p.nights).map(({ segment: s, start, end }) => {
-        const style = STATUS_STYLE[s.status];
-        const Icon = style.icon;
-        const expiresSoon =
-          s.holdExpiresAt !== null && new Date(s.holdExpiresAt).getTime() - now < HOLD_WARN_MS;
-        const label =
-          s.kind === 'block'
-            ? s.blockReason || s.code
-            : [s.guestName, s.code, ...s.packageNames].join(' · ');
-        const urgent = expiresSoon && s.status === 'hold';
-        return (
-          <div
-            key={s.bookingId}
-            aria-hidden
-            title={label}
-            style={{ gridColumn: `${start + 2} / ${end + 2}`, gridRow: '1' }}
-            className={cn(
-              '@container pointer-events-none z-[2] mx-0.5 flex h-7 min-w-0 items-center gap-1 self-center overflow-hidden rounded-md border px-1.5 text-xs',
-              style.className,
-              // Short bars hide the status text, so the urgency stays on the border and icon.
-              urgent && 'border-destructive',
-            )}
-          >
-            <Icon className={cn('size-3 shrink-0', urgent && 'text-destructive')} />
-            {/* The guest · code keeps ~6rem; the status text hides first. */}
-            <span className="min-w-[min(6rem,100%)] shrink truncate font-medium">{label}</span>
-            <span
-              className={cn(
-                'hidden min-w-0 shrink-[999] truncate @min-[10rem]:inline',
-                urgent && 'font-semibold text-destructive',
-              )}
-            >
-              {t(`bookingStatus.${s.status}`)}
-              {s.status === 'hold' && s.holdExpiresAt
-                ? ` · ${t('cal.holdExpires', { time: clockTime(s.holdExpiresAt) })}`
-                : ''}
-            </span>
-            {s.note && <StickyNote data-marker="note" className="size-3 shrink-0" />}
-            {s.tags.length > 0 && (
-              <span
-                data-marker="tags"
-                className="inline-flex shrink-0 items-center gap-0.5 text-[11px] tabular-nums"
-              >
-                <Tag className="size-3" />
-                {s.tags.length}
-              </span>
-            )}
-          </div>
-        );
-      })}
+      {segmentSpans(row, p.nights).map(({ segment: s, start, end }) => (
+        <BookingBar
+          key={s.bookingId}
+          segment={s}
+          now={now}
+          style={{ gridColumn: `${start + 2} / ${end + 2}`, gridRow: '1' }}
+        />
+      ))}
     </div>
   );
 }
@@ -370,20 +317,22 @@ export const PropertyBlock = memo(function PropertyBlock({
   const inRange = (night: string) =>
     Boolean(selection && night >= selection.start && night <= selection.end);
   const rooms = property.sellMode === 'rooms';
-  const notes = useMemo(
-    () => new Map(property.notes.map((n) => [`${n.unitId ?? ''}|${n.night}`, n.text])),
-    [property.notes],
-  );
+  const noteAt = useMemo(() => nightNoteLookup(property.notes), [property.notes]);
   const noteFor =
     (unitId: string | null): NoteOf =>
     (night) =>
-      notes.get(`${unitId ?? ''}|${night}`);
+      noteAt(unitId, night);
   const capacity = t('cal.capacity', {
     adults: property.standardAdults,
     children: property.standardChildren,
   });
+  // The code and name open the property's own calendar; the chevron (rooms) expands the rows.
   const title = (
-    <div className="min-w-0 flex-1 px-2 py-1">
+    <Link
+      to="/app/calendar/$propertyId"
+      params={{ propertyId: property.id }}
+      className="min-w-0 flex-1 rounded-sm px-2 py-1 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+    >
       <div className="flex items-baseline gap-1.5">
         <span className="text-sm font-semibold">{property.code}</span>
         <span className="truncate text-xs text-muted-foreground">{property.name}</span>
@@ -392,22 +341,25 @@ export const PropertyBlock = memo(function PropertyBlock({
         {capacity}
         {rooms && ` · ${t('cal.rooms', { count: property.rows.length })}`}
       </div>
-    </div>
+      <span className="sr-only"> · {t('pcal.openSuffix')}</span>
+    </Link>
   );
   const name = rooms ? (
-    <button
-      type="button"
-      className="flex w-full min-w-0 items-center text-left hover:bg-muted/60"
-      aria-expanded={expanded}
-      aria-label={t('cal.expand', { code: property.code })}
-      onClick={() => handlers.onToggle(property.id)}
-    >
-      <ChevronRight
-        aria-hidden
-        className={cn('ml-1 size-4 shrink-0 transition-transform', expanded && 'rotate-90')}
-      />
+    <div className="flex w-full min-w-0 items-center">
+      <button
+        type="button"
+        className="flex size-8 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        aria-expanded={expanded}
+        aria-label={t('cal.expand', { code: property.code })}
+        onClick={() => handlers.onToggle(property.id)}
+      >
+        <ChevronRight
+          aria-hidden
+          className={cn('size-4 transition-transform', expanded && 'rotate-90')}
+        />
+      </button>
       {title}
-    </button>
+    </div>
   ) : (
     title
   );

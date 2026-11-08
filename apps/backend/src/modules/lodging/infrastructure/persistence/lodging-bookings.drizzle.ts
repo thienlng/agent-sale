@@ -153,6 +153,10 @@ export function bookingPort(tx: TenantTx, ws: WorkspaceId): BookingPort {
           where: and(inArray(B.status, UPCOMING_STATUSES), gte(B.checkOut, q.today)),
           order: [asc(B.checkIn), asc(B.createdAt), asc(B.id)],
         },
+        past: {
+          where: lte(B.checkOut, q.today),
+          order: [desc(B.checkIn), desc(B.createdAt), desc(B.id)],
+        },
         all: { where: undefined, order: [desc(B.createdAt), desc(B.id)] },
       };
       const term = q.q?.trim();

@@ -517,7 +517,8 @@ export const BookingHistoryEntry = z.object({
 export const BookingDetail = BookingDto.extend({ history: z.array(BookingHistoryEntry) });
 export type BookingDetail = z.infer<typeof BookingDetail>;
 export const BookingListQuery = z.object({
-  view: z.enum(['today', 'holds', 'upcoming', 'all']).default('upcoming'),
+  /** `past`: stays whose check-out is today or earlier, latest check-in first. */
+  view: z.enum(['today', 'holds', 'upcoming', 'past', 'all']).default('upcoming'),
   propertyId: z.uuid().optional(),
   status: BookingStatus.optional(),
   q: z.string().max(100).optional(),

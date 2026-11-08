@@ -700,5 +700,66 @@
       "areaInvalid": "Area from 1 to 100000 m², or leave empty.",
       "amenitiesInvalid": "At most 40 amenities, 200 characters per line."
     }
+  },
+  "pcal": {
+    "back": "Calendar",
+    "backLabel": "Back to the calendar of every property",
+    "openSuffix": "Open its calendar",
+    "notFound": "This property was not found.",
+    "prev": "Previous",
+    "next": "Next",
+    "views": "View",
+    "view": {
+      "month": "Month",
+      "quarter": "3 months",
+      "year": "Year",
+      "list": "List"
+    },
+    "monthTitle": "{{month}}/{{year}}",
+    "rangeQuarter": "{{from}} – {{to}}",
+    "units": "Rooms",
+    "wholePlace": "Whole place",
+    "freeOf": "{{free}}/{{total}} free",
+    "dayFree": "{{date}}, free, {{price}}",
+    "dayNoPrice": "{{date}}, free, no price",
+    "dayTaken": "{{date}}, {{status}} {{code}}",
+    "dayPartial": "{{date}}, {{free}}/{{total}} rooms free",
+    "dayOpenMonth": "{{date}}, {{state}}. Open this month",
+    "dayOpenBooking": "{{date}}, {{state}} {{code}}. Open the booking",
+    "monthOccupancy": "{{pct}}% occupied",
+    "openMonth": "Open {{month}}/{{year}}, {{pct}}% occupied",
+    "legend": {
+      "free": "Free",
+      "partial": "Some rooms free",
+      "full": "Full",
+      "hold": "Hold",
+      "confirmed": "Booked",
+      "checked_in": "In house",
+      "checked_out": "Checked out",
+      "blocked": "Blocked"
+    },
+    "stats": {
+      "title": "Summary of the shown range",
+      "occupancy": "Occupancy",
+      "occupancyHint": "{{taken}}/{{total}} nights booked, held or blocked",
+      "nightsSold": "Nights sold",
+      "revenue": "Booking revenue",
+      "revenueHint": "Total of the confirmed bookings with a night in this range",
+      "checkIns": "Next check-ins",
+      "checkOuts": "Next check-outs",
+      "none": "None",
+      "botHolds": "Bot holds waiting",
+      "botHoldsNone": "No bot hold is waiting.",
+      "openBooking": "Open {{code}}"
+    },
+    "list": {
+      "filter": "Filter bookings",
+      "upcoming": "Upcoming",
+      "past": "Past",
+      "all": "All",
+      "empty": "No bookings.",
+      "packages": "Package {{names}}",
+      "call": "Call {{phone}}"
+    }
   }
 }

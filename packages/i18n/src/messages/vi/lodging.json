@@ -693,5 +693,66 @@
       "areaInvalid": "Diện tích từ 1 đến 100000 m², hoặc để trống.",
       "amenitiesInvalid": "Tối đa 40 tiện ích, mỗi dòng tối đa 200 ký tự."
     }
+  },
+  "pcal": {
+    "back": "Lịch",
+    "backLabel": "Về lịch tất cả căn hộ",
+    "openSuffix": "Mở lịch căn",
+    "notFound": "Không tìm thấy căn hộ này.",
+    "prev": "Trước",
+    "next": "Sau",
+    "views": "Kiểu xem",
+    "view": {
+      "month": "Tháng",
+      "quarter": "3 tháng",
+      "year": "Năm",
+      "list": "Danh sách"
+    },
+    "monthTitle": "Tháng {{month}}/{{year}}",
+    "rangeQuarter": "{{from}} – {{to}}",
+    "units": "Phòng",
+    "wholePlace": "Cả căn",
+    "freeOf": "{{free}}/{{total}} trống",
+    "dayFree": "{{date}}, trống, {{price}}",
+    "dayNoPrice": "{{date}}, trống, chưa có giá",
+    "dayTaken": "{{date}}, {{status}} {{code}}",
+    "dayPartial": "{{date}}, còn {{free}}/{{total}} phòng",
+    "dayOpenMonth": "{{date}}, {{state}}. Mở tháng này",
+    "dayOpenBooking": "{{date}}, {{state}} {{code}}. Mở booking",
+    "monthOccupancy": "Lấp đầy {{pct}}%",
+    "openMonth": "Mở tháng {{month}}/{{year}}, lấp đầy {{pct}}%",
+    "legend": {
+      "free": "Trống",
+      "partial": "Còn phòng",
+      "full": "Kín",
+      "hold": "Giữ chỗ",
+      "confirmed": "Đã đặt",
+      "checked_in": "Đang ở",
+      "checked_out": "Đã trả phòng",
+      "blocked": "Khoá lịch"
+    },
+    "stats": {
+      "title": "Tổng quan khoảng đang xem",
+      "occupancy": "Lấp đầy",
+      "occupancyHint": "{{taken}}/{{total}} đêm có khách, giữ chỗ hoặc khoá",
+      "nightsSold": "Đêm đã bán",
+      "revenue": "Doanh thu booking",
+      "revenueHint": "Tổng tiền các booking đã xác nhận có đêm trong khoảng này",
+      "checkIns": "Sắp nhận phòng",
+      "checkOuts": "Sắp trả phòng",
+      "none": "Không có",
+      "botHolds": "Bot giữ chỗ chờ xử lý",
+      "botHoldsNone": "Không có giữ chỗ nào của Bot đang chờ.",
+      "openBooking": "Mở {{code}}"
+    },
+    "list": {
+      "filter": "Lọc booking",
+      "upcoming": "Sắp tới",
+      "past": "Đã qua",
+      "all": "Tất cả",
+      "empty": "Không có booking nào.",
+      "packages": "Gói {{names}}",
+      "call": "Gọi {{phone}}"
+    }
   }
 }
