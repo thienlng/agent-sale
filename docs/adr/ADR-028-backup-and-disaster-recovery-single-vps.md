@@ -29,7 +29,8 @@ Details: [design spec](../superpowers/specs/2026-11-08-backup-and-data-export-de
 
 ## Consequences
 
-- Postgres must restart once to turn archiving on, and the postgres image becomes a project image that must be rebuilt when WAL-G or pgvector are upgraded.
+- Postgres gains outbound network access (the compose `default` network) to upload WAL; it still publishes no port.
+- Postgres must restart once to turn archiving on, and the postgres image becomes a project image (`infra/deploy/postgres`, built on the server) that must be rebuilt when WAL-G, rclone or pgvector are upgraded. WAL-G is pinned to v3.0.7, the newest release that ships Postgres binaries.
 - If the destination is unreachable for long, WAL accumulates in `pg_wal` and can fill the disk; the check alerts at 5 GB / 85 % disk well before that.
 - Restores depend on the owner keeping the break-glass kit; losing it makes the off-site backups unreadable.
 - The off-site provider becomes a (cheap) external dependency for backups only; no live service depends on it, so the self-hosting constraint for running services holds.

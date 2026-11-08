@@ -10,7 +10,9 @@ Stage 1 single-node setup from docs/10 §2, without Patroni, Sentinel or the LGT
 | `edge` | `ghcr.io/<repo>/edge:<sha>` | Caddy on plain HTTP :80. Serves the dashboard SPA, the marketing site and `widget.js`, and proxies the rest. The server's Nginx Proxy Manager (NPM) terminates HTTPS and reaches it as `rapiz-edge:80` on the external `proxy` network |
 | `api`, `agent`, `worker`, `webhook` | `ghcr.io/<repo>/app:<sha>` | Backend processes. One image; the command picks the entry |
 | `migrate` | same `app` image | One-shot job. Applies SQL migrations and creates or updates the `rapiz_tenant`/`rapiz_system` logins |
-| `postgres`, `redis`, `object-storage` | pgvector pg16, redis 7, SeaweedFS | State. Named Docker volumes, internal `backend` network only |
+| `postgres` | `rapiz-postgres:local` (pgvector pg16 + WAL-G, rclone, age), built on the server from `infra/deploy/postgres` | State. Named volume; `backend` network, plus `default` for WAL uploads to the off-site bucket ([backup runbook](backup-and-restore.md)) |
+| `redis`, `object-storage` | redis 7, SeaweedFS | State. Named Docker volumes, internal `backend` network only |
+| `backup`, `pgdrill` (profile `tools`) | `rapiz-postgres:local` | Off-site media/config copies and restore target; run by the backup scripts only |
 
 One public host serves every path, as `scripts/dev-tunnel-proxy.mjs` does in development:
 
@@ -42,7 +44,7 @@ The server follows `/opt/infra/README.md` on the host: apps live in `/opt/apps/<
    ```bash
    bash deploy/bootstrap.sh <host>
    ```
-   It copies the server files to `/opt/apps/rapiz`, writes `.env` with generated secrets (mode 600; an existing file is never overwritten) and adds the daily backup to deploy's crontab. Add the Meta values to `.env` if the inbox should connect Pages. Add `RESEND_API_KEY` (a send-only key from Resend, with the `rapiz.io` domain verified there): signup emails a code and cannot finish without it (ADR-023). For device notifications of the installable app (T-190) add a VAPID pair: `WEB_PUSH_PUBLIC_KEY`, `WEB_PUSH_PRIVATE_KEY` (`npx web-push generate-vapid-keys`, keep the pair: a new pair invalidates every registered device) and optionally `WEB_PUSH_SUBJECT` (default `mailto:support@rapiz.io`).
+   It copies the server files to `/opt/apps/rapiz`, writes `.env` with generated secrets (mode 600; an existing file is never overwritten) and installs the backup cron lines. Then switch on off-site backups: [backup-and-restore.md](backup-and-restore.md#switching-it-on-once). Add the Meta values to `.env` if the inbox should connect Pages. Add `RESEND_API_KEY` (a send-only key from Resend, with the `rapiz.io` domain verified there): signup emails a code and cannot finish without it (ADR-023). For device notifications of the installable app (T-190) add a VAPID pair: `WEB_PUSH_PUBLIC_KEY`, `WEB_PUSH_PRIVATE_KEY` (`npx web-push generate-vapid-keys`, keep the pair: a new pair invalidates every registered device) and optionally `WEB_PUSH_SUBJECT` (default `mailto:support@rapiz.io`).
 4. **First deploy.** Run `./deploy.sh <sha>` on the server after `docker login ghcr.io`, or use the workflow (step 6).
 5. **NPM proxy host.** In the NPM admin UI (`ssh -N -L 8181:127.0.0.1:81 deploy@<ip>`, then http://127.0.0.1:8181), add a proxy host:
    - Domain: `<host>`.
@@ -67,11 +69,12 @@ Merge into `main`. CI runs; when it is green, the **Deploy** workflow does the r
 1. Builds both images and pushes them to GHCR, tagged with the commit SHA.
 2. Copies the `infra/deploy` scripts to `/opt/apps/rapiz`.
 3. Runs `./deploy.sh <sha>` on the server:
-   - pull;
+   - pull, and build the postgres image (cached);
    - start the stateful services;
    - ensure the bucket exists;
    - run `migrate`;
-   - `up --wait`.
+   - `up --wait`;
+   - reinstall the backup cron lines.
 
 If the services do not become healthy, `deploy.sh` restarts the previous tag and the workflow fails.
 
@@ -116,7 +119,8 @@ The login lives in the `hermes` volume. Do not sign the same ChatGPT account in 
 | Deploy a specific commit | `./deploy.sh <sha>` (requires `docker login ghcr.io` with a token that can read packages) |
 | Change domain | Point the new domain's DNS at the server, add it to the NPM proxy host with a certificate, run `./set-host.sh <new-host>`, then update the Meta app's webhook URL, OAuth redirect URIs and app domains |
 | Put an account on a plan from the shell | `docker compose exec api node apps/backend/dist/cli/workspace-plan.js set <owner-email> <plan> [months]` (audited like an `/admin` change, reason `cli`) |
-| Backup now | `./backup.sh` (daily at 03:15 UTC by cron, 14 days kept in `backups/`) |
+| Local dump now | `./backup.sh` (daily at 03:15 UTC by cron, 7 days kept in `backups/`) |
+| Off-site backup now / restore drill | `./backup-nightly.sh` / `./restore-drill.sh` ([backup runbook](backup-and-restore.md)) |
 
 ### Rolling back T-192 (migration 0066)
 
@@ -142,7 +146,9 @@ RAPIZ_TAG=<T-193-or-later sha> docker compose --env-file .env run --rm --no-deps
 
 It turns each target's full-package rates (most bedrooms; a tie goes to the later sort order) into plain rates and deletes the other package rates, then drops the package columns of rates, booking units and hold drafts, the `lodging_packages` table and the unit detail columns. Unit details, unit galleries and packages are lost; bookings, their units and totals stay. It can run again and does not touch `schema_migrations`. Before deploying T-193 or later again, delete **both** rows so 0067 and 0068 run again: `docker compose exec postgres psql -U rapiz_owner -d rapiz -c "delete from schema_migrations where name in ('0067_lodging_units_packages.sql', '0068_lodging_bot_hold_draft_packages.sql')"`. Rolling back past T-192 as well: run this section first, then the 0066 one.
 
-### Restore
+### Restore a local dump
+
+For point-in-time restores, a lost server or lost pictures use [backup-and-restore.md](backup-and-restore.md). A local dump is the quick way back to the state before a deploy:
 
 ```bash
 docker compose stop api agent worker webhook
@@ -150,7 +156,7 @@ docker compose exec -T postgres pg_restore -U rapiz_owner -d rapiz --clean --if-
 docker compose start api agent worker webhook
 ```
 
-Backups live on the same disk. Copy `backups/` off the server regularly; off-site backup is not automated yet.
+Local dumps live on the same disk; the off-site copies are in [backup-and-restore.md](backup-and-restore.md).
 
 ## Private-beta gate
 
