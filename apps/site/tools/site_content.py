@@ -697,15 +697,16 @@ PAGES.append({
 
 PAGES.append({
     'slug': 'tich-hop', 'group': 'Nền tảng · Tích hợp nền tảng & PMS',
+    'assets': ['channels-demo.css', 'channels-demo.js'],
     'title': 'Tích hợp nền tảng & PMS: Messenger, Instagram, website, KiotViet, API | Rapiz',
     'description': 'Rapiz kết nối Messenger, Instagram, bình luận Facebook và khung chat website; Zalo và TikTok sắp ra mắt. KiotViet đang thử nghiệm, Excel/CSV, API công khai, webhook có chữ ký và Tool Ads Facebook.',
     'h1': 'Trả lời trên kênh khách nhắn,<br><em>bằng dữ liệu bạn đang có.</em>',
     'deck': 'Hai mục giống hệt trong app: Tích hợp nền tảng cho các kênh khách nhắn tới, Tích hợp PMS cho phần mềm bán hàng và kho bạn đang dùng. Đội kỹ thuật có thêm API và webhook.',
     'blocks': [
-        shot('ui-channels.jpg', 'MỘT MÀN HÌNH CHO MỌI KÊNH', 'Mỗi trang một bot,<br><em>bật tắt riêng.</em>',
-             'Màn hình Tích hợp nền tảng trong app. Cột trái lọc theo kênh, bên phải là danh sách trang đã kết nối với bot đang trả lời, mã nhúng và công tắc bật tắt.',
-             'Màn hình Tích hợp nền tảng của Rapiz: cột trái gồm Tất cả, Chưa gán bot, Facebook, Instagram, Zalo, Lazada, TikTok Business, Website; bên phải là website đã kết nối với trạng thái Đang chạy, tên bot, nút Sao chép mã nhúng và Hướng dẫn cài đặt; bên dưới là khung Bài viết và bình luận Facebook.',
-             1600, 1000),
+        {'kind': 'demo', 'template': 'demo-tich-hop.html', 'values': {
+            'ic_all': ICONS['plug'], 'ic_clock': _svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
+            'ic_facebook': BRAND_ICONS['facebook'], 'ic_instagram': BRAND_ICONS['instagram'], 'ic_zalo': BRAND_ICONS['zalo'],
+            'ic_tiktok': BRAND_ICONS['tiktok'], 'ic_globe': ICONS['globe']}},
         {'kind': 'catalog', 'id': 'channels', 'kicker': 'TÍCH HỢP ĐA NỀN TẢNG', 'h2': 'Kênh <em>nhắn tin.</em>',
          'lead': 'Kết nối từng trang hoặc tài khoản, rồi chọn bot trả lời cho trang đó. Trạng thái dưới đây khớp với app.',
          'items': [
