@@ -25,6 +25,7 @@ import {
   outputTools,
   type SentMessage,
 } from './output-tools.js';
+import { type WebsiteToolContext, websiteTools } from './website-tools.js';
 
 /** A model's tool set for the loop: definitions for the request, executors for the runner. */
 export interface ToolSet {
@@ -74,6 +75,8 @@ export function turnTools(opts: {
   requests?: RequestToolContext | null;
   /** Attachment URLs already sent in this conversation (album paging). */
   sentMediaUrls?: readonly string[];
+  /** Present only for a website visitor's turn: product cards and suggested next steps. */
+  website?: Omit<WebsiteToolContext, 'allowlist' | 'state' | 'sink'> | null;
 }): ToolSet {
   const { catalog, allowlist, actions } = opts;
   return mergeToolSets(
@@ -97,6 +100,14 @@ export function turnTools(opts: {
       sendMessage: opts.sendMessage,
       ...(opts.sentMediaUrls ? { sentMediaUrls: opts.sentMediaUrls } : {}),
     }),
+    opts.website
+      ? websiteTools({
+          ...opts.website,
+          allowlist,
+          state: opts.output,
+          ...(opts.sink ? { sink: opts.sink } : {}),
+        })
+      : { definitions: [], runnable: [] },
     opts.orders ? orderTools(opts.orders) : { definitions: [], runnable: [] },
     opts.holds ? holdTools(opts.holds) : { definitions: [], runnable: [] },
     opts.requests ? requestTools(opts.requests) : { definitions: [], runnable: [] },
@@ -199,11 +210,25 @@ export function decideReply(input: {
   return { outcome: 'fallback', guardrail: forced, final: fallbackText(bot) };
 }
 
-/** Every message of the turn in order: the `send_message` ones, then the final one. */
+/**
+ * Every message of the turn in order: the `send_message` ones, then the final one, which carries
+ * the suggested next steps of an answered turn (never a fallback or a hand-off's).
+ */
 export function turnMessages(output: OutputState, decision: ReplyDecision): SentMessage[] {
+  const suggestions =
+    decision.outcome === 'answered' && !decision.guardrail ? output.suggestions : null;
   return [
     ...output.sent,
-    ...(decision.final ? [{ text: decision.final, images: [], via: 'final' as const }] : []),
+    ...(decision.final
+      ? [
+          {
+            text: decision.final,
+            images: [],
+            ...(suggestions?.length ? { ui: { suggestions } } : {}),
+            via: 'final' as const,
+          },
+        ]
+      : []),
   ];
 }
 

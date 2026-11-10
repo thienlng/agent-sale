@@ -1,5 +1,6 @@
 import { type NormalizedEvent, withinReplyWindow } from '@agent-sales/channels';
 import {
+  MessageUi,
   SendInboxMessageRequest,
   type BulkConversationRequest,
   type BulkConversationResponse,
@@ -444,6 +445,7 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
       clientMessageId:
         m.direction === 'inbound' && m.externalId && isUuid(m.externalId) ? m.externalId : null,
       at: m.createdAt,
+      ...(m.ui && m.direction === 'outbound' ? { ui: m.ui } : {}),
     }));
     return { conversationId: page.conversationId, messages };
   }
@@ -620,7 +622,12 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
     return this.reserveAndDeliver(
       ws,
       id,
-      { text: input.text, quickReplies: input.quickReplies, idempotencyKey: input.idempotencyKey },
+      {
+        text: input.text,
+        quickReplies: input.quickReplies,
+        ui: input.ui,
+        idempotencyKey: input.idempotencyKey,
+      },
       null,
       input.revision,
     );
@@ -639,7 +646,12 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
     return this.reserveAndDeliver(
       ws,
       id,
-      { text: input.text, quickReplies: input.quickReplies, idempotencyKey: input.idempotencyKey },
+      {
+        text: input.text,
+        quickReplies: input.quickReplies,
+        ui: input.ui,
+        idempotencyKey: input.idempotencyKey,
+      },
       null,
       'follow-up',
     );
@@ -706,7 +718,7 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
   private async reserveAndDeliver(
     ws: WorkspaceId,
     id: string,
-    input: OutboundInboxMessage & { idempotencyKey: string },
+    input: OutboundInboxMessage & { idempotencyKey: string; ui?: MessageUi | undefined },
     actorId: string | null,
     expectedRevision: number | 'follow-up' | null,
   ): Promise<InboxMessageDto | null> {
@@ -780,6 +792,10 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
         externalId: null,
         failureCode: null,
         createdAt: now(),
+        // Cards and suggestions exist only in the website widget (ADR-029).
+        ...(input.ui && !actorId && c.provider === 'website'
+          ? { ui: MessageUi.parse(input.ui) }
+          : {}),
       };
       await tx.save(updated);
       await tx.saveMessage(message, input.idempotencyKey);

@@ -1,6 +1,7 @@
 /** What a turn reads and shows around its sends: final text, fallbacks, typing, turn images. */
 import type { ImageInput } from '@agent-sales/ai-core';
 import type { NormalizedEvent } from '@agent-sales/channels';
+import type { MessageUi } from '@agent-sales/contracts';
 import type { ReplyResult } from '../../../ai/api/index.js';
 import type { BotView } from '../../../bot/api/index.js';
 import type { ChannelFacade, PendingMetaEvent } from '../../../channel/api/index.js';
@@ -18,10 +19,16 @@ export const isCustomerContent = (e: NormalizedEvent): boolean =>
 export function finalMessage(response: ReplyResult): {
   text: string;
   images: readonly { url: string }[];
+  /** Website: the suggested next steps under the answer (ADR-029). */
+  ui?: MessageUi;
 } {
   if (!response.messages) return { text: response.reply, images: response.images ?? [] };
   const final = response.messages.find((m) => m.via === 'final');
-  return { text: final?.text ?? '', images: final?.images ?? [] };
+  return {
+    text: final?.text ?? '',
+    images: final?.images ?? [],
+    ...(final?.ui ? { ui: final.ui } : {}),
+  };
 }
 
 const cap = (word: string): string => word.charAt(0).toUpperCase() + word.slice(1);

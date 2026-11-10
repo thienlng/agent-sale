@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { visibleSections } from './page-context.js';
+import { pageNav, sectionTarget, visibleSections } from './page-context.js';
 
 /** jsdom has no layout: each marked element gets the box under `data-box` (top, height). */
 function place(el: Element) {
@@ -50,5 +50,51 @@ describe('visibleSections', () => {
     expect(section?.name).toHaveLength(80);
     expect(section?.text.startsWith('a b x')).toBe(true);
     expect(section?.text).toHaveLength(400);
+  });
+});
+
+describe('pageNav', () => {
+  const at = 'https://shop.vn/san-pham?ref=mail';
+
+  it('lists the sections of the page, then same-site links of the header, nav and footer', () => {
+    document.body.innerHTML = `
+      <header><a href="/">Trang chủ</a><a href="https://evil.test/x">Lạ</a>
+        <a href="mailto:a@shop.vn">Mail</a><a href="/san-pham">Ở đây</a></header>
+      <section id="pricing"><h2> Bảng   giá </h2></section>
+      <div data-rapiz-section="plan-pro" data-rapiz-label="Gói Pro"></div>
+      <section id="no-heading"></section>
+      <section>No id</section>
+      <main><a href="/blog">Not in navigation</a></main>
+      <footer><a href="/lien-he?utm=1#form" aria-label="Liên hệ"></a>
+        <a href="#pricing">Giá</a></footer>`;
+    expect(pageNav(document, at)).toEqual([
+      { label: 'Bảng giá', url: 'https://shop.vn/san-pham#pricing' },
+      { label: 'Gói Pro', url: 'https://shop.vn/san-pham#plan-pro' },
+      { label: 'no heading', url: 'https://shop.vn/san-pham#no-heading' },
+      { label: 'Trang chủ', url: 'https://shop.vn/' },
+      { label: 'Liên hệ', url: 'https://shop.vn/lien-he#form' },
+    ]);
+  });
+
+  it('keeps within the contract', () => {
+    document.body.innerHTML = `<nav>${Array.from(
+      { length: 40 },
+      (_, i) => `<a href="/p${i}">${'x'.repeat(100)}</a>`,
+    ).join('')}</nav>`;
+    const nav = pageNav(document, at);
+    expect(nav).toHaveLength(24);
+    expect(nav[0]?.label).toHaveLength(80);
+  });
+});
+
+describe('sectionTarget', () => {
+  it('finds an id, else a marked part of that name', () => {
+    document.body.innerHTML = '<section id="faq"></section><div data-rapiz-section="giá rẻ"></div>';
+    expect(sectionTarget('#faq')?.id).toBe('faq');
+    expect(sectionTarget('#gi%C3%A1%20r%E1%BA%BB')?.getAttribute('data-rapiz-section')).toBe(
+      'giá rẻ',
+    );
+    expect(sectionTarget('#none')).toBeNull();
+    expect(sectionTarget('')).toBeNull();
   });
 });

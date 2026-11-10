@@ -356,7 +356,14 @@ export class MetaInboxProcessor {
     }
     const final = finalMessage(response);
     if (final.text.trim() || final.images.length) {
-      if (!(await delivery.sendFinal(final.text, final.images, response.outcome === 'answered')))
+      if (
+        !(await delivery.sendFinal(
+          final.text,
+          final.images,
+          response.outcome === 'answered',
+          final.ui,
+        ))
+      )
         await this.discardConfirmation(turn, response);
     } else if (!delivery.attempted)
       // Nothing sent at all: the customer is never left without an answer.

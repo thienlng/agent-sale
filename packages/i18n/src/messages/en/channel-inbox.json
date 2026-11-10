@@ -603,7 +603,9 @@
       "bot": "Bot",
       "askWhy": "Why did the bot answer that?",
       "askWhyPrompt": "Why did the bot answer the message at {{time}} like that?",
-      "messageMenu": "Message options"
+      "messageMenu": "Message options",
+      "cards": "Product cards the visitor saw",
+      "suggestions": "Buttons the visitor saw"
     },
     "tagBar": {
       "label": "Conversation tags",

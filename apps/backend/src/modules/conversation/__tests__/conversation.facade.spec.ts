@@ -605,4 +605,25 @@ describe('ConversationFacade website visitors (T-100)', () => {
     );
     expect(next.messages.map((m) => m.text)).toEqual(['visible']);
   });
+  it('keeps the rich parts of a bot reply for the visitor, never for staff or other channels', async () => {
+    website();
+    const c = await service.receive(ws, channelId, visitorEvent(newId(), 'Có gói nào?'));
+    const ui = {
+      cards: [{ productId: 'p1', title: 'Gói Pro', price: '400.000đ', imageUrl: null }],
+      suggestions: [{ kind: 'link' as const, title: 'Xem bảng giá', url: 'https://shop.vn/#gia' }],
+    };
+    await service.commitBotReply(ws, c.id, {
+      revision: c.revision,
+      text: 'Dạ có ạ',
+      idempotencyKey: 'bot:ui1',
+      ui,
+    });
+    await service.send(ws, c.id, { text: 'Staff', idempotencyKey: newId() }, actor);
+    const all = await service.listForVisitor(ws, channelId, visitor, null);
+    expect(all.messages.map((m) => [m.text, m.ui])).toEqual([
+      ['Có gói nào?', undefined],
+      ['Dạ có ạ', ui],
+      ['Staff', undefined],
+    ]);
+  });
 });

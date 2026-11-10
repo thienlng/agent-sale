@@ -45,6 +45,7 @@ import type { AiFacade } from '../api/ai.facade.js';
 import type { ReplyOptions, ReplyResult } from '../api/reply-options.js';
 import { renderBusinessProfile } from '../domain/business-profile.js';
 import { toSources } from '../domain/grounding.js';
+import { navTargets } from '../domain/page-nav.js';
 import {
   buildAllowlist,
   imagesBlock,
@@ -163,7 +164,7 @@ export const PROMPT_VERSION_OPTION = Symbol('PROMPT_VERSION_OPTION');
 /** The current public base of Rapiz storage (`S3_PUBLIC_URL`); pictures are sent on it. */
 export const MEDIA_PUBLIC_BASE = Symbol('MEDIA_PUBLIC_BASE');
 const POST_PROMPT = { name: 'fanpage-context', version: 2 } as const;
-const PAGE_PROMPT = { name: 'website-page', version: 1 } as const;
+const PAGE_PROMPT = { name: 'website-page', version: 2 } as const;
 const MAX_SOURCES = 5;
 const FOCUS_RUNS = 3;
 const FOCUS_PRODUCTS = 3;
@@ -392,6 +393,8 @@ export class PlaygroundService implements AiFacade {
     const requestProfile = requestProfileFor(bot.industry);
     // The products the turn knows by name: an empty course or service is filled from them.
     const seenNames = new Map(focus.map((p) => [p.id, p.name]));
+    // A website visitor's turn: the products the bot may show as cards (focus and catalog results).
+    const shownable = new Map(focus.map((p) => [p.id, p]));
     const requestTool: RequestToolContext | null =
       this.crm && requestProfile
         ? {
@@ -413,10 +416,19 @@ export class PlaygroundService implements AiFacade {
         products.forEach((p) => {
           seenProducts.add(p.id);
           seenNames.set(p.id, p.name);
+          shownable.set(p.id, p);
         }),
       output,
       ...(options.sink ? { sink: options.sink } : {}),
       sendMessage: !isCommentReply,
+      website:
+        page && !isCommentReply
+          ? {
+              products: shownable,
+              navigation: navTargets(page),
+              language: bot.language === 'en' ? 'en' : 'vi',
+            }
+          : null,
       actions: actionContext ? { definitions: actionDefinitions, context: actionContext } : null,
       orders,
       holds,
