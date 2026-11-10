@@ -60,6 +60,9 @@
 .ut-channel-list li {display: grid; grid-template-columns: 44px minmax(0,.85fr) minmax(0,1.1fr) 108px; gap: 20px; align-items: center; padding: 23px 0; border-bottom: 1px solid var(--ut-rule)}
 .ut-channel-icon, .ut-control-icon {display: grid; place-items: center; width: 42px; aspect-ratio: 1; background: #ede9df}
 .ut-channel-icon svg, .ut-control-icon svg {width: 24px; height: 24px}
+.ut-channel-icon.is-brand {background: #fbe9dc; color: var(--rust); border-radius: 10px}
+.ut-channel-icon.is-brand svg {width: 22px; height: 22px}
+.ut-channel-list li:has(.ut-status.upcoming) .ut-channel-icon.is-brand {background: #ede9df; color: #79766b}
 .ut-channel-list h3, .ut-control-list h3 {font: 750 clamp(19px,1.65vw,26px)/1.18 var(--display); letter-spacing: -.025em}
 .ut-channel-list h3 a:hover {color: var(--rust); text-decoration: underline}
 .ut-channel-list p, .ut-control-list p {color: var(--ut-muted); line-height: 1.65; font-size: 15px}

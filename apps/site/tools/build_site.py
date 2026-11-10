@@ -837,7 +837,7 @@ def utility_catalog(root: str, block: dict, n: int) -> str:
             status_cls = 'tier'
         else:
             status_cls = 'beta'
-        rows.append(f'''<li><span class="ut-channel-icon" aria-hidden="true">{C.ICONS[item["icon"]]}</span>
+        rows.append(f'''<li><span class="ut-channel-icon{' is-brand' if 'brand' in item else ''}" aria-hidden="true">{C.BRAND_ICONS[item["brand"]] if 'brand' in item else C.ICONS[item["icon"]]}</span>
           <h3>{title}</h3><p>{item["text"]}</p><span class="ut-status {status_cls}">{status}</span></li>''')
     anchor = f' id="{block["id"]}"' if block.get('id') else ''
     return f'''<section class="sec ut-catalog {block.get("cls", "")}"{anchor} aria-labelledby="s{n}"><div class="container">
