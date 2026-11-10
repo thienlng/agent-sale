@@ -1,5 +1,5 @@
-import { Check, MessageCircle, ScanBarcode, SquareMousePointer } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { Heart, ThumbsUp } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { BrandMark, Logo } from '@/components/logo';
@@ -8,99 +8,52 @@ import { siteUrl } from '@/lib/env';
 import './login-layout.css';
 
 const messages = [
-  {
-    channel: 'Messenger',
-    preview: 'stockQuestion',
-    title: 'questionLead',
-    accent: 'questionAccent',
-    reply: 'reply',
-    result: 'checked',
-    detail: 'stock',
-  },
-  {
-    channel: 'Website',
-    preview: 'webQuestion',
-    title: 'colorLead',
-    accent: 'colorAccent',
-    reply: 'colorReply',
-    result: 'checked',
-    detail: 'colorResult',
-  },
-  {
-    channel: 'Messenger',
-    preview: 'deliveryQuestion',
-    title: 'deliveryLead',
-    accent: 'deliveryAccent',
-    reply: 'deliveryReply',
-    result: 'handoff',
-    detail: 'handoffResult',
-  },
+  { key: 'stock', channel: 'Messenger', icon: 'messenger', face: 'an', minutes: 2 },
+  { key: 'restock', channel: 'Instagram', icon: 'instagram', face: 'minh', minutes: 4 },
+  { key: 'price', channel: 'Zalo', icon: 'zalo', face: 'nam', minutes: 3 },
+  { key: 'plan', channel: 'Facebook', icon: 'facebook', face: 'lan', minutes: 1 },
+  { key: 'size', channel: 'TikTok', icon: 'tiktok', face: 'an', minutes: 5 },
+  { key: 'service', channel: 'Website chat', icon: 'web', face: 'nam', minutes: 6 },
+  { key: 'quote', channel: 'Email', icon: 'email', face: 'minh', minutes: 10 },
+  { key: 'booking', channel: 'Instagram', icon: 'instagram', face: 'an', minutes: 8 },
+  { key: 'trial', channel: 'Zalo', icon: 'zalo', face: 'nam', minutes: 12 },
 ] as const;
 
-function SalesConversation() {
+function EnquiryPoster() {
   const { t } = useTranslation();
-  const [message, setMessage] = useState<(typeof messages)[number]>(messages[0]);
-  const ChannelIcon = message.channel === 'Website' ? SquareMousePointer : MessageCircle;
   return (
-    <aside className="login-poster" aria-label={t('auth.salesExample.sample')}>
-      <div className="login-poster-inner">
-        <div className="login-poster-caption">
-          <span />
-          {t('auth.salesExample.sample')}
-        </div>
-        <div className="login-incoming" role="group" aria-label={t('auth.salesExample.pick')}>
-          {messages.map((item) => {
-            const Icon = item.channel === 'Website' ? SquareMousePointer : MessageCircle;
-            return (
-              <button
-                key={item.preview}
-                type="button"
-                className="login-preview"
-                aria-pressed={message === item}
-                aria-controls="login-conversation"
-                onClick={() => setMessage(item)}
-              >
-                <Icon aria-hidden size={15} />
-                <span>
-                  <small>{item.channel}</small>
-                  <strong>{t(`auth.salesExample.${item.preview}`)}</strong>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        <div id="login-conversation" aria-live="polite" aria-atomic="true">
-          <div className="login-lead-message" key={message.title}>
-            <span className="login-lead-source">
-              <ChannelIcon aria-hidden size={15} />
-              {message.channel}
-            </span>
-            <blockquote>
-              {t(`auth.salesExample.${message.title}`)} <br />
-              <em>{t(`auth.salesExample.${message.accent}`)}</em>
-            </blockquote>
-          </div>
-          <div className="login-answer" key={message.reply}>
-            <div className="login-answer-title">
-              <BrandMark className="h-5" />
-              Rapiz Agent
+    <aside className="login-poster" aria-labelledby="enquiry-title">
+      <h2 id="enquiry-title">
+        {t('auth.enquiries.lead')} <em>{t('auth.enquiries.accent')}</em>
+      </h2>
+      <ul className="login-messages">
+        {messages.map(({ key, channel, icon, face, minutes }) => (
+          <li key={key} className={`login-message message-${key}`}>
+            <img
+              className="login-face"
+              src={`/brand/login/${face}.webp`}
+              width="40"
+              height="40"
+              alt=""
+            />
+            <div className="message-meta">
+              <b>
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <use href={`/brand/login/channels.svg#${icon}`} />
+                </svg>
+                {channel}
+              </b>
+              <small>{t('auth.enquiries.minutes', { count: minutes })}</small>
             </div>
-            <p className="login-response">{t(`auth.salesExample.${message.reply}`)}</p>
-            <div className="login-stock">
-              {message.result === 'handoff' ? (
-                <MessageCircle aria-hidden size={21} />
-              ) : (
-                <ScanBarcode aria-hidden size={21} />
-              )}
-              <div>
-                <span>{t(`auth.salesExample.${message.result}`)}</span>
-                <strong>{t(`auth.salesExample.${message.detail}`)}</strong>
-              </div>
-              <Check aria-hidden size={17} />
-            </div>
-          </div>
-        </div>
-      </div>
+            <p>{t(`auth.enquiries.${key}`)}</p>
+            {(key === 'stock' || key === 'plan' || key === 'booking') && (
+              <span className="login-reaction" aria-hidden="true">
+                {key === 'plan' ? <ThumbsUp /> : <Heart />}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
     </aside>
   );
 }
@@ -115,7 +68,10 @@ export function LoginLayout({ children }: { children: ReactNode }) {
         </a>
         <div className="login-fields">{children}</div>
       </div>
-      <SalesConversation />
+      <div className="login-illustration-panel">
+        <BrandMark className="login-watermark" />
+        <EnquiryPoster />
+      </div>
     </main>
   );
 }

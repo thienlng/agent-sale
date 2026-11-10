@@ -114,22 +114,29 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
       </div>
       {error ? <FormError>{error}</FormError> : null}
       <div className="flex flex-col gap-2">
-        <Label htmlFor="email">{t('auth.email')}</Label>
-        <Input id="email" name="email" type="email" autoComplete="email" required />
+        <Label className="sr-only" htmlFor="email">
+          {t('auth.email')}
+        </Label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          placeholder={t('auth.email')}
+          required
+        />
       </div>
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="password">{t('auth.password')}</Label>
-          <Link to="/forgot-password" className="text-sm text-brand-text hover:underline">
-            {t('auth.forgotPassword')}
-          </Link>
-        </div>
+        <Label className="sr-only" htmlFor="password">
+          {t('auth.password')}
+        </Label>
         <div className="login-password">
           <Input
             id="password"
             name="password"
             type={passwordVisible ? 'text' : 'password'}
             autoComplete="current-password"
+            placeholder={t('auth.password')}
             required
           />
           <button
@@ -141,11 +148,36 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
             {passwordVisible ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
           </button>
         </div>
+        <Link
+          to="/forgot-password"
+          className="login-forgot text-sm text-brand-text hover:underline"
+        >
+          {t('auth.forgotPassword')}
+        </Link>
       </div>
       <Button type="submit" size="lg" disabled={pending}>
         {pending ? t('auth.loggingIn') : t('auth.login')}
         <ArrowRight size={18} aria-hidden />
       </Button>
+      <button type="button" className="login-google" disabled>
+        <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true">
+          <path
+            fill="#4285F4"
+            d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.6c3.9-3.6 6.1-8.8 6.1-15Z"
+          />
+          <path
+            fill="#34A853"
+            d="M24 44c5.5 0 10.1-1.8 13.5-4.5l-6.6-5.1c-1.8 1.2-4.1 1.9-6.9 1.9-5.3 0-9.8-3.6-11.4-8.4H5.8v5.3A20.4 20.4 0 0 0 24 44Z"
+          />
+          <path fill="#FBBC05" d="M12.6 27.9a12.2 12.2 0 0 1 0-7.8v-5.3H5.8a20 20 0 0 0 0 18.4Z" />
+          <path
+            fill="#EA4335"
+            d="M24 11.7c3 0 5.7 1 7.8 3.1l5.8-5.8A19.4 19.4 0 0 0 24 4 20.4 20.4 0 0 0 5.8 14.8l6.8 5.3c1.6-4.8 6.1-8.4 11.4-8.4Z"
+          />
+        </svg>
+        {t('auth.googleLogin')}
+        <small>{t('auth.googleSoon')}</small>
+      </button>
       <p className="text-center text-sm text-muted-foreground">
         {t('auth.noAccount')}{' '}
         <Link to="/signup" className="font-medium text-brand-text hover:underline">

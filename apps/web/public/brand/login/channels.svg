@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ig" x2=".85" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#7147d7"/><stop offset=".5" stop-color="#e93d81"/><stop offset="1" stop-color="#ffb644"/></linearGradient>
+    <linearGradient id="ms" x2=".8" y2="1"><stop stop-color="#ff6aae"/><stop offset=".55" stop-color="#a542ed"/><stop offset="1" stop-color="#3867ff"/></linearGradient>
+  </defs>
+  <symbol id="messenger" viewBox="0 0 24 24"><path fill="url(#ms)" d="M12 1C5.9 1 1.3 5.6 1.3 11.4c0 3.2 1.5 6 4 7.8v3.4l3.8-2c.9.2 1.9.4 2.9.4 6.1 0 10.7-4.1 10.7-9.6C22.7 5.6 18.1 1 12 1Z"/><path fill="#fff" d="m5 15 5.2-6.2 3.6 2.6L19 8.3l-5.2 6-3.6-2.5Z"/></symbol>
+  <symbol id="instagram" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="url(#ig)"/><g stroke="#fff" stroke-width="1.7" fill="none"><rect x="4" y="4" width="16" height="16" rx="5"/><circle cx="12" cy="12" r="3.6"/></g><circle cx="17" cy="7" r="1" fill="white"/></symbol>
+  <symbol id="facebook" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1877f2"/><path fill="#fff" d="M13.8 24v-9.3h3.1l.5-3.6h-3.6V8.8c0-1 .3-1.8 1.9-1.8h1.9V3.8c-.8-.1-1.6-.2-2.5-.2-2.6 0-4.5 1.6-4.5 4.6v2.9H7.7v3.6h2.9V24Z"/></symbol>
+  <symbol id="zalo" viewBox="0 0 24 24"><rect width="24" height="24" rx="7" fill="#0866ff"/><path fill="white" d="M12 3c5.4 0 9 3.4 9 7.8 0 4.6-4 8.1-9 8.1-.9 0-1.8-.1-2.6-.3l-4 1.6.9-3.6A7.1 7.1 0 0 1 3 10.8C3 6.4 7 3 12 3Z"/><path d="M9 8h6l-6 6.5h6" stroke="#0866ff" stroke-width="1.8" fill="none"/></symbol>
+  <symbol id="tiktok" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#121214"/><path d="M13 5v10a3.5 3.5 0 1 1-3.5-3.5M13 5c.4 2.5 2 4 5 4" fill="none" stroke="#34ece6" stroke-width="2.7" transform="translate(-.6 .5)"/><path d="M13 5v10a3.5 3.5 0 1 1-3.5-3.5M13 5c.4 2.5 2 4 5 4" fill="none" stroke="white" stroke-width="2.3"/></symbol>
+  <symbol id="web" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#ff8b15"/><g fill="none" stroke="white" stroke-width="1.5"><circle cx="12" cy="12" r="8"/><ellipse cx="12" cy="12" rx="3.5" ry="8"/><path d="M5 9h14M5 15h14"/></g></symbol>
+  <symbol id="email" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#ff8b15"/><rect x="4" y="6" width="16" height="12" rx="2" fill="white"/><path d="m4.5 7 7.5 6 7.5-6" stroke="#ff8b15" stroke-width="1.4" fill="none"/></symbol>
+</svg>

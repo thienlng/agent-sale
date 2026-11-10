@@ -12,7 +12,9 @@ describe('LoginForm', () => {
   it('renders in Vietnamese by default', async () => {
     renderWithRouter(() => <LoginForm onSuccess={() => {}} />);
     expect(await screen.findByRole('heading', { name: 'Đăng nhập vào Rapiz' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Mật khẩu')).toBeInTheDocument();
+    expect(screen.getByLabelText('Mật khẩu')).toHaveAttribute('placeholder', 'Mật khẩu');
+    expect(screen.getByLabelText('Email')).toHaveAttribute('placeholder', 'Email');
+    expect(screen.getByRole('button', { name: /Google/ })).toBeDisabled();
     expect(screen.getByRole('link', { name: 'Đăng ký' })).toHaveAttribute('href', '/signup');
   });
 
