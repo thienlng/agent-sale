@@ -34,7 +34,7 @@ function PageLink({ url, title }: { url: string; title?: string | null }) {
   );
 }
 
-/** Side panel of a website conversation: how the visitor arrived, where they are and their number. */
+/** Side panel of a website conversation: how the visitor arrived, where they are and their number or email. */
 export function WebsiteVisitorBlock({ conversationId }: { conversationId: string }) {
   const { t } = useTranslation();
   const v = (key: string) => t(`channelInbox.v2.visitor.${key}`);
@@ -78,6 +78,16 @@ export function WebsiteVisitorBlock({ conversationId }: { conversationId: string
               )}
             </dd>
           </div>
+          {data.email ? (
+            <div>
+              <dt className="text-xs text-muted-foreground">{v('email')}</dt>
+              <dd className="truncate">
+                <a href={`mailto:${data.email}`} className="hover:underline">
+                  {data.email}
+                </a>
+              </dd>
+            </div>
+          ) : null}
         </dl>
       )}
     </PanelBlock>

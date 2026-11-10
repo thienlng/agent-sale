@@ -25,6 +25,7 @@ import {
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import { BOT_LIFECYCLE, type BotLifecycle } from '../api/bot-lifecycle.js';
 import type { BotFacade, BotView } from '../api/bot.facade.js';
+import type { BotSetupFacade } from '../api/bot-setup.js';
 import { Bot, type BotSettingsChange } from '../domain/bot.js';
 import type { BotSettingsData } from '../domain/bot-settings.js';
 import { BotNotFoundError, InvalidBotError } from '../domain/bot.errors.js';
@@ -97,7 +98,7 @@ function toFaqDto(bot: Bot, faq: FaqView): FaqDto {
  * the owner can add by hand — acceptable, and visible in readiness.
  */
 @Injectable()
-export class BotService implements BotFacade {
+export class BotService implements BotFacade, BotSetupFacade {
   private readonly log = new Logger(BotService.name);
 
   constructor(

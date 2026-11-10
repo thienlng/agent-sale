@@ -118,3 +118,47 @@ test('feature screenshots open in a popup, not a new tab', async ({ page }) => {
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
 });
+
+test('page sections are named for the website chat bot; plan cards carry their prices', async ({
+  page,
+}) => {
+  for (const path of PAGES) {
+    await page.goto(path);
+    const names = await page
+      .locator('[data-rapiz-section]')
+      .evaluateAll((els) => els.map((el) => el.getAttribute('data-rapiz-section')));
+    expect(names.length, path).toBeGreaterThan(1);
+    expect(
+      names.every((n) => /^[a-z][a-z0-9_-]*$/.test(n ?? '')),
+      path,
+    ).toBe(true);
+  }
+  await page.goto('/bang-gia/');
+  const smart = page.locator('[data-rapiz-section="plan-sales_smart"]');
+  await expect(smart).toHaveAttribute('data-rapiz-context', /785\.000đ khi trả 12 tháng/);
+  await expect(smart).toHaveAttribute('data-rapiz-context', /1\.310\.000đ khi trả 3 tháng/);
+});
+
+test('the chat bubble loads only when a site key is filled in', async ({ page }) => {
+  const widget: string[] = [];
+  await page.route('**/widget.js*', (route) => {
+    widget.push(route.request().url());
+    return route.fulfill({ contentType: 'text/javascript', body: '' });
+  });
+  await page.goto('/', { waitUntil: 'networkidle' });
+  expect(widget).toEqual([]);
+
+  // What the edge server serves once RAPIZ_SITE_WIDGET_KEY is set.
+  const loader = await (await page.request.get('/static/site-widget.js')).text();
+  const key = 'wk_AbCdEfGhIjKlMnOpQrStUv';
+  await page.route('**/static/site-widget.js', (route) =>
+    route.fulfill({
+      contentType: 'text/javascript',
+      body: loader.replace('{{env "RAPIZ_SITE_WIDGET_KEY"}}', key),
+    }),
+  );
+  await page.goto('/bang-gia/', { waitUntil: 'networkidle' });
+  expect(widget).toHaveLength(1);
+  expect(new URL(widget[0]!).pathname).toBe('/widget.js');
+  expect(new URL(widget[0]!).searchParams.get('key')).toBe(key);
+});

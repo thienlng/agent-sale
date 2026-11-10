@@ -654,6 +654,7 @@
       "direct": "Truy cập trực tiếp",
       "phone": "Số điện thoại",
       "noPhone": "Chưa để lại số",
+      "email": "Email",
       "loadError": "Không tải được thông tin khách truy cập."
     }
   },

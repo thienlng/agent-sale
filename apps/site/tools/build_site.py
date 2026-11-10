@@ -189,6 +189,7 @@ def head(root: str, title: str, description: str, canonical: str, assets: list[s
   <link rel="stylesheet" href="{root}static/{styles}">
   {handoff_assets}<script defer src="{root}static/site.js"></script>
   <script defer src="{root}static/motion.js"></script>
+  <script defer src="{root}static/site-widget.js"></script>
 </head>
 <body id="top">'''
 
@@ -619,6 +620,16 @@ def render_related(root: str, block: dict, n: int) -> str:
 </section>'''
 
 
+def plan_context(p: dict) -> str:
+    """What a visitor looking at a plan card sees, for the website chat bot (every term's price)."""
+    if p['prices']:
+        terms = ', '.join(f'{C.vnd(p["prices"][m])} khi trả {m} tháng' for m in ('12', '6', '3'))
+        price = f'Giá mỗi tháng: {terms}.'
+    else:
+        price = 'Giá 0đ, không thời hạn, không cần thẻ thanh toán.'
+    return f'Gói {p["name"]}: {p["for"]} {price} ' + '; '.join(p['ticks']) + '.'
+
+
 def plan_cards(root: str) -> str:
     cards = ''
     for p in C.PLANS:
@@ -635,7 +646,7 @@ def plan_cards(root: str) -> str:
             data = ''
             price = '<p class="price"><b>0đ</b><span>/ không thời hạn</span></p><p class="price-note">Không cần thẻ thanh toán</p>'
             cta = f'<a class="btn ghost" href="{href(root, "dat-lich-demo")}?goi=free">{p["cta"]} <span aria-hidden="true">→</span></a>'
-        cards += f'''<article class="plan{featured}"{data}>{badge}
+        cards += f'''<article class="plan{featured}"{data} data-rapiz-section="plan-{p["code"]}" data-rapiz-context="{escape(plan_context(p))}">{badge}
         <h3>{p["name"]}</h3><p class="for">{p["for"]}</p>{price}{cta}{ticks(p["ticks"])}
       </article>'''
     return cards
@@ -744,6 +755,22 @@ RENDERERS = {
 }
 
 
+# The website chat bot reads `data-rapiz-section` on what the visitor sees (docs/07, website chat).
+SECTION_NAMES = {
+    'player': 'demo-chat', 'rows': 'details', 'caps': 'capabilities', 'shot': 'screenshot',
+    'duo': 'details', 'compare': 'plan-compare', 'form': 'demo-form', 'catalog': 'channels',
+}
+
+
+def mark(html: str, section: str) -> str:
+    """Names the block's first <section> for the website chat bot's page context."""
+    return html.replace('<section ', f'<section data-rapiz-section="{section}" ', 1) if section else html
+
+
+def section_name(block: dict) -> str:
+    return block.get('section') or SECTION_NAMES.get(block['kind'], block['kind'])
+
+
 # ---------- commercial and platform pages ----------
 
 UTILITY_PAGES = {'bang-gia', 'dat-lich-demo', 'tich-hop', 'bao-mat'}
@@ -840,11 +867,12 @@ def render_utility_page(p: dict, root: str) -> str:
         if block['kind'] == 'close':
             continue  # The shared footer renders the page-specific closing message.
         renderer = overrides.get(block['kind']) or RENDERERS[block['kind']]
-        blocks.append(renderer(root, block, n))
+        name = 'security-controls' if slug == 'bao-mat' and block['kind'] == 'caps' else section_name(block)
+        blocks.append(mark(renderer(root, block, n), name))
     description = 'Chuẩn bị nội dung buổi demo 30 phút và xem trước phiếu theo ngành, gói và kênh của doanh nghiệp.' if slug == 'dat-lich-demo' else p['description']
     return f'''{head(root, p["title"], description, slug + "/")}
 {header(root, slug)}
-<main id="main" class="ut-page ut-{slug}">{utility_hero(root, p)}{"".join(blocks)}</main>
+<main id="main" class="ut-page ut-{slug}">{mark(utility_hero(root, p), "hero")}{"".join(blocks)}</main>
 {footer(root, p)}
 </body></html>
 '''
@@ -871,12 +899,12 @@ def render_page(p: dict) -> str:
         if b['kind'] == 'close':
             continue
         fn = RENDERERS[b['kind']]
-        blocks.append(fn(root, b, n))
+        blocks.append(mark(fn(root, b, n), section_name(b)))
     body = '\n'.join(blocks)
     return f'''{head(root, p["title"], p["description"], p["slug"] + "/", p.get("assets"))}
 {header(root, p["slug"])}
 <main id="main">
-{page_hero(root, p)}
+{mark(page_hero(root, p), "hero")}
 {body}
 </main>
 {footer(root, p)}

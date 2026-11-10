@@ -62,6 +62,7 @@ The server follows `/opt/infra/README.md` on the host: apps live in `/opt/apps/<
    `docker compose exec api node apps/backend/dist/cli/platform-admin.js grant <email>`
 8. **LLM provider.** Add one in Admin → LLM. Without it, production answers 503 for bot turns.
 9. **Plans and trial.** In Admin (`/admin/plans` for the catalog, `/admin/settings` for trial, lifecycle and bank account): check the plan catalog and prices, set the VietQR bank account, then turn the signup trial on (it ships off, so a deploy alone changes nothing for new signups). The `worker` service runs the subscription lifecycle (trial end, past due, suspension) every 5 minutes; keep it running.
+10. **Website chat (optional).** Rapiz's own pages show a chat bubble once the edge has a site key. Sign up the owner, then run `docker compose exec api node apps/backend/dist/cli/rapiz-site-bot.js seed --owner <email> --domains <host>,www.<host>` (idempotent; prints `site key: wk_…`), add `RAPIZ_SITE_WIDGET_KEY=wk_…` to `.env` and run `docker compose --env-file .env up -d edge`. Unset, the pages load no widget. Details: [apps/site README](../../apps/site/README.md#website-chat).
 
 ## Every change
 

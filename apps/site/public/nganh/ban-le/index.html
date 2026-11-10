@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="../../static/detail-design.css">
   <script defer src="../../static/site.js"></script>
   <script defer src="../../static/motion.js"></script>
+  <script defer src="../../static/site-widget.js"></script>
 </head>
 <body id="top">
 <!--#site-head-->
@@ -38,7 +39,7 @@
 </header>
 <!--/site-head-->
 <main id="main">
-<section class="industry-spread" data-edition="ban-le" aria-labelledby="page-title">
+<section data-rapiz-section="hero" class="industry-spread" data-edition="ban-le" aria-labelledby="page-title">
   <div class="industry-cover">
     <img class="industry-photo" src="../../images/rapiz-retail.webp" width="840" height="1050" alt="Nhân viên shop thời trang kiểm tra đơn hàng bên giá treo áo" fetchpriority="high">
     <div class="container industry-cover-inner">
@@ -60,13 +61,13 @@
   </div>
   <div class="container industry-facts"><ul class="detail-points"><li>Hiểu tin nhắn không dấu</li><li>Đơn chỉ tạo khi khách bấm xác nhận</li></ul></div>
 </section>
-<section class="sec " aria-labelledby="s1">
+<section data-rapiz-section="pains" class="sec " aria-labelledby="s1">
   <div class="container">
     <div class="section-intro"><div><p class="kicker"><i class="slashes" aria-hidden="true"></i> VÌ SAO KHÁCH BỎ ĐI</p><h2 id="s1">Inbox chậm một nhịp,<br><em>đơn sang shop khác.</em></h2></div><p>Ba tình huống quen thuộc của shop chạy quảng cáo tin nhắn.</p></div>
     <div class="pain-grid below"><article class="pain"><b>01</b><h3>Tin nhắn dồn khi quảng cáo chạy</h3><p>Quảng cáo ra số vào buổi tối, hàng chục khách hỏi cùng lúc. Chờ vài phút, khách đã nhắn shop khác.</p></article><article class="pain"><b>02</b><h3>Báo nhầm giá, nhầm tồn</h3><p>Nhân viên nhớ bảng giá cũ hoặc báo còn hàng khi kho đã hết, đơn phải huỷ và xin lỗi khách.</p></article><article class="pain"><b>03</b><h3>Khách gõ không dấu, viết tắt</h3><p>“ao thun trang con L ko” vẫn là một đơn hàng, nếu có người hiểu và trả lời ngay lúc đó.</p></article></div>
   </div>
 </section>
-<section class="sec tint" aria-labelledby="s2">
+<section data-rapiz-section="demo-chat" class="sec tint" aria-labelledby="s2">
   <div class="container">
     <div class="section-intro"><div><p class="kicker"><i class="slashes" aria-hidden="true"></i> XEM MỘT ĐƠN HÀNG</p><h2 id="s2">Một đơn hàng,<br><em>xem từng bước.</em></h2></div><p>Hội thoại tự chạy khi bạn cuộn tới. Bên trái là việc Rapiz làm ở từng bước.</p></div>
     <div class="playbox below" data-player>
@@ -93,7 +94,7 @@
     </div>
   </div>
 </section>
-<section class="sec " aria-labelledby="s3">
+<section data-rapiz-section="screenshot" class="sec " aria-labelledby="s3">
   <div class="container">
     <div class="section-intro"><div><p class="kicker"><i class="slashes" aria-hidden="true"></i> MÀN HÌNH THẬT</p><h2 id="s3">Hội thoại và hồ sơ khách<br><em>trên cùng một màn hình.</em></h2></div><p>Đây là Tin nhắn đa kênh trong app. Nhân viên đọc lại những gì bot đã trả lời, xem số điện thoại, trạng thái và nhãn của khách ở cột bên phải.</p></div>
     <figure class="tour-frame below" style="margin:clamp(30px,4vw,56px) 0 0">
@@ -102,19 +103,19 @@
     <p class="fineprint">Ảnh chụp ứng dụng Rapiz với dữ liệu demo.</p>
   </div>
 </section>
-<section class="sec " aria-labelledby="s4">
+<section data-rapiz-section="capabilities" class="sec " aria-labelledby="s4">
   <div class="container">
     <div class="section-intro"><div><p class="kicker"><i class="slashes" aria-hidden="true"></i> BỘ VIỆC CỦA SHOP</p><h2 id="s4">Những việc Rapiz<br><em>làm thay đội sale.</em></h2></div><p></p></div>
     <div class="cap-grid below"><article class="cap"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></span><h3>Tìm sản phẩm theo nhu cầu</h3><p>Khách gõ không dấu, viết tắt hay chỉ tả màu và dáng, Rapiz vẫn ra đúng mẫu và biến thể.</p><p class="proof">“con mau den ko” → tra tồn theo màu</p></article><a class="cap" href="../../tinh-nang/ban-hang-ai/"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.5" rx="7" ry="2.5"/><path d="M5 5.5v13c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-13M5 12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5"/></svg></span><h3>Giá và tồn từ dữ liệu shop</h3><p>Giá, biến thể, tồn kho lấy từ danh mục của bạn trước khi trả lời. Không có dữ liệu thì bot nói chưa có.</p></a><article class="cap"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M16 11v6M8 15h2M12 15h2"/></svg></span><h3>Tính tiền chính xác</h3><p>Mọi phép tính đi qua máy tính, kể cả khi khách gõ 1,5 hay 500,000.</p><p class="proof"><span class="mono">2 × 880.000 = 1.760.000đ</span></p></article><a class="cap" href="../../tinh-nang/ban-hang-ai/"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9 17.5 20 6.5"/></svg></span><h3>Chốt đơn bằng nút bấm</h3><p>Bot gửi tóm tắt đơn. Đơn chỉ được tạo khi khách bấm ✅ Đặt hàng, nhân viên duyệt trước khi giao.</p></a><article class="cap"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/></svg></span><h3>Gửi ảnh sản phẩm thật</h3><p>Chỉ gửi ảnh có trong thư viện sản phẩm của bạn, không lấy ảnh lạ trên mạng.</p></article><a class="cap" href="../../tinh-nang/binh-luan-facebook/"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H10l-5 4v-4H4z"/><path d="M8 9.5h8M8 12.5h5"/></svg></span><h3>Bình luận dưới bài quảng cáo</h3><p>Trả lời công khai theo đúng sản phẩm trong bài, nhắn riêng cho người bình luận, ẩn bình luận theo từ khóa.</p></a><a class="cap" href="../../tinh-nang/hop-thu/"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3.5"/><path d="M3 20c.6-3.4 3-5.5 6-5.5 1.5 0 2.8.5 3.9 1.3M15 15h6M18 12l3 3-3 3"/></svg></span><h3>Gọi nhân viên đúng lúc</h3><p>Đổi địa chỉ sau khi chốt, khiếu nại, xin giảm giá: bot chuyển người kèm lý do và tóm tắt.</p></a><a class="cap" href="../../tich-hop/"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0V8ZM12 17v4"/></svg></span><h3>Đồng bộ KiotViet<span class="tag">Thử nghiệm</span></h3><p>Lấy sản phẩm và tồn theo chi nhánh, đẩy đơn và khách hàng về KiotViet.</p></a></div>
   </div>
 </section>
-<section id="questions" class="faq" aria-labelledby="faq-title">
+<section data-rapiz-section="faq" id="questions" class="faq" aria-labelledby="faq-title">
   <div class="container faq-grid">
     <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> CÂU HỎI THƯỜNG GẶP</p><h2 id="faq-title">Bạn&nbsp;muốn<br>biết <em>thêm?</em></h2></div>
     <div class="faq-items"><details open><summary>Bot có tự tạo đơn khi khách chưa đồng ý không?</summary><p>Không. Bot gửi tóm tắt đơn kèm nút ✅ Đặt hàng và nút sửa. Đơn chỉ được tạo khi khách bấm xác nhận, mang nhãn “Bot tạo” để nhân viên duyệt.</p></details><details><summary>Tồn kho được xử lý thế nào khi bot tạo đơn?</summary><p>Đơn bot tạo giữ tồn kho cho các biến thể trong đơn. Nhân viên thấy nguồn đơn, trạng thái, có thể sửa món và tách tổng tiền với tiền phải thu.</p></details><details><summary>Shop tôi có nhiều màu, nhiều size?</summary><p>Mỗi sản phẩm có biến thể, kho và tồn riêng. Bot tra theo đúng biến thể khách hỏi và báo khi một màu hoặc size đã hết.</p></details><details><summary>Nhập sản phẩm có mất nhiều thời gian không?</summary><p>Bạn nhập từ Excel hoặc CSV kèm ảnh. Trợ lý Rapiz đọc tệp, đề xuất danh mục để bạn duyệt một lần là xong.</p></details><details><summary>Tôi đang dùng KiotViet, có cần nhập lại không?</summary><p>Không cần. Tích hợp KiotViet đang chạy thử nghiệm với một số shop: đồng bộ sản phẩm, tồn theo chi nhánh, đẩy đơn và khách hàng. Sapo, Haravan và Pancake POS sắp ra mắt; hệ thống khác kết nối được qua API và webhook.</p></details><details><summary>Khi nào nhân viên tiếp quản được?</summary><p>Bất cứ lúc nào. Nhân viên tắt bot cho từng hội thoại và trả lời ngay trong hộp thư. Khi bot thấy cần người, Rapiz gửi thông báo đẩy kèm lý do và tóm tắt cuộc trao đổi.</p></details></div>
   </div>
 </section>
-<section class="sec tint" aria-labelledby="s6">
+<section data-rapiz-section="related" class="sec tint" aria-labelledby="s6">
   <div class="container">
     <div class="sec-head-solo"><p class="kicker"><i class="slashes" aria-hidden="true"></i> XEM TIẾP</p><h2 id="s6">Đơn trong chat<br><em>còn cần gì nữa?</em></h2></div>
     <div class="related below"><a class="rel" href="../../tinh-nang/ban-hang-ai/"><small>Tính năng</small><strong>Tư vấn & chốt đơn</strong><span>Chốt đơn bằng nút xác nhận, không bịa giá.</span><em>Xem chi tiết →</em></a><a class="rel" href="../../tinh-nang/binh-luan-facebook/"><small>Tính năng</small><strong>Tự động xử lý bình luận</strong><span>Trả lời theo bài đăng, nhắn riêng, ẩn theo từ khóa.</span><em>Xem chi tiết →</em></a><a class="rel" href="../../tich-hop/"><small>Nền tảng</small><strong>Tích hợp nền tảng & PMS</strong><span>Kênh nhắn tin, KiotViet, API và webhook.</span><em>Xem chi tiết →</em></a></div>

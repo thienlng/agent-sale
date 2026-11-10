@@ -180,6 +180,58 @@ describe('MetaInboxProcessor', () => {
       { role: 'customer', content: 'Shop ơi\nmua giày\nsize 41 giá bao nhiêu' },
     ]);
   });
+  it("gives a website reply the page of the burst's newest message", async () => {
+    const { channels, ai, processor } = setup();
+    const site = await channels.getConnection(ws, channelId);
+    vi.mocked(channels.getConnection).mockResolvedValue({ ...site, provider: 'website' });
+    const t0 = Date.now();
+    const onPage = (j: PendingMetaEvent, name: string): PendingMetaEvent => ({
+      ...j,
+      event: {
+        ...j.event,
+        kind: 'website',
+        page: { url: `https://shop.test/${name}`, title: name, sections: [{ name, text: name }] },
+      },
+    });
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      onPage(job('w1', 'message', 'xin chào', t0 - 1000), 'home'),
+      onPage(job('w2', 'message', '400k là sao?', t0), 'pricing'),
+    ]);
+    await processor.tick();
+    expect(ai.reply).toHaveBeenCalledTimes(1);
+    expect(ai.reply.mock.calls[0]?.[2].pageContext).toEqual({
+      url: 'https://shop.test/pricing',
+      title: 'pricing',
+      sections: [{ name: 'pricing', text: 'pricing' }],
+    });
+  });
+  it('gives a Messenger reply no page context', async () => {
+    const { channels, ai, processor } = setup();
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([job('m1', 'message', 'hi', Date.now())]);
+    await processor.tick();
+    expect(ai.reply.mock.calls[0]?.[2]).not.toHaveProperty('pageContext');
+  });
+  it('tells the bot which contact details a lead already left', async () => {
+    const { channels, ai, inbox, processor } = setup();
+    const t0 = Date.now();
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([job('l1', 'message', 'hi', t0)]);
+    await processor.tick();
+    expect(ai.reply.mock.calls[0]?.[2]).not.toHaveProperty('phoneKnown');
+    expect(ai.reply.mock.calls[0]?.[2]).not.toHaveProperty('emailKnown');
+    const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
+    await inbox.linkLead(ws, c!.id, {
+      contactId: '018d0000-0000-7000-8000-0000000000e1',
+      phoneE164: null,
+      email: 'lan@shop.vn',
+      capturedAt: new Date(t0).toISOString(),
+    });
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('l2', 'message', 'gửi báo giá nhé', t0 + 1000),
+    ]);
+    await processor.tick();
+    expect(ai.reply.mock.calls[1]?.[2]).toMatchObject({ emailKnown: true });
+    expect(ai.reply.mock.calls[1]?.[2]).not.toHaveProperty('phoneKnown');
+  });
   it('orders messages received within the same millisecond by arrival', async () => {
     const { channels, ai, processor } = setup();
     vi.useFakeTimers({ toFake: ['Date'] });

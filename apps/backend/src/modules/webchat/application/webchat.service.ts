@@ -9,13 +9,26 @@ import {
   type WidgetSendResponse,
   type WidgetUploadResponse,
 } from '@agent-sales/contracts';
-import { findVnPhone, isUuid, maskPhone, newId, normalizeLeadPhone } from '@agent-sales/shared';
+import {
+  findEmail,
+  findVnPhone,
+  isUuid,
+  maskEmail,
+  maskPhone,
+  newId,
+  normalizeLeadPhone,
+} from '@agent-sales/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { BOT_FACADE, type BotFacade } from '../../bot/api/index.js';
 import { CHANNEL_FACADE, type ChannelFacade, type WebsiteSite } from '../../channel/api/index.js';
 import { CONVERSATION_FACADE, type ConversationFacade } from '../../conversation/api/index.js';
-import { CRM_FACADE, type CrmFacade, websiteLeadName } from '../../crm/api/index.js';
+import {
+  CRM_FACADE,
+  type CrmFacade,
+  websiteEmailLeadName,
+  websiteLeadName,
+} from '../../crm/api/index.js';
 import { sniffUpload, UPLOAD_EXTENSIONS } from '../domain/image-sniff.js';
 import { WebchatStorageUnavailableError } from '../domain/webchat.errors.js';
 import { WidgetError } from './widget-error.js';
@@ -169,8 +182,11 @@ export class WebchatService {
       ? existingToken
       : await this.channels.signVisitorToken(site, visitorId);
 
-    if (typedPhone)
-      await this.capture(site, visitorId, typedPhone, cut(body.firstUrl ?? body.page.url, 1000));
+    // A phone and an email left in one message end on one customer: the phone is captured first.
+    const leadUrl = cut(body.firstUrl ?? body.page.url, 1000);
+    if (typedPhone) await this.capture(site, visitorId, { phone: typedPhone }, leadUrl);
+    const typedEmail = body.text ? findEmail(body.text) : null;
+    if (typedEmail) await this.capture(site, visitorId, { email: typedEmail }, leadUrl);
 
     const occurredAt = new Date();
     const event: NormalizedEvent = {
@@ -184,6 +200,7 @@ export class WebchatService {
       occurredAt,
       ...(body.text ? { text: body.text } : {}),
       ...(attachmentUrl ? { attachments: [{ type: 'image' as const, url: attachmentUrl }] } : {}),
+      page: body.page,
       raw: { page: body.page, seen: body.seen ?? [] },
     };
     // A retry of the same clientMessageId is accepted again without a second queue row.
@@ -222,9 +239,14 @@ export class WebchatService {
       // The phone arrived with the first message, before the inbox had a conversation to flag. The
       // visitor row learns the conversation only after the lead is linked, so a failure is retried.
       const linked =
-        !visitor.phoneE164 ||
+        (!visitor.phoneE164 && !visitor.email) ||
         !visitor.contactId ||
-        (await this.linkLead(site, page.conversationId, visitor.phoneE164, visitor.contactId));
+        (await this.linkLead(
+          site,
+          page.conversationId,
+          { phone: visitor.phoneE164, email: visitor.email },
+          visitor.contactId,
+        ));
       if (linked)
         await this.visitors.linkConversation(
           site.workspaceId,
@@ -297,76 +319,85 @@ export class WebchatService {
     if (!phone) throw new WidgetError(422, 'INVALID_PHONE');
     const visitor = await this.visitors.find(site.workspaceId, site.connectionId, visitorId);
     if (!visitor) throw new WidgetError(401, 'INVALID_VISITOR');
-    await this.capture(site, visitorId, phone, visitor.firstUrl);
+    await this.capture(site, visitorId, { phone }, visitor.firstUrl);
     return { phoneCaptured: true };
   }
 
   /**
-   * One capture: customer in the CRM (found by phone or created), phone on the visitor, lead flag on
-   * the conversation. Repeating it with the same number changes nothing; a new number replaces the
-   * visitor's lead (the earlier customer is left alone).
+   * One capture: customer in the CRM (found by phone or email, or created), the contact on the
+   * visitor, lead flag on the conversation. Repeating it with the same value changes nothing; a new
+   * number replaces the visitor's lead (the earlier customer is left alone). The visitor's earlier
+   * customer is passed along, so a phone and an email of one visitor end on one customer.
    */
   private async capture(
     site: WebsiteSite,
     visitorId: string,
-    phone: string,
+    key: { phone: string } | { email: string },
     firstUrl: string | null,
   ): Promise<void> {
     const visitor = await this.visitors.find(site.workspaceId, site.connectionId, visitorId);
     if (!visitor) return;
-    let contactId = visitor.phoneE164 === phone ? visitor.contactId : null;
-    if (!contactId) {
-      const lead = await this.crm.upsertLeadByPhone(site.workspaceId, {
-        phoneE164: phone,
-        sourceKey: 'website',
-        displayName: websiteLeadName(phone),
-        firstUrl,
-      });
-      contactId = lead.contactId;
-      await this.visitors.recordPhone(
-        site.workspaceId,
-        site.connectionId,
-        visitorId,
-        phone,
-        contactId,
-      );
-      this.#logger.log(`website lead captured ${maskPhone(phone)} (created=${lead.created})`);
+    const ws = site.workspaceId;
+    const earlier = visitor.contactId ? { contactId: visitor.contactId } : {};
+    let contactId: string | null;
+    if ('phone' in key) {
+      contactId = visitor.phoneE164 === key.phone ? visitor.contactId : null;
+      if (!contactId) {
+        const lead = await this.crm.upsertLeadByPhone(ws, {
+          phoneE164: key.phone,
+          sourceKey: 'website',
+          displayName: websiteLeadName(key.phone),
+          firstUrl,
+          ...earlier,
+        });
+        contactId = lead.contactId;
+        await this.visitors.recordPhone(ws, site.connectionId, visitorId, key.phone, contactId);
+        this.#logger.log(`website lead captured ${maskPhone(key.phone)} (created=${lead.created})`);
+      }
+    } else {
+      contactId = visitor.email === key.email ? visitor.contactId : null;
+      if (!contactId) {
+        const lead = await this.crm.upsertLeadByEmail(ws, {
+          email: key.email,
+          sourceKey: 'website',
+          displayName: websiteEmailLeadName(key.email),
+          firstUrl,
+          ...earlier,
+        });
+        contactId = lead.contactId;
+        await this.visitors.recordEmail(ws, site.connectionId, visitorId, key.email, contactId);
+        this.#logger.log(`website lead captured ${maskEmail(key.email)} (created=${lead.created})`);
+      }
     }
     let conversationId = visitor.conversationId;
     if (!conversationId) {
       // The first message may have been processed since the visitor row was last updated.
       conversationId = (
-        await this.conversations.listForVisitor(
-          site.workspaceId,
-          site.connectionId,
-          visitorId,
-          null,
-          1,
-        )
+        await this.conversations.listForVisitor(ws, site.connectionId, visitorId, null, 1)
       ).conversationId;
     }
     if (!conversationId) return;
+    const contact = {
+      phone: 'phone' in key ? key.phone : visitor.phoneE164,
+      email: 'email' in key ? key.email : visitor.email,
+    };
     // The visitor row only learns the conversation once the lead is on it: a failed link is retried by the poll.
-    if (!(await this.linkLead(site, conversationId, phone, contactId))) return;
+    if (!(await this.linkLead(site, conversationId, contact, contactId))) return;
     if (!visitor.conversationId)
-      await this.visitors.linkConversation(
-        site.workspaceId,
-        site.connectionId,
-        visitorId,
-        conversationId,
-      );
+      await this.visitors.linkConversation(ws, site.connectionId, visitorId, conversationId);
   }
 
   private async linkLead(
     site: WebsiteSite,
     conversationId: string,
-    phoneE164: string,
+    contact: { phone: string | null; email: string | null },
     contactId: string,
   ): Promise<boolean> {
     try {
       await this.conversations.linkLead(site.workspaceId, conversationId, {
         contactId,
-        phoneE164,
+        phoneE164: contact.phone,
+        email: contact.email,
         capturedAt: new Date().toISOString(),
       });
       return true;

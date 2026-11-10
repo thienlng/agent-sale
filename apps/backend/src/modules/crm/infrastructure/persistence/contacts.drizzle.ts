@@ -111,6 +111,15 @@ export function contactsTx(
           .limit(1);
         return r ? toContact(r) : null;
       },
+      async findByEmail(emailNormalized) {
+        const [r] = await tx
+          .select()
+          .from(c)
+          .where(eq(c.emailNormalized, emailNormalized))
+          .orderBy(asc(c.createdAt), asc(c.id))
+          .limit(1);
+        return r ? toContact(r) : null;
+      },
       async recordBot(contactId, botId, at) {
         await tx
           .insert(schema.contactBots)

@@ -145,6 +145,23 @@ describe('public widget API', () => {
     });
     expect(unknown.statusCode).toBe(404);
   });
+  it('takes the page origin from the referer of a same-origin GET without Origin', async () => {
+    const same = await pub('GET', '', {
+      origin: null,
+      headers: { referer: 'https://shop.test/bang-gia/?utm=1' },
+    });
+    expect(same.statusCode).toBe(200);
+    for (const referer of ['https://evil.test/a', 'not a url', 'ftp://shop.test/']) {
+      const res = await pub('GET', '', { origin: null, headers: { referer } });
+      expect(res.statusCode).toBe(404);
+    }
+    // A sent Origin always wins over the referer.
+    const forged = await pub('GET', '', {
+      origin: 'https://evil.test',
+      headers: { referer: 'https://shop.test/' },
+    });
+    expect(forged.statusCode).toBe(404);
+  });
 
   it('answers the CORS preflight for an allowed origin only and leaves other routes alone', async () => {
     const ok = await pub('OPTIONS', '/messages', {

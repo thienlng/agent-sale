@@ -23,6 +23,7 @@ let visitors: MemoryVisitorStore;
 let service: WebchatService;
 let conversationExists = true;
 let upsertLead: ReturnType<typeof vi.fn>;
+let upsertLeadByEmail: ReturnType<typeof vi.fn>;
 let linkLead: ReturnType<typeof vi.fn>;
 let storage: WebchatUploadStorage & { put: ReturnType<typeof vi.fn> };
 
@@ -80,7 +81,11 @@ beforeEach(() => {
     contactId: '018d0000-0000-7000-8000-0000000000c1',
     created: true,
   }));
-  const crm = { upsertLeadByPhone: upsertLead } as unknown as CrmFacade;
+  upsertLeadByEmail = vi.fn(async (_ws: unknown, input: { contactId?: string }) => ({
+    contactId: input.contactId ?? '018d0000-0000-7000-8000-0000000000e1',
+    created: !input.contactId,
+  }));
+  const crm = { upsertLeadByPhone: upsertLead, upsertLeadByEmail } as unknown as CrmFacade;
   const bots = { getBot: vi.fn(async () => ({ language: 'en' })) } as unknown as BotFacade;
   visitors = new MemoryVisitorStore();
   storage = {
@@ -183,6 +188,27 @@ describe('WebchatService send', () => {
     );
     expect(visitors.rows.size).toBe(1);
     expect([...visitors.rows.values()][0]).toMatchObject({ lastUrl: 'https://shop.test/b' });
+  });
+  it('keeps the page and its on-screen sections with the event for the reply', async () => {
+    const sections = [{ name: 'pricing-smart', text: 'Gói Smart 400.000đ/tháng' }];
+    await service.send(
+      call(),
+      body({ page: { url: 'https://shop.test/gia', title: 'Giá', sections } }),
+    );
+    // A widget cached from before sections existed still sends; its page has none.
+    await service.send(call(), body());
+    expect(enqueue.mock.calls.map((c) => c[1].page)).toEqual([
+      { url: 'https://shop.test/gia', title: 'Giá', sections },
+      { url: 'https://shop.test/a?utm=1', title: 'Trang A', sections: [] },
+    ]);
+  });
+  it('rejects more than three sections or an oversized section with 400', async () => {
+    const section = { name: 'pricing', text: 'x' };
+    for (const sections of [Array(4).fill(section), [{ ...section, text: 'x'.repeat(401) }]])
+      expect(
+        (await failure(service.send(call(), body({ page: { url: 'u', title: 't', sections } }))))
+          ?.status,
+      ).toBe(400);
   });
   it('rejects a bad token with 401 INVALID_VISITOR', async () => {
     const e = await failure(service.send(call({ authorization: 'Visitor nonsense' }), body()));
@@ -442,6 +468,66 @@ describe('WebchatService lead capture', () => {
     await service.poll(call({ authorization: a }), undefined);
     expect(linkLead).toHaveBeenCalledTimes(2);
     expect([...visitors.rows.values()][0]?.conversationId).toBe(conversationId);
+  });
+  it('captures an email typed in a message as a lead of its own', async () => {
+    await service.send(call(), body({ text: 'Gửi báo giá qua Lan.Nguyen@Shop.vn giúp mình' }));
+    expect(upsertLead).not.toHaveBeenCalled();
+    expect(upsertLeadByEmail).toHaveBeenCalledWith(ws, {
+      email: 'lan.nguyen@shop.vn',
+      sourceKey: 'website',
+      displayName: 'Khách website lan.nguyen',
+      firstUrl: 'https://shop.test/a?utm=1',
+    });
+    expect([...visitors.rows.values()][0]).toMatchObject({
+      email: 'lan.nguyen@shop.vn',
+      phoneE164: null,
+      contactId: '018d0000-0000-7000-8000-0000000000e1',
+    });
+    expect(linkLead).toHaveBeenCalledWith(ws, conversationId, {
+      contactId: '018d0000-0000-7000-8000-0000000000e1',
+      phoneE164: null,
+      email: 'lan.nguyen@shop.vn',
+      capturedAt: expect.any(String),
+    });
+    expect(enqueue).toHaveBeenCalledOnce();
+  });
+  it('puts a phone and an email of one visitor on one customer', async () => {
+    const a = await auth({ text: 'sdt 0912345679' });
+    await service.send(call({ authorization: a }), body({ text: 'email: lan@shop.vn' }));
+    expect(upsertLeadByEmail).toHaveBeenCalledWith(ws, expect.objectContaining({ contactId }));
+    expect([...visitors.rows.values()][0]).toMatchObject({
+      phoneE164: '+84912345679',
+      email: 'lan@shop.vn',
+      contactId,
+    });
+    expect(linkLead).toHaveBeenLastCalledWith(ws, conversationId, {
+      contactId,
+      phoneE164: '+84912345679',
+      email: 'lan@shop.vn',
+      capturedAt: expect.any(String),
+    });
+  });
+  it('captures the phone first when one message carries both', async () => {
+    await service.send(call(), body({ text: '0912345679 hoặc lan@shop.vn' }));
+    expect(upsertLead).toHaveBeenCalledOnce();
+    expect(upsertLeadByEmail).toHaveBeenCalledWith(ws, expect.objectContaining({ contactId }));
+  });
+  it('does not capture the same email twice or placeholder addresses', async () => {
+    const a = await auth({ text: 'lan@shop.vn' });
+    await service.send(call({ authorization: a }), body({ text: 'vẫn là lan@shop.vn' }));
+    await service.send(call({ authorization: a }), body({ text: 'thử ban@example.com' }));
+    expect(upsertLeadByEmail).toHaveBeenCalledOnce();
+  });
+  it('relinks a visitor with only an email on the next poll', async () => {
+    conversationExists = false;
+    const first = await service.send(call(), body({ text: 'lan@shop.vn' }));
+    conversationExists = true;
+    await service.poll(call({ authorization: `Visitor ${first.visitorToken}` }), undefined);
+    expect(linkLead).toHaveBeenCalledWith(
+      ws,
+      conversationId,
+      expect.objectContaining({ phoneE164: null, email: 'lan@shop.vn' }),
+    );
   });
   it('reports phoneCaptured on the next poll', async () => {
     const a = await auth();

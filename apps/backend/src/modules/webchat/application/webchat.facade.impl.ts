@@ -27,6 +27,7 @@ export class WebchatFacadeImpl implements WebchatFacade {
       lastUrl: v.lastUrl,
       lastTitle: v.lastTitle,
       phone: v.phoneE164,
+      email: v.email,
       contactId: v.contactId,
       createdAt: v.createdAt,
     });

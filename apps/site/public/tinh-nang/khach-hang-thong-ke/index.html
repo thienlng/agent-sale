@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="../../static/detail-design.css">
   <link rel="stylesheet" href="../../static/feature-edition.css"><link rel="stylesheet" href="../../static/crm-edition.css"><script defer src="../../static/image-lightbox.js"></script><script defer src="../../static/crm-demo.js"></script><script defer src="../../static/site.js"></script>
   <script defer src="../../static/motion.js"></script>
+  <script defer src="../../static/site-widget.js"></script>
 </head>
 <body id="top">
 <!--#site-head-->
@@ -38,7 +39,7 @@
 </header>
 <!--/site-head-->
 <main id="main">
-<section class="fe-cover" data-edition="khach-hang-thong-ke" aria-labelledby="page-title">
+<section data-rapiz-section="hero" class="fe-cover" data-edition="khach-hang-thong-ke" aria-labelledby="page-title">
   <div class="container fe-layout">
     <header class="fe-opening">
       <p class="fe-crumb"><a href="../../index.html">Rapiz</a><span aria-hidden="true">/</span> Khách hàng, đơn hàng & lịch</p>
@@ -62,7 +63,7 @@
 
   </div>
 </section>
-<section class="fe-demo" id="theo-khach" aria-labelledby="s1">
+<section data-rapiz-section="demo" class="fe-demo" id="theo-khach" aria-labelledby="s1">
   <div class="container">
     <header class="fe-demo-intro"><h2 id="s1">Thử theo một khách đến cuối.</h2>
       <p>Bot đã ghi nhận yêu cầu và chuyển trạng thái. Phần còn lại là việc của nhân viên. Chọn ngành rồi bấm bước tiếp theo.</p></header>
@@ -98,7 +99,7 @@
   </div>
 </section>
 
-<section class="fe-proof" aria-labelledby="s2">
+<section data-rapiz-section="inspect" class="fe-proof" aria-labelledby="s2">
  <div class="container fe-atlas">
   <div class="fe-proof-intro"><p class="kicker"><i class="slashes" aria-hidden="true"></i> GIAO DIỆN KHÁCH HÀNG</p>
    <h2 id="s2">Đếm sẵn&nbsp;khách<br><em>ở từng&nbsp;bước.</em></h2>
@@ -110,13 +111,13 @@
   </figure>
  </div>
 </section>
-<section class="fe-more" aria-labelledby="s3">
+<section data-rapiz-section="more" class="fe-more" aria-labelledby="s3">
   <div class="container fe-more-grid">
     <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> CÒN TRONG TÍNH NĂNG NÀY</p><h2 id="s3">Đơn,&nbsp;lịch<br><em>và người phụ&nbsp;trách.</em></h2></div>
     <ul><li><b>Đơn bot tạo chờ duyệt</b><p>Đơn khách xác nhận trong chat mang nhãn Bot. Lọc cột Người tạo để xem riêng đơn chờ duyệt.</p><small>Đơn hàng › Danh sách đơn</small></li><li><b>Lịch và Booking cho lưu trú</b><p>Xem căn trống theo 2 tuần hoặc theo tháng. Giữ chỗ tự hết hạn sau số phút bạn đặt.</p><small>Lịch · Booking · Căn hộ</small></li><li><b>Tự chia khách cho Sales</b><p>Khách mới từ mỗi nguồn được giao lần lượt cho các Sales theo tỉ lệ bạn đặt.</p><small>Cài đặt khách hàng › Phân chia khách</small></li><li><b>Trạng thái và nhãn của riêng bạn</b><p>Sửa, thêm và sắp xếp trạng thái. Nhãn có thể kèm trường riêng, như hạng của khách VIP.</p><small>Cài đặt khách hàng › Trạng thái · Tag</small></li></ul>
   </div>
 </section>
-<section id="questions" class="faq" aria-labelledby="faq-title">
+<section data-rapiz-section="faq" id="questions" class="faq" aria-labelledby="faq-title">
   <div class="container faq-grid">
     <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> CÂU HỎI THƯỜNG GẶP</p><h2 id="faq-title">Trước&nbsp;khi<br><em>giao việc cho&nbsp;đội.</em></h2></div>
     <div class="faq-items"><details open><summary>Bot có tự xác nhận lịch hẹn không?</summary><p>Không. Bot chỉ ghi nhận yêu cầu và chuyển khách sang Yêu cầu đặt lịch. Nhân viên gọi xác nhận rồi mới chuyển sang Đã xác nhận lịch.</p></details><details><summary>Khách nhắn nhiều lần có bị trùng hồ sơ không?</summary><p>Bot tìm khách theo số điện thoại. Cùng một số thì yêu cầu mới ghi vào hồ sơ cũ.</p></details><details><summary>Spa, trung tâm giáo dục có Lịch phòng không?</summary><p>Lịch, Booking và Căn hộ dành cho lưu trú. Spa và giáo dục theo dõi lịch hẹn, học thử bằng trạng thái khách.</p></details><details><summary>Có gửi tin nhắn hàng loạt cho khách cũ không?</summary><p>Chưa. Rapiz hiện tập trung vào trả lời, chốt đơn và theo dõi khách.</p></details></div>

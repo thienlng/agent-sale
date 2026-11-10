@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="../../static/detail-design.css">
   <link rel="stylesheet" href="../../static/feature-edition.css"><link rel="stylesheet" href="../../static/sale-edition.css"><script defer src="../../static/image-lightbox.js"></script><script defer src="../../static/sale-demo.js"></script><script defer src="../../static/site.js"></script>
   <script defer src="../../static/motion.js"></script>
+  <script defer src="../../static/site-widget.js"></script>
 </head>
 <body id="top">
 <!--#site-head-->
@@ -38,7 +39,7 @@
 </header>
 <!--/site-head-->
 <main id="main">
-<section class="fe-cover" data-edition="ban-hang-ai" aria-labelledby="page-title">
+<section data-rapiz-section="hero" class="fe-cover" data-edition="ban-hang-ai" aria-labelledby="page-title">
   <div class="container fe-layout">
     <header class="fe-opening">
       <p class="fe-crumb"><a href="../../index.html">Rapiz</a><span aria-hidden="true">/</span> Tư vấn & chốt đơn</p>
@@ -65,7 +66,7 @@
 
   </div>
 </section>
-<section class="fe-demo" id="chot-don" aria-labelledby="s1">
+<section data-rapiz-section="demo" class="fe-demo" id="chot-don" aria-labelledby="s1">
   <div class="container">
     <header class="fe-demo-intro"><h2 id="s1">Thử chốt một đơn.</h2>
       <p>Bạn đóng vai khách mua đồ ngủ lụa. Đổi size hoặc số lượng để xem bot tính lại, rồi bấm Đặt hàng.</p></header>
@@ -120,7 +121,7 @@ Người nhận: Mai Linh · 0912 345 678
   </div>
 </section>
 
-<section class="fe-proof" aria-labelledby="s2">
+<section data-rapiz-section="inspect" class="fe-proof" aria-labelledby="s2">
  <div class="container fe-atlas">
   <div class="fe-proof-intro"><p class="kicker"><i class="slashes" aria-hidden="true"></i> GIAO DIỆN ĐƠN HÀNG</p>
    <h2 id="s2">Đơn bot&nbsp;tạo<br><em>chờ bạn kiểm&nbsp;tra.</em></h2>
@@ -132,13 +133,13 @@ Người nhận: Mai Linh · 0912 345 678
   </figure>
  </div>
 </section>
-<section class="fe-more" aria-labelledby="s3">
+<section data-rapiz-section="more" class="fe-more" aria-labelledby="s3">
   <div class="container fe-more-grid">
     <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> CÒN TRONG TÍNH NĂNG NÀY</p><h2 id="s3">Những&nbsp;điều<br><em>bot giữ&nbsp;đúng.</em></h2></div>
     <ul><li><b>Bật chốt đơn và phí ship</b><p>Bật Bot chốt đơn và đặt Phí ship mặc định. Để trống thì tóm tắt ghi “Phí ship: shop báo sau”.</p><small>Đào tạo Bot › Cài đặt › Thiết lập bot › Cài đặt nâng cao</small></li><li><b>Không chốt theo giá cũ</b><p>Tóm tắt đơn giữ trong 30 phút. Nếu giá đổi hoặc hết hàng trước khi khách xác nhận, đơn không được tạo theo số cũ.</p><small>Áp dụng cho mọi đơn bot tạo</small></li><li><b>Gửi ảnh thật của sản phẩm</b><p>Khách hỏi mẫu, bot gửi ảnh có sẵn trong danh mục thay vì tả bằng lời.</p><small>Sản phẩm › ảnh của từng sản phẩm</small></li><li><b>Gọi API riêng của bạn</b><p>Bot tra đơn hay lịch ở hệ thống khác. Thao tác ghi dữ liệu như đặt lịch chỉ chạy khi khách đồng ý.</p><small>Đào tạo Bot › Hành động API</small></li></ul>
   </div>
 </section>
-<section id="questions" class="faq" aria-labelledby="faq-title">
+<section data-rapiz-section="faq" id="questions" class="faq" aria-labelledby="faq-title">
   <div class="container faq-grid">
     <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> CÂU HỎI THƯỜNG GẶP</p><h2 id="faq-title">Trước&nbsp;khi<br><em>giao bot bán&nbsp;hàng.</em></h2></div>
     <div class="faq-items"><details open><summary>Bot có tự đổi giá cho khách không?</summary><p>Không. Giá trong tóm tắt đơn do hệ thống tính từ danh mục. Ưu đãi bot nói lấy từ ô Khuyến mãi đang chạy trong thông tin doanh nghiệp.</p></details><details><summary>Phí ship tính thế nào?</summary><p>Bạn đặt Phí ship mặc định cho bot. Nếu để trống, tóm tắt đơn ghi “Phí ship: shop báo sau”.</p></details><details><summary>Đơn bot tạo khác đơn nhân viên nhập thế nào?</summary><p>Đơn bot tạo mang nhãn Bot và Chờ duyệt. Nhân viên mở đơn, kiểm tra rồi bấm Duyệt đơn. Nếu bạn nối KiotViet (đang thử nghiệm), đơn chưa duyệt không được đẩy sang đó.</p></details><details><summary>Tôi sửa giá thì bot dùng giá nào?</summary><p>Bot đọc giá mới ngay. Tóm tắt đã gửi theo giá cũ sẽ không thành đơn, khách cần xác nhận một tóm tắt mới.</p></details></div>

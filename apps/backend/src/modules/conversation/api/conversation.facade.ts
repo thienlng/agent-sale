@@ -40,14 +40,20 @@ export interface ConversationFacade {
   ): Promise<{ created: boolean; assignment: ConversationTagAssignmentDto }>;
   markRead(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationView>;
   /**
-   * A website visitor left a phone number: sets `lead` (unseen) on the conversation. Idempotent
-   * for the same contact and phone; a different contact replaces the lead and becomes the
-   * conversation's customer (`contactId`), with the bot recorded on it. Throws NOT_FOUND.
+   * A website visitor left a phone number or an email: sets `lead` (unseen) on the conversation.
+   * Idempotent for the same contact, phone and email; anything new replaces the lead, and a
+   * different contact becomes the conversation's customer (`contactId`), with the bot recorded on
+   * it. Throws NOT_FOUND.
    */
   linkLead(
     ws: WorkspaceId,
     id: string,
-    lead: { contactId: string; phoneE164: string; capturedAt: string },
+    lead: {
+      contactId: string;
+      phoneE164: string | null;
+      email?: string | null;
+      capturedAt: string;
+    },
   ): Promise<void>;
   markUnread(ws: WorkspaceId, id: string): Promise<ConversationView>;
   addNote(ws: WorkspaceId, id: string, text: string, actorId: string): Promise<ConversationView>;

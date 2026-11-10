@@ -190,6 +190,8 @@ services:
     restart: unless-stopped
     environment:
       S3_BUCKET: ${S3_BUCKET:-rapiz}
+      # Site key of the Website channel shown as a chat bubble on the marketing pages (optional).
+      RAPIZ_SITE_WIDGET_KEY: ${RAPIZ_SITE_WIDGET_KEY:-}
     networks:
       default: {}
       backend: {}

@@ -22,13 +22,15 @@ export const ConversationTagChip = z.object({
 export type ConversationTagChip = z.infer<typeof ConversationTagChip>;
 
 /**
- * A website visitor who left a phone number (a new lead). `seenAt` is set when staff first open
- * the conversation after the number arrived: "Số mới" shows while it is null.
+ * A website visitor who left a phone number or an email (a new lead). `seenAt` is set when staff
+ * first open the conversation after the contact arrived: "Số mới" shows while it is null.
  */
 export const ConversationLead = z.object({
   contactId: z.uuid(),
-  /** E.164. */
-  phone: z.string().max(20),
+  /** E.164; null when the visitor left only an email. */
+  phone: z.string().max(20).nullable(),
+  /** Normalized; null for leads from before email capture and phone-only visitors. */
+  email: z.string().max(254).nullable().default(null),
   capturedAt: z.iso.datetime(),
   seenAt: z.iso.datetime().nullable(),
 });
