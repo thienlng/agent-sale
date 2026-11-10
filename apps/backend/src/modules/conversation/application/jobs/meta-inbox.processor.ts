@@ -299,7 +299,12 @@ export class MetaInboxProcessor {
           messages: history.turns,
           ...(images.length ? { images } : {}),
           ...(postContext ? { postContext } : {}),
-          ...(context.conversation.lead ? { phoneKnown: true } : {}),
+          // The turn's newest message carries the page the visitor was on when writing it.
+          ...(job.event.kind === 'website' && job.event.page
+            ? { pageContext: job.event.page }
+            : {}),
+          ...(context.conversation.lead?.phone ? { phoneKnown: true } : {}),
+          ...(context.conversation.lead?.email ? { emailKnown: true } : {}),
         },
         {
           conversationId: c.id,

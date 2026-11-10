@@ -284,11 +284,22 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
   async linkLead(
     ws: WorkspaceId,
     id: string,
-    lead: { contactId: string; phoneE164: string; capturedAt: string },
+    lead: {
+      contactId: string;
+      phoneE164: string | null;
+      email?: string | null;
+      capturedAt: string;
+    },
   ): Promise<void> {
+    const email = lead.email ?? null;
     const botId = await this.store.run(ws, async (tx) => {
       const c = await requireConversation(tx, id);
-      if (c.lead?.contactId === lead.contactId && c.lead.phone === lead.phoneE164) return null;
+      if (
+        c.lead?.contactId === lead.contactId &&
+        c.lead.phone === lead.phoneE164 &&
+        (c.lead.email ?? null) === email
+      )
+        return null;
       // Staff's choice of customer wins over the lead; the lead itself is still recorded.
       const link = c.contactLinkedBy !== 'staff';
       // A lead is a shop-level annotation like read state: no revision or updatedAt change.
@@ -298,6 +309,7 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
         lead: {
           contactId: lead.contactId,
           phone: lead.phoneE164,
+          email,
           capturedAt: lead.capturedAt,
           seenAt: null,
         },

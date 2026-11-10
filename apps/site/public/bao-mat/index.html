@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="../static/utility-design.css">
   <script defer src="../static/site.js"></script>
   <script defer src="../static/motion.js"></script>
+  <script defer src="../static/site-widget.js"></script>
 </head>
 <body id="top">
 <!--#site-head-->
@@ -37,7 +38,7 @@
   </div>
 </header>
 <!--/site-head-->
-<main id="main" class="ut-page ut-bao-mat"><section class="ut-hero" aria-labelledby="page-title"><div class="container ut-hero-layout">
+<main id="main" class="ut-page ut-bao-mat"><section data-rapiz-section="hero" class="ut-hero" aria-labelledby="page-title"><div class="container ut-hero-layout">
       <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> BẢO MẬT & DỮ LIỆU</p><h1 id="page-title">Quyền truy cập,<br><em>trong tầm tay.</em></h1><p class="ut-deck">Bot làm việc trong phạm vi bạn cho phép. Dữ liệu mỗi doanh nghiệp tách riêng, thành viên có vai trò, thao tác quan trọng được ghi nhật ký và việc tốn tiền cần người xác nhận.</p>
         <a href="#security-controls" class="ut-link">Xem các lớp bảo vệ <span aria-hidden="true">↓</span></a>
       </div><figure class="ut-security-visual"><div class="ut-vault">
@@ -45,7 +46,7 @@
           <div class="ut-vault-symbol" aria-hidden="true"><i></i><i></i><img src="../images/rapiz-symbol-faceted.svg" width="96" height="83" alt=""></div>
           <p>Dữ liệu tách riêng cho từng doanh nghiệp</p>
         </div></figure>
-    </div></section><section class="sec ut-controls" id="security-controls" aria-labelledby="s1"><div class="container ut-control-layout">
+    </div></section><section data-rapiz-section="security-controls" class="sec ut-controls" id="security-controls" aria-labelledby="s1"><div class="container ut-control-layout">
       <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> BẢO VỆ DỮ LIỆU</p><h2 id="s1">Dữ liệu mỗi doanh nghiệp<br><em>nằm riêng.</em></h2></div>
       <div class="ut-control-list"><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.5" rx="7" ry="2.5"/><path d="M5 5.5v13c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-13M5 12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5"/></svg></div>
       <div><h3>Dữ liệu tách riêng</h3><p>Mỗi doanh nghiệp có vùng dữ liệu riêng, được khoá ở tầng cơ sở dữ liệu bằng chính sách theo dòng.</p></div></article><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 4.6 3 8.4 7 10 4-1.6 7-5.4 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg></div>
@@ -55,7 +56,7 @@
       <div><h3>Nhật ký thao tác</h3><p>Thay đổi quan trọng được ghi lại: ai làm, làm gì, lúc nào.</p></div></article><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg></div>
       <div><h3>Xuất toàn bộ dữ liệu</h3><p>Tải toàn bộ dữ liệu của doanh nghiệp về một tệp ZIP để lưu trữ hoặc chuyển sang hệ thống khác.</p></div></article><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></div>
       <div><h3>Nhật ký gỡ lỗi AI tự xoá</h3><p>Bản ghi dùng để gỡ lỗi câu trả lời của bot tự xoá sau 30 ngày. Số điện thoại và email trong đó được che trước khi lưu.</p></div></article></div>
-    </div></section><section class="sec ut-controls" id="bot-controls" aria-labelledby="s2"><div class="container ut-control-layout">
+    </div></section><section data-rapiz-section="security-controls" class="sec ut-controls" id="bot-controls" aria-labelledby="s2"><div class="container ut-control-layout">
       <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> KIỂM SOÁT BOT</p><h2 id="s2">Bot làm trong phạm vi.<br><em>Người duyệt việc quan trọng.</em></h2></div>
       <div class="ut-control-list"><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9 17.5 20 6.5"/></svg></div>
       <div><h3>Khách xác nhận trước khi tạo đơn</h3><p>Đơn chỉ được tạo khi khách bấm nút xác nhận trên tóm tắt đơn.</p></div></article><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3.5"/><path d="M3 20c.6-3.4 3-5.5 6-5.5 1.5 0 2.8.5 3.9 1.3M15 15h6M18 12l3 3-3 3"/></svg></div>
@@ -66,12 +67,12 @@
       <div><h3>Lịch sử và khôi phục</h3><p>Mọi chỉnh sửa đào tạo bot có lịch sử và khôi phục được.</p></div></article><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg></div>
       <div><h3>Hết lượt thì chuyển người</h3><p>Khi hết lượt trả lời AI hoặc tài khoản tạm dừng, hội thoại về nhân viên, bot không trả lời thay.</p></div></article><article><div class="ut-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></div>
       <div><h3>Giải thích được</h3><p>Hỏi trợ lý vì sao bot trả lời như vậy để thấy quy tắc và dữ liệu đã dùng.</p></div></article></div>
-    </div></section><section id="questions" class="faq" aria-labelledby="faq-title">
+    </div></section><section data-rapiz-section="faq" id="questions" class="faq" aria-labelledby="faq-title">
   <div class="container faq-grid">
     <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> CÂU HỎI THƯỜNG GẶP</p><h2 id="faq-title">Bạn&nbsp;muốn<br>biết <em>thêm?</em></h2></div>
     <div class="faq-items"><details open><summary>Nhân viên của doanh nghiệp này có xem được dữ liệu doanh nghiệp khác không?</summary><p>Không. Dữ liệu tách riêng theo doanh nghiệp ở tầng cơ sở dữ liệu. Thành viên chỉ thấy doanh nghiệp họ được mời vào.</p></details><details><summary>Rapiz có dùng hội thoại của tôi cho khách khác không?</summary><p>Bot của bạn trả lời dựa trên dữ liệu doanh nghiệp bạn. Dữ liệu một doanh nghiệp không được dùng để trả lời khách của doanh nghiệp khác.</p></details><details><summary>Tôi muốn ngừng dùng bot ngay lập tức?</summary><p>Tắt bot cho từng hội thoại, cho từng kênh hoặc cho cả bot trong phần cài đặt. Hội thoại vẫn nằm trong hộp thư để nhân viên xử lý.</p></details><details><summary>Tôi muốn lấy dữ liệu ra khỏi Rapiz?</summary><p>Bạn xuất được toàn bộ dữ liệu ra một tệp ZIP để lưu trữ hoặc chuyển sang hệ thống khác.</p></details><details><summary>Có cam kết tuân thủ tiêu chuẩn nào không?</summary><p>Trang này chỉ liệt kê những biện pháp đang chạy trong sản phẩm. Nếu doanh nghiệp bạn cần hồ sơ bảo mật cho thẩm định, hãy đặt lịch trao đổi với Rapiz.</p></details></div>
   </div>
-</section><section class="sec tint" aria-labelledby="s4">
+</section><section data-rapiz-section="related" class="sec tint" aria-labelledby="s4">
   <div class="container">
     <div class="sec-head-solo"><p class="kicker"><i class="slashes" aria-hidden="true"></i> XEM TIẾP</p><h2 id="s4">Ai được làm gì<br><em>trong Rapiz?</em></h2></div>
     <div class="related below"><a class="rel" href="../tinh-nang/tro-ly-rapiz/"><small>Tính năng</small><strong>Trợ lý & thống kê</strong><span>Hỏi số liệu bằng tiếng Việt, nhận báo cáo theo lịch.</span><em>Xem chi tiết →</em></a><a class="rel" href="../tich-hop/"><small>Nền tảng</small><strong>Tích hợp nền tảng & PMS</strong><span>Kênh nhắn tin, KiotViet, API và webhook.</span><em>Xem chi tiết →</em></a><a class="rel" href="../bang-gia/"><small>Nền tảng</small><strong>Bảng giá</strong><span>Bắt đầu miễn phí, nâng gói khi đội lớn lên.</span><em>Xem chi tiết →</em></a></div>

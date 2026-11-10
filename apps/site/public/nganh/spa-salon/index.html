@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="../../static/detail-design.css">
   <script defer src="../../static/site.js"></script>
   <script defer src="../../static/motion.js"></script>
+  <script defer src="../../static/site-widget.js"></script>
 </head>
 <body id="top">
 <!--#site-head-->
@@ -38,7 +39,7 @@
 </header>
 <!--/site-head-->
 <main id="main">
-<section class="industry-spread" data-edition="spa-salon" aria-labelledby="page-title">
+<section data-rapiz-section="hero" class="industry-spread" data-edition="spa-salon" aria-labelledby="page-title">
   <div class="industry-cover">
     <img class="industry-photo" src="../../images/rapiz-spa.webp" width="840" height="1050" alt="Không gian spa với giường chăm sóc và ánh sáng ấm" fetchpriority="high">
     <div class="container industry-cover-inner">
@@ -60,13 +61,13 @@
   </div>
   <div class="container industry-facts"><ul class="detail-points"><li>Lịch hẹn đủ dịch vụ, chi nhánh, ngày giờ, số người</li><li>Không nhận ngày đã qua</li></ul></div>
 </section>
-<section class="sec " aria-labelledby="s1">
+<section data-rapiz-section="pains" class="sec " aria-labelledby="s1">
   <div class="container">
     <div class="section-intro"><div><p class="kicker"><i class="slashes" aria-hidden="true"></i> KHÁCH ĐẾN TỪ INBOX</p><h2 id="s1">Hỏi giá rồi im lặng<br><em>là lịch hẹn bị lỡ.</em></h2></div><p></p></div>
     <div class="pain-grid below"><article class="pain"><b>01</b><h3>Hỏi giá xong là đi</h3><p>Khách so giá nhiều nơi. Nơi trả lời nhanh và gợi ý được giờ trống thường giữ được khách.</p></article><article class="pain"><b>02</b><h3>Lịch hẹn thiếu thông tin</h3><p>Ghi “chị Lan, thứ Bảy” mà thiếu dịch vụ, chi nhánh, số người. Lễ tân phải nhắn hỏi lại.</p></article><article class="pain"><b>03</b><h3>Đặt nhầm ngày đã qua</h3><p>Khách nhắn “thứ 7” vào tối Chủ nhật. Không ai để ý, lịch rơi vào một ngày đã qua.</p></article></div>
   </div>
 </section>
-<section class="sec tint" aria-labelledby="s2">
+<section data-rapiz-section="demo-chat" class="sec tint" aria-labelledby="s2">
   <div class="container">
     <div class="section-intro"><div><p class="kicker"><i class="slashes" aria-hidden="true"></i> XEM MỘT LỊCH HẸN</p><h2 id="s2">Bot hỏi cho đủ<br><em>rồi mới ghi lịch.</em></h2></div><p></p></div>
     <div class="playbox below" data-player>
@@ -94,7 +95,7 @@
     </div>
   </div>
 </section>
-<section class="sec " aria-labelledby="s3">
+<section data-rapiz-section="screenshot" class="sec " aria-labelledby="s3">
   <div class="container">
     <div class="section-intro"><div><p class="kicker"><i class="slashes" aria-hidden="true"></i> MÀN HÌNH THẬT</p><h2 id="s3">Lễ tân thấy ngay<br><em>ai đang chờ xác nhận.</em></h2></div><p>Danh sách Khách hàng của một spa đếm sẵn khách theo trạng thái: khách mới, đang tư vấn, yêu cầu đặt lịch, đã xác nhận lịch, đã đến. Khách bot vừa ghi nhận nằm ở cột Yêu cầu đặt lịch.</p></div>
     <figure class="tour-frame below" style="margin:clamp(30px,4vw,56px) 0 0">
@@ -103,19 +104,19 @@
     <p class="fineprint">Ảnh chụp ứng dụng Rapiz với dữ liệu demo.</p>
   </div>
 </section>
-<section class="sec " aria-labelledby="s4">
+<section data-rapiz-section="capabilities" class="sec " aria-labelledby="s4">
   <div class="container">
     <div class="section-intro"><div><p class="kicker"><i class="slashes" aria-hidden="true"></i> CHO LỄ TÂN VÀ CHỦ CƠ SỞ</p><h2 id="s4">Ít tin nhắn hỏi lại,<br><em>nhiều lịch đủ thông tin.</em></h2></div><p></p></div>
     <div class="cap-grid below"><article class="cap"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17M8 14h3"/></svg></span><h3>Lịch hẹn đủ trường</h3><p>Dịch vụ, chi nhánh, ngày giờ, số người và số điện thoại. Thiếu gì bot hỏi tiếp cái đó.</p></article><article class="cap"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 4.6 3 8.4 7 10 4-1.6 7-5.4 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg></span><h3>Không nhận ngày đã qua</h3><p>Bot đối chiếu ngày khách chọn với hôm nay, tránh lịch rơi vào quá khứ.</p></article><article class="cap"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19M9 7h6"/></svg></span><h3>Tư vấn theo bảng giá</h3><p>Giá, thời lượng, combo và lưu ý trước dịch vụ đều lấy từ tài liệu bạn đưa vào.</p></article><article class="cap"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3.5"/><path d="M3 20c.6-3.4 3-5.5 6-5.5 1.5 0 2.8.5 3.9 1.3M15 15h6M18 12l3 3-3 3"/></svg></span><h3>Huỷ, đổi lịch về lễ tân</h3><p>Yêu cầu huỷ hoặc đổi giờ được chuyển cho người xử lý kèm tóm tắt.</p></article><article class="cap"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c.5-3.2 2.8-5 6-5s5.5 1.8 6 5M16 5a3 3 0 0 1 0 6M18 15c1.8.6 2.8 2.2 3 5"/></svg></span><h3>Nhiều chi nhánh</h3><p>Mỗi chi nhánh có thông tin riêng; khách chọn nơi gần nhất, lịch về đúng nơi.</p></article><a class="cap" href="../../tinh-nang/khach-hang-thong-ke/"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.5" rx="7" ry="2.5"/><path d="M5 5.5v13c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-13M5 12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5"/></svg></span><h3>Trạng thái khách theo ngành</h3><p>Khách mới, đã hẹn, đã đến: CRM theo dõi theo đúng quy trình spa.</p></a><a class="cap" href="../../tinh-nang/binh-luan-facebook/"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H10l-5 4v-4H4z"/><path d="M8 9.5h8M8 12.5h5"/></svg></span><h3>Bình luận dưới bài ưu đãi</h3><p>Trả lời giá ngay dưới bài, mời khách vào inbox để giữ giờ.</p></a><a class="cap" href="../../tinh-nang/tro-ly-rapiz/"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg></span><h3>Báo cáo sáng mỗi ngày</h3><p>“8h sáng gửi tôi số lịch hẹn hôm nay.” Trợ lý Rapiz gửi qua chuông, email hoặc thông báo đẩy.</p></a></div>
   </div>
 </section>
-<section id="questions" class="faq" aria-labelledby="faq-title">
+<section data-rapiz-section="faq" id="questions" class="faq" aria-labelledby="faq-title">
   <div class="container faq-grid">
     <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> CÂU HỎI THƯỜNG GẶP</p><h2 id="faq-title">Bạn&nbsp;muốn<br>biết <em>thêm?</em></h2></div>
     <div class="faq-items"><details open><summary>Bot có xác nhận lịch thay lễ tân không?</summary><p>Bot ghi nhận yêu cầu hẹn với đủ thông tin và báo cho lễ tân. Lễ tân xác nhận lại với khách theo lịch thực tế của cơ sở.</p></details><details><summary>Khách nhắn “thứ 7” mà không nói ngày?</summary><p>Bot quy đổi sang ngày cụ thể và nhắc lại để khách kiểm tra, không nhận ngày đã qua.</p></details><details><summary>Tôi có 3 chi nhánh, giá khác nhau?</summary><p>Mỗi chi nhánh có thông tin, bảng giá và giờ làm việc riêng. Yêu cầu hẹn mang tên chi nhánh khách chọn.</p></details><details><summary>Khách hỏi về liệu trình, chống chỉ định?</summary><p>Bot trả lời theo tài liệu bạn cung cấp. Câu hỏi cần chuyên môn sẽ được chuyển cho nhân viên tư vấn.</p></details><details><summary>Bot lấy giá và thông tin từ đâu?</summary><p>Từ dữ liệu của chính bạn: hồ sơ doanh nghiệp, câu hỏi thường gặp, tài liệu và danh mục. Giá, tồn kho và ngày trống đều được tra qua công cụ trước khi trả lời, bot không tự đoán.</p></details><details><summary>Khi nào nhân viên tiếp quản được?</summary><p>Bất cứ lúc nào. Nhân viên tắt bot cho từng hội thoại và trả lời ngay trong hộp thư. Khi bot thấy cần người, Rapiz gửi thông báo đẩy kèm lý do và tóm tắt cuộc trao đổi.</p></details></div>
   </div>
 </section>
-<section class="sec tint" aria-labelledby="s6">
+<section data-rapiz-section="related" class="sec tint" aria-labelledby="s6">
   <div class="container">
     <div class="sec-head-solo"><p class="kicker"><i class="slashes" aria-hidden="true"></i> XEM TIẾP</p><h2 id="s6">Lễ tân dùng thêm<br><em>những màn hình này.</em></h2></div>
     <div class="related below"><a class="rel" href="../../tinh-nang/khach-hang-thong-ke/"><small>Tính năng</small><strong>Khách hàng, đơn hàng & lịch</strong><span>Trạng thái khách theo ngành, đơn hàng, lịch và booking.</span><em>Xem chi tiết →</em></a><a class="rel" href="../../tinh-nang/binh-luan-facebook/"><small>Tính năng</small><strong>Tự động xử lý bình luận</strong><span>Trả lời theo bài đăng, nhắn riêng, ẩn theo từ khóa.</span><em>Xem chi tiết →</em></a><a class="rel" href="../../tinh-nang/dao-tao-ai/"><small>Tính năng</small><strong>Đào tạo Bot</strong><span>Dạy bot như dạy nhân viên mới, chat thử trước khi bật.</span><em>Xem chi tiết →</em></a></div>

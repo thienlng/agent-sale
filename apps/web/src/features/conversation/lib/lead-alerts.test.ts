@@ -4,6 +4,7 @@ import { freshLeads, hasNewLead, leadKey } from './lead-alerts';
 const lead = (capturedAt: string, seenAt: string | null = null) => ({
   contactId: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d99',
   phone: '+84912345679',
+  email: null,
   capturedAt,
   seenAt,
 });

@@ -15,7 +15,14 @@ import {
   UpdateContactNoteRequest,
   UpdateContactRequest,
 } from '@agent-sales/contracts';
-import { foldVietnamese, isUuid, newId, userId, type WorkspaceId } from '@agent-sales/shared';
+import {
+  foldVietnamese,
+  isUuid,
+  newId,
+  normalizeEmail,
+  userId,
+  type WorkspaceId,
+} from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 import type { z } from 'zod';
 
@@ -54,6 +61,16 @@ import {
   type Viewer,
 } from './crm-rules.js';
 import { CRM_STORE, type ContactRecord, type CrmStore, type CrmTx } from './ports/crm-store.js';
+
+/** What a channel lead capture knows besides its phone or email. */
+interface LeadInput {
+  sourceKey: string;
+  displayName: string;
+  firstUrl: string | null;
+  renameFrom?: string;
+  /** The customer the same visitor already became (website: the visitor's earlier capture). */
+  contactId?: string;
+}
 
 /** Fields whose change is reported as its own history type and event. */
 const STATUS_FIELDS = ['statusId'] as const;
@@ -168,114 +185,172 @@ export class ContactService {
   /**
    * Lead capture from a channel (no staff actor): one customer per phone. The per-phone advisory
    * lock makes two concurrent captures of the same number serialize, so the second finds the first.
+   * `contactId` is the customer the same visitor already became (an email left first): when no
+   * customer has the number yet, it is added to that customer instead of creating a second one.
    */
   async upsertLead(
     ws: WorkspaceId,
-    input: {
-      phoneE164: string;
-      sourceKey: string;
-      displayName: string;
-      firstUrl: string | null;
-      renameFrom?: string;
-    },
+    input: LeadInput & { phoneE164: string },
   ): Promise<{ contactId: string; created: boolean }> {
     return this.store.run(ws, async (tx) => {
       await tx.lock(`phone/${input.phoneE164}`);
       const now = new Date();
       const found = await tx.contacts.findByPhone(input.phoneE164);
-      if (found) {
-        const name = input.displayName.trim();
-        // Repeated or racing captures from the same page leave one entry.
-        const marker = input.firstUrl ?? input.sourceKey;
-        const earlier = await tx.history.list(found.id, {
-          type: 'contact.updated',
-          order: 'desc',
-          limit: 100,
-        });
-        const leadKnown = earlier.some(
-          (h) =>
-            (h.changes['lead'] as { to?: unknown } | undefined)?.to === marker &&
-            h.data['channel'] === input.sourceKey,
-        );
-        const changes: Record<string, { from: unknown; to: unknown }> = leadKnown
-          ? {}
-          : { lead: { from: null, to: marker } };
-        let current = found;
-        if (input.renameFrom !== undefined && found.name === input.renameFrom && name) {
-          // A placeholder an earlier capture generated gives way to the name the customer gave.
-          current = { ...found, name, version: found.version + 1, updatedAt: now };
-          if (!(await tx.contacts.update(current, found.version))) {
-            throw new StaleVersionError('contact', current.version);
-          }
-          changes['name'] = { from: found.name, to: name };
-          await tx.outbox(ws, {
-            type: 'crm.contact.updated.v1',
-            aggregateId: found.id,
-            payload: event(ws, found.id, null, now, { fields: ['name'], phoneCaptured: false }),
-          });
-        }
-        // The rename and the lead marker of one capture are one history entry (QA Mailisa B8).
-        if (Object.keys(changes).length)
-          await this.#record(tx, ws, current, 'contact.updated', changes, null, null, now, {
-            channel: input.sourceKey,
-          });
-        return { contactId: found.id, created: false };
+      if (found) return this.#markLead(tx, ws, found, input, now);
+      const known = await this.#leadContact(tx, input.contactId);
+      if (known && !known.phone) {
+        return this.#markLead(tx, ws, known, input, now, { phone: input.phoneE164 });
       }
-      await tx.options.ensureDefaults(ws, 'source', DEFAULT_SOURCES);
-      const source = (await tx.options.list('source')).find((o) => o.key === input.sourceKey);
-      const fields: Partial<z.output<typeof UpdateContactRequest>> = {
-        name: input.displayName,
-        phone: input.phoneE164,
-        ...(source ? { sourceId: source.id } : {}),
-      };
-      const autoSales = source ? await this.distribution.pick(tx, ws, source.id) : null;
-      if (autoSales) fields.salesUserId = autoSales;
-      // A request business's new lead starts at its "new" status, so the status strip counts it.
-      const industry = (await this.workspaces.getById(ws)).industry;
-      if (isRequestIndustry(industry)) {
-        await tx.options.ensureDefaults(ws, 'status', defaultStatusesFor(industry));
-        const fresh = (await tx.options.list('status')).find(
-          (o) => o.key === NEW_LEAD_STATUS && !o.archivedAt,
-        );
-        if (fresh) fields.statusId = fresh.id;
+      return this.#createLead(tx, ws, input, { phone: input.phoneE164 }, now);
+    });
+  }
+
+  /**
+   * Lead capture by email (a website visitor who leaves no number): one customer per normalized
+   * email, serialized per address like the phone capture. A customer the visitor already became
+   * (`contactId`) gets the email when it has none, so a phone and an email left in one chat end
+   * on one customer.
+   */
+  async upsertLeadByEmail(
+    ws: WorkspaceId,
+    input: LeadInput & { email: string },
+  ): Promise<{ contactId: string; created: boolean }> {
+    const email = normalizeEmail(input.email);
+    return this.store.run(ws, async (tx) => {
+      await tx.lock(`email/${email}`);
+      const now = new Date();
+      const known = await this.#leadContact(tx, input.contactId);
+      if (known) {
+        const add = known.emailNormalized ? {} : { email };
+        return this.#markLead(tx, ws, known, input, now, add);
       }
-      const empty = emptyContact(null, now);
-      const contact = applyFields(empty, fields, now);
-      await tx.contacts.insert(contact);
-      await this.#record(
-        tx,
-        ws,
-        contact,
-        'contact.created',
-        diff(empty, contact),
-        null,
-        null,
-        now,
-        { channel: input.sourceKey, ...(autoSales ? { autoAssigned: true } : {}) },
-      );
-      if (autoSales) {
-        await tx.outbox(ws, {
-          type: 'crm.contact.assigned.v1',
-          aggregateId: contact.id,
-          payload: event(ws, contact.id, null, now, {
-            role: 'sales',
-            fromUserId: null,
-            toUserId: autoSales,
-          }),
-        });
+      const found = await tx.contacts.findByEmail(email);
+      if (found) return this.#markLead(tx, ws, found, input, now);
+      return this.#createLead(tx, ws, input, { email }, now);
+    });
+  }
+
+  /** The customer a capture already belongs to, when it still exists and is not HQ-linked. */
+  async #leadContact(tx: CrmTx, contactId: string | undefined): Promise<ContactRecord | null> {
+    if (!contactId || !isUuid(contactId)) return null;
+    const c = await tx.contacts.find(contactId, { forUpdate: true });
+    // Linked customers' phone and email belong to Rapiz HQ (ADR-021 §3).
+    return c && !c.externalId ? c : null;
+  }
+
+  /**
+   * An existing customer left a phone or email again: one lead marker per page and channel, the
+   * missing contact field (`add`) and the placeholder rename in one history entry.
+   */
+  async #markLead(
+    tx: CrmTx,
+    ws: WorkspaceId,
+    found: ContactRecord,
+    input: LeadInput,
+    now: Date,
+    add: { phone?: string; email?: string } = {},
+  ): Promise<{ contactId: string; created: boolean }> {
+    const name = input.displayName.trim();
+    // Repeated or racing captures from the same page leave one entry.
+    const marker = input.firstUrl ?? input.sourceKey;
+    const earlier = await tx.history.list(found.id, {
+      type: 'contact.updated',
+      order: 'desc',
+      limit: 100,
+    });
+    const leadKnown = earlier.some(
+      (h) =>
+        (h.changes['lead'] as { to?: unknown } | undefined)?.to === marker &&
+        h.data['channel'] === input.sourceKey,
+    );
+    const changes: Record<string, { from: unknown; to: unknown }> = leadKnown
+      ? {}
+      : { lead: { from: null, to: marker } };
+    const patch: Partial<z.output<typeof UpdateContactRequest>> = { ...add };
+    // A placeholder an earlier capture generated gives way to the name the customer gave.
+    if (input.renameFrom !== undefined && found.name === input.renameFrom && name) {
+      patch.name = name;
+    }
+    let current = found;
+    const fieldChanges = diff(found, applyFields(found, patch, now));
+    if (Object.keys(fieldChanges).length) {
+      current = { ...applyFields(found, patch, now), version: found.version + 1, updatedAt: now };
+      if (!(await tx.contacts.update(current, found.version))) {
+        throw new StaleVersionError('contact', current.version);
       }
+      Object.assign(changes, fieldChanges);
       await tx.outbox(ws, {
-        type: 'crm.contact.created.v1',
-        aggregateId: contact.id,
-        payload: event(ws, contact.id, null, now, {
-          sourceId: contact.sourceId,
-          origin: 'channel',
-          phoneCaptured: true,
-          statusId: contact.statusId,
+        type: 'crm.contact.updated.v1',
+        aggregateId: found.id,
+        payload: event(ws, found.id, null, now, {
+          fields: Object.keys(fieldChanges),
+          phoneCaptured: found.phoneProvidedAt === null && current.phoneProvidedAt !== null,
         }),
       });
-      return { contactId: contact.id, created: true };
+    }
+    // The field changes and the lead marker of one capture are one history entry (QA Mailisa B8).
+    if (Object.keys(changes).length)
+      await this.#record(tx, ws, current, 'contact.updated', changes, null, null, now, {
+        channel: input.sourceKey,
+      });
+    return { contactId: found.id, created: false };
+  }
+
+  /** A new customer from a channel: built-in source, auto distribution, request-industry status. */
+  async #createLead(
+    tx: CrmTx,
+    ws: WorkspaceId,
+    input: LeadInput,
+    key: { phone: string } | { email: string },
+    now: Date,
+  ): Promise<{ contactId: string; created: boolean }> {
+    await tx.options.ensureDefaults(ws, 'source', DEFAULT_SOURCES);
+    const source = (await tx.options.list('source')).find((o) => o.key === input.sourceKey);
+    const fields: Partial<z.output<typeof UpdateContactRequest>> = {
+      name: input.displayName,
+      ...key,
+      ...(source ? { sourceId: source.id } : {}),
+    };
+    const autoSales = source ? await this.distribution.pick(tx, ws, source.id) : null;
+    if (autoSales) fields.salesUserId = autoSales;
+    // A request business's new lead starts at its "new" status, so the status strip counts it.
+    const industry = (await this.workspaces.getById(ws)).industry;
+    if (isRequestIndustry(industry)) {
+      await tx.options.ensureDefaults(ws, 'status', defaultStatusesFor(industry));
+      const fresh = (await tx.options.list('status')).find(
+        (o) => o.key === NEW_LEAD_STATUS && !o.archivedAt,
+      );
+      if (fresh) fields.statusId = fresh.id;
+    }
+    const empty = emptyContact(null, now);
+    const contact = applyFields(empty, fields, now);
+    await tx.contacts.insert(contact);
+    await this.#record(tx, ws, contact, 'contact.created', diff(empty, contact), null, null, now, {
+      channel: input.sourceKey,
+      ...(autoSales ? { autoAssigned: true } : {}),
     });
+    if (autoSales) {
+      await tx.outbox(ws, {
+        type: 'crm.contact.assigned.v1',
+        aggregateId: contact.id,
+        payload: event(ws, contact.id, null, now, {
+          role: 'sales',
+          fromUserId: null,
+          toUserId: autoSales,
+        }),
+      });
+    }
+    await tx.outbox(ws, {
+      type: 'crm.contact.created.v1',
+      aggregateId: contact.id,
+      payload: event(ws, contact.id, null, now, {
+        sourceId: contact.sourceId,
+        origin: 'channel',
+        phoneCaptured: contact.phoneProvidedAt !== null,
+        statusId: contact.statusId,
+      }),
+    });
+    return { contactId: contact.id, created: true };
   }
 
   /**

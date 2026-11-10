@@ -46,6 +46,33 @@ the same reason.
   formulas, no invented customers or numbers.
 - The demo request form (`/dat-lich-demo/`) posts JSON to the form's `data-endpoint` when it is
   set; without it the page only shows a local preview of the request.
+- The generator needs Python 3.12 or later (f-strings with backslashes), for example
+  `uv run --python 3.12 --no-project python apps/site/tools/build_site.py`.
+
+## Website chat
+
+The pages carry Rapiz's own chat bubble (the `apps/widget` script), loaded by
+`public/static/site-widget.js` only when a site key is set. Without one the loader does nothing and
+the pages make no extra request.
+
+- **Production (Docker image).** The image stays key-free. The edge server fills the loader from its
+  environment (Caddy `templates`, `infra/deploy/Caddyfile`): set `RAPIZ_SITE_WIDGET_KEY` in the
+  server `.env` and restart `edge`. The bubble then loads the same-origin `/widget.js`.
+- **Build time (local or self-built sites).** `PUBLIC_RAPIZ_WIDGET_KEY` fills the loader in `dist/`
+  during `astro build`. `PUBLIC_RAPIZ_WIDGET_SRC` (default `/widget.js`) and
+  `PUBLIC_RAPIZ_WIDGET_API` (the widget's `data-api`, default: the script's origin) point at another
+  widget host, for example `http://localhost:5174/widget.js` and `http://localhost:3000`.
+- **The key.** `pnpm --filter @agent-sales/backend rapiz-site-bot seed --owner <email> --domains
+  rapiz.vn,www.rapiz.vn` creates or updates the Rapiz business, its bot, its knowledge and the
+  website connection, and prints the key (`wk_…`). The bot's content is
+  `apps/backend/src/cli/rapiz-site-bot/content.ts`; it may only state what these pages and
+  `FEATURES.vi.md` say, so update it with the copy (prices included).
+
+The bot reads the page the visitor writes from. Every page names its parts with
+`data-rapiz-section` (lowercase, `hero`, `pricing`, `plan-sales_smart`, …) and, where a short
+summary helps, `data-rapiz-context` (at most 300 characters, faithful to the visible text, such as a
+plan's prices per term). The generator writes both on generated pages; keep them on hand-written
+sections of `index.html`. `e2e/landing.spec.ts` checks that every page has named sections.
 
 ## Assets
 

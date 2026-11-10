@@ -92,6 +92,27 @@ export interface CrmFacade {
        * capture generated, e.g. `websiteLeadName`), it is renamed to `displayName`.
        */
       renameFrom?: string;
+      /**
+       * The customer the same visitor already became (an email left first on the website): when
+       * no customer has the phone yet, the phone is added to it instead of creating a second one.
+       */
+      contactId?: string;
+    },
+  ): Promise<{ contactId: string; created: boolean }>;
+  /**
+   * A website visitor left an email: like `upsertLeadByPhone` with the normalized email as the
+   * key. `contactId` (the visitor's customer from an earlier phone capture) gets the email when it
+   * has none, so one visitor stays one customer.
+   */
+  upsertLeadByEmail(
+    workspaceId: WorkspaceId,
+    input: {
+      email: string;
+      sourceKey: 'website';
+      displayName: string;
+      firstUrl: string | null;
+      renameFrom?: string;
+      contactId?: string;
     },
   ): Promise<{ contactId: string; created: boolean }>;
   /**
@@ -186,4 +207,9 @@ export const CRM_FACADE = Symbol('CRM_FACADE');
 /** Name a website visitor's phone gives a new customer until the customer says their name. */
 export function websiteLeadName(phoneE164: string): string {
   return `Khách website ${phoneE164.slice(-4)}`;
+}
+
+/** Placeholder name of a website lead who left only an email: the address's local part. */
+export function websiteEmailLeadName(email: string): string {
+  return `Khách website ${email.split('@')[0]?.slice(0, 40) ?? ''}`.trim();
 }

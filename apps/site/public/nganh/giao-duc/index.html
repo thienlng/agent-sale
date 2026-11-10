@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="../../static/detail-design.css">
   <script defer src="../../static/site.js"></script>
   <script defer src="../../static/motion.js"></script>
+  <script defer src="../../static/site-widget.js"></script>
 </head>
 <body id="top">
 <!--#site-head-->
@@ -38,7 +39,7 @@
 </header>
 <!--/site-head-->
 <main id="main">
-<section class="industry-spread" data-edition="giao-duc" aria-labelledby="page-title">
+<section data-rapiz-section="hero" class="industry-spread" data-edition="giao-duc" aria-labelledby="page-title">
   <div class="industry-cover">
     <img class="industry-photo" src="../../images/rapiz-education-class.webp" width="840" height="1050" alt="Lớp học nhỏ với học sinh và giáo viên" fetchpriority="high">
     <div class="container industry-cover-inner">
@@ -60,13 +61,13 @@
   </div>
   <div class="container industry-facts"><ul class="detail-points"><li>Phụ huynh đăng ký cho con</li></ul></div>
 </section>
-<section class="sec " aria-labelledby="s1">
+<section data-rapiz-section="pains" class="sec " aria-labelledby="s1">
   <div class="container">
     <div class="section-intro"><div><p class="kicker"><i class="slashes" aria-hidden="true"></i> MÙA TUYỂN SINH</p><h2 id="s1">Phụ huynh hỏi buổi tối,<br><em>tư vấn viên đã về.</em></h2></div><p></p></div>
     <div class="pain-grid below"><article class="pain"><b>01</b><h3>Hỏi sau giờ làm</h3><p>Phụ huynh tìm hiểu sau bữa tối. Sáng hôm sau gọi lại thì họ đã đăng ký học thử nơi khác.</p></article><article class="pain"><b>02</b><h3>Câu hỏi lặp lại mỗi ngày</h3><p>Học phí, sĩ số, lịch khai giảng, giáo viên bản ngữ: cùng một bộ câu hỏi, trả lời hàng trăm lần.</p></article><article class="pain"><b>03</b><h3>Hồ sơ thiếu thông tin</h3><p>Thiếu tên con, lớp, nguyện vọng. Tư vấn viên phải gọi hỏi lại trước khi xếp được buổi test.</p></article></div>
   </div>
 </section>
-<section class="sec tint" aria-labelledby="s2">
+<section data-rapiz-section="demo-chat" class="sec tint" aria-labelledby="s2">
   <div class="container">
     <div class="section-intro"><div><p class="kicker"><i class="slashes" aria-hidden="true"></i> XEM MỘT LƯỢT GHI DANH</p><h2 id="s2">Phụ huynh nhắn vài dòng,<br><em>tư vấn viên có đủ hồ sơ.</em></h2></div><p></p></div>
     <div class="playbox below" data-player>
@@ -94,7 +95,7 @@
     </div>
   </div>
 </section>
-<section class="sec " aria-labelledby="s3">
+<section data-rapiz-section="screenshot" class="sec " aria-labelledby="s3">
   <div class="container">
     <div class="section-intro"><div><p class="kicker"><i class="slashes" aria-hidden="true"></i> MÀN HÌNH THẬT</p><h2 id="s3">Trung tâm tự dặn bot<br><em>cách nói với phụ huynh.</em></h2></div><p>Trong Đào tạo Bot, bạn ghi nhiệm vụ của bot, cách xưng hô, độ dài câu và lời chào, rồi chat thử ở cột bên phải. Ảnh dưới là bot của một spa; trung tâm giáo dục điền theo cách tư vấn tuyển sinh của mình.</p></div>
     <figure class="tour-frame below" style="margin:clamp(30px,4vw,56px) 0 0">
@@ -103,19 +104,19 @@
     <p class="fineprint">Ảnh chụp ứng dụng Rapiz với dữ liệu demo.</p>
   </div>
 </section>
-<section class="sec " aria-labelledby="s4">
+<section data-rapiz-section="capabilities" class="sec " aria-labelledby="s4">
   <div class="container">
     <div class="section-intro"><div><p class="kicker"><i class="slashes" aria-hidden="true"></i> CHO ĐỘI TƯ VẤN TUYỂN SINH</p><h2 id="s4">Câu hỏi lặp lại<br><em>để bot trả lời.</em></h2></div><p></p></div>
     <div class="cap-grid below"><article class="cap"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19M9 7h6"/></svg></span><h3>Tư vấn lộ trình</h3><p>Học phí, sĩ số, lịch khai giảng, giáo trình: bot trả lời theo tài liệu của trung tâm.</p></article><article class="cap"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17M8 14h3"/></svg></span><h3>Ghi danh test và học thử</h3><p>Nhận đăng ký test trình độ hoặc buổi học thử, kèm ca học mong muốn.</p></article><article class="cap"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c.5-3.2 2.8-5 6-5s5.5 1.8 6 5M16 5a3 3 0 0 1 0 6M18 15c1.8.6 2.8 2.2 3 5"/></svg></span><h3>Phụ huynh đăng ký cho con</h3><p>Tách thông tin người liên hệ và học sinh: tên con, lớp, nguyện vọng.</p></article><article class="cap"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3.5"/><path d="M3 20c.6-3.4 3-5.5 6-5.5 1.5 0 2.8.5 3.9 1.3M15 15h6M18 12l3 3-3 3"/></svg></span><h3>Chuyển tư vấn viên</h3><p>Câu hỏi về học bổng, chuyển lớp, hoàn học phí được chuyển cho người kèm tóm tắt.</p></article><a class="cap" href="../../tinh-nang/khach-hang-thong-ke/"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.5" rx="7" ry="2.5"/><path d="M5 5.5v13c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-13M5 12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5"/></svg></span><h3>Trạng thái tuyển sinh</h3><p>Mới hỏi, đã hẹn test, đã học thử, đã đăng ký: CRM theo dõi theo ngành giáo dục.</p></a><a class="cap" href="../../tinh-nang/tro-ly-rapiz/"><span class="cap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/></svg></span><h3>Báo cáo đăng ký theo tuần</h3><p>“Tuần này bao nhiêu lượt học thử?” Trợ lý Rapiz trả lời bằng số và biểu đồ.</p></a></div>
   </div>
 </section>
-<section id="questions" class="faq" aria-labelledby="faq-title">
+<section data-rapiz-section="faq" id="questions" class="faq" aria-labelledby="faq-title">
   <div class="container faq-grid">
     <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> CÂU HỎI THƯỜNG GẶP</p><h2 id="faq-title">Bạn&nbsp;muốn<br>biết <em>thêm?</em></h2></div>
     <div class="faq-items"><details open><summary>Bot có xếp lớp thay tư vấn viên không?</summary><p>Bot ghi nhận nguyện vọng và ca mong muốn. Tư vấn viên xác nhận lịch test hoặc học thử dựa trên lớp thực tế.</p></details><details><summary>Phụ huynh và học sinh cùng nhắn thì sao?</summary><p>Hồ sơ tách người liên hệ và học sinh, nên một phụ huynh có thể đăng ký cho một hoặc nhiều con.</p></details><details><summary>Trung tâm có nhiều cơ sở?</summary><p>Mỗi cơ sở có thông tin riêng. Hồ sơ ghi cơ sở phụ huynh chọn để chuyển đúng đội tư vấn.</p></details><details><summary>Bot lấy giá và thông tin từ đâu?</summary><p>Từ dữ liệu của chính bạn: hồ sơ doanh nghiệp, câu hỏi thường gặp, tài liệu và danh mục. Giá, tồn kho và ngày trống đều được tra qua công cụ trước khi trả lời, bot không tự đoán.</p></details><details><summary>Khi nào nhân viên tiếp quản được?</summary><p>Bất cứ lúc nào. Nhân viên tắt bot cho từng hội thoại và trả lời ngay trong hộp thư. Khi bot thấy cần người, Rapiz gửi thông báo đẩy kèm lý do và tóm tắt cuộc trao đổi.</p></details><details><summary>Tôi có thể thử trước khi trả tiền không?</summary><p>Có. Gói Miễn phí không giới hạn thời gian, có 1.000 lượt trả lời AI mỗi 14 ngày. Bạn kết nối fanpage, chat thử với bot giống như trên Messenger, rồi mới bật cho khách thật.</p></details></div>
   </div>
 </section>
-<section class="sec tint" aria-labelledby="s6">
+<section data-rapiz-section="related" class="sec tint" aria-labelledby="s6">
   <div class="container">
     <div class="sec-head-solo"><p class="kicker"><i class="slashes" aria-hidden="true"></i> XEM TIẾP</p><h2 id="s6">Hồ sơ tuyển sinh<br><em>đi tiếp tới đâu?</em></h2></div>
     <div class="related below"><a class="rel" href="../../tinh-nang/khach-hang-thong-ke/"><small>Tính năng</small><strong>Khách hàng, đơn hàng & lịch</strong><span>Trạng thái khách theo ngành, đơn hàng, lịch và booking.</span><em>Xem chi tiết →</em></a><a class="rel" href="../../tinh-nang/dao-tao-ai/"><small>Tính năng</small><strong>Đào tạo Bot</strong><span>Dạy bot như dạy nhân viên mới, chat thử trước khi bật.</span><em>Xem chi tiết →</em></a><a class="rel" href="../../tinh-nang/hop-thu/"><small>Tính năng</small><strong>Tin nhắn đa kênh</strong><span>Messenger, Instagram, website và bình luận chung một hộp thư.</span><em>Xem chi tiết →</em></a></div>

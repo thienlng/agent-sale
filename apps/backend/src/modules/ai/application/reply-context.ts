@@ -4,7 +4,7 @@ import {
   type PromptRef,
   PromptRegistry,
 } from '@agent-sales/ai-core';
-import type { PlaygroundRequest, ProductDto } from '@agent-sales/contracts';
+import type { PlaygroundRequest, ProductDto, WebsitePageContext } from '@agent-sales/contracts';
 
 import type { BotActionView, PendingAction } from '../../action/api/index.js';
 import type { BotView } from '../../bot/api/index.js';
@@ -18,6 +18,8 @@ import { COMPRESS_AT_TURNS, compressHistory, summaryMessage } from './context-co
 /** Added to the last user message once the customer has left a phone number. */
 export const PHONE_KNOWN_LINE =
   'The customer already left their phone number; do not ask for it again.';
+export const EMAIL_KNOWN_LINE =
+  'The customer already left their email address; do not ask for it again.';
 
 export const SHOP_TIME_ZONE = 'Asia/Ho_Chi_Minh';
 /** Products of an interrupted run's tool results whose pictures stay sendable in the re-run. */
@@ -81,6 +83,21 @@ export function focusBlock(products: readonly ProductDto[]): string {
   return `<focus_products>\n${safeJson(products.map(productDetails))}\n</focus_products>`;
 }
 
+/**
+ * The website page the visitor wrote from (untrusted: reported by their browser). The URL loses
+ * its query and fragment, which can carry the visitor's own data (tokens, emails in links).
+ */
+export function visitorPageBlock(page: WebsitePageContext): string {
+  let path: string;
+  try {
+    const url = new URL(page.url);
+    path = `${url.origin}${url.pathname}`;
+  } catch {
+    path = '';
+  }
+  return `<visitor_page>\n${safeJson({ url: path, title: page.title, onScreen: page.sections })}\n</visitor_page>`;
+}
+
 /** The call awaiting the customer's answer: the action's name and stored arguments, never an id or URL. */
 export function pendingBlock(waiting: BotActionView, pending: PendingAction): string {
   return `<pending_action>\n${safeJson({
@@ -114,6 +131,8 @@ export interface TurnContext {
   pending: string;
   images: string;
   phoneKnown: boolean;
+  /** A website visitor left an email (no line when absent). */
+  emailKnown?: boolean;
   now: Date;
 }
 
@@ -142,7 +161,7 @@ export function historyTurns(
 
 /**
  * Appends the per-turn blocks (profile, knowledge, situations, focus products, pending action,
- * pictures, phone line, current time) to the last user message, so the system prompt and the
+ * pictures, phone and email lines, current time) to the last user message, so the system prompt and the
  * earlier turns stay byte-stable for prompt caching. Consecutive user messages (a summary followed
  * by a customer turn) are merged: some providers reject two user messages in a row.
  */
@@ -162,6 +181,7 @@ export function withTurnContext(turns: readonly ChatMessage[], ctx: TurnContext)
     ctx.pending,
     ctx.images,
     ctx.phoneKnown ? PHONE_KNOWN_LINE : '',
+    ctx.emailKnown ? EMAIL_KNOWN_LINE : '',
     currentTimeBlock(ctx.now),
   ].filter(Boolean);
   const lastUser = merged.findLastIndex((m) => m.role === 'user');

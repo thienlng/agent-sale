@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="../../static/detail-design.css">
   <link rel="stylesheet" href="../../static/feature-edition.css"><link rel="stylesheet" href="../../static/train-edition.css"><script defer src="../../static/image-lightbox.js"></script><script defer src="../../static/train-demo.js"></script><script defer src="../../static/site.js"></script>
   <script defer src="../../static/motion.js"></script>
+  <script defer src="../../static/site-widget.js"></script>
 </head>
 <body id="top">
 <!--#site-head-->
@@ -38,7 +39,7 @@
 </header>
 <!--/site-head-->
 <main id="main">
-<section class="fe-cover" data-edition="dao-tao-ai" aria-labelledby="page-title">
+<section data-rapiz-section="hero" class="fe-cover" data-edition="dao-tao-ai" aria-labelledby="page-title">
   <div class="container fe-layout">
     <header class="fe-opening">
       <p class="fe-crumb"><a href="../../index.html">Rapiz</a><span aria-hidden="true">/</span> Đào tạo Bot</p>
@@ -59,7 +60,7 @@
 
   </div>
 </section>
-<section class="fe-demo" id="day-bot" aria-labelledby="s1">
+<section data-rapiz-section="demo" class="fe-demo" id="day-bot" aria-labelledby="s1">
   <div class="container">
     <header class="fe-demo-intro"><h2 id="s1">Thử dặn bot một dòng.</h2>
       <p>Khách hỏi đồ đã mặc có đổi được không, bot chưa có thông tin. Chọn một dòng thêm vào mục Đổi trả, lưu lại rồi xem bot trả lời lại.</p></header>
@@ -102,7 +103,7 @@
   </div>
 </section>
 
-<section class="fe-proof" aria-labelledby="s2">
+<section data-rapiz-section="inspect" class="fe-proof" aria-labelledby="s2">
  <div class="container fe-atlas">
   <div class="fe-proof-intro"><p class="kicker"><i class="slashes" aria-hidden="true"></i> GIAO DIỆN ĐÀO TẠO BOT</p>
    <h2 id="s2">Sửa bên&nbsp;trái,<br><em>hỏi thử bên&nbsp;phải.</em></h2>
@@ -114,13 +115,13 @@
   </figure>
  </div>
 </section>
-<section class="fe-more" aria-labelledby="s3">
+<section data-rapiz-section="more" class="fe-more" aria-labelledby="s3">
   <div class="container fe-more-grid">
     <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> CÒN TRONG TÍNH NĂNG NÀY</p><h2 id="s3">Còn&nbsp;gì<br><em>để dạy&nbsp;bot.</em></h2></div>
     <ul><li><b>Ô thông tin theo ngành</b><p>Mỗi ngành có sẵn các ô như thanh toán, giao hàng, đổi trả. Bot đọc đúng những gì bạn ghi.</p><small>Đào tạo Bot › Thông tin doanh nghiệp</small></li><li><b>Câu hỏi thường gặp từ tệp CSV</b><p>Nhập tối đa 100 câu hỏi và câu trả lời một lần, thêm vào danh sách đang có.</p><small>Đào tạo Bot › Thông tin doanh nghiệp</small></li><li><b>Tin nhắn nhanh</b><p>Lưu sẵn câu hay dùng với từ viết tắt như /uudai để nhân viên gõ nhanh trong hộp thư.</p><small>Đào tạo Bot › Cài đặt › Tin nhắn nhanh</small></li><li><b>Tool Ads Facebook</b><p>Tạo mã JSON cho mẫu tin nhắn của quảng cáo Click-to-Messenger, rồi dán vào Trình quản lý quảng cáo.</p><small>Đào tạo Bot › Tool Ads Facebook</small></li></ul>
   </div>
 </section>
-<section id="questions" class="faq" aria-labelledby="faq-title">
+<section data-rapiz-section="faq" id="questions" class="faq" aria-labelledby="faq-title">
   <div class="container faq-grid">
     <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> CÂU HỎI THƯỜNG GẶP</p><h2 id="faq-title">Trước&nbsp;khi<br><em>dạy&nbsp;bot.</em></h2></div>
     <div class="faq-items"><details open><summary>Tôi không rành công nghệ, có tự dạy bot được không?</summary><p>Được. Bạn điền biểu mẫu bằng tiếng Việt, bắt đầu từ mẫu của ngành. Trợ lý Rapiz có thể soạn sẵn nội dung thành đề xuất, bạn kiểm tra rồi bấm Áp dụng.</p></details><details><summary>Bot trả lời sai thì sửa ở đâu?</summary><p>Hỏi lại trong Đoạn chat thử nghiệm và mở Các bước bot đã làm để xem bot đã tra gì. Sửa ô thông tin hoặc tình huống liên quan rồi hỏi lại.</p></details><details><summary>Lỡ sửa sai thì sao?</summary><p>Mở Lịch sử chỉnh sửa và bấm Khôi phục ở lần sửa trước đó.</p></details><details><summary>Một tài khoản có nhiều bot được không?</summary><p>Có. Mỗi bot có thông tin, tình huống và danh sách sản phẩm riêng, gắn với trang riêng.</p></details></div>

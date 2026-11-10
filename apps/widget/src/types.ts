@@ -28,11 +28,17 @@ export interface WidgetMessage {
   at: string;
 }
 
+/** A marked part of the page on screen (mirrors `WebsitePageSection` in contracts). */
+export interface PageSection {
+  name: string;
+  text: string;
+}
+
 export interface WidgetSendRequest {
   clientMessageId: string;
   text?: string;
   attachmentUrl?: string;
-  page: { url: string; title: string };
+  page: { url: string; title: string; sections: PageSection[] };
   firstUrl?: string;
   referrer?: string;
   seen?: string[];

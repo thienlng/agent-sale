@@ -29,6 +29,7 @@
   <script defer src="static/showcase.js"></script>
   <script defer src="static/business-os.js"></script>
   <script defer src="static/motion.js"></script>
+  <script defer src="static/site-widget.js"></script>
   <script defer src="static/image-lightbox.js"></script>
 
 <link rel="stylesheet" href="static/agent-loop.css">
@@ -53,7 +54,7 @@
 </header>
 <!--/site-head-->
 <main id="main">
-<section id="top" class="message-hero" aria-labelledby="hero-title" data-active="retail">
+<section data-rapiz-section="hero" id="top" class="message-hero" aria-labelledby="hero-title" data-active="retail">
   <div class="pulse-stage">
     <svg class="pulse-wires" viewBox="0 0 1400 620" preserveAspectRatio="none" aria-hidden="true" focusable="false">
       <g><path id="wire-retail" class="wire-retail" d="M192 171 C408 171 356 428 535 428"/><path id="wire-villa" class="wire-villa" d="M1183 147 C974 147 1050 428 866 428"/><path id="wire-spa" class="wire-spa" d="M217 398 C351 398 413 455 535 455"/><path id="wire-education" class="wire-education" d="M1170 410 C1049 410 997 460 866 460"/></g>
@@ -117,7 +118,7 @@
   </div>
 </div>
 <div class="os-page os-home">
-<section class="os-paper" id="agent-harness" aria-labelledby="os-ticket-heading">
+<section data-rapiz-section="agent-harness" class="os-paper" id="agent-harness" aria-labelledby="os-ticket-heading">
  <div class="os-wrap">
   <div class="os-intro">
    <div><p class="os-eyebrow">Shop Bot &amp; Account Bot</p><h2 id="os-ticket-heading">Một đơn hàng,<br><em>hai góc nhìn.</em></h2></div>
@@ -144,7 +145,7 @@
   </figure>
  </div>
 </section>
-<!--#agent-loop--><section class="al-section" id="core-ai" aria-labelledby="al-heading" data-phase="context" data-running="false" data-mode-active="shop">
+<!--#agent-loop--><section data-rapiz-section="core-ai" class="al-section" id="core-ai" aria-labelledby="al-heading" data-phase="context" data-running="false" data-mode-active="shop">
  <div class="al-wrap">
   <header class="al-head">
    <div><p class="al-eyebrow">Core AI · Cách Rapiz làm việc</p><h2 id="al-heading">Đằng sau <em>một câu trả lời.</em></h2></div>
@@ -290,7 +291,7 @@
 </section>
 <!--/agent-loop-->
 </div>
-<section id="solutions" class="industry-stories" aria-labelledby="sol-title">
+<section data-rapiz-section="solutions" id="solutions" class="industry-stories" aria-labelledby="sol-title">
   <div class="container">
     <header class="ix-intro">
       <div>
@@ -360,7 +361,7 @@
   </div>
 </section>
 
-<section id="inside" class="app-showcase" aria-labelledby="inside-title">
+<section data-rapiz-section="inside" id="inside" class="app-showcase" aria-labelledby="inside-title">
   <div class="rg-mount">
     <div class="rg-room" role="region" aria-roledescription="bộ sưu tập" aria-labelledby="inside-title">
       <header class="rg-head">
@@ -422,7 +423,7 @@
       </div>
     </div>
   </nav>
-<section class="product-tour" id="platform" aria-labelledby="product-tour-title">
+<section data-rapiz-section="product-tour" class="product-tour" id="platform" aria-labelledby="product-tour-title">
   <div class="container">
     <header class="tour-intro">
       <h2 id="product-tour-title">Bên trong Rapiz</h2>
@@ -468,7 +469,7 @@
   </div>
 </section>
 
-<section class="training" id="training" aria-labelledby="training-title">
+<section data-rapiz-section="training" class="training" id="training" aria-labelledby="training-title">
   <div class="container">
     <div class="section-intro">
       <div>
@@ -501,7 +502,7 @@
   </div>
 </section>
 
-<section id="assistant" class="ra-section" aria-labelledby="ra-heading">
+<section data-rapiz-section="assistant" id="assistant" class="ra-section" aria-labelledby="ra-heading">
   <div class="container ra-layout">
     <div class="ra-intro">
       <p class="ra-kicker">Trợ lý Rapiz</p>
@@ -546,7 +547,7 @@
   </div>
 </section>
 
-<section id="measure" class="sec tint" aria-labelledby="measure-title">
+<section data-rapiz-section="measure" id="measure" class="sec tint" aria-labelledby="measure-title">
   <div class="container">
     <div class="section-intro">
       <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> ĐO ĐƯỢC TỪNG BƯỚC</p>
@@ -577,7 +578,7 @@
 
 </div>
 </template>
-<section id="start" class="launch-guide start-band" aria-labelledby="start-title">
+<section data-rapiz-section="getting-started" id="start" class="launch-guide start-band" aria-labelledby="start-title">
   <div class="container">
     <div class="start-head">
       <div>
@@ -602,7 +603,7 @@
     </div>
   </div>
 </section>
-<section id="pricing" class="sec start-pricing" aria-labelledby="pricing-title">
+<section data-rapiz-section="pricing" id="pricing" class="sec start-pricing" aria-labelledby="pricing-title">
   <div class="container">
     <div class="section-intro">
       <h2 id="pricing-title">Chọn gói cho đội sale</h2>
@@ -610,13 +611,13 @@
     </div>
     <div class="below">
       <div class="plans-top"><!--#plans--><fieldset class="term-toggle" data-terms="#home-plans"><legend>Kỳ thanh toán</legend><label><input type="radio" name="term" value="3"><span>3 tháng</span></label><label><input type="radio" name="term" value="6"><span>6 tháng</span></label><label><input type="radio" name="term" value="12" checked><span>12 tháng <small>tiết kiệm nhất</small></span></label></fieldset><!--/plans--><p>Thanh toán bằng chuyển khoản VietQR.</p></div>
-      <!--#plan-cards--><div class="plans" id="home-plans"><article class="plan">
+      <!--#plan-cards--><div class="plans" id="home-plans"><article class="plan" data-rapiz-section="plan-free" data-rapiz-context="Gói Miễn phí: Một người, một fanpage. Đủ để thử bot với khách thật. Giá 0đ, không thời hạn, không cần thẻ thanh toán. 1.000 lượt trả lời AI mỗi 14 ngày; 1 thành viên, tối đa 3 kênh; Tin nhắn đa kênh, Đào tạo Bot, chốt đơn trong chat; Trợ lý Rapiz cho chủ shop.">
         <h3>Miễn phí</h3><p class="for">Một người, một fanpage. Đủ để thử bot với khách thật.</p><p class="price"><b>0đ</b><span>/ không thời hạn</span></p><p class="price-note">Không cần thẻ thanh toán</p><a class="btn ghost" href="dat-lich-demo/?goi=free">Chọn gói Miễn phí <span aria-hidden="true">→</span></a><ul class="ticks"><li><span>1.000 lượt trả lời AI mỗi 14 ngày</span></li><li><span>1 thành viên, tối đa 3 kênh</span></li><li><span>Tin nhắn đa kênh, Đào tạo Bot, chốt đơn trong chat</span></li><li><span>Trợ lý Rapiz cho chủ shop</span></li></ul>
-      </article><article class="plan" data-prices='{"3": 1310000, "6": 1050000, "12": 785000}'>
+      </article><article class="plan" data-prices='{"3": 1310000, "6": 1050000, "12": 785000}' data-rapiz-section="plan-sales_smart" data-rapiz-context="Gói Sales Smart: Shop và cơ sở dịch vụ có đội sale nhỏ. Giá mỗi tháng: 785.000đ khi trả 12 tháng, 1.050.000đ khi trả 6 tháng, 1.310.000đ khi trả 3 tháng. 7.000 lượt trả lời AI mỗi 30 ngày; 5 thành viên, 5 kênh; Bình luận Facebook theo bài đăng; Khung chat website, 10 GB ảnh và tệp.">
         <h3>Sales Smart</h3><p class="for">Shop và cơ sở dịch vụ có đội sale nhỏ.</p><p class="price"><b data-price>785.000đ</b><span>/ tháng</span></p><p class="price-note" data-price-note>Thanh toán 9.420.000đ cho 12 tháng</p><a class="btn ghost" href="dat-lich-demo/?goi=sales_smart">Chọn Sales Smart <span aria-hidden="true">→</span></a><ul class="ticks"><li><span>7.000 lượt trả lời AI mỗi 30 ngày</span></li><li><span>5 thành viên, 5 kênh</span></li><li><span>Bình luận Facebook theo bài đăng</span></li><li><span>Khung chat website, 10 GB ảnh và tệp</span></li></ul>
-      </article><article class="plan featured" data-prices='{"3": 1624000, "6": 1299000, "12": 974000}'><span class="badge">Phù hợp đội đang lớn</span>
+      </article><article class="plan featured" data-prices='{"3": 1624000, "6": 1299000, "12": 974000}' data-rapiz-section="plan-sales_pro" data-rapiz-context="Gói Sales Pro: Nhiều fanpage, nhiều chi nhánh, cần kết nối hệ thống. Giá mỗi tháng: 974.000đ khi trả 12 tháng, 1.299.000đ khi trả 6 tháng, 1.624.000đ khi trả 3 tháng. Mọi thứ trong Sales Smart; 15 thành viên, 20 kênh; Thêm mô hình AI Pro; API công khai và webhook có chữ ký."><span class="badge">Phù hợp đội đang lớn</span>
         <h3>Sales Pro</h3><p class="for">Nhiều fanpage, nhiều chi nhánh, cần kết nối hệ thống.</p><p class="price"><b data-price>974.000đ</b><span>/ tháng</span></p><p class="price-note" data-price-note>Thanh toán 11.688.000đ cho 12 tháng</p><a class="btn primary" href="dat-lich-demo/?goi=sales_pro">Chọn Sales Pro <span aria-hidden="true">→</span></a><ul class="ticks"><li><span>Mọi thứ trong Sales Smart</span></li><li><span>15 thành viên, 20 kênh</span></li><li><span>Thêm mô hình AI Pro</span></li><li><span>API công khai và webhook có chữ ký</span></li></ul>
-      </article><article class="plan" data-prices='{"3": 2499000, "6": 1999000, "12": 1624000}'>
+      </article><article class="plan" data-prices='{"3": 2499000, "6": 1999000, "12": 1624000}' data-rapiz-section="plan-sales_neo" data-rapiz-context="Gói Sales Neo: Chuỗi và doanh nghiệp nhiều thương hiệu. Giá mỗi tháng: 1.624.000đ khi trả 12 tháng, 1.999.000đ khi trả 6 tháng, 2.499.000đ khi trả 3 tháng. Mọi thứ trong Sales Pro; 30 thành viên, 100 kênh; Không giới hạn khách hàng; Thêm mô hình AI Neo, 100 GB lưu trữ.">
         <h3>Sales Neo</h3><p class="for">Chuỗi và doanh nghiệp nhiều thương hiệu.</p><p class="price"><b data-price>1.624.000đ</b><span>/ tháng</span></p><p class="price-note" data-price-note>Thanh toán 19.488.000đ cho 12 tháng</p><a class="btn ghost" href="dat-lich-demo/?goi=sales_neo">Chọn Sales Neo <span aria-hidden="true">→</span></a><ul class="ticks"><li><span>Mọi thứ trong Sales Pro</span></li><li><span>30 thành viên, 100 kênh</span></li><li><span>Không giới hạn khách hàng</span></li><li><span>Thêm mô hình AI Neo, 100 GB lưu trữ</span></li></ul>
       </article></div><!--/plan-cards-->
       <p class="plans-foot">Một lượt trả lời AI là một câu trả lời bot gửi tới khách; tin nhắn của nhân viên không bị tính. Khi hết lượt trong chu kỳ, hội thoại mới tự chuyển cho nhân viên.</p>
@@ -625,7 +626,7 @@
   </div>
 </section>
 
-<section id="questions" class="faq" aria-labelledby="questions-title">
+<section data-rapiz-section="faq" id="questions" class="faq" aria-labelledby="questions-title">
   <div class="container faq-grid">
     <div class="faq-side"><h2 id="questions-title">Câu hỏi thường gặp</h2><p>Những điều chủ cửa hàng hay hỏi trước khi dùng Rapiz.</p></div>
     <div class="faq-items">

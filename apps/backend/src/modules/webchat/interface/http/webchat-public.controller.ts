@@ -39,6 +39,22 @@ export function requestOrigin(origin: string | undefined): string | null {
 }
 
 /**
+ * The page origin of a widget call. Browsers omit `Origin` on same-origin GETs (a site serving
+ * `/widget.js` itself, like rapiz.vn behind the edge), so the `Referer` origin stands in then.
+ * Like `Origin`, it only gates browsers: any other client can send either header.
+ */
+export function callerOrigin(origin: string | undefined, referer: string | undefined) {
+  if (origin) return origin;
+  if (!referer) return undefined;
+  try {
+    const u = new URL(referer);
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u.origin : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * CORS for the public routes: the caller's own origin is echoed (so the widget can read even the
  * uniform 404 and stop rendering), never a wildcard, no credentials.
  */
@@ -140,7 +156,7 @@ export class WebchatPublicController {
   private call(key: string, req: FastifyRequest): PublicCall {
     return {
       key,
-      origin: req.headers.origin,
+      origin: callerOrigin(req.headers.origin, req.headers.referer),
       ip: req.ip,
       authorization: req.headers.authorization,
     };

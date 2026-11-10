@@ -202,6 +202,7 @@ describe('conversation row', () => {
     const lead = {
       contactId: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d99',
       phone: '+84912345679',
+      email: null,
       capturedAt: '2026-10-25T10:20:00.000Z',
       seenAt: null,
     };

@@ -28,6 +28,15 @@ export interface NormalizedEvent {
   /** Payload of the quick reply the customer tapped; `text` stays the button title. */
   quickReplyPayload?: string;
   attachments?: Array<{ type: 'image' | 'video' | 'file' | 'audio' | 'sticker'; url: string }>;
+  /**
+   * Website only: the page the visitor wrote from, as their browser reported it (untrusted).
+   * Kept with the event so the reply sees the page of the message it answers.
+   */
+  page?: {
+    url: string;
+    title: string;
+    sections: Array<{ name: string; text: string }>;
+  };
   /** Raw payload kept for investigation (retention 30 days). */
   raw: unknown;
   comment?: {
