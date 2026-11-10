@@ -94,8 +94,9 @@ describe('WebsitePreview', () => {
     renderWithProviders(
       <WebsitePreview settings={{ ...settings, color: '#112233', position: 'left' }} />,
     );
-    expect(screen.getByTestId('website-preview-header')).toHaveStyle({
+    expect(screen.getByTestId('website-preview-avatar')).toHaveStyle({
       backgroundColor: 'rgb(17, 34, 51)',
+      color: 'rgb(255, 255, 255)',
     });
     expect(screen.getByText(settings.greeting)).toBeVisible();
     expect(screen.getByTestId('website-preview')).toHaveClass('items-start');
@@ -111,7 +112,7 @@ describe('WebsiteSettingsPanel', () => {
     const color = screen.getByLabelText('Màu chủ đạo');
     await userEvent.clear(color);
     await userEvent.type(color, '#000000');
-    expect(screen.getByTestId('website-preview-header')).toHaveStyle({
+    expect(screen.getByTestId('website-preview-avatar')).toHaveStyle({
       backgroundColor: 'rgb(0, 0, 0)',
     });
     await userEvent.click(screen.getByRole('button', { name: 'Lưu' }));

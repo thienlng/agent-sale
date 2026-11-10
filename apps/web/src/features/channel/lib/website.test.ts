@@ -1,6 +1,13 @@
 import { WebsiteSettings } from '@agent-sales/contracts';
 import { describe, expect, it } from 'vitest';
-import { diffSettings, embedCode, parseDomains, validateSettingsForm, toForm } from './website';
+import {
+  diffSettings,
+  embedCode,
+  onColor,
+  parseDomains,
+  validateSettingsForm,
+  toForm,
+} from './website';
 
 describe('embedCode', () => {
   it('renders the script tag with the site key', () => {
@@ -56,5 +63,14 @@ describe('validateSettingsForm', () => {
       'color',
       'domains',
     ]);
+  });
+});
+
+describe('onColor', () => {
+  it('picks charcoal on light colours and white on dark ones', () => {
+    expect(onColor('#FF7A45')).toBe('#1F1F1F');
+    expect(onColor('#fc0')).toBe('#1F1F1F');
+    expect(onColor('#1F1F1F')).toBe('#FFFFFF');
+    expect(onColor('#112233')).toBe('#FFFFFF');
   });
 });
