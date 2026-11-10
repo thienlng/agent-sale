@@ -9,6 +9,7 @@ import type { PlaygroundRequest, ProductDto, WebsitePageContext } from '@agent-s
 import type { BotActionView, PendingAction } from '../../action/api/index.js';
 import type { BotView } from '../../bot/api/index.js';
 import { knowledgeBlock, type KnowledgeSource } from '../domain/grounding.js';
+import { navTargets } from '../domain/page-nav.js';
 import type { ConversationSummaryValue } from '../domain/ports/conversation-summary.repository.js';
 import { productDetails } from '../domain/product-view.js';
 import { replyStyle } from '../domain/reply-style.js';
@@ -86,6 +87,7 @@ export function focusBlock(products: readonly ProductDto[]): string {
 /**
  * The website page the visitor wrote from (untrusted: reported by their browser). The URL loses
  * its query and fragment, which can carry the visitor's own data (tokens, emails in links).
+ * `navigation` lists the places `suggest_next` may link to, by id (`here`: a section of this page).
  */
 export function visitorPageBlock(page: WebsitePageContext): string {
   let path: string;
@@ -95,7 +97,18 @@ export function visitorPageBlock(page: WebsitePageContext): string {
   } catch {
     path = '';
   }
-  return `<visitor_page>\n${safeJson({ url: path, title: page.title, onScreen: page.sections })}\n</visitor_page>`;
+  const navigation = navTargets(page).map((t) => ({
+    id: t.id,
+    label: t.label,
+    path: t.path,
+    ...(t.here ? { here: true } : {}),
+  }));
+  return `<visitor_page>\n${safeJson({
+    url: path,
+    title: page.title,
+    onScreen: page.sections,
+    ...(navigation.length ? { navigation } : {}),
+  })}\n</visitor_page>`;
 }
 
 /** The call awaiting the customer's answer: the action's name and stored arguments, never an id or URL. */

@@ -5,6 +5,7 @@ import type {
   ConversationView,
   ConversationListQuery,
   InboxMessageDto,
+  MessageUi,
   WidgetMessageDto,
   SendInboxMessageRequest,
   UpdateConversationRequest,
@@ -89,7 +90,8 @@ export interface ConversationFacade {
   botHolds(ws: WorkspaceId, id: string): Promise<boolean>;
   /**
    * `quickReplies`: buttons under this bubble; delivery only, not stored. Meta shows them; website:
-   * accepted, not yet delivered to the widget.
+   * accepted, not yet delivered to the widget. `ui` (website only, ADR-029): product cards and
+   * suggested next steps, stored on the message and served to the widget; ignored elsewhere.
    */
   commitBotReply(
     ws: WorkspaceId,
@@ -130,6 +132,7 @@ export interface AwaitingReply {
 }
 export interface BotQuickReplies {
   quickReplies?: readonly { title: string; payload: string }[] | undefined;
+  ui?: MessageUi | undefined;
 }
 /** One attachment of a bot message (T-192). */
 export interface BotAttachment {

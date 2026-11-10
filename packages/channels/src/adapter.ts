@@ -36,6 +36,8 @@ export interface NormalizedEvent {
     url: string;
     title: string;
     sections: Array<{ name: string; text: string }>;
+    /** Sections and same-site links the page offers (absent on events of older widgets). */
+    nav?: Array<{ label: string; url: string }> | undefined;
   };
   /** Raw payload kept for investigation (retention 30 days). */
   raw: unknown;

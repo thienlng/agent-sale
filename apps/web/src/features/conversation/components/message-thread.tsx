@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { MessageAttachments } from './message-attachments';
+import { MessageUi } from './message-ui';
 
 /** The conversation's messages, scrolled to the newest one. */
 export function MessageThread({
@@ -175,6 +176,7 @@ export function MessageThread({
                     {m.text || (m.attachments.length ? null : tr('noMessage'))}
                   </div>
                 </div>
+                {m.ui ? <MessageUi ui={m.ui} /> : null}
                 {!inbound && (lastOfRun || m.status !== 'sent') ? (
                   <span className="mt-0.5 text-[10px] text-muted-foreground">
                     {stamp(m.createdAt)}

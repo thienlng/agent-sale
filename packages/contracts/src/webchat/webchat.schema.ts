@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MessageUi } from '../conversation/message-ui.schema.js';
 
 /** Public look of a site as the widget needs it; never carries `domains` or the bot id. */
 export const WidgetConfigDto = z.object({
@@ -21,6 +22,8 @@ export const WidgetMessageDto = z.object({
   /** The widget's own id of a customer message (de-duplication on the client); null for agent messages. */
   clientMessageId: z.uuid().nullable(),
   at: z.iso.datetime(),
+  /** Product cards and suggested next steps of a bot message (ADR-029). */
+  ui: MessageUi.optional(),
 });
 export type WidgetMessageDto = z.infer<typeof WidgetMessageDto>;
 
@@ -34,6 +37,15 @@ export const WebsitePageSection = z.object({
 });
 export type WebsitePageSection = z.infer<typeof WebsitePageSection>;
 
+export const MAX_PAGE_LINKS = 24;
+
+/** A place on the visitor's site: a section of the page or a page linked from it. */
+export const WebsitePageLink = z.object({
+  label: z.string().trim().min(1).max(80),
+  url: z.string().max(1000),
+});
+export type WebsitePageLink = z.infer<typeof WebsitePageLink>;
+
 /**
  * The page a website visitor wrote from. Sent by the visitor's browser, so it is untrusted: the
  * bot reads it to understand what the visitor refers to, never as a source of prices or terms.
@@ -43,6 +55,12 @@ export const WebsitePageContext = z.object({
   title: z.string().max(150),
   /** Most visible first; empty when the site marks no sections. */
   sections: z.array(WebsitePageSection).max(3).default([]),
+  /**
+   * Where the visitor can go from this page: its own sections (`url` with a `#fragment`) and the
+   * same-site links of its header, navigation and footer, as the widget found them. The bot may
+   * only suggest these; the server keeps those on the page's own origin.
+   */
+  nav: z.array(WebsitePageLink).max(MAX_PAGE_LINKS).optional(),
 });
 export type WebsitePageContext = z.infer<typeof WebsitePageContext>;
 

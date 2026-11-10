@@ -1,7 +1,7 @@
 import { CSS } from './styles.js';
 import { showPhoneChip, type LocalMessage, type State } from './state.js';
 import type { Strings } from './strings.js';
-import type { WidgetConfig } from './types.js';
+import type { MessageCard, MessageSuggestion, WidgetConfig } from './types.js';
 
 export interface ViewHandlers {
   onToggle(open: boolean): void;
@@ -11,6 +11,8 @@ export interface ViewHandlers {
   onPhoneChip(): void;
   onPhoneSubmit(raw: string): void;
   onPhoneCancel(): void;
+  /** A suggested place on the site: a section of this page or another page (ADR-029). */
+  onNavigate(url: string): void;
 }
 
 export interface View {
@@ -40,6 +42,12 @@ const ICON_CLOSE =
   'M6.7 5.3 12 10.6l5.3-5.3a1 1 0 1 1 1.4 1.4L13.4 12l5.3 5.3a1 1 0 0 1-1.4 1.4L12 13.4l-5.3 5.3a1 1 0 0 1-1.4-1.4l5.3-5.3-5.3-5.3a1 1 0 0 1 1.4-1.4z';
 const ICON_SEND =
   'M12 4a1 1 0 0 1 .7.3l6 6a1 1 0 0 1-1.4 1.4L13 7.4V19a1 1 0 1 1-2 0V7.4l-4.3 4.3a1 1 0 0 1-1.4-1.4l6-6A1 1 0 0 1 12 4z';
+const ICON_ARROW =
+  'M13.3 5.3a1 1 0 0 1 1.4 0l6 6a1 1 0 0 1 0 1.4l-6 6a1 1 0 0 1-1.4-1.4l4.3-4.3H4a1 1 0 1 1 0-2h13.6l-4.3-4.3a1 1 0 0 1 0-1.4z';
+const ICON_OUT =
+  'M8 6a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v9a1 1 0 1 1-2 0V8.4L6.7 18.7a1 1 0 0 1-1.4-1.4L15.6 7H9a1 1 0 0 1-1-1z';
+const ICON_CHEVRON =
+  'M9.3 5.3a1 1 0 0 1 1.4 0l6 6a1 1 0 0 1 0 1.4l-6 6a1 1 0 0 1-1.4-1.4l5.3-5.3-5.3-5.3a1 1 0 0 1 0-1.4z';
 const ICON_IMAGE =
   'M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2zM8.5 13.5l2.5 3 3.5-4.5 4.5 6H5l3.5-4.5z';
 
@@ -55,6 +63,17 @@ function el<K extends keyof HTMLElementTagNameMap>(
 }
 
 const isHttp = (u: string): boolean => /^https?:\/\//i.test(u);
+
+/** A URL of this very page with a fragment: following it scrolls instead of loading a page. */
+export function sameDocument(url: string, href: string = window.location.href): boolean {
+  try {
+    const to = new URL(url, href);
+    const here = new URL(href);
+    return to.origin === here.origin && to.pathname === here.pathname && to.hash.length > 1;
+  } catch {
+    return false;
+  }
+}
 const safeColor = (c: string): string => (/^#[0-9a-f]{3,8}$/i.test(c) ? c : '#FF7A45');
 
 /** Text colour on the brand colour: charcoal or white, whichever contrasts more (WCAG luminance). */
@@ -218,8 +237,95 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
   });
   phoneCancel.addEventListener('click', () => h.onPhoneCancel());
 
-  const nodes = new Map<string, HTMLElement>();
-  const buildNode = (m: LocalMessage): HTMLElement => {
+  /** A row of product cards; a card asks the bot about its product. */
+  const buildCards = (cards: readonly MessageCard[]): HTMLElement => {
+    const box = el('div', 'carousel');
+    const row = el('div', 'cards');
+    row.setAttribute('role', 'group');
+    row.setAttribute('aria-label', strings.products);
+    for (const c of cards) {
+      const card = el('button', 'card');
+      card.type = 'button';
+      const pic = el('span', 'pic');
+      pic.setAttribute('data-initial', (c.title.trim().charAt(0) || '•').toUpperCase());
+      if (c.imageUrl && isHttp(c.imageUrl)) {
+        const img = el('img');
+        img.alt = '';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.addEventListener('load', () => pic.classList.add('ok'));
+        img.addEventListener('error', () => img.remove());
+        img.src = c.imageUrl;
+        pic.appendChild(img);
+      }
+      const body = el('span', 'cb');
+      body.append(el('span', 'ct', c.title));
+      if (c.price) body.append(el('span', 'cp', c.price));
+      const more = el('span', 'cm', strings.learnMore);
+      const go = el('span', 'go');
+      go.appendChild(icon(ICON_ARROW));
+      more.appendChild(go);
+      body.append(more);
+      card.append(pic, body);
+      card.addEventListener('click', () => h.onSend(strings.askAbout(c.title)));
+      row.appendChild(card);
+    }
+    const step = (dir: number) => (): void =>
+      row.scrollBy({ left: dir * (row.clientWidth - 48), behavior: 'smooth' });
+    const prev = el('button', 'cnav prev');
+    const next = el('button', 'cnav next');
+    prev.type = next.type = 'button';
+    prev.setAttribute('aria-label', strings.previous);
+    next.setAttribute('aria-label', strings.next);
+    prev.appendChild(icon(ICON_CHEVRON));
+    next.appendChild(icon(ICON_CHEVRON));
+    prev.addEventListener('click', step(-1));
+    next.addEventListener('click', step(1));
+    const edges = (): void => {
+      prev.hidden = row.scrollLeft <= 4;
+      next.hidden = row.scrollLeft + row.clientWidth >= row.scrollWidth - 4;
+    };
+    row.addEventListener('scroll', edges, { passive: true });
+    box.append(row, prev, next);
+    prev.hidden = next.hidden = true;
+    requestAnimationFrame(edges);
+    return box;
+  };
+
+  /** Follow-up buttons under the newest answer: a reply to send, or a place on the site to go. */
+  const buildSuggestions = (items: readonly MessageSuggestion[]): HTMLElement => {
+    const box = el('div', 'sugg');
+    for (const s of items) {
+      const b = el('button', `sg ${s.kind}`);
+      b.type = 'button';
+      b.append(el('span', '', s.kind === 'reply' ? s.text : s.title));
+      if (s.kind === 'link') {
+        const local = sameDocument(s.url);
+        b.appendChild(icon(local ? ICON_ARROW : ICON_OUT));
+        if (local) b.classList.add('down');
+        b.addEventListener('click', () => h.onNavigate(s.url));
+      } else {
+        b.appendChild(icon(ICON_ARROW));
+        b.addEventListener('click', () => h.onSend(s.text));
+      }
+      box.appendChild(b);
+    }
+    return box;
+  };
+
+  interface Entry {
+    bubble: HTMLElement;
+    all: HTMLElement[];
+  }
+  const nodes = new Map<string, Entry>();
+  const buildNode = (m: LocalMessage): Entry => {
+    const bubble = buildBubble(m);
+    const all = m.text || m.imageUrl || !m.ui?.cards?.length ? [bubble] : [];
+    if (m.role === 'agent' && m.ui?.cards?.length) all.push(buildCards(m.ui.cards));
+    return { bubble, all };
+  };
+  let suggestion: { id: string; node: HTMLElement } | null = null;
+  const buildBubble = (m: LocalMessage): HTMLElement => {
     const b = el('div');
     if (m.imageUrl && isHttp(m.imageUrl)) {
       const img = el('img');
@@ -284,25 +390,41 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
       const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
       const live = new Set<string>();
       for (const m of s.messages) live.add(m.id);
-      nodes.forEach((node, id) => {
+      nodes.forEach((entry, id) => {
         if (!live.has(id)) {
-          node.remove();
+          entry.all.forEach((n) => n.remove());
           nodes.delete(id);
         }
       });
+      // Suggestions belong to the newest message only, while it is an answer and nothing is coming.
+      const last = s.messages[s.messages.length - 1];
+      const offer =
+        last && last.role === 'agent' && !s.botTyping && last.ui?.suggestions?.length ? last : null;
       let added = false;
+      if (suggestion && suggestion.id !== offer?.id) {
+        suggestion.node.remove();
+        suggestion = null;
+      }
+      if (offer && !suggestion) {
+        suggestion = { id: offer.id, node: buildSuggestions(offer.ui?.suggestions ?? []) };
+        added = true;
+      }
       let cursor: ChildNode | null = list.firstChild;
-      for (const m of s.messages) {
-        let node = nodes.get(m.id);
-        if (!node) {
-          node = buildNode(m);
-          nodes.set(m.id, node);
-          added = true;
-        }
-        syncNode(node, m);
+      const place = (node: HTMLElement): void => {
         if (node === cursor) cursor = cursor.nextSibling;
         else list.insertBefore(node, cursor);
+      };
+      for (const m of s.messages) {
+        let entry = nodes.get(m.id);
+        if (!entry) {
+          entry = buildNode(m);
+          nodes.set(m.id, entry);
+          added = true;
+        }
+        syncNode(entry.bubble, m);
+        entry.all.forEach(place);
       }
+      if (suggestion) place(suggestion.node);
       if (list.lastChild !== typing) list.appendChild(typing);
       if (added && (nearBottom || s.messages.length < 3)) list.scrollTop = list.scrollHeight;
       typing.hidden = !s.botTyping;

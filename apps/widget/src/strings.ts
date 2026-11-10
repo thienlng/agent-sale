@@ -22,6 +22,13 @@ export interface Strings {
   defaultAgent: string;
   defaultPhonePrompt: string;
   defaultPhoneChip: string;
+  /** Product cards (ADR-029). */
+  products: string;
+  learnMore: string;
+  previous: string;
+  next: string;
+  /** The question a card sends. */
+  askAbout(title: string): string;
 }
 
 const vi: Strings = {
@@ -45,6 +52,11 @@ const vi: Strings = {
   defaultAgent: 'Hỗ trợ',
   defaultPhonePrompt: 'Để lại số điện thoại để chúng tôi liên hệ nhanh hơn nhé.',
   defaultPhoneChip: 'Để lại số điện thoại',
+  products: 'Sản phẩm',
+  learnMore: 'Tìm hiểu thêm',
+  previous: 'Trước',
+  next: 'Tiếp',
+  askAbout: (title) => `Cho mình tìm hiểu thêm về ${title}`,
 };
 
 const en: Strings = {
@@ -68,6 +80,11 @@ const en: Strings = {
   defaultAgent: 'Support',
   defaultPhonePrompt: 'Leave your phone number so we can reach you faster.',
   defaultPhoneChip: 'Leave your phone number',
+  products: 'Products',
+  learnMore: 'Learn more',
+  previous: 'Previous',
+  next: 'Next',
+  askAbout: (title) => `Tell me more about ${title}`,
 };
 
 export function getStrings(language: WidgetLanguage): Strings {

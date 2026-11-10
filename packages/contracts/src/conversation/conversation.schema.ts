@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ChannelProvider } from '../channel/channel.schema.js';
 import { AssignTagRequest, TagAssignmentDto } from '../crm/crm-settings.schema.js';
+import { MessageUi } from './message-ui.schema.js';
 /** One entry of the conversation's internal notes timeline (never shown to the customer). */
 export const ConversationNote = z.object({
   id: z.uuid(),
@@ -130,6 +131,8 @@ export const InboxMessageDto = z.object({
   failureCode: z.string().nullable(),
   externalId: z.string().nullable(),
   createdAt: z.iso.datetime(),
+  /** Website bot messages only: product cards and suggested next steps (ADR-029). */
+  ui: MessageUi.optional(),
 });
 export type InboxMessageDto = z.infer<typeof InboxMessageDto>;
 /** Uuid lists arrive in a query string as `a,b,c` (or as repeated parameters). */

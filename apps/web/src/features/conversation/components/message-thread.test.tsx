@@ -160,4 +160,31 @@ describe('MessageThread', () => {
       screen.queryByRole('button', { name: 'channelInbox.v2.thread.messageMenu' }),
     ).not.toBeInTheDocument();
   });
+  it('shows the cards and buttons a website visitor saw under a bot message, read-only', () => {
+    render(
+      <MessageThread
+        messages={[
+          {
+            ...message('bot'),
+            direction: 'outbound',
+            sender: 'bot',
+            status: 'sent',
+            ui: {
+              cards: [{ productId: 'p1', title: 'Gói Pro', price: '400.000đ', imageUrl: null }],
+              suggestions: [
+                { kind: 'reply', text: 'Gói Pro có gì?' },
+                { kind: 'link', title: 'Xem bảng giá', url: 'https://shop.vn/#gia' },
+              ],
+            },
+          },
+        ]}
+      />,
+    );
+    const cards = screen.getByRole('list', { name: 'channelInbox.v2.thread.cards' });
+    expect(cards).toHaveTextContent('Gói Pro400.000đ');
+    const buttons = screen.getByRole('list', { name: 'channelInbox.v2.thread.suggestions' });
+    expect(buttons).toHaveTextContent('Gói Pro có gì?Xem bảng giá');
+    expect(screen.getByTitle('https://shop.vn/#gia')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Gói Pro/ })).not.toBeInTheDocument();
+  });
 });
