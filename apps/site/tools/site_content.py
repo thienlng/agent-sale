@@ -702,7 +702,7 @@ PAGES.append({
     'h1': 'Trả lời trên kênh khách nhắn,<br><em>bằng dữ liệu bạn đang có.</em>',
     'deck': 'Hai mục giống hệt trong app: Tích hợp nền tảng cho các kênh khách nhắn tới, Tích hợp PMS cho phần mềm bán hàng và kho bạn đang dùng. Đội kỹ thuật có thêm API và webhook.',
     'blocks': [
-        shot('ui-channels.jpg', 'MÀN HÌNH THẬT', 'Mỗi trang một bot,<br><em>bật tắt riêng.</em>',
+        shot('ui-channels.jpg', 'MỘT MÀN HÌNH CHO MỌI KÊNH', 'Mỗi trang một bot,<br><em>bật tắt riêng.</em>',
              'Màn hình Tích hợp nền tảng trong app. Cột trái lọc theo kênh, bên phải là danh sách trang đã kết nối với bot đang trả lời, mã nhúng và công tắc bật tắt.',
              'Màn hình Tích hợp nền tảng của Rapiz: cột trái gồm Tất cả, Chưa gán bot, Facebook, Instagram, Zalo, Lazada, TikTok Business, Website; bên phải là website đã kết nối với trạng thái Đang chạy, tên bot, nút Sao chép mã nhúng và Hướng dẫn cài đặt; bên dưới là khung Bài viết và bình luận Facebook.',
              1600, 1000),
