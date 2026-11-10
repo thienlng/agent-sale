@@ -12,8 +12,24 @@ describe('LoginForm', () => {
   it('renders in Vietnamese by default', async () => {
     renderWithRouter(() => <LoginForm onSuccess={() => {}} />);
     expect(await screen.findByRole('heading', { name: 'Đăng nhập vào Rapiz' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Mật khẩu')).toBeInTheDocument();
+    expect(screen.getByLabelText('Mật khẩu')).toHaveAttribute('placeholder', 'Mật khẩu');
+    expect(screen.getByLabelText('Email')).toHaveAttribute('placeholder', 'Email');
+    expect(screen.getByRole('button', { name: /Google/ })).toBeDisabled();
     expect(screen.getByRole('link', { name: 'Đăng ký' })).toHaveAttribute('href', '/signup');
+  });
+
+  it('reveals and masks the same password without submitting the form', async () => {
+    const { fetchStub, calls } = stubFetch({});
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <LoginForm onSuccess={() => {}} />);
+    const password = await screen.findByLabelText('Mật khẩu');
+    await userEvent.type(password, 'example-only');
+    await userEvent.click(screen.getByRole('button', { name: 'Hiện mật khẩu' }));
+    expect(password).toHaveAttribute('type', 'text');
+    await userEvent.click(screen.getByRole('button', { name: 'Ẩn mật khẩu' }));
+    expect(password).toHaveAttribute('type', 'password');
+    expect(password).toHaveValue('example-only');
+    expect(calls).toHaveLength(0);
   });
 
   it('shows one generic message for a wrong email or password', async () => {

@@ -62,7 +62,7 @@ async function logIn(browser: Browser, email: string) {
   const page = await browser.newPage();
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Mật khẩu').fill(password);
+  await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
   await expect(page).toHaveURL(/\/app\//);
   return page;

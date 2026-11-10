@@ -6,6 +6,7 @@ import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
+import { useSignedInFavicon } from '@/lib/favicon';
 import { useSession } from '@/lib/session';
 
 import { AccountMenu, type MenuDialogProps } from './layout/account-menu';
@@ -66,6 +67,7 @@ export function AppShell({
 }) {
   const { t } = useTranslation();
   const session = useSession();
+  useSignedInFavicon();
   const segment = useRouterState({
     select: (s) => s.location.pathname.split('/').filter(Boolean)[1] ?? '',
   });
