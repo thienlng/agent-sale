@@ -52,6 +52,11 @@ untrusted, ADR on the page context); the widget stays plain TypeScript, ES2017, 
    flag that reopens the panel there within 30 s. A `#name` that only a `data-rapiz-section`
    carries is scrolled to on load.
 
+5. **The shop's data first, the page as an extra.** Cards come from the catalog only. In text, the
+   bot answers prices, plans and terms from the knowledge, catalog and tools first; what the page
+   shows only fills what those do not cover, attributed to the page, never as a promise or an order
+   quote, and the knowledge wins when they disagree (owner's rule, 2026-11-10).
+
 ## Consequences
 
 - No schema migration; older messages and other channels have no `ui` and render as before.
