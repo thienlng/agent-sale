@@ -19,7 +19,7 @@ Personas: **Shop owner** (Owner), **Sales manager**, **Sales staff**, **Bot conf
 |---|---|---|---|
 | ACC-01 | Sign-up: full name, email, phone number, password; email verification | P0 | Cannot log in to the dashboard until the email is verified; link/OTP expires in 15'. **Implemented (ADR-023):** the signup page emails a 6-digit code and creates the account only with it; no phone on the form yet |
 | ACC-02 | Email/password login, forgot password (same route, 2 states) | P0 | Rate limit 5 attempts/15'; error messages do not reveal whether the email exists |
-| ACC-03 | Google login | P1 | Linked to the account with the same verified email |
+| ACC-03 | Google login | P1 | Linked to the account with the same verified email. The login screen currently shows this option as coming soon. |
 | ACC-04 | Phone number verification via OTP (badge "Chưa xác thực" (Not verified)) | P1 | Required before creating a messaging campaign |
 | ACC-05 | 2FA TOTP + recovery codes | P1 | Enabling/disabling requires password + current code |
 | ACC-06 | Personal profile: avatar (≤1MB, 720×720), name, ID, password, email, phone number, time zone (default GMT+7), invoicing information | P0 | |

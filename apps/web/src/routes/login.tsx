@@ -1,7 +1,7 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { z } from 'zod';
 
-import { AuthLayout } from '@/features/identity/components/auth-layout';
+import { LoginLayout } from '@/features/identity/components/login-layout';
 import { LoginForm } from '@/features/identity/components/login-form';
 import { ensureSession } from '@/lib/session';
 
@@ -24,8 +24,8 @@ function LoginPage() {
   // A same-app path only: one leading slash, not followed by another slash or a backslash.
   const safe = target && /^\/(?![/\\])/.test(target) ? target : '/app/analytics';
   return (
-    <AuthLayout>
+    <LoginLayout>
       <LoginForm onSuccess={() => void navigate({ to: safe })} />
-    </AuthLayout>
+    </LoginLayout>
   );
 }
