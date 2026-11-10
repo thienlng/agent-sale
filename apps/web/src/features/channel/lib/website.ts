@@ -108,3 +108,14 @@ export function settingsOf(settings: WebsiteSettings | null | undefined): Websit
     }
   );
 }
+
+/** Text colour on the brand colour, as the widget picks it (`apps/widget/src/view.ts` `onColor`). */
+export function onColor(hex: string): string {
+  let h = hex.slice(1);
+  if (h.length <= 4) h = h.slice(0, 3).replace(/./g, (x) => x + x);
+  const lum = [0, 2, 4]
+    .map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
+    .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  const l = 0.2126 * (lum[0] ?? 0) + 0.7152 * (lum[1] ?? 0) + 0.0722 * (lum[2] ?? 0);
+  return (l + 0.05) / 0.0637 >= 1.05 / (l + 0.05) ? '#1F1F1F' : '#FFFFFF';
+}

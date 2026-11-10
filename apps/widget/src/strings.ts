@@ -4,10 +4,10 @@ export interface Strings {
   open: string;
   close: string;
   send: string;
+  /** Under the agent name in the header. */
+  status: string;
   placeholder: string;
   attach: string;
-  mute: string;
-  unmute: string;
   rateLimited: string;
   failed: string;
   retry: string;
@@ -28,10 +28,9 @@ const vi: Strings = {
   open: 'Mở chat',
   close: 'Đóng',
   send: 'Gửi',
+  status: 'Thường trả lời ngay',
   placeholder: 'Nhập tin nhắn...',
   attach: 'Gửi ảnh',
-  mute: 'Tắt âm thanh',
-  unmute: 'Bật âm thanh',
   rateLimited: 'Bạn nhắn hơi nhanh, vui lòng thử lại sau ít giây.',
   failed: 'Chưa gửi được. Chạm để thử lại.',
   retry: 'Thử lại',
@@ -52,10 +51,9 @@ const en: Strings = {
   open: 'Open chat',
   close: 'Close',
   send: 'Send',
+  status: 'Usually replies right away',
   placeholder: 'Type a message...',
   attach: 'Send an image',
-  mute: 'Mute sound',
-  unmute: 'Unmute sound',
   rateLimited: 'You are sending messages too fast, please try again in a few seconds.',
   failed: 'Not sent. Tap to retry.',
   retry: 'Retry',

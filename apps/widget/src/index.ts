@@ -3,9 +3,8 @@ import { compressImage } from './image.js';
 import { checkPhone } from './phone.js';
 import { visibleSections } from './page-context.js';
 import { createPoller, type PollMode } from './poller.js';
-import { beep } from './sound.js';
 import { initialState, reduce, type Action, type State } from './state.js';
-import { firstUrlKey, muteKey, readItem, removeItem, tokenKey, writeItem } from './storage.js';
+import { firstUrlKey, readItem, removeItem, tokenKey, writeItem } from './storage.js';
 import { getStrings } from './strings.js';
 import type { WidgetConfig, WidgetSendRequest } from './types.js';
 import { uuid } from './uuid.js';
@@ -102,8 +101,6 @@ function start(api: Api, key: string, config: WidgetConfig): void {
   const strings = getStrings(config.language);
   let state: State = initialState(config.greeting);
   let token = readItem(tokenKey(key));
-  let muted = readItem(muteKey(key)) === '1';
-  let gestured = false;
   let restoring = token !== null; // first poll of a returning visitor restores history silently
   let awaitingSince = 0;
   let sentFirst = token !== null; // an existing visitor already delivered the greeting
@@ -127,10 +124,8 @@ function start(api: Api, key: string, config: WidgetConfig): void {
         return true;
       }
       if (!r.body) return r.status === 404 ? true : false;
-      const before = state.unread;
       dispatch({ type: 'poll', res: r.body, restored: restoring });
       restoring = false;
-      if (state.unread > before && !muted && gestured) beep();
       if (state.awaiting && Date.now() - awaitingSince > AWAIT_TIMEOUT_MS) {
         dispatch({ type: 'awaitTimeout' });
       }
@@ -158,19 +153,7 @@ function start(api: Api, key: string, config: WidgetConfig): void {
       dispatch({ type: 'inputMode', mode: 'text' });
     },
     onPhoneSubmit: (raw) => void submitPhone(raw),
-    onMute() {
-      muted = !muted;
-      if (muted) writeItem(muteKey(key), '1');
-      else removeItem(muteKey(key));
-      view.setMuted(muted);
-    },
   });
-
-  const markGesture = (): void => {
-    gestured = true;
-  };
-  document.addEventListener('pointerdown', markGesture, { once: true, capture: true });
-  document.addEventListener('keydown', markGesture, { once: true, capture: true });
 
   function dropToken(): void {
     token = null;
@@ -338,7 +321,6 @@ function start(api: Api, key: string, config: WidgetConfig): void {
     }
   }
 
-  view.setMuted(muted);
   view.update(state);
   dispatch({ type: 'token', has: token !== null });
   document.body.appendChild(view.host);
