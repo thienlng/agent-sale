@@ -51,7 +51,7 @@ function deps(state: { workspace?: boolean; bot?: boolean; site?: boolean; faqs?
   } satisfies SiteBotDeps;
 }
 
-const DOMAINS = ['rapiz.vn', 'LOCALHOST', '127.0.0.1', 'rapiz.vn'];
+const DOMAINS = ['rapiz.io', 'LOCALHOST', '127.0.0.1', 'rapiz.io'];
 
 describe('seedRapizSiteBot', () => {
   it('creates the business, bot, FAQs and website on a fresh owner and returns the site key', async () => {
@@ -67,12 +67,12 @@ describe('seedRapizSiteBot', () => {
     expect(d.bots.createFaq).toHaveBeenCalledTimes(SITE_FAQS.length);
     expect(d.channels.createWebsite).toHaveBeenCalledWith(WS, {
       name: 'Website Rapiz',
-      domains: ['rapiz.vn', 'localhost', '127.0.0.1'],
+      domains: ['rapiz.io', 'localhost', '127.0.0.1'],
       botId: BOT,
     });
     expect(d.channels.updateWebsite).toHaveBeenCalledWith(WS, SITE, {
       enabled: true,
-      domains: ['rapiz.vn', 'localhost', '127.0.0.1'],
+      domains: ['rapiz.io', 'localhost', '127.0.0.1'],
       agentName: 'Rapiz',
       color: '#FF7A45',
       greeting: SITE_GREETING,
@@ -98,7 +98,7 @@ describe('seedRapizSiteBot', () => {
         }) as FaqDto,
     );
     const d = deps({ workspace: true, bot: true, site: true, faqs });
-    const result = await seedRapizSiteBot(d, { ownerUserId: OWNER, domains: ['rapiz.vn'] });
+    const result = await seedRapizSiteBot(d, { ownerUserId: OWNER, domains: ['rapiz.io'] });
 
     expect(d.workspaces.createWorkspace).not.toHaveBeenCalled();
     expect(d.bots.create).not.toHaveBeenCalled();
@@ -118,7 +118,7 @@ describe('seedRapizSiteBot', () => {
 
   it('activates the bot with a Vietnamese profile the contracts accept', async () => {
     const d = deps({ workspace: true, bot: true, site: true });
-    await seedRapizSiteBot(d, { ownerUserId: OWNER, domains: ['rapiz.vn'] });
+    await seedRapizSiteBot(d, { ownerUserId: OWNER, domains: ['rapiz.io'] });
 
     const [, botId, change, actor] = d.bots.update.mock.calls[0] as unknown as [
       unknown,
@@ -149,7 +149,7 @@ describe('seedRapizSiteBot', () => {
   it('rejects a domain that is not a bare host before writing anything', async () => {
     const d = deps({});
     await expect(
-      seedRapizSiteBot(d, { ownerUserId: OWNER, domains: ['https://rapiz.vn'] }),
+      seedRapizSiteBot(d, { ownerUserId: OWNER, domains: ['https://rapiz.io'] }),
     ).rejects.toThrow();
     expect(d.workspaces.createWorkspace).not.toHaveBeenCalled();
   });

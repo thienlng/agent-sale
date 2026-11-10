@@ -94,14 +94,14 @@ const byEmail = (email: string, contactId?: string) => ({
   email,
   sourceKey: 'website' as const,
   displayName: 'Khách website lan',
-  firstUrl: 'https://rapiz.vn/bang-gia/',
+  firstUrl: 'https://rapiz.io/bang-gia/',
   ...(contactId ? { contactId } : {}),
 });
 const byPhone = (phoneE164: string, contactId?: string) => ({
   phoneE164,
   sourceKey: 'website' as const,
   displayName: 'Khách website 0001',
-  firstUrl: 'https://rapiz.vn/bang-gia/',
+  firstUrl: 'https://rapiz.io/bang-gia/',
   ...(contactId ? { contactId } : {}),
 });
 

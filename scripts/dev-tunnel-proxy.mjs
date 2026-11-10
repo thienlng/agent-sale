@@ -21,8 +21,8 @@ const site = Number(process.env.SITE_PORT ?? 4323);
 const s3 = Number(process.env.S3_PORT ?? 9000);
 const bucket = process.env.S3_BUCKET || 'rapiz-local';
 
-// The landing page owns the root and its static folders, as rapiz.vn does in production; the
-// dashboard keeps every other path (/login, /signup, /app/…), as app.rapiz.vn does.
+// The landing page owns the root and its static folders, as rapiz.io does in production; the
+// dashboard keeps every other path (/login, /signup, /app/…), as app.rapiz.io does.
 const SITE_PATH =
   /^\/(?:$|\?|index\.html|(?:images|fonts|static|nganh|tinh-nang)\/|(?:tich-hop|bao-mat|bang-gia|dat-lich-demo|ve-rapiz)(?:\/|$|\?))/;
 
