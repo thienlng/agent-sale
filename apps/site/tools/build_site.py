@@ -748,7 +748,7 @@ RENDERERS = {
     'related': render_related,
     'inspect': render_inspect,
     'more': render_more,
-    'demo': lambda root, block, n: template(block['template'], root=root, number=n),
+    'demo': lambda root, block, n: template(block['template'], root=root, number=n, **block.get('values', {})),
     'plans': render_plans,
     'compare': render_compare,
     'form': render_form,
@@ -837,7 +837,7 @@ def utility_catalog(root: str, block: dict, n: int) -> str:
             status_cls = 'tier'
         else:
             status_cls = 'beta'
-        rows.append(f'''<li><span class="ut-channel-icon" aria-hidden="true">{C.ICONS[item["icon"]]}</span>
+        rows.append(f'''<li><span class="ut-channel-icon{' is-brand' if 'brand' in item else ''}" aria-hidden="true">{C.BRAND_ICONS[item["brand"]] if 'brand' in item else C.ICONS[item["icon"]]}</span>
           <h3>{title}</h3><p>{item["text"]}</p><span class="ut-status {status_cls}">{status}</span></li>''')
     anchor = f' id="{block["id"]}"' if block.get('id') else ''
     return f'''<section class="sec ut-catalog {block.get("cls", "")}"{anchor} aria-labelledby="s{n}"><div class="container">
@@ -870,7 +870,7 @@ def render_utility_page(p: dict, root: str) -> str:
         name = 'security-controls' if slug == 'bao-mat' and block['kind'] == 'caps' else section_name(block)
         blocks.append(mark(renderer(root, block, n), name))
     description = 'Chuẩn bị nội dung buổi demo 30 phút và xem trước phiếu theo ngành, gói và kênh của doanh nghiệp.' if slug == 'dat-lich-demo' else p['description']
-    return f'''{head(root, p["title"], description, slug + "/")}
+    return f'''{head(root, p["title"], description, slug + "/", p.get("assets"))}
 {header(root, slug)}
 <main id="main" class="ut-page ut-{slug}">{mark(utility_hero(root, p), "hero")}{"".join(blocks)}</main>
 {footer(root, p)}
