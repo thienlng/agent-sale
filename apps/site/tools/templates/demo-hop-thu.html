@@ -1,0 +1,61 @@
+<section class="rh-section" id="handoff" aria-labelledby="s{number}">
+  <div class="container">
+    <header class="rh-intro"><h2 id="s{number}">Thử tiếp quản hội thoại.</h2>
+      <p>Đức Anh muốn đổi ngày nhận phòng. Bạn có thể nhận hội thoại và thử nhắn lại cho anh.</p></header>
+    <div class="rh-workspace" id="handoff-desk" data-handoff>
+      <div class="rh-appbar">
+        <span class="rh-appname"><img src="{root}images/rapiz-symbol-faceted.svg" width="24" height="21" alt="" loading="lazy"> Tin nhắn đa kênh</span>
+        <span class="rh-example">Hội thoại minh họa</span>
+      </div>
+      <div class="rh-columns">
+        <div class="rh-chat">
+          <div class="rh-chathead">
+            <div class="rh-avatar" aria-hidden="true">Đ</div>
+            <div><strong>Đức Anh</strong><small>Messenger</small></div>
+          </div>
+          <div class="rh-thread">
+            <article class="rh-message rh-customer">
+              <span>Đức Anh</span>
+              <p>Mình đặt căn A17 tối 14/11 rồi, giờ muốn dời sang tối 21/11 được không ạ?</p>
+            </article>
+            <article class="rh-message rh-agent">
+              <span>Bot</span>
+              <p>Dạ, để em chuyển nhân viên kiểm tra lịch trống và điều kiện dời ngày cho mình nhé.</p>
+            </article>
+            <article class="rh-message rh-staff" data-rh-staff hidden>
+              <span>Bạn · Nhân viên</span>
+              <p data-rh-sent></p>
+            </article>
+          </div>
+          <form class="rh-compose" data-rh-form hidden>
+            <label for="rh-draft">Tin nhắn của bạn</label>
+            <textarea id="rh-draft" name="message" maxlength="450" rows="3" required></textarea>
+            <button type="submit" class="rh-primary">Gửi trong demo <b aria-hidden="true">↗</b></button>
+          </form>
+        </div>
+
+        <aside class="rh-case" aria-label="Tóm tắt bàn giao">
+          <div class="rh-status" data-rh-status>Chờ nhân viên tiếp quản</div>
+          <div class="rh-brief">
+          <h3>Tóm tắt bàn giao</h3>
+          <dl>
+            <dt>Yêu cầu</dt>
+            <dd>Khách muốn dời đặt chỗ căn A17 từ 14/11 sang 21/11.</dd>
+            <dt>Lý do chuyển</dt>
+            <dd>Đổi ngày cần nhân viên kiểm tra lịch trống và chính sách cọc.</dd>
+          </dl>
+          <div class="rh-profile">
+            <p><span>Khách hàng</span><strong>Đức Anh</strong></p>
+            <p><span>Đặt chỗ liên quan</span><strong>Căn A17 · 14/11 · 12 khách</strong></p>
+          </div>
+          <div class="rh-actions">
+            <button type="button" class="rh-primary" data-rh-take disabled>Tiếp quản hội thoại <b aria-hidden="true">→</b></button>
+            <button type="button" class="rh-reset" data-rh-reset hidden>Làm lại demo</button>
+          </div>
+          </div>
+        </aside>
+      </div>
+      <p class="rh-sr" role="status" data-rh-announce></p>
+    </div>
+  </div>
+</section>

@@ -21,6 +21,7 @@ function sidebarOpenByDefault(): boolean {
 
 /** Section name for the header, from the first meaningful path segment. */
 const SECTION: Record<string, string> = {
+  assistant: 'nav.assistant',
   bots: 'nav.bots',
   inbox: 'nav.inbox',
   channels: 'nav.channels',

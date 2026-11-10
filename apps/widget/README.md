@@ -10,6 +10,25 @@ Output is ES2017, at most 20 KB gzip; no framework, no zod.
 The site key is read from the script URL (`?key=`). The API origin is the script origin unless
 `data-api="https://api.example.com"` is set. API routes: `/api/v1/webchat/v1/sites/{key}/...`.
 
+## Page context
+
+Each message tells the bot what the visitor has on screen, but only parts of the page the site
+marked (nothing else is read):
+
+```html
+<section data-rapiz-section="Bảng giá">
+  <article data-rapiz-section="Gói Growth" data-rapiz-context="Gói Growth 400.000đ/tháng, 3 kênh">
+    …
+  </article>
+</section>
+```
+
+`src/page-context.ts` sends at most 3 visible marked elements, innermost first (a section only
+fills the slots its visible marked children leave), each ordered by visible area: the name from
+`data-rapiz-section` (80 characters) and the text from `data-rapiz-context`, else the element's
+visible text (400 characters). Keep summaries short and factual; the bot treats them as visitor
+data and still takes prices from its knowledge.
+
 ## Commands
 
 ```bash

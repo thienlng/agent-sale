@@ -7,7 +7,8 @@
     "notifications": "Thông báo",
     "notificationsUnread": "Thông báo, {{count}} chưa đọc",
     "reportThreadError": "Không mở được báo cáo trong trợ lý. Thử lại.",
-    "reportScheduleDeleted": "Lịch này đã bị xoá"
+    "reportScheduleDeleted": "Lịch này đã bị xoá",
+    "assistantOwnersOnly": "Trợ lý Thỏ Rapiz chỉ dành cho chủ tài khoản."
   },
   "nav": {
     "bots": "Đào tạo Bot",
@@ -54,7 +55,8 @@
     "groupBusinesses": "Business của tôi",
     "accountOverview": "Tổng quan các business",
     "newBusiness": "Tạo business mới",
-    "services": "Dịch vụ"
+    "services": "Dịch vụ",
+    "assistant": "Trợ lý"
   },
   "auth": {
     "login": "Đăng nhập",

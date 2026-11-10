@@ -19,9 +19,12 @@ const denied = vi.hoisted(() => new Set<string>());
 vi.mock('@/lib/permissions', () => ({ useCan: (capability: string) => !denied.has(capability) }));
 // The business selector needs a full session; these tests cover the navigation only.
 vi.mock('./business-selector', () => ({ BusinessSelector: () => null }));
+const owner = vi.hoisted(() => ({ value: false }));
+vi.mock('@/lib/use-is-account-owner', () => ({ useIsAccountOwner: () => owner.value }));
 
 beforeEach(() => {
   denied.clear();
+  owner.value = false;
   // shadcn's sidebar asks for the mobile breakpoint; jsdom has no matchMedia.
   window.matchMedia ??= ((query: string) => ({
     matches: false,
@@ -224,5 +227,21 @@ describe('AppSidebar', () => {
     renderAt('/app/bots');
     const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });
     expect(within(nav).queryByRole('link', { name: 'Tích hợp PMS' })).toBeNull();
+  });
+
+  it('hides the assistant page from members who do not own the account', async () => {
+    renderAt('/app/orders');
+    expect(await screen.findByRole('link', { name: 'Thống kê' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Trợ lý' })).toBeNull();
+  });
+
+  it('lists the assistant page for an account owner, right after statistics', async () => {
+    owner.value = true;
+    renderAt('/app/assistant');
+    const link = await screen.findByRole('link', { name: 'Trợ lý' });
+    expect(link).toHaveAttribute('href', '/app/assistant');
+    expect(link).toHaveAttribute('data-active', 'true');
+    const links = screen.getAllByRole('link').map((l) => l.textContent);
+    expect(links.indexOf('Trợ lý')).toBe(links.indexOf('Thống kê') + 1);
   });
 });

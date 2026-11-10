@@ -13,7 +13,7 @@ monorepo applies it, so code reviews do not need the brand repository open.
 | Text on orange | Charcoal `#1F1F1F` | `--primary-foreground`. White on orange is 2.59:1 and fails WCAG AA. |
 | Accessible orange | `#B54708` | `--brand-text`: orange text, links and focus rings on light surfaces. |
 | Hover / pressed orange | `#E8622E` | `--primary-strong`. |
-| Charcoal | `#1F1F1F` | Text, dashboard sidebar, site header/footer, PWA `theme_color`. |
+| Charcoal | `#1F1F1F` | Text, dashboard sidebar in dark mode, site header/footer, PWA `theme_color`. |
 | AI violet | `#8B6CFF` (brand), `#6941C6` (text) | `--ai-brand`, `--ai`: only for AI signals (bot replies, AI assistant). Never a second brand colour. |
 | Neutrals | `#FFFFFF`, `#F4F4F4`, `#E4E4E4`, `#5C5C5C`… | Achromatic; no blue, green or beige cast. |
 
@@ -45,7 +45,8 @@ tag defaults stay customer data and are unchanged by this rebrand.
 
 ## Surfaces
 
-- Dashboard: charcoal sidebar with an orange inset indicator on the active item; white content;
+- Dashboard: the sidebar follows the theme (near-white in light mode, charcoal in dark mode) with an
+  orange inset indicator on the active item; white content;
   solid sticky header.
 - Auth: charcoal aside with a cropped R mark at low opacity and a 1px orange rule.
 - Marketing site: charcoal header, upright Inter hero, charcoal product-demo section, light feature
@@ -62,8 +63,9 @@ used everywhere the product shows its logo:
   `rapiz-symbol-faceted.svg`).
 - `apps/web/src/components/logo.tsx` inlines the same master paths so the wordmark can follow
   `currentColor` (white on charcoal surfaces); the release has no faceted file with a white
-  wordmark. The marketing site uses the brand repository's logo files as images
-  (`apps/site/public/images/rapiz-logo.svg`, `rapiz-logo-reverse.svg`, `rapiz-symbol.svg`).
+  wordmark. The marketing site uses the faceted release files as images
+  (`apps/site/public/images/rapiz-logo-faceted.svg`, `rapiz-logo-faceted-reverse.svg`,
+  `rapiz-symbol-faceted.svg`).
 - App icons, favicons and the PWA icons are the faceted symbol group from the release placed on a
   charcoal square. Only the notification badge (`icons/badge-96.png`) stays a flat single-colour
   silhouette, because the platform uses its alpha channel alone.

@@ -1,0 +1,32 @@
+/* Khách hàng, đơn hàng & lịch: one customer profile on the cover; the demo walks one request to the end. */
+.kh-scene{padding-top:22px}
+.kh-card{width:min(100%,430px);padding:18px 20px 20px;border:1px solid #c9b9a0;border-radius:12px;background:#fffdf9;box-shadow:0 26px 40px -30px #5a3a1c99;transform:rotate(-1.4deg)}
+.kh-card header{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.kh-card header i{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#dadcc7;color:#353329;font:700 13px/1 Inter,sans-serif;font-style:normal}
+.kh-card header strong,.kh-card header small{display:block;line-height:1.25}.kh-card header strong{font:720 18px/1.2 "Inter Tight",Inter,sans-serif}.kh-card header small{font-size:12px;color:#7b6f60}
+.kh-card header b{margin-left:auto;padding:4px 10px;border-radius:999px;background:#e5e3fb;color:#3f37a8;font-size:12px}
+.kh-card dl{display:flex;gap:22px;margin:14px 0 0}.kh-card dl div{display:flex;gap:8px;font-size:13px}.kh-card dt{color:#7b6f60}.kh-card dd{margin:0;font-weight:600}
+.kh-bot-note{margin-top:14px;padding:11px 14px;border-radius:8px;background:#f3ede2}
+.kh-bot-note small,.kh-note small{display:block;margin-bottom:4px;font-size:11px;font-weight:700;color:#8a5a3b}
+.kh-bot-note p{margin:0;font-size:14px;line-height:1.5}
+.kh-stub{width:min(86%,370px);margin-top:-4px;padding:12px 18px;background:#24251f;color:#fff6e6;border-radius:0 0 10px 10px;transform:rotate(1deg)}
+.kh-stub small{display:block;text-transform:uppercase;letter-spacing:.08em;font-size:10px;color:#f9b384}.kh-stub strong{font-size:15px}
+
+.kh-tabs{display:flex;gap:4px}
+.kh-tabs button{min-height:36px;padding:6px 14px;border:1px solid #5b5a52;border-radius:8px;background:transparent;color:#d8d5cc;font:600 13px/1.2 Inter,sans-serif;cursor:pointer}
+.kh-tabs button[aria-pressed=true]{background:#ff7a45;border-color:#ff7a45;color:#1f1f1f}
+.kh-tabs[hidden]{display:none}
+.kh-source{margin:0 0 16px;color:#7a7466;font-size:13px;font-weight:600}
+.kh-note{margin-top:20px;padding:12px 14px;border:1px dashed #c9b9a0;border-radius:8px;background:#fff}
+.kh-note ul{margin:0;padding-left:18px;font-size:14px;line-height:1.6}
+.kh-profile h3{margin-bottom:2px}
+.kh-meta{margin:0 0 18px;color:#c9c6bc;font-size:13px}
+.kh-pipe{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.kh-pipe li{padding:5px 10px;border:1px solid #5b5a52;border-radius:999px;color:#b9b7ae;font-size:12px;font-weight:600}
+.kh-pipe li.is-done{color:#e9e6dd;border-color:#7d7b70}
+.kh-pipe li[aria-current]{background:#ff7a45;border-color:#ff7a45;color:#1f1f1f}
+.kh-pipe li.is-exit{border-style:dashed;opacity:.65}
+.kh-log{list-style:none;margin:18px 0 0;padding:12px 0 0;border-top:1px solid #4d4d46;display:grid;gap:6px;font-size:13px;color:#d0cec5}
+.kh-log b{color:#fff}
+.kh-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}
+@media(max-width:680px){.kh-card,.kh-stub{transform:none}.fe-appbar:has(.kh-tabs){flex-wrap:wrap}}

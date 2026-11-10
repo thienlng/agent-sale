@@ -48,6 +48,10 @@ export class CrmFacadeImpl implements CrmFacade {
     return this.contacts.upsertLead(ws, input);
   }
 
+  upsertLeadByEmail(ws: WorkspaceId, input: Parameters<ContactService['upsertLeadByEmail']>[1]) {
+    return this.contacts.upsertLeadByEmail(ws, input);
+  }
+
   moveContactStatus(
     ws: WorkspaceId,
     contactId: string,

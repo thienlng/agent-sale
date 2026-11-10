@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
  * the slim orange R symbol (180 x 154 units) with its hard-edged light and dark facets, and the
  * outlined Inter Tight Black Italic RAPIZ wordmark. Never redraw, stretch, rotate or recolour the
  * symbol; the wordmark follows `currentColor` so it is Charcoal on light surfaces and white on
- * the charcoal sidebar.
+ * the dark-mode sidebar.
  */
 const SYMBOL_PATHS = [
   'M14.4 0H156.6L180 41L162 75L139.5 85L171 136L121.5 125L85.5 85L114.3 58H126L134.969 41H55.8L14.4 0Z',

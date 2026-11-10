@@ -1,4 +1,5 @@
 import { FanpageContext } from '../channel/fanpage.schema.js';
+import { WebsitePageContext } from '../webchat/webchat.schema.js';
 import { z } from 'zod';
 
 export const PlaygroundMessage = z.object({
@@ -35,8 +36,12 @@ export const PlaygroundRequest = z.object({
     }),
   images: z.array(PlaygroundImage).max(3).optional(),
   postContext: FanpageContext.optional(),
+  /** The website page the visitor wrote from (website conversations); untrusted visitor data. */
+  pageContext: WebsitePageContext.optional(),
   /** The customer already left a phone number: the bot must not ask for it again. */
   phoneKnown: z.boolean().optional(),
+  /** The customer already left an email (website leads): the bot must not ask for it again. */
+  emailKnown: z.boolean().optional(),
   /**
    * Picture URLs the bot already sent in this test chat (the playground stores no conversation):
    * `send_message` with an `albumId` sends the folder's photos not among them first (T-192).

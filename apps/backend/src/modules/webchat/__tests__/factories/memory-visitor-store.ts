@@ -36,6 +36,7 @@ export class MemoryVisitorStore implements VisitorStore {
       lastUrl: context.lastUrl,
       lastTitle: context.lastTitle,
       phoneE164: null,
+      email: null,
       contactId: null,
       messageCount: 0,
       createdAt: now,
@@ -62,6 +63,17 @@ export class MemoryVisitorStore implements VisitorStore {
   ) {
     const r = await this.find(ws, connectionId, visitorId);
     if (r) this.rows.set(visitorId, { ...r, phoneE164, contactId });
+  }
+
+  async recordEmail(
+    ws: WorkspaceId,
+    connectionId: string,
+    visitorId: string,
+    email: string,
+    contactId: string,
+  ) {
+    const r = await this.find(ws, connectionId, visitorId);
+    if (r) this.rows.set(visitorId, { ...r, email, contactId });
   }
 
   async linkConversation(ws: WorkspaceId, connectionId: string, visitorId: string, id: string) {

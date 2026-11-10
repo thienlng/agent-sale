@@ -101,11 +101,14 @@ import { withDefaultOfferings } from './catalog-tools.js';
 import {
   carriedProductIds,
   compactHistory,
+  EMAIL_KNOWN_LINE,
   focusBlock,
   historyTurns,
+  loadReplyTemplate,
   pendingBlock,
   PHONE_KNOWN_LINE,
   renderBotSystemPrompt,
+  visitorPageBlock,
   withTurnContext,
 } from './reply-context.js';
 import {
@@ -122,7 +125,7 @@ import {
 import type { RequestToolContext } from './request-tools.js';
 import { sha256, TraceRecorder, traceExcerpt } from './trace-recorder.js';
 
-export { PHONE_KNOWN_LINE };
+export { EMAIL_KNOWN_LINE, PHONE_KNOWN_LINE };
 
 // TODO(prompt-budget): slim the per-turn prompt later; every agent-loop round resends all of it.
 // 1. Compose sales-agent conditionally: "Closing an order" only when bot.orderTaking, "Actions"
@@ -160,6 +163,7 @@ export const PROMPT_VERSION_OPTION = Symbol('PROMPT_VERSION_OPTION');
 /** The current public base of Rapiz storage (`S3_PUBLIC_URL`); pictures are sent on it. */
 export const MEDIA_PUBLIC_BASE = Symbol('MEDIA_PUBLIC_BASE');
 const POST_PROMPT = { name: 'fanpage-context', version: 2 } as const;
+const PAGE_PROMPT = { name: 'website-page', version: 1 } as const;
 const MAX_SOURCES = 5;
 const FOCUS_RUNS = 3;
 const FOCUS_PRODUCTS = 3;
@@ -228,7 +232,13 @@ export class PlaygroundService implements AiFacade {
 
     // The last two customer messages: short follow-ups ("còn size 42 ko") need the earlier one.
     const post = input.postContext;
-    const query = [post?.text.slice(0, 2000), ...customerTexts.slice(-2)]
+    const page = input.pageContext;
+    // What the visitor has on screen resolves short questions ("400k là sao?") to that section.
+    const query = [
+      post?.text.slice(0, 2000),
+      ...(page?.sections.map((section) => section.text) ?? []),
+      ...customerTexts.slice(-2),
+    ]
       .filter(Boolean)
       .join('\n');
     const hits = await this.knowledge.searchFaqs(ws, botId, query, MAX_SOURCES);
@@ -280,6 +290,7 @@ export class PlaygroundService implements AiFacade {
       post
         ? `<originating_post>\n${JSON.stringify({ text: post.text, media: post.media, parentText: post.parentText }).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')}\n</originating_post>`
         : '',
+      page ? visitorPageBlock(page) : '',
       guidance,
     ]
       .filter(Boolean)
@@ -414,13 +425,13 @@ export class PlaygroundService implements AiFacade {
       sentMediaUrls: options.sentMediaUrls ?? input.sentMediaUrls ?? [],
     });
 
-    const postRules = post ? await this.#prompts.load(POST_PROMPT) : '';
-    const template = [await this.#prompts.load(prompt), postRules].filter(Boolean).join('\n\n');
+    const contextPrompts = [...(post ? [POST_PROMPT] : []), ...(page ? [PAGE_PROMPT] : [])];
+    const template = await loadReplyTemplate(this.#prompts, [prompt, ...contextPrompts]);
     // Byte-stable per bot: everything that changes per turn rides on the last user message.
     const system = renderBotSystemPrompt(bot, workspace, template);
 
     const meter = meteredGenerate((req) => this.llm.generate(req));
-    const promptVersion = [prompt, ...(post ? [POST_PROMPT] : [])]
+    const promptVersion = [prompt, ...contextPrompts]
       .map((p) => `${p.name}@${p.version}`)
       .join('+');
     const history = historyTurns(input, options.turnTimes);
@@ -495,6 +506,7 @@ export class PlaygroundService implements AiFacade {
             pending: pending && waiting ? pendingBlock(waiting, pending) : '',
             images: imagesBlock(initialAllowed),
             phoneKnown: input.phoneKnown === true,
+            emailKnown: input.emailKnown === true,
             now: new Date(),
           }),
         ],

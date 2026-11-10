@@ -20,6 +20,7 @@ function record(r: typeof v.$inferSelect): VisitorRecord {
     lastUrl: r.lastUrl,
     lastTitle: r.lastTitle,
     phoneE164: r.phoneE164,
+    email: r.email,
     contactId: r.contactId,
     messageCount: r.messageCount,
     createdAt: r.createdAt.toISOString(),
@@ -91,6 +92,21 @@ export class DrizzleVisitorStore implements VisitorStore {
     });
   }
 
+  recordEmail(
+    ws: WorkspaceId,
+    connectionId: string,
+    visitorId: string,
+    email: string,
+    contactId: string,
+  ) {
+    return withTenant(this.db, ws, async (tx) => {
+      await tx
+        .update(v)
+        .set({ email, contactId, emailCapturedAt: sql`now()` })
+        .where(and(eq(v.workspaceId, ws), eq(v.connectionId, connectionId), eq(v.id, visitorId)));
+    });
+  }
+
   linkConversation(
     ws: WorkspaceId,
     connectionId: string,
@@ -124,6 +140,9 @@ export class UnavailableVisitorStore implements VisitorStore {
     return Promise.resolve();
   }
   recordPhone(): Promise<void> {
+    return Promise.resolve();
+  }
+  recordEmail(): Promise<void> {
     return Promise.resolve();
   }
   linkConversation(): Promise<void> {

@@ -178,6 +178,8 @@ export interface CrmTx {
     findByRequestId(requestId: string): Promise<ContactRecord | null>;
     /** Oldest customer with this E.164 phone, or null. */
     findByPhone(phoneNormalized: string): Promise<ContactRecord | null>;
+    /** Oldest customer with this normalized email, or null. */
+    findByEmail(emailNormalized: string): Promise<ContactRecord | null>;
     /** Remembers that `botId` answered a conversation of the customer; a repeat is a no-op. */
     recordBot(contactId: string, botId: string, at: Date): Promise<void>;
     query(q: ContactQuery): Promise<{ rows: ContactRecord[]; total: number }>;

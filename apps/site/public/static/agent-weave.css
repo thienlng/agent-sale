@@ -1,0 +1,47 @@
+/* The two etched lobes carry inputs and tool results through the folded agent core.
+   Pulse lengths stay fixed; only travel and emphasis change with the narrated phase. */
+.aw-weave {
+  width: 100%; height: auto; display: block; overflow: visible;
+  --aw-copper: #ffb682; --aw-light: #ffeacf;
+}
+.aw-guides { stroke: #686b5e; stroke-width: .8; opacity: .48; }
+.aw-labels text {
+  font: 590 24px/1 "Inter Tight", Inter, system-ui, sans-serif;
+  letter-spacing: -.035em; fill: #e7ded2; transition: fill .5s ease;
+}
+.aw-labels .aw-edge-label { font-size: 22px; font-weight: 480; fill: #c2b6a4; }
+.aw-core { transform-box: fill-box; transform-origin: center; animation: aw-breathe 6s ease-in-out infinite paused; }
+.aw-pulse {
+  stroke: var(--aw-light); stroke-width: 2.4; stroke-dasharray: 22 530;
+  opacity: .08; transition: opacity .55s ease;
+  animation: aw-current 4.8s linear infinite paused;
+}
+.aw-in,.aw-out { stroke-width: 2; }
+.aw-result { animation-delay: -2.3s; }
+.aw-tool { animation-delay: -1s; }
+.aw-ctx { animation-delay: -2.8s; }
+.al-section[data-running="true"] .aw-pulse,
+.al-section[data-running="true"] .aw-core { animation-play-state: running; }
+.al-section:is([data-phase="context"],[data-phase="memory"],[data-phase="learn"]) :is(.aw-in,.aw-ctx),
+.al-section[data-phase="tool"] .aw-tool,
+.al-section:is([data-phase="result"],[data-phase="learn"]) .aw-result,
+.al-section[data-phase="reply"] .aw-out { opacity: 1; }
+.al-section:is([data-phase="context"],[data-phase="memory"],[data-phase="learn"]) .aw-label-context,
+.al-section:is([data-phase="tool"],[data-phase="result"]) .aw-label-tool,
+.al-section[data-phase="reply"] .aw-label-reply { fill: #ffc49a; }
+@keyframes aw-current { from {stroke-dashoffset:552} to {stroke-dashoffset:0} }
+@keyframes aw-breathe { 0%,100% {transform:translateY(0)} 50% {transform:translateY(-2px)} }
+@media (prefers-reduced-motion:reduce), print {
+  .aw-weave .aw-pulse,.aw-weave .aw-core {animation:none!important;transition:none!important}
+  .aw-weave .aw-pulse {visibility:hidden}
+  .aw-labels text {transition:none}
+}
+/* Alternating fine strands open and settle about the crossing point. */
+.aw-threads path{transform-box:view-box;transform-origin:50% 50%;animation:aw-tide 6s ease-in-out infinite alternate paused}
+.aw-threads path:nth-child(3n){animation-delay:-2s}
+.aw-threads path:nth-child(3n+1){animation-delay:-3.8s}
+.aw-threads>g:nth-child(2) path{animation-direction:alternate-reverse}
+.al-section[data-running="true"] .aw-threads path{animation-play-state:running}
+.aw-pulse{stroke-width:3.4}
+@keyframes aw-tide{from{transform:scaleY(.935) rotate(-.65deg)}to{transform:scaleY(1.055) rotate(.65deg)}}
+@media(prefers-reduced-motion:reduce),print{.aw-threads path{animation:none!important}}

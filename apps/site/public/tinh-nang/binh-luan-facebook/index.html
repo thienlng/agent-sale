@@ -4,30 +4,31 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f9f8f5">
-  <meta name="description" content="Rapiz đọc ngữ cảnh bài đăng để trả lời bình luận công khai, nhắn riêng báo giá và ẩn bình luận xấu, xử lý chung trong hộp thư đội sale.">
-  <title>Trả lời bình luận Facebook theo bài đăng | Rapiz</title>
+  <meta name="description" content="Rapiz đọc bài viết gốc để trả lời bình luận công khai, nhắn riêng cho người bình luận và ẩn bình luận khớp từ khóa bạn đặt. Ba việc bật tắt riêng cho từng fanpage.">
+  <title>Tự động xử lý bình luận Facebook theo bài đăng | Rapiz</title>
   <link rel="canonical" href="https://rapiz.io/tinh-nang/binh-luan-facebook/">
-  <meta property="og:title" content="Trả lời bình luận Facebook theo bài đăng | Rapiz">
-  <meta property="og:description" content="Rapiz đọc ngữ cảnh bài đăng để trả lời bình luận công khai, nhắn riêng báo giá và ẩn bình luận xấu, xử lý chung trong hộp thư đội sale.">
+  <meta property="og:title" content="Tự động xử lý bình luận Facebook theo bài đăng | Rapiz">
+  <meta property="og:description" content="Rapiz đọc bài viết gốc để trả lời bình luận công khai, nhắn riêng cho người bình luận và ẩn bình luận khớp từ khóa bạn đặt. Ba việc bật tắt riêng cho từng fanpage.">
   <meta property="og:locale" content="vi_VN">
-  <link rel="icon" type="image/svg+xml" href="../../images/rapiz-symbol.svg">
+  <link rel="icon" type="image/svg+xml" href="../../images/favicon-light.svg">
   <link rel="preload" as="font" href="../../fonts/inter-tight.woff2" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="../../static/landing.css">
   <link rel="stylesheet" href="../../static/motion.css">
   <link rel="stylesheet" href="../../static/site.css">
   <link rel="stylesheet" href="../../static/brand.css">
   <link rel="stylesheet" href="../../static/detail-design.css">
-  <script defer src="../../static/site.js"></script>
+  <link rel="stylesheet" href="../../static/feature-edition.css"><link rel="stylesheet" href="../../static/comment-edition.css"><script defer src="../../static/comment-demo.js"></script><script defer src="../../static/site.js"></script>
   <script defer src="../../static/motion.js"></script>
+  <script defer src="../../static/site-widget.js"></script>
 </head>
 <body id="top">
 <!--#site-head-->
 <a class="skip" href="#main">Đến nội dung chính</a>
 <header class="site-head">
   <div class="container head-inner">
-    <a class="brand" href="../../index.html" aria-label="Rapiz, trang chủ"><img src="../../images/rapiz-logo.svg" width="143" height="50" alt="Rapiz"></a>
+    <a class="brand" href="../../index.html" aria-label="Rapiz, trang chủ"><img src="../../images/rapiz-logo-faceted.svg" width="143" height="50" alt="Rapiz"></a>
     <nav id="nav" aria-label="Điều hướng chính">
-      <div class="nav-group"><button type="button" class="nav-trigger" aria-expanded="false" aria-controls="nav-solutions">Giải pháp</button><div class="nav-panel" id="nav-solutions"><a href="../../nganh/ban-le/"><strong>Bán lẻ online</strong><small>Tư vấn size, tra tồn và chốt đơn trong chat.</small></a><a href="../../nganh/villa-homestay/"><strong>Villa & homestay</strong><small>Xem ngày trống, báo giá theo gói, giữ chỗ.</small></a><a href="../../nganh/spa-salon/"><strong>Spa, salon, thẩm mỹ</strong><small>Tư vấn dịch vụ và ghi lịch hẹn đủ thông tin.</small></a><a href="../../nganh/giao-duc/"><strong>Trung tâm giáo dục</strong><small>Ghi danh test trình độ và học thử.</small></a><a href="../../nganh/phan-mem/"><strong>Phần mềm, SaaS</strong><small>Nhận yêu cầu demo, dùng thử; theo dõi MRR.</small></a></div></div><div class="nav-group current"><button type="button" class="nav-trigger" aria-expanded="false" aria-controls="nav-features">Tính năng</button><div class="nav-panel" id="nav-features"><a href="../../tinh-nang/ban-hang-ai/"><strong>Bot bán hàng AI</strong><small>Chốt đơn bằng nút xác nhận, không bịa giá.</small></a><a href="../../tinh-nang/binh-luan-facebook/" aria-current="page"><strong>Bình luận Facebook</strong><small>Trả lời theo bài đăng, nhắn riêng, ẩn bình luận xấu.</small></a><a href="../../tinh-nang/hop-thu/"><strong>Hộp thư đội sale</strong><small>Bot và người làm chung, tiếp quản một chạm.</small></a><a href="../../tinh-nang/dao-tao-ai/"><strong>Đào tạo AI</strong><small>Dạy bot như dạy nhân viên mới, có lịch sử.</small></a><a href="../../tinh-nang/tro-ly-rapiz/"><strong>Trợ lý Rapiz</strong><small>Hỏi số liệu bằng tiếng Việt, nhận biểu đồ.</small></a><a href="../../tinh-nang/khach-hang-thong-ke/"><strong>Khách hàng & thống kê</strong><small>Từ hội thoại đến đơn, đo được từng bước.</small></a></div></div><a href="../../tich-hop/">Tích hợp</a><a href="../../bang-gia/">Bảng giá</a><a class="nav-login" href="/login">Đăng nhập</a>
+      <div class="nav-group"><button type="button" class="nav-trigger" aria-expanded="false" aria-controls="nav-solutions">Giải pháp</button><div class="nav-panel" id="nav-solutions"><a href="../../nganh/ban-le/"><strong>Bán lẻ & thương mại điện tử</strong><small>Tư vấn size, tra tồn và chốt đơn trong chat.</small></a><a href="../../nganh/villa-homestay/"><strong>Lưu trú & nghỉ dưỡng</strong><small>Xem ngày trống, báo giá theo gói, giữ chỗ.</small></a><a href="../../nganh/spa-salon/"><strong>Làm đẹp & spa</strong><small>Tư vấn dịch vụ và ghi lịch hẹn đủ thông tin.</small></a><a href="../../nganh/giao-duc/"><strong>Giáo dục & đào tạo</strong><small>Ghi danh test trình độ và học thử.</small></a><a href="../../nganh/phan-mem/"><strong>Công nghệ & phần mềm</strong><small>Nhận yêu cầu demo, dùng thử; theo dõi MRR.</small></a></div></div><div class="nav-group current"><button type="button" class="nav-trigger" aria-expanded="false" aria-controls="nav-features">Tính năng</button><div class="nav-panel" id="nav-features"><a href="../../tinh-nang/ban-hang-ai/"><strong>Tư vấn & chốt đơn</strong><small>Chốt đơn bằng nút xác nhận, không bịa giá.</small></a><a href="../../tinh-nang/binh-luan-facebook/" aria-current="page"><strong>Tự động xử lý bình luận</strong><small>Trả lời theo bài đăng, nhắn riêng, ẩn theo từ khóa.</small></a><a href="../../tinh-nang/hop-thu/"><strong>Tin nhắn đa kênh</strong><small>Messenger, Instagram, website và bình luận chung một hộp thư.</small></a><a href="../../tinh-nang/dao-tao-ai/"><strong>Đào tạo Bot</strong><small>Dạy bot như dạy nhân viên mới, chat thử trước khi bật.</small></a><a href="../../tinh-nang/tro-ly-rapiz/"><strong>Trợ lý & thống kê</strong><small>Hỏi số liệu bằng tiếng Việt, nhận báo cáo theo lịch.</small></a><a href="../../tinh-nang/khach-hang-thong-ke/"><strong>Khách hàng, đơn hàng & lịch</strong><small>Trạng thái khách theo ngành, đơn hàng, lịch và booking.</small></a><a href="../../tich-hop/"><strong>Tích hợp nền tảng & PMS</strong><small>Kênh nhắn tin, KiotViet, API và webhook.</small></a></div></div><a href="../../tich-hop/">Tích hợp</a><a href="../../bang-gia/">Bảng giá</a><a href="../../ve-rapiz/">Về chúng tôi</a><a class="nav-login" href="/login">Đăng nhập</a>
     </nav>
     <div class="head-actions">
       <a class="head-login" href="/login">Đăng nhập</a>
@@ -38,80 +39,129 @@
 </header>
 <!--/site-head-->
 <main id="main">
-<section class="feature-dossier" aria-labelledby="page-title">
+<section data-rapiz-section="hero" class="fe-cover" data-edition="binh-luan-facebook" aria-labelledby="page-title">
+  <div class="container fe-layout">
+    <header class="fe-opening">
+      <p class="fe-crumb"><a href="../../index.html">Rapiz</a><span aria-hidden="true">/</span> Tự động xử lý bình luận</p>
+      <h1 id="page-title">Đáp bình luận<br><em>theo đúng bài.</em></h1>
+      <p class="fe-deck">Rapiz đọc bài viết gốc để trả lời công khai, nhắn riêng cho người bình luận và ẩn bình luận khớp từ khóa bạn đặt. Ba việc bật tắt riêng.</p>
+      <div class="fe-actions"><a href="#cong-tac" class="btn primary">Thử bật công tắc <span aria-hidden="true">↘</span></a><a class="text-link" href="#s2">Xem nơi bật <span aria-hidden="true">↓</span></a></div>
+    </header>
+    <figure class="fe-scene cm-scene" aria-label="Bình luận dưới bài đăng được trả lời công khai và nhắn riêng, minh họa">
+      <article class="cm-post">
+        <header><i aria-hidden="true">LH</i><span><strong>Lụa Hiên</strong><small>Bài viết</small></span></header>
+        <p>Sơ mi linen nữ về thêm màu be và xanh rêu, đủ size S đến L.</p>
+        <div class="cm-comment"><i aria-hidden="true">T</i><p><b>Thu Hà</b>mau be con size M ko shop</p></div>
+        <div class="cm-reply"><i aria-hidden="true">LH</i><p><b>Lụa Hiên</b>Dạ sơ mi linen màu be size M còn hàng, giá 390k ạ.</p></div>
+      </article>
+      <div class="cm-branches" aria-hidden="true"><span>Trả lời công khai</span><span>Nhắn riêng · cùng nội dung</span></div>
+      <figcaption>Bình luận minh họa</figcaption>
+    </figure>
+
+  </div>
+</section>
+<section data-rapiz-section="demo" class="fe-demo" id="cong-tac" aria-labelledby="s1">
   <div class="container">
-    <div class="dossier-mast"><p class="detail-crumb"><a href="../../index.html">Rapiz</a><span aria-hidden="true">/</span>Tính năng · Bình luận Facebook</p><i aria-hidden="true"></i></div>
-    <h1 id="page-title">Trả lời bình luận<br><em>theo đúng bài đăng.</em></h1>
-    <div class="dossier-spread">
-      <div class="dossier-copy">
-        <p class="detail-deck">Rapiz đọc ngữ cảnh bài đăng để trả lời bình luận công khai, nhắn riêng báo giá cho khách và ẩn bình luận xấu. Tất cả hiện chung trong hộp thư đội sale.</p>
-        <div class="hero-actions"><a class="btn primary" href="/signup">Bắt đầu miễn phí <span aria-hidden="true">↗</span></a><a class="text-link" href="../../dat-lich-demo/">Đặt lịch demo <span aria-hidden="true">→</span></a></div>
-        <ul class="detail-points"><li>Có trong gói Sales Smart trở lên</li></ul>
+    <header class="fe-demo-intro"><h2 id="s1">Thử bật từng công tắc.</h2>
+      <p>Ba bình luận vừa đến dưới một bài đăng. Cả ba công tắc mặc định đều tắt. Bật từng cái để xem Rapiz xử lý mỗi bình luận ra sao.</p></header>
+    <div class="fe-desk cm-desk" data-comments>
+      <div class="fe-appbar">
+        <span class="fe-appname"><img src="../../images/rapiz-symbol-faceted.svg" width="24" height="21" alt="" loading="lazy"> Lụa Hiên · Fanpage</span>
+        <span class="fe-example">Bình luận minh họa</span>
       </div>
-      <div class="dossier-proof"><div class="mock"><div class="mock-bar"><span>Fanpage · bài quảng cáo</span><small>Minh họa</small></div><div class="mock-body"><div class="comment-post"><img src="../../images/rapiz-retail.webp" alt="" width="56" height="56"><p><strong>Linen House</strong>Áo sơ mi linen mới về, 4 màu, size S đến XL.</p></div><div class="cmt"><span aria-hidden="true">T</span><div><p><strong>Thu Hà</strong>gia sao shop, con mau be size M ko</p></div></div><div class="cmt page reply"><span aria-hidden="true"><img src="../../images/rapiz-symbol.svg" alt=""></span><div><p><strong>Linen House</strong>Dạ màu be size M còn ạ. Shop đã nhắn riêng giá và ảnh thật cho chị nhé!</p><small>Rapiz trả lời theo bài đăng</small></div></div><p class="dm-note">✉ Đã nhắn riêng cho Thu Hà: giá, ảnh màu be, nút đặt hàng</p></div></div></div>
+      <div class="fe-columns">
+        <div class="fe-work">
+          <article class="cm-post cm-flat">
+            <header><i aria-hidden="true">LH</i><span><strong>Lụa Hiên</strong><small>Bài viết</small></span></header>
+            <p>Bộ đồ ngủ lụa mới về, đủ size S đến XL. Giặt tay là mềm như mới.</p>
+          </article>
+          <ol class="cm-list">
+            <li data-cm="ask">
+              <div class="cm-comment"><i aria-hidden="true">T</i><p><b>Thu Hà</b>gia sao shop, con size M ko</p></div>
+              <div class="cm-reply" data-cm-public hidden><i aria-hidden="true">LH</i><p><b>Lụa Hiên</b><span data-cm-text>Dạ bộ đồ ngủ lụa size M còn hàng, giá 880k ạ. Chị cho em xin số điện thoại và địa chỉ để lên đơn nhé.</span></p></div>
+              <p class="cm-state" data-cm-state>Chờ nhân viên xem trong Hộp thư</p>
+            </li>
+            <li data-cm="spam">
+              <div class="cm-comment"><i aria-hidden="true">?</i><p><b>Tài khoản lạ</b>Nhận quà free, ib 09xx ngay</p></div>
+              <p class="cm-state" data-cm-state>Chờ nhân viên xem trong Hộp thư</p>
+              <button type="button" class="cm-unhide" data-cm-unhide hidden>Hiện lại</button>
+            </li>
+            <li data-cm="late">
+              <div class="cm-comment"><i aria-hidden="true">M</i><p><b>Minh Thư</b>dat 5 ngay chua thay giao, shop kiem tra giup</p></div>
+              <p class="cm-state" data-cm-state>Chờ nhân viên xem trong Hộp thư</p>
+            </li>
+          </ol>
+        </div>
+        <aside class="fe-result cm-panel" aria-label="Cài đặt bài viết và bình luận Facebook">
+          <div class="fe-status" data-cm-status>Chưa bật xử lý tự động</div>
+          <h3>Bài viết và bình luận Facebook</h3>
+          <p class="cm-hint">Trả lời dựa trên đúng bài viết gốc. Mỗi công tắc bật tắt riêng.</p>
+          <div class="cm-switches">
+            <button type="button" role="switch" aria-checked="false" data-cm-switch="public" disabled><i aria-hidden="true"></i>Tự động trả lời bình luận công khai</button>
+            <button type="button" role="switch" aria-checked="false" data-cm-switch="private" disabled><i aria-hidden="true"></i>Tự động nhắn tin riêng cho người bình luận</button>
+            <button type="button" role="switch" aria-checked="false" data-cm-switch="hide" disabled><i aria-hidden="true"></i>Tự động ẩn bình luận khớp từ khóa đã cấu hình</button>
+          </div>
+          <p class="cm-keywords"><span>Từ khóa cần ẩn</span><b>quà free</b><b>ib 09</b></p>
+          <p class="cm-help">Chỉ ẩn khi khớp từ khóa rõ ràng. Các phản ánh khác vẫn hiển thị để nhân viên kiểm tra. Bình luận không bị xóa và có thể hiện lại.</p>
+        </aside>
+      </div>
+      <p class="fe-sr" role="status" data-cm-announce></p>
     </div>
   </div>
 </section>
-<section class="sec " aria-labelledby="s1">
-  <div class="container">
-    <div class="section-intro"><div><p class="kicker"><i class="slashes" aria-hidden="true"></i> TRẢ LỜI DƯỚI BÀI ĐĂNG</p><h2 id="s1">Trả lời ngay dưới bài,<br><em>chốt trong tin nhắn riêng.</em></h2></div><p></p></div>
-    <div class="frows below">
-      <article class="frow">
-        <div class="frow-text"><p class="idx">01</p><h3>Hiểu bài đăng khách đang bình luận</h3><p>“Giá sao shop” dưới bài áo linen khác với dưới bài váy maxi. Rapiz đọc nội dung bài đăng để trả lời đúng sản phẩm.</p></div>
-        <div class="mock"><div class="mock-bar"><span>Bình luận dưới bài đăng</span><small>Minh họa</small></div><div class="mock-body"><div class="comment-post"><img src="../../images/rapiz-spa.webp" alt="" width="56" height="56"><p><strong>Mộc Spa</strong>Ưu đãi gội dưỡng sinh 60 phút trong tháng 11.</p></div><div class="cmt"><span aria-hidden="true">N</span><div><p><strong>Ngọc Trâm</strong>gia bn v spa</p></div></div><div class="cmt page reply"><span aria-hidden="true"><img src="../../images/rapiz-symbol.svg" alt=""></span><div><p><strong>Mộc Spa</strong>Dạ gói gội dưỡng sinh 60 phút đang ưu đãi 180.000đ ạ. Spa đã nhắn riêng để giữ giờ cho chị nhé.</p><small>Rapiz trả lời theo bài đăng</small></div></div></div></div>
-      </article>
-      <article class="frow">
-        <div class="frow-text"><p class="idx">02</p><h3>Nhắn riêng để chốt</h3><p>Giá chi tiết, ảnh, tóm tắt đơn được gửi qua tin nhắn riêng, nơi khách có thể đặt hàng hoặc đặt lịch ngay.</p></div>
-        <div class="mock"><div class="mock-bar"><span>Messenger · tin nhắn riêng</span><small>Minh họa</small></div><div class="mock-body"><p class="message agent">Chào chị Thu Hà, áo sơ mi linen màu be size M giá 390.000đ ạ. Em gửi chị ảnh thật nhé.</p><p class="lookup"><i aria-hidden="true"></i><span>Gửi 2 ảnh màu be</span></p><p class="message customer">lay 1 cai nha</p><p class="message agent">Dạ em gửi tóm tắt đơn để chị xác nhận ạ.</p></div></div>
-      </article>
-      <article class="frow">
-        <div class="frow-text"><p class="idx">03</p><h3>Ẩn bình luận xấu</h3><p>Bình luận spam, chửi bới hay để lại số điện thoại lừa đảo được ẩn khỏi bài, không xoá dữ liệu.</p></div>
-        <div class="mock"><div class="mock-bar"><span>Kiểm duyệt bình luận</span><small>Minh họa</small></div><div class="mock-body"><div class="comment-post"><img src="../../images/rapiz-retail.webp" alt="" width="56" height="56"><p><strong>Linen House</strong>Áo sơ mi linen mới về, 4 màu.</p></div><div class="cmt hidden"><span aria-hidden="true">T</span><div><p><strong>Tài khoản lạ</strong>Inbox 09xx để nhận quà miễn phí!!!</p><small>Đã ẩn: nội dung spam</small></div></div><div class="cmt"><span aria-hidden="true">M</span><div><p><strong>Minh Thư</strong>size L con mau trang ko a</p></div></div></div></div>
-      </article>
-      <article class="frow">
-        <div class="frow-text"><p class="idx">04</p><h3>Xử lý chung trong hộp thư</h3><p>Bình luận và tin nhắn nằm chung một hộp thư. Nhân viên xem những bình luận bot chưa trả lời, hoặc tự trả lời khi cần.</p></div>
-        <div class="mock"><div class="mock-bar"><span>Hộp thư · bình luận</span><small>Minh họa</small></div><div class="mock-body"><ul class="list-mock"><li><span aria-hidden="true">TH</span><span>Thu Hà<small>Bình luận · Áo sơ mi linen</small></span><span class="pill ok">Bot đã trả lời</span></li><li><span aria-hidden="true">MT</span><span>Minh Thư<small>Bình luận · Áo sơ mi linen</small></span><span class="pill hot">Chờ trả lời</span></li><li><span aria-hidden="true">NT</span><span>Ngọc Trâm<small>Tin nhắn · Gội dưỡng sinh</small></span><span class="pill ai">Bot đang chat</span></li></ul></div></div>
-      </article>
-    </div>
+
+<section data-rapiz-section="more" class="fe-more" aria-labelledby="s2">
+  <div class="container fe-more-grid">
+    <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> BẬT Ở ĐÂU</p><h2 id="s2">Một màn cài&nbsp;đặt<br><em>cho mỗi&nbsp;fanpage.</em></h2></div>
+    <ul><li><b>Ba công tắc, mặc định đều tắt</b><p>Trả lời công khai, nhắn riêng và ẩn theo từ khóa bật tắt độc lập. Bạn bật phần nào cần.</p><small>Tích hợp nền tảng › Bài viết và bình luận Facebook</small></li><li><b>Chọn bài được tự động</b><p>Bật hoặc tắt tự động cho từng bài trong 50 bài viết gần nhất. Tắt một bài thì cả ẩn theo từ khóa cũng tắt cho bài đó.</p><small>Tích hợp nền tảng › Bài viết và bình luận Facebook</small></li><li><b>Xử lý tiếp trong hộp thư</b><p>Xem bài gốc, trả lời công khai, nhắn riêng hoặc ẩn những bình luận cần người xem.</p><small>Tin nhắn đa kênh › Bình luận trên Facebook</small></li><li><b>Hết lượt AI vẫn ẩn được</b><p>Khi hết lượt trả lời AI, bình luận mới chờ nhân viên. Ẩn theo từ khóa vẫn chạy.</p><small>Áp dụng cho mọi fanpage đã bật</small></li></ul>
   </div>
 </section>
-<section id="questions" class="faq" aria-labelledby="faq-title">
+<section data-rapiz-section="faq" id="questions" class="faq" aria-labelledby="faq-title">
   <div class="container faq-grid">
-    <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> CÂU HỎI THƯỜNG GẶP</p><h2 id="faq-title">Bạn muốn<br>biết <em>thêm?</em></h2></div>
-    <div class="faq-items"><details open><summary>Tính năng này có trong gói nào?</summary><p>Trả lời bình luận theo bài đăng có trong các gói Sales Smart, Sales Pro và Sales Neo.</p></details><details><summary>Bot có trả lời mọi bình luận không?</summary><p>Bot trả lời bình luận hỏi về sản phẩm hoặc dịch vụ. Bình luận cần người xử lý được đưa vào hộp thư cho nhân viên.</p></details><details><summary>Ẩn bình luận có xoá bình luận không?</summary><p>Không. Bình luận chỉ bị ẩn khỏi bài đăng, bạn có thể xem lại trong hộp thư.</p></details><details><summary>Hết lượt trả lời AI thì bình luận thế nào?</summary><p>Bình luận mới được đưa vào danh sách chờ để nhân viên xem, bot không trả lời thay.</p></details></div>
+    <div><p class="kicker"><i class="slashes" aria-hidden="true"></i> CÂU HỎI THƯỜNG GẶP</p><h2 id="faq-title">Trước&nbsp;khi<br><em>bật tự&nbsp;động.</em></h2></div>
+    <div class="faq-items"><details open><summary>Tính năng này có trong gói nào?</summary><p>Từ gói Sales Smart trở lên.</p></details><details><summary>Rapiz ẩn những bình luận nào?</summary><p>Chỉ bình luận khớp từ khóa bạn đặt, mỗi dòng một từ. Phản ánh khác vẫn hiển thị để nhân viên kiểm tra.</p></details><details><summary>Ẩn có xoá bình luận không?</summary><p>Không. Bình luận chỉ bị ẩn khỏi bài và bấm Hiện lại là hiển thị trở lại.</p></details><details><summary>Tin nhắn riêng gửi được gì?</summary><p>Một tin văn bản, cùng nội dung với câu trả lời, vào Messenger của người bình luận. Facebook chỉ cho gửi một tin trong 7 ngày kể từ bình luận.</p></details></div>
   </div>
 </section>
-<section class="sec tint" aria-labelledby="s3">
-  <div class="container">
-    <div class="sec-head-solo"><p class="kicker"><i class="slashes" aria-hidden="true"></i> XEM TIẾP</p><h2 id="s3">Rapiz còn <em>làm được gì?</em></h2></div>
-    <div class="related below"><a class="rel" href="../../nganh/ban-le/"><small>Giải pháp</small><strong>Bán lẻ online</strong><span>Tư vấn size, tra tồn và chốt đơn trong chat.</span><em>Xem chi tiết →</em></a><a class="rel" href="../../tinh-nang/hop-thu/"><small>Tính năng</small><strong>Hộp thư đội sale</strong><span>Bot và người làm chung, tiếp quản một chạm.</span><em>Xem chi tiết →</em></a><a class="rel" href="../../tinh-nang/ban-hang-ai/"><small>Tính năng</small><strong>Bot bán hàng AI</strong><span>Chốt đơn bằng nút xác nhận, không bịa giá.</span><em>Xem chi tiết →</em></a></div>
-  </div>
-</section>
-<section class="close" aria-labelledby="close-title">
-  <img class="close-mark" src="../../images/rapiz-symbol.svg" alt="" loading="lazy">
-  <div class="container">
-    <h2 id="close-title">Đón cuộc trò chuyện<br><em>tiếp theo.</em></h2>
-    <div class="close-links"><a href="/signup" class="btn dark">Bắt đầu miễn phí <span aria-hidden="true">↗</span></a><a class="text-link" href="../../dat-lich-demo/">Đặt lịch demo với Rapiz <span aria-hidden="true">→</span></a></div>
-  </div>
-</section>
+<nav class="fe-related" aria-label="Tìm hiểu thêm"><div class="container"><strong>Tìm hiểu thêm</strong><a href="../../tinh-nang/hop-thu/">Tin nhắn đa kênh <span aria-hidden="true">↗</span></a><a href="../../tinh-nang/ban-hang-ai/">Tư vấn & chốt đơn <span aria-hidden="true">↗</span></a><a href="../../nganh/ban-le/">Bán lẻ & thương mại điện tử <span aria-hidden="true">↗</span></a></div></nav>
 </main>
 <!--#site-foot-->
-<footer class="site-foot">
-  <div class="container foot-grid">
-    <div class="foot-brand">
-      <a class="brand" href="../../index.html" aria-label="Rapiz, trang chủ"><img src="../../images/rapiz-logo-reverse.svg" width="137" height="48" alt="Rapiz" loading="lazy"></a>
-      <p>Nhân viên sale AI cho doanh nghiệp Việt. Tư vấn bằng dữ liệu của bạn, chốt đơn và giữ chỗ trong chat, gọi người khi cần.</p>
-      <div class="close-links"><a class="btn primary" href="/signup">Bắt đầu miễn phí <span aria-hidden="true">↗</span></a><a class="text-link" href="../../dat-lich-demo/">Đặt lịch demo <span aria-hidden="true">→</span></a></div>
+<footer class="site-foot" id="footer" aria-labelledby="close-title">
+  <div class="rf-ribbon" aria-hidden="true"><div class="rf-track">
+    <div><span>Tư vấn khách hàng<i></i></span><span>Tra dữ liệu của shop<i></i></span><span>Chốt đơn trong chat<i></i></span><span>Phối hợp cùng đội sale<i></i></span></div><div><span>Tư vấn khách hàng<i></i></span><span>Tra dữ liệu của shop<i></i></span><span>Chốt đơn trong chat<i></i></span><span>Phối hợp cùng đội sale<i></i></span></div>
+  </div></div>
+  <div class="rf-center">
+    <h2 class="rf-title" id="close-title">Bài quảng&nbsp;cáo&nbsp;lên<br><em>là có người trực bình&nbsp;luận.</em></h2>
+    <div class="rf-actions">
+      <a class="rf-primary" href="../../dat-lich-demo/">Đặt lịch demo <span aria-hidden="true">↗</span></a>
+      <a class="rf-secondary" href="../../index.html#solutions">Thử hội thoại <span aria-hidden="true">→</span></a>
     </div>
-    <nav class="foot-col" aria-label="Giải pháp"><p class="foot-title">Giải pháp</p><ul><li><a href="../../nganh/ban-le/">Bán lẻ online</a></li><li><a href="../../nganh/villa-homestay/">Villa & homestay</a></li><li><a href="../../nganh/spa-salon/">Spa, salon, thẩm mỹ</a></li><li><a href="../../nganh/giao-duc/">Trung tâm giáo dục</a></li><li><a href="../../nganh/phan-mem/">Phần mềm, SaaS</a></li></ul></nav>
-    <nav class="foot-col" aria-label="Tính năng"><p class="foot-title">Tính năng</p><ul><li><a href="../../tinh-nang/ban-hang-ai/">Bot bán hàng AI</a></li><li><a href="../../tinh-nang/binh-luan-facebook/">Bình luận Facebook</a></li><li><a href="../../tinh-nang/hop-thu/">Hộp thư đội sale</a></li><li><a href="../../tinh-nang/dao-tao-ai/">Đào tạo AI</a></li><li><a href="../../tinh-nang/tro-ly-rapiz/">Trợ lý Rapiz</a></li><li><a href="../../tinh-nang/khach-hang-thong-ke/">Khách hàng & thống kê</a></li></ul></nav>
-    <nav class="foot-col" aria-label="Nền tảng"><p class="foot-title">Nền tảng</p><ul><li><a href="../../tich-hop/">Tích hợp & kênh</a></li><li><a href="../../bao-mat/">Bảo mật & dữ liệu</a></li><li><a href="../../bang-gia/">Bảng giá</a></li><li><a href="../../index.html#questions">Câu hỏi thường gặp</a></li></ul></nav>
-    <nav class="foot-col" aria-label="Tài khoản"><p class="foot-title">Tài khoản</p><ul><li><a href="/signup">Bắt đầu miễn phí</a></li><li><a href="/login">Đăng nhập</a></li><li><a href="../../dat-lich-demo/">Đặt lịch demo</a></li></ul></nav>
+    <nav class="rf-quick" aria-label="Tìm hiểu về Rapiz">
+      <a href="../../ve-rapiz/">Về Rapiz</a><a href="../../bang-gia/">Bảng giá</a><a href="../../bao-mat/">Bảo mật</a>
+    </nav>
   </div>
-  <div class="container foot-base">
-    <span>© 2026 Rapiz</span>
-    <span>Hội thoại, đơn hàng và số liệu trên trang là minh họa, trừ khi ghi rõ.</span>
-    <a href="#top">Về đầu trang ↑</a>
+  <div class="rf-tail">
+    <div class="rf-imprint" aria-hidden="true"></div>
+    <div class="rf-grid">
+      <div class="rf-company">
+        <a class="rf-brand" href="../../index.html" aria-label="Rapiz, trang chủ"><img src="../../images/rapiz-symbol-faceted.svg" alt="" width="23" height="20"><span>Rapiz</span></a>
+        <p>Nhân viên sale AI cho doanh nghiệp Việt.</p>
+        <address>
+          <strong>Công ty TNHH Công nghệ Rapiz</strong>
+          <span>Rapiz Technology Company Limited</span>
+          <a href="mailto:support@rapiz.io">support@rapiz.io</a>
+        </address>
+      </div>
+      <div class="rf-columns">
+        <nav class="foot-col" aria-label="Giải pháp"><p class="foot-title">Giải pháp</p><ul><li><a href="../../nganh/ban-le/">Bán lẻ & thương mại điện tử</a></li><li><a href="../../nganh/villa-homestay/">Lưu trú & nghỉ dưỡng</a></li><li><a href="../../nganh/spa-salon/">Làm đẹp & spa</a></li><li><a href="../../nganh/giao-duc/">Giáo dục & đào tạo</a></li><li><a href="../../nganh/phan-mem/">Công nghệ & phần mềm</a></li></ul></nav>
+        <nav class="foot-col" aria-label="Tính năng"><p class="foot-title">Tính năng</p><ul><li><a href="../../tinh-nang/ban-hang-ai/">Tư vấn & chốt đơn</a></li><li><a href="../../tinh-nang/binh-luan-facebook/">Tự động xử lý bình luận</a></li><li><a href="../../tinh-nang/hop-thu/">Tin nhắn đa kênh</a></li><li><a href="../../tinh-nang/dao-tao-ai/">Đào tạo Bot</a></li><li><a href="../../tinh-nang/tro-ly-rapiz/">Trợ lý & thống kê</a></li><li><a href="../../tinh-nang/khach-hang-thong-ke/">Khách hàng, đơn hàng & lịch</a></li></ul></nav>
+        <nav class="foot-col" aria-label="Nền tảng"><p class="foot-title">Nền tảng</p><ul><li><a href="../../tich-hop/">Tích hợp nền tảng & PMS</a></li><li><a href="../../bao-mat/">Bảo mật & dữ liệu</a></li><li><a href="../../bang-gia/">Bảng giá</a></li><li><a href="../../ve-rapiz/">Về Rapiz</a></li><li><a href="../../index.html#questions">Câu hỏi thường gặp</a></li></ul></nav>
+        <nav class="foot-col" aria-label="Tài khoản"><p class="foot-title">Tài khoản</p><ul><li><a href="/signup">Đăng ký</a></li><li><a href="/login">Đăng nhập</a></li><li><a href="../../dat-lich-demo/">Đặt lịch demo</a></li></ul></nav>
+      </div>
+    </div>
+    <div class="rf-base">
+      <span>© 2026 RAPIZ TECH CO., LTD.</span>
+      <a class="rf-up" href="#top" aria-label="Về đầu trang"><span aria-hidden="true">↑</span></a>
+    </div>
   </div>
 </footer>
 <!--/site-foot-->

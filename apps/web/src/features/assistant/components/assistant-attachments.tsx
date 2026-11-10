@@ -257,6 +257,7 @@ export function AttachmentTray({ attachments }: { attachments: AssistantAttachme
   if (attachment.kind === 'none' && !error) return null;
   return (
     <div
+      data-measure
       className="flex flex-col gap-2 border-t px-3 pt-2"
       aria-label={t('import.tray')}
       role="group"

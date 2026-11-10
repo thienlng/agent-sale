@@ -22,7 +22,7 @@ One public host serves every path, as `scripts/dev-tunnel-proxy.mjs` does in dev
 | `/webhooks/*` | `webhook` |
 | `/media/*` | Bucket, GET/HEAD only |
 | `/widget.js` | Widget |
-| `/`, `/images/*`, `/fonts/*`, `/static/*` and the page folders (`/nganh/*`, `/tinh-nang/*`, `/tich-hop/`, `/bao-mat/`, `/bang-gia/`, `/dat-lich-demo/`) | Marketing site |
+| `/`, `/images/*`, `/fonts/*`, `/static/*` and the page folders (`/nganh/*`, `/tinh-nang/*`, `/tich-hop/`, `/bao-mat/`, `/bang-gia/`, `/dat-lich-demo/`, `/ve-rapiz/`) | Marketing site |
 | Anything else | Dashboard |
 
 The images do not depend on the domain. The domain lives only in `/opt/apps/rapiz/.env`.
@@ -62,6 +62,7 @@ The server follows `/opt/infra/README.md` on the host: apps live in `/opt/apps/<
    `docker compose exec api node apps/backend/dist/cli/platform-admin.js grant <email>`
 8. **LLM provider.** Add one in Admin → LLM. Without it, production answers 503 for bot turns.
 9. **Plans and trial.** In Admin (`/admin/plans` for the catalog, `/admin/settings` for trial, lifecycle and bank account): check the plan catalog and prices, set the VietQR bank account, then turn the signup trial on (it ships off, so a deploy alone changes nothing for new signups). The `worker` service runs the subscription lifecycle (trial end, past due, suspension) every 5 minutes; keep it running.
+10. **Website chat (optional).** Rapiz's own pages show a chat bubble once the edge has a site key. Sign up the owner, then run `docker compose exec api node apps/backend/dist/cli/rapiz-site-bot.js seed --owner <email> --domains <host>,www.<host>` (idempotent; prints `site key: wk_…`), add `RAPIZ_SITE_WIDGET_KEY=wk_…` to `.env` and run `docker compose --env-file .env up -d edge`. Unset, the pages load no widget. Details: [apps/site README](../../apps/site/README.md#website-chat).
 
 ## Every change
 
@@ -169,8 +170,7 @@ Local dumps live on the same disk; the off-site copies are in [backup-and-restor
 | `/webhooks/*` | Public. The webhook app rejects requests without a valid `X-Hub-Signature-256` |
 | `/api[/v1]/channels/oauth/<provider>/callback` | Public. The API checks the OAuth `state` |
 | `/media/*` | Public, read-only, so Meta can download product pictures. The `Authorization` header is dropped: browsers resend the Basic credentials and the bucket rejects them as a bad S3 signature (broken images) |
-
-The gate also blocks the chat widget on customer websites. Turn it off before testing the widget on an external site.
+| `/widget.js`, `/api/v1/webchat/v1/sites/*` | Public, so the website chat bubble works on customer sites and on Rapiz's own pages. Visitors there carry no gate cookie and the widget sends no credentials. The API checks the site key, the allowed domains and the signed visitor token |
 
 Neither the password nor the gate token is in Git. The token sits in the NPM proxy host's advanced config, which is root-only on the server. NPM must keep *Force SSL* on, so the Basic credentials only travel over HTTPS.
 

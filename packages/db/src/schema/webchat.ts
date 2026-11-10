@@ -21,6 +21,9 @@ export const webchatVisitors = pgTable(
     phoneE164: text('phone_e164'),
     contactId: uuid('contact_id'),
     phoneCapturedAt: timestamp('phone_captured_at', { withTimezone: true }),
+    /** Normalized email the visitor typed (0071). */
+    email: text('email'),
+    emailCapturedAt: timestamp('email_captured_at', { withTimezone: true }),
     messageCount: integer('message_count').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),

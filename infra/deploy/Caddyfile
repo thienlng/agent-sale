@@ -48,8 +48,19 @@
 		file_server
 	}
 
+	# Rapiz's own website chat bubble: the loader reads its site key from RAPIZ_SITE_WIDGET_KEY
+	# (unset: the placeholder stays and no bubble loads). See apps/site/README.md "Website chat".
+	handle /static/site-widget.js {
+		root * /srv/site
+		header Cache-Control "no-cache"
+		templates {
+			mime text/javascript application/javascript
+		}
+		file_server
+	}
+
 	# Marketing pages (apps/site/public). A folder path without its slash redirects to it.
-	@site path / /index.html /images/* /fonts/* /static/* /nganh/* /tinh-nang/* /tich-hop /tich-hop/* /bao-mat /bao-mat/* /bang-gia /bang-gia/* /dat-lich-demo /dat-lich-demo/*
+	@site path / /index.html /images/* /fonts/* /static/* /nganh/* /tinh-nang/* /tich-hop /tich-hop/* /bao-mat /bao-mat/* /bang-gia /bang-gia/* /dat-lich-demo /dat-lich-demo/* /ve-rapiz /ve-rapiz/*
 	handle @site {
 		root * /srv/site
 		file_server

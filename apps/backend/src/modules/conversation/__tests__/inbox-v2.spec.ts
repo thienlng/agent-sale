@@ -134,6 +134,7 @@ describe('read state', () => {
     expect((await service.get(ws, c.id)).conversation.lead).toEqual({
       contactId: lead.contactId,
       phone: '+84912345679',
+      email: null,
       capturedAt: lead.capturedAt,
       seenAt: null,
     });
@@ -143,6 +144,18 @@ describe('read state', () => {
     vi.setSystemTime(new Date('2026-10-24T05:20:00Z'));
     expect((await service.markRead(ws, c.id, lan)).lead?.seenAt).toBe('2026-10-24T05:10:00.000Z');
     await expect(service.linkLead(ws, newId(), lead)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    // An email left later replaces the lead (unseen again); an email-only lead has no phone.
+    await service.linkLead(ws, c.id, { ...lead, email: 'lan@shop.vn' });
+    expect((await service.get(ws, c.id)).conversation.lead).toMatchObject({
+      phone: '+84912345679',
+      email: 'lan@shop.vn',
+      seenAt: null,
+    });
+    await service.linkLead(ws, c.id, { ...lead, phoneE164: null, email: 'lan@shop.vn' });
+    expect((await service.get(ws, c.id)).conversation.lead).toMatchObject({
+      phone: null,
+      email: 'lan@shop.vn',
+    });
   });
 
   it('marks unread with at least one message and forgets who read it', async () => {

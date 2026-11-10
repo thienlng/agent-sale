@@ -5,6 +5,7 @@ export {
   type ConversationTagMatch,
   type CrmFacade,
   type RequestsRecorded,
+  websiteEmailLeadName,
   websiteLeadName,
 } from './crm.facade.js';
 export * from './crm.events.js';

@@ -24,6 +24,7 @@ import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppAccommodationsRouteImport } from './routes/app/accommodations'
 import { Route as AppAnalyticsRouteImport } from './routes/app/analytics'
+import { Route as AppAssistantRouteImport } from './routes/app/assistant'
 import { Route as AppBookingsRouteImport } from './routes/app/bookings'
 import { Route as AppCalendarRouteImport } from './routes/app/calendar'
 import { Route as AppChannelsRouteImport } from './routes/app/channels'
@@ -157,6 +158,11 @@ const AppAccommodationsRoute = AppAccommodationsRouteImport.update({
 const AppAnalyticsRoute = AppAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAssistantRoute = AppAssistantRouteImport.update({
+  id: '/assistant',
+  path: '/assistant',
   getParentRoute: () => AppRoute,
 } as any)
 const AppBookingsRoute = AppBookingsRouteImport.update({
@@ -478,6 +484,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AdminSettingsRoute
   '/app/accommodations': typeof AppAccommodationsRoute
   '/app/analytics': typeof AppAnalyticsRoute
+  '/app/assistant': typeof AppAssistantRoute
   '/app/bookings': typeof AppBookingsRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/channels': typeof AppChannelsRoute
@@ -552,6 +559,7 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AdminSettingsRoute
   '/app/accommodations': typeof AppAccommodationsRoute
   '/app/analytics': typeof AppAnalyticsRoute
+  '/app/assistant': typeof AppAssistantRoute
   '/app/bookings': typeof AppBookingsRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/channels': typeof AppChannelsRoute
@@ -625,6 +633,7 @@ export interface FileRoutesById {
   '/admin/settings': typeof AdminSettingsRoute
   '/app/accommodations': typeof AppAccommodationsRoute
   '/app/analytics': typeof AppAnalyticsRoute
+  '/app/assistant': typeof AppAssistantRoute
   '/app/bookings': typeof AppBookingsRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/channels': typeof AppChannelsRoute
@@ -703,6 +712,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/app/accommodations'
     | '/app/analytics'
+    | '/app/assistant'
     | '/app/bookings'
     | '/app/calendar'
     | '/app/channels'
@@ -777,6 +787,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/app/accommodations'
     | '/app/analytics'
+    | '/app/assistant'
     | '/app/bookings'
     | '/app/calendar'
     | '/app/channels'
@@ -849,6 +860,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/app/accommodations'
     | '/app/analytics'
+    | '/app/assistant'
     | '/app/bookings'
     | '/app/calendar'
     | '/app/channels'
@@ -1027,6 +1039,13 @@ declare module '@tanstack/react-router' {
       path: '/analytics'
       fullPath: '/app/analytics'
       preLoaderRoute: typeof AppAnalyticsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/assistant': {
+      id: '/app/assistant'
+      path: '/assistant'
+      fullPath: '/app/assistant'
+      preLoaderRoute: typeof AppAssistantRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/bookings': {
@@ -1567,6 +1586,7 @@ const AppBotsBotIdRouteWithChildren = AppBotsBotIdRoute._addFileChildren(
 interface AppRouteChildren {
   AppAccommodationsRoute: typeof AppAccommodationsRoute
   AppAnalyticsRoute: typeof AppAnalyticsRoute
+  AppAssistantRoute: typeof AppAssistantRoute
   AppBookingsRoute: typeof AppBookingsRoute
   AppCalendarRoute: typeof AppCalendarRoute
   AppChannelsRoute: typeof AppChannelsRoute
@@ -1601,6 +1621,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAccommodationsRoute: AppAccommodationsRoute,
   AppAnalyticsRoute: AppAnalyticsRoute,
+  AppAssistantRoute: AppAssistantRoute,
   AppBookingsRoute: AppBookingsRoute,
   AppCalendarRoute: AppCalendarRoute,
   AppChannelsRoute: AppChannelsRoute,

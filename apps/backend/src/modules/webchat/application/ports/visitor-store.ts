@@ -10,6 +10,8 @@ export interface VisitorRecord {
   lastUrl: string | null;
   lastTitle: string | null;
   phoneE164: string | null;
+  /** Normalized email the visitor left in a message (lead capture next to the phone). */
+  email: string | null;
   contactId: string | null;
   /** Messages the visitor has sent (retries of the same message count once). */
   messageCount: number;
@@ -41,6 +43,14 @@ export interface VisitorStore {
     connectionId: string,
     visitorId: string,
     phoneE164: string,
+    contactId: string,
+  ): Promise<void>;
+  /** Stores the captured email and its customer (the phone's customer when both were left). */
+  recordEmail(
+    ws: WorkspaceId,
+    connectionId: string,
+    visitorId: string,
+    email: string,
     contactId: string,
   ): Promise<void>;
   /** Fills `conversation_id` once it is known (never overwrites). */

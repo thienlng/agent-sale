@@ -62,7 +62,10 @@ export function useLeadAlerts(
           t('channelInbox.v2.row.guest', { provider, last4 }),
         );
         new Notification(t('channelInbox.v2.notifications.leadTitle'), {
-          body: t('channelInbox.v2.notifications.leadBody', { name, phone: c.lead?.phone ?? '' }),
+          body: t('channelInbox.v2.notifications.leadBody', {
+            name,
+            phone: c.lead?.phone ?? c.lead?.email ?? '',
+          }),
           tag: `lead:${c.id}`,
         });
       } catch {

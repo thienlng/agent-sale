@@ -1,6 +1,6 @@
 /* Commercial and platform page layouts */
 .ut-page {--ut-surface: #ece9e0; --ut-text: #242421; --ut-muted: #5b574e; --ut-rule: #c8c4b9}
-.ut-page h1 {font: 825 clamp(58px,6.65vw,104px)/.995 var(--display); letter-spacing: -.047em; word-spacing: .04em; margin: 24px 0 20px}
+.ut-page h1 {font: 825 clamp(44px,5.3vw,80px)/.995 var(--display); text-wrap: balance; letter-spacing: -.047em; word-spacing: .04em; margin: 24px 0 20px}
 .ut-page h1 em {font-weight: 900; color: var(--rust)}
 .ut-hero {padding-block: clamp(58px,7vw,110px); border-bottom: 1px solid var(--ut-rule)}
 .ut-hero-layout, .ut-intake-layout {display: grid; grid-template-columns: minmax(0,1.18fr) minmax(0,.82fr); gap: clamp(35px,6.5vw,110px); align-items: center}
@@ -9,14 +9,29 @@
 .ut-link:hover {color: var(--rust)}
 .ut-link span {font-size: 1.22em}
 .ut-bang-gia .ut-hero {background: #eee9dc}
-.ut-capacity {padding: clamp(20px,3.25vw,50px); background: #292925; color: #fff8ea; border-radius: 2px; position: relative; overflow: hidden}
-.ut-capacity::before {content: ""; position: absolute; inset: 0 0 auto; height: 7px; background: var(--orange)}
-.ut-cap-head, .ut-capacity li {display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px solid #575750}
-.ut-cap-head {font-size: 13px; color: #cccabf; padding-bottom: 10px}
-.ut-capacity ul, .ut-channel-list {list-style: none; margin: 0; padding: 0}
-.ut-capacity li {padding-block: 9px; font: 650 clamp(18px,1.5vw,24px)/1.4 var(--display)}
-.ut-capacity li:last-child {border: 0}
-.ut-capacity b {font: 850 clamp(30px,3.1vw,52px)/1 var(--display); letter-spacing: -.045em; color: var(--orange); font-variant-numeric: tabular-nums}
+/* Pricing hero: a quiet card where each plan is a row of small figures, one per seat. */
+.ut-team {container-type: inline-size; margin: 0; padding: clamp(18px,2.2vw,30px); background: #fbf8f1; border: 1px solid #d9d0bf; border-radius: 14px}
+.ut-team figcaption {display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 10px; font-size: 12.5px; font-weight: 600; color: #6d6455}
+.ut-team-key {display: inline-flex; align-items: center; gap: 6px; font-weight: 500}
+.ut-team-key i {width: 8px; height: 8px; margin-left: 8px; border-radius: 50%; background: #cdb898}.ut-team-key i.is-owner {margin-left: 0; background: var(--orange)}
+.ut-team ul {list-style: none; margin: 0; padding: 0}
+.ut-team li {display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 14px; padding-block: 12px; border-top: 1px solid #e7dfd0}
+.ut-team li b {display: block; font: 700 clamp(16px,1.25vw,19px)/1.25 var(--display); letter-spacing: -.015em; color: #27241f}
+.ut-team li small {display: block; margin-top: 2px; font-size: 12.5px; line-height: 1.4; color: #776d5e; font-variant-numeric: tabular-nums}
+.ut-team li small span {white-space: nowrap}
+.ut-crowd {display: flex; flex-wrap: wrap; gap: 4px 3px; width: 147px}
+/* A figure: a round head over rounded shoulders. */
+.ut-crowd i {position: relative; width: 12px; height: 14px; animation: ut-arrive .5s calc(var(--d) * 22ms + 150ms) both cubic-bezier(.2,.8,.2,1)}
+.ut-crowd i::before, .ut-crowd i::after {content: ""; position: absolute; left: 50%; translate: -50% 0; background: var(--tone, #d4c0a1)}
+.ut-crowd i::before {top: 0; width: 6px; height: 6px; border-radius: 50%}
+.ut-crowd i::after {bottom: 0; width: 12px; height: 7px; border-radius: 6px 6px 2px 2px}
+.ut-crowd i:nth-child(3n+2) {--tone: #c6ae8b}.ut-crowd i:nth-child(4n+3) {--tone: #e0cfb4}
+.ut-crowd i:first-child {--tone: var(--orange)}
+.ut-team-note {margin: 4px 0 0; padding-top: 10px; border-top: 1px solid #e7dfd0; font-size: 12px; color: #857a69}
+/* A narrow card puts the figures under the plan name. */
+@container (max-width: 300px) {.ut-team li {grid-template-columns: minmax(0,1fr); gap: 8px}}
+@keyframes ut-arrive {from {opacity: 0; transform: translateY(4px)}}
+@media(prefers-reduced-motion: reduce) {.ut-crowd i {animation: none}}
 .ut-bang-gia .plans {gap: 0; background: white; border: 1px solid #c7c3b7; border-radius: 6px; overflow: hidden}
 .ut-bang-gia .plan, .ut-bang-gia .plan.featured {border: none; border-radius: 0; border-inline-end: 1px solid var(--ut-rule); padding: 40px clamp(16px,1.65vw,28px) 24px}
 .ut-bang-gia .plan:last-child {border-inline-end: 0}
@@ -33,18 +48,11 @@
 .ut-tich-hop .ut-hero {color: #fff8ed; background: #262521; border: 0; position: relative; overflow: hidden}
 .ut-tich-hop .ut-hero h1 em, .ut-tich-hop .ut-hero .ut-link {color: #ff9970}
 .ut-tich-hop .ut-hero .kicker, .ut-tich-hop .ut-deck {color: #ddd7cd}
-.ut-channel-art {
-  min-height: clamp(220px,25vw,390px); isolation: isolate; display: grid; grid-template-columns: 1fr 1fr;
-  align-items: center; justify-items: center; position: relative; border: 1px solid #59564e;
-  background-color: #32312c; background-image: radial-gradient(#686359 1px,transparent 1px); background-size: 18px 18px;
-}
-.ut-channel-art > img {width: clamp(78px,11.5vw,165px); height: auto; padding: 18px; justify-self: end; margin-right: 14%; background: #272621; border: 1px solid #736b5c}
-.ut-channel-logos {display: grid; gap: 11px; justify-self: start; margin-left: 19%; z-index: 1}
-.ut-channel-logos span {background: #efede4; color: #2b2b26; width: clamp(42px,4vw,62px); aspect-ratio: 1; display: grid; place-items: center; border: 1px solid #faf5e8}
-.ut-channel-logos svg {width: 52%; height: 52%}
-.ut-wire {position: absolute; left: 17%; top: 50%; height: 1px; width: 63%; background: #ff9d70; z-index: -1}
-.ut-wire::before, .ut-wire::after {content:""; position:absolute; left: 0; width: 47%; height: clamp(52px,4.8vw,73px); border: solid #ff9d70; border-width: 1px 1px 0 0; bottom: 0}
-.ut-wire::after {bottom: auto; top: 0; transform: scaleY(-1)}
+/* Integration map: the hero diagram, landscape on wide screens and portrait on phones. */
+@media(min-width: 801px) {.ut-tich-hop .ut-hero-layout {grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: clamp(32px,4vw,64px)}}
+.ut-int-map {margin: 0}
+.ut-int-map svg {display: block; width: 100%; height: auto}
+.ut-int-map .im-tall {display: none}
 .ut-index-head {display: flex; gap: 32px; justify-content: space-between; align-items: flex-end}
 .ut-index-head h2, .ut-control-layout h2 {margin: 15px 0 0}
 .ut-index-head > p {max-width: 38ch; color: var(--ut-muted); font-size: 16px; line-height: 1.6}
@@ -83,7 +91,7 @@
 
 .ut-intake {background: #f3eee3; padding-block: clamp(46px,5.5vw,94px)}
 .ut-intake-layout {grid-template-columns: minmax(0,.88fr) minmax(0,1.12fr); align-items: start; gap: clamp(28px,5vw,82px)}
-.ut-intake h1 {font-size: clamp(52px,5.7vw,92px)}
+.ut-intake h1 {font-size: clamp(40px,4.4vw,68px)}
 .ut-agenda {display: grid; grid-template-columns: auto minmax(0,1fr); gap: clamp(15px,2.2vw,34px); margin-top: 30px; padding: 23px 0; border-block: 1px solid #bcb6a7}
 .ut-time {display: flex; flex-direction: column; align-self: start; padding: 8px 12px 12px; background: var(--orange); color: #21211d}
 .ut-time b {font: 850 clamp(48px,4vw,66px)/1 var(--display); letter-spacing: -.05em}
@@ -106,7 +114,8 @@
 }
 @media(max-width: 800px) {
   .ut-hero-layout,.ut-intake-layout,.ut-control-layout {grid-template-columns: minmax(0,1fr); gap: 30px}
-  .ut-channel-art {min-height: 220px}
+  .ut-int-map .im-wide {display: none}
+  .ut-int-map .im-tall {display: block; max-width: 420px; margin-inline: auto}
   .ut-channel-list li {grid-template-columns: 38px 1fr auto; gap: 6px 12px}
   .ut-channel-list p {grid-column: 2 / -1; grid-row: 2}
   .ut-channel-icon {grid-row: 1 / 3; width: 36px; align-self: start}
@@ -114,11 +123,18 @@
   .ut-index-head {display: grid; gap: 15px}
   .ut-tich-hop .duo-card + .duo-card {border-inline-start: 0; border-top: 1px solid #c9c4b6}
   .ut-vault-symbol {height: 152px}
+  /* Phones reach the form right after the promise; the agenda follows it. */
+  .ut-intake-layout {row-gap: 0}
+  .ut-brief {display: contents}
+  .ut-intake-layout > .ut-demo-form {margin-top: 28px}
+  .ut-intake-layout > .ut-demo-form {order: 1}
+  .ut-brief > :is(.ut-agenda,.ut-link) {order: 2}
+  .ut-brief > .ut-agenda {margin-top: 34px}
+  .ut-brief > .ut-link {justify-self: start}
 }
 @media(max-width: 585px) {
-  .ut-page h1 {font-size: clamp(47px,11.5vw,65px)}
+  .ut-page h1 {font-size: clamp(34px,10vw,44px)}
   .ut-page .plan, .ut-page .plan.featured {border-inline-end: 0; border-bottom: 1px solid var(--ut-rule)}
-  .ut-capacity li {padding-block: 7px}
   .ut-security-visual {padding: 12px}
   .ut-channel-list li {grid-template-columns: 32px minmax(0,1fr)}
   .ut-channel-list p {grid-row: auto}
@@ -128,3 +144,4 @@
   .ut-time {width: fit-content; flex-direction: row; align-items: baseline; gap: 5px}
   .ut-demo-form {padding: 16px}
 }
+.ut-status.tier::before {background: transparent; box-shadow: inset 0 0 0 1.5px #79766b}

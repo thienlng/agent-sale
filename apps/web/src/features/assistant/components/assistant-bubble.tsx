@@ -1,3 +1,4 @@
+import { useRouterState } from '@tanstack/react-router';
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -42,9 +43,18 @@ export function AssistantBubble() {
   useEffect(() => {
     if (asked && isOwner) setOpen(true);
   }, [asked, isOwner, setOpen]);
+  // The full page (`/app/assistant`) shows the panel in place of the launcher.
+  const onPage = useAssistantUi((s) => s.pageSlot !== null);
   // Once loaded the panel stays mounted, so a spotlight survives closing it.
-  const [loaded, setLoaded] = useState(open);
-  if (open && !loaded) setLoaded(true);
+  const [loaded, setLoaded] = useState(open || onPage);
+  if ((open || onPage) && !loaded) setLoaded(true);
+  // Collapsing the full page goes back to the page the owner came from.
+  const href = useRouterState({ select: (s) => s.location.href });
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const setLastPage = useAssistantUi((s) => s.setLastPage);
+  useEffect(() => {
+    if (pathname !== '/app/assistant') setLastPage(href);
+  }, [href, pathname, setLastPage]);
   // Other features open the panel through lib/assistant-launch, only while the bubble is shown.
   const openWith = useAssistantUi((s) => s.openWith);
   useEffect(() => {
@@ -87,19 +97,21 @@ export function AssistantBubble() {
   const openPanel = useCallback(() => setOpen(true), [setOpen]);
   const drag = useLauncherDrag(openPanel);
   // At its default place it steps over a bottom-right control marked `data-assistant-avoid`.
-  const bottom = useLauncherBottom(isOwner && !open && drag.position === null);
+  const bottom = useLauncherBottom(isOwner && !open && !onPage && drag.position === null);
   const place = drag.position ?? { right: LAUNCHER_INSET, bottom };
   if (!isOwner) return null;
   return (
     <>
       {/* Room under the last control of a padded page, so the launcher never covers it; full-bleed
           pages (data-content-padding=false) mark their controls instead. */}
-      <div
-        aria-hidden
-        data-assistant-spacer
-        className="h-20 shrink-0 [div:has([data-content-padding=false])>&]:hidden"
-      />
-      {open ? null : (
+      {onPage ? null : (
+        <div
+          aria-hidden
+          data-assistant-spacer
+          className="h-20 shrink-0 [div:has([data-content-padding=false])>&]:hidden"
+        />
+      )}
+      {open || onPage ? null : (
         <button
           type="button"
           aria-label={t('app.assistantLauncher')}

@@ -73,9 +73,9 @@
   }
 
   /* ---------- section headings rise line by line ---------- */
-  const heads = [...document.querySelectorAll('main h2, .voices-title')];
-  heads.forEach(splitLines);
+  const heads = [...document.querySelectorAll('main h2:not(#inside-title):not(.os-page h2), .voices-title')];
   if (!reduce && 'IntersectionObserver' in window) {
+    heads.forEach(splitLines);
     heads.forEach(h => h.classList.add('lr-ready'));
     const io = new IntersectionObserver(entries => entries.forEach(e => {
       if (e.isIntersecting) { e.target.classList.add('lr-in'); io.unobserve(e.target); }

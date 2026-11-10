@@ -1,6 +1,7 @@
 import { createApi, type Api } from './api.js';
 import { compressImage } from './image.js';
 import { checkPhone } from './phone.js';
+import { visibleSections } from './page-context.js';
 import { createPoller, type PollMode } from './poller.js';
 import { beep } from './sound.js';
 import { initialState, reduce, type Action, type State } from './state.js';
@@ -193,7 +194,11 @@ function start(api: Api, key: string, config: WidgetConfig): void {
   function buildRequest(m: Outgoing): WidgetSendRequest {
     const body: WidgetSendRequest = {
       clientMessageId: m.id,
-      page: { url: window.location.href.slice(0, 1000), title: document.title.slice(0, 150) },
+      page: {
+        url: window.location.href.slice(0, 1000),
+        title: document.title.slice(0, 150),
+        sections: visibleSections(),
+      },
     };
     if (m.text !== undefined) body.text = m.text;
     if (m.attachmentUrl !== undefined) body.attachmentUrl = m.attachmentUrl;
