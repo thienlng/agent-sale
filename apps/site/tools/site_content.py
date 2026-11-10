@@ -706,7 +706,7 @@ PAGES.append({
              'Màn hình Tích hợp nền tảng trong app. Cột trái lọc theo kênh, bên phải là danh sách trang đã kết nối với bot đang trả lời, mã nhúng và công tắc bật tắt.',
              'Màn hình Tích hợp nền tảng của Rapiz: cột trái gồm Tất cả, Chưa gán bot, Facebook, Instagram, Zalo, Lazada, TikTok Business, Website; bên phải là website đã kết nối với trạng thái Đang chạy, tên bot, nút Sao chép mã nhúng và Hướng dẫn cài đặt; bên dưới là khung Bài viết và bình luận Facebook.',
              1600, 1000),
-        {'kind': 'catalog', 'id': 'channels', 'kicker': 'TÍCH HỢP NỀN TẢNG', 'h2': 'Kênh <em>nhắn tin.</em>',
+        {'kind': 'catalog', 'id': 'channels', 'kicker': 'TÍCH HỢP ĐA NỀN TẢNG', 'h2': 'Kênh <em>nhắn tin.</em>',
          'lead': 'Kết nối từng trang hoặc tài khoản, rồi chọn bot trả lời cho trang đó. Trạng thái dưới đây khớp với app.',
          'items': [
              {'brand': 'messenger', 'title': 'Facebook Messenger', 'text': 'Kết nối fanpage, bot trả lời tin nhắn và gửi tóm tắt đơn có nút xác nhận.', 'link': 'tinh-nang/hop-thu'},
