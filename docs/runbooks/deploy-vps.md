@@ -170,8 +170,7 @@ Local dumps live on the same disk; the off-site copies are in [backup-and-restor
 | `/webhooks/*` | Public. The webhook app rejects requests without a valid `X-Hub-Signature-256` |
 | `/api[/v1]/channels/oauth/<provider>/callback` | Public. The API checks the OAuth `state` |
 | `/media/*` | Public, read-only, so Meta can download product pictures. The `Authorization` header is dropped: browsers resend the Basic credentials and the bucket rejects them as a bad S3 signature (broken images) |
-
-The gate also blocks the chat widget on customer websites. Turn it off before testing the widget on an external site.
+| `/widget.js`, `/api/v1/webchat/v1/sites/*` | Public, so the website chat bubble works on customer sites and on Rapiz's own pages. Visitors there carry no gate cookie and the widget sends no credentials. The API checks the site key, the allowed domains and the signed visitor token |
 
 Neither the password nor the gate token is in Git. The token sits in the NPM proxy host's advanced config, which is root-only on the server. NPM must keep *Force SSL* on, so the Basic credentials only travel over HTTPS.
 

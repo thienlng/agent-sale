@@ -5,8 +5,10 @@
 # Basic auth (bcrypt, cost 12) guards every page. The dashboard sends `Authorization: Bearer`
 # to /api, so Basic auth cannot ride along there; instead a successful Basic login sets an
 # HttpOnly gate cookie and /api requires it. Left public: Meta webhooks (the webhook app
-# verifies X-Hub-Signature-256), the Meta OAuth callbacks (state-checked by the API) and
-# /media (product pictures Meta downloads). The hash lives in the Nginx Proxy Manager data
+# verifies X-Hub-Signature-256), the Meta OAuth callbacks (state-checked by the API), /media
+# (product pictures Meta downloads) and the website chat widget: /widget.js and its public API,
+# called from customer sites without the gate cookie (site key, allowed domains and a signed
+# visitor token are checked by the API). The hash lives in the Nginx Proxy Manager data
 # volume, the gate token in the NPM proxy host config; nothing secret goes to Git.
 # The new credentials are written to ~/beta-access.txt (mode 600) for the owner.
 set -euo pipefail
@@ -52,6 +54,12 @@ location /media/ {
   proxy_set_header Authorization \"\";
 }
 location ~ ^/api(/v1)?/channels/oauth/[^/]+/callback\$ {
+  include conf.d/include/proxy.conf;
+}
+location = /widget.js {
+  include conf.d/include/proxy.conf;
+}
+location /api/v1/webchat/v1/sites/ {
   include conf.d/include/proxy.conf;
 }
 location /api/ {
