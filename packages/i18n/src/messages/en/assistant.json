@@ -601,5 +601,14 @@
     "run": "run",
     "guardrail": "guardrail",
     "runId": "run id"
+  },
+  "expand": "Expand to full page",
+  "collapse": "Collapse to the side panel",
+  "tabs": {
+    "chat": "Chat",
+    "schedules": "Report schedules",
+    "skills": "Skills",
+    "memory": "Memory",
+    "settings": "Settings"
   }
 }

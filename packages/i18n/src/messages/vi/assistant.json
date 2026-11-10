@@ -596,5 +596,14 @@
     "run": "run",
     "guardrail": "guardrail",
     "runId": "run id"
+  },
+  "expand": "Mở rộng toàn màn hình",
+  "collapse": "Thu gọn về bảng bên phải",
+  "tabs": {
+    "chat": "Trò chuyện",
+    "schedules": "Lịch báo cáo",
+    "skills": "Kỹ năng",
+    "memory": "Bộ nhớ",
+    "settings": "Cài đặt"
   }
 }

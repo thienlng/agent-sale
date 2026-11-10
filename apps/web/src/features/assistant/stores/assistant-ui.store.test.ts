@@ -10,6 +10,8 @@ beforeEach(() =>
     spotlight: null,
     draft: null,
     entityExtras: null,
+    pageSlot: null,
+    sheetAfterPage: false,
   }),
 );
 
@@ -42,5 +44,22 @@ describe('useAssistantUi', () => {
     expect(ui.takeEntityExtras()).toBeNull();
     ui.openWith('Chào');
     expect(useAssistantUi.getState().entityExtras).toBeNull();
+  });
+
+  it('closes the sheet on the full page and opens it after only when asked', () => {
+    const ui = useAssistantUi.getState();
+    const slot = document.createElement('div');
+    ui.setOpen(true);
+    ui.setPageSlot(slot);
+    expect(useAssistantUi.getState()).toMatchObject({ pageSlot: slot, open: false });
+    // A report notification opened the panel meanwhile: leaving the page keeps the sheet shut.
+    ui.setOpen(true);
+    ui.setPageSlot(null);
+    expect(useAssistantUi.getState()).toMatchObject({ pageSlot: null, open: false });
+
+    ui.setPageSlot(slot);
+    ui.toSheet();
+    ui.setPageSlot(null);
+    expect(useAssistantUi.getState()).toMatchObject({ open: true, sheetAfterPage: false });
   });
 });

@@ -6,12 +6,14 @@ import {
   CalendarClock,
   KeyRound,
   List,
+  Maximize2,
   Settings,
   Sparkles,
   SquarePen,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { type DragEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -43,6 +45,7 @@ import { AssistantComposer } from './assistant-composer';
 import { AssistantLearning } from './assistant-learning';
 import { AssistantMemory } from './assistant-memory';
 import { AssistantMessages } from './assistant-messages';
+import { AssistantPageLayout } from './assistant-page-layout';
 import { AssistantSchedules } from './assistant-schedules';
 import { AssistantSettings } from './assistant-settings';
 import { AssistantSkills } from './assistant-skills';
@@ -64,20 +67,36 @@ const VIEW_TOGGLES = [
   { view: 'memory', Icon: Brain, label: 'showMemory' },
   { view: 'settings', Icon: Settings, label: 'showSettings' },
 ] as const;
+/** The full page of the assistant; also where "expand" goes. */
+export const ASSISTANT_PAGE_PATH = '/app/assistant';
 
 /**
- * The assistant panel (lazy chunk): a non-modal right-side sheet, 420 px on desktop and full
- * width on phones, so the page stays usable while the owner chats; plus the spotlight overlay.
+ * The assistant panel (lazy chunk), in one of two places with the same conversation:
+ * - a non-modal right-side sheet, 420 px on desktop and full width on phones, so the page stays
+ *   usable while the owner chats;
+ * - the full page `/app/assistant`, rendered into the slot that page registers: conversations on
+ *   the left, the views as tabs, the chat at a reading width.
+ * Being one component, switching between them keeps the thread, the attachments and a turn
+ * running. Plus the spotlight overlay.
  */
 export function AssistantPanel() {
   const { t } = useTranslation('assistant');
   const router = useRouter();
   const { open, setOpen, setThread, setSpotlight } = useAssistantUi();
+  const pageSlot = useAssistantUi((s) => s.pageSlot);
+  const onPage = pageSlot !== null;
   const workspaceId = useWorkspaceId();
   const threadId = useAssistantThreadId(workspaceId);
   const [view, setView] = useState<PanelView>('chat');
   // A thread opened from elsewhere (a report notification) shows the conversation.
   useEffect(() => setView('chat'), [threadId]);
+  // The full page has no threads view (its list is always there): show the conversation.
+  useEffect(() => {
+    if (onPage) setView((v) => (v === 'threads' ? 'chat' : v));
+  }, [onPage]);
+  // What the owner was typing survives a switch between the sheet and the page (the composer
+  // remounts there).
+  const typed = useRef('');
   // An accepted schedule suggestion opens the schedule editor.
   const scheduleDraft = useAssistantUi((s) => s.scheduleDraft);
   useEffect(() => {
@@ -151,6 +170,10 @@ export function AssistantPanel() {
       if (action.type === 'navigate') {
         const to = safeAppPath(action.to);
         if (to) {
+          // From the full page the conversation follows into the side sheet, next to the page
+          // it opens, so a fill or a spotlight that comes next is seen with it.
+          const ui = useAssistantUi.getState();
+          if (ui.pageSlot && to.split(/[?#]/)[0] !== ASSISTANT_PAGE_PATH) ui.toSheet();
           navigated = true;
           navigatedTo = to;
           mark = formRegistrationMark();
@@ -284,6 +307,27 @@ export function AssistantPanel() {
     }
   }
 
+  function pickThread(id: string): void {
+    setThread(id);
+    setUnavailable(false);
+    setBusy(false);
+    setSecretsRemoved(false);
+    setView('chat');
+  }
+
+  /** The sheet becomes the full page; the conversation goes with it. */
+  function expand(): void {
+    if (view === 'threads') setView('chat');
+    void router.navigate({ to: ASSISTANT_PAGE_PATH });
+  }
+
+  /** The full page goes back to where the owner was, with the conversation in the sheet. */
+  function collapse(): void {
+    const ui = useAssistantUi.getState();
+    ui.toSheet();
+    void router.navigate({ href: ui.lastPage ?? '/app/overview' });
+  }
+
   function newThread(): void {
     setThread(null);
     setUnavailable(false);
@@ -292,9 +336,102 @@ export function AssistantPanel() {
     setView('chat');
   }
 
+  // Files dropped on the conversation are attached to the next message (📎 does the same).
+  const dropHandlers = {
+    onDragOver: (event: DragEvent<HTMLElement>) => {
+      if (view !== 'chat' || !event.dataTransfer.types.includes('Files')) return;
+      event.preventDefault();
+      setDragging(true);
+    },
+    onDragLeave: (event: DragEvent<HTMLElement>) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+    },
+    onDrop: (event: DragEvent<HTMLElement>) => {
+      if (view !== 'chat') return;
+      event.preventDefault();
+      setDragging(false);
+      if (!sending) attachments.addFiles(event.dataTransfer.files);
+    },
+  };
+
+  const dropOverlay = dragging ? (
+    <div
+      className="pointer-events-none absolute inset-2 z-10 grid place-items-center rounded-xl border-2 border-dashed border-primary bg-background/90 text-sm font-medium text-brand-text"
+      aria-hidden
+    >
+      {t('import.dropHere')}
+    </div>
+  ) : null;
+
+  const chat = (
+    <>
+      <AssistantLearning onOpenSkills={() => setView('skills')} />
+      <AssistantMessages
+        messages={threadId ? (messages.data ?? NO_MESSAGES) : NO_MESSAGES}
+        proposals={threadId ? (proposals.data ?? NO_PROPOSALS) : NO_PROPOSALS}
+        loading={Boolean(threadId) && messages.isPending}
+        pendingTurn={pendingTurn}
+        unavailable={unavailable}
+      />
+      <AssistantSuggestions />
+      {busy ? (
+        <p role="status" className="border-t bg-muted/50 px-4 py-2 text-xs text-muted-foreground">
+          <span data-measure className="block">
+            {t('busy')}
+          </span>
+        </p>
+      ) : null}
+      {secretsRemoved ? (
+        <p role="status" className="border-t bg-muted/50 px-4 py-2 text-xs text-muted-foreground">
+          <span data-measure className="flex items-start gap-2">
+            <KeyRound className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+            {t('secretsRemoved')}
+          </span>
+        </p>
+      ) : null}
+      <AssistantComposer
+        sending={sending}
+        onSend={send}
+        draft={draft}
+        attachments={attachments}
+        typed={typed}
+      />
+    </>
+  );
+
+  /** The current view's body; the threads view exists in the sheet only. */
+  function body(): ReactNode {
+    if (view === 'threads' && !onPage)
+      return <AssistantThreadList currentId={threadId} onPick={pickThread} />;
+    if (view === 'memory') return <AssistantMemory />;
+    if (view === 'skills') return <AssistantSkills />;
+    if (view === 'settings') return <AssistantSettings onOpenMemory={() => setView('memory')} />;
+    if (view === 'schedules') return <AssistantSchedules />;
+    return chat;
+  }
+
+  const page = pageSlot
+    ? createPortal(
+        <AssistantPageLayout
+          threadId={threadId}
+          view={view === 'threads' ? 'chat' : view}
+          onView={setView}
+          onPickThread={pickThread}
+          onNewThread={newThread}
+          onCollapse={collapse}
+          dropHandlers={dropHandlers}
+        >
+          {dropOverlay}
+          {body()}
+        </AssistantPageLayout>,
+        pageSlot,
+      )
+    : null;
+
   return (
     <>
-      <Sheet open={open} onOpenChange={setOpen} modal={false}>
+      {page}
+      <Sheet open={open && !onPage} onOpenChange={setOpen} modal={false}>
         <SheetContent
           side="right"
           showCloseButton={false}
@@ -303,32 +440,10 @@ export function AssistantPanel() {
           // No `relative` here: tailwind-merge would drop the sheet's `fixed`, and the panel would
           // render in the page flow. `fixed` is already the containing block of the drop overlay.
           className="gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:w-[420px] data-[side=right]:sm:max-w-[420px]"
-          // Files dropped on the panel are attached to the next message (📎 does the same).
-          onDragOver={(event) => {
-            if (view !== 'chat' || !event.dataTransfer.types.includes('Files')) return;
-            event.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget as Node | null))
-              setDragging(false);
-          }}
-          onDrop={(event) => {
-            if (view !== 'chat') return;
-            event.preventDefault();
-            setDragging(false);
-            if (!sending) attachments.addFiles(event.dataTransfer.files);
-          }}
+          {...dropHandlers}
         >
-          {dragging ? (
-            <div
-              className="pointer-events-none absolute inset-2 z-10 grid place-items-center rounded-xl border-2 border-dashed border-primary bg-background/90 text-sm font-medium text-brand-text"
-              aria-hidden
-            >
-              {t('import.dropHere')}
-            </div>
-          ) : null}
-          <header className="flex items-center gap-1 border-b py-2 pr-2 pl-4">
+          {dropOverlay}
+          <header className="flex items-center gap-0.5 border-b py-2 pr-2 pl-4">
             <div className="min-w-0 flex-1">
               <SheetTitle className="truncate font-semibold">{t('title')}</SheetTitle>
               <SheetDescription className="truncate text-xs">{t('subtitle')}</SheetDescription>
@@ -337,7 +452,7 @@ export function AssistantPanel() {
               <Button
                 key={target}
                 variant="ghost"
-                size="icon"
+                size="icon-sm"
                 aria-label={view === target ? t('backToChat') : t(label)}
                 aria-pressed={view === target}
                 onClick={() => setView((v) => (v === target ? 'chat' : target))}
@@ -345,73 +460,29 @@ export function AssistantPanel() {
                 {view === target ? <ArrowLeft /> : <Icon />}
               </Button>
             ))}
-            <Button variant="ghost" size="icon" aria-label={t('newThread')} onClick={newThread}>
+            <Button variant="ghost" size="icon-sm" aria-label={t('newThread')} onClick={newThread}>
               <SquarePen />
             </Button>
             <Button
               variant="ghost"
-              size="icon"
+              size="icon-sm"
+              className="max-sm:hidden"
+              aria-label={t('expand')}
+              title={t('expand')}
+              onClick={expand}
+            >
+              <Maximize2 />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
               aria-label={t('close')}
               onClick={() => setOpen(false)}
             >
               <X />
             </Button>
           </header>
-          {view === 'threads' ? (
-            <AssistantThreadList
-              currentId={threadId}
-              onPick={(id) => {
-                setThread(id);
-                setUnavailable(false);
-                setBusy(false);
-                setSecretsRemoved(false);
-                setView('chat');
-              }}
-            />
-          ) : view === 'memory' ? (
-            <AssistantMemory />
-          ) : view === 'skills' ? (
-            <AssistantSkills />
-          ) : view === 'settings' ? (
-            <AssistantSettings onOpenMemory={() => setView('memory')} />
-          ) : view === 'schedules' ? (
-            <AssistantSchedules />
-          ) : (
-            <>
-              <AssistantLearning onOpenSkills={() => setView('skills')} />
-              <AssistantMessages
-                messages={threadId ? (messages.data ?? NO_MESSAGES) : NO_MESSAGES}
-                proposals={threadId ? (proposals.data ?? NO_PROPOSALS) : NO_PROPOSALS}
-                loading={Boolean(threadId) && messages.isPending}
-                pendingTurn={pendingTurn}
-                unavailable={unavailable}
-              />
-              <AssistantSuggestions />
-              {busy ? (
-                <p
-                  role="status"
-                  className="border-t bg-muted/50 px-4 py-2 text-xs text-muted-foreground"
-                >
-                  {t('busy')}
-                </p>
-              ) : null}
-              {secretsRemoved ? (
-                <p
-                  role="status"
-                  className="flex items-start gap-2 border-t bg-muted/50 px-4 py-2 text-xs text-muted-foreground"
-                >
-                  <KeyRound className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                  {t('secretsRemoved')}
-                </p>
-              ) : null}
-              <AssistantComposer
-                sending={sending}
-                onSend={send}
-                draft={draft}
-                attachments={attachments}
-              />
-            </>
-          )}
+          {onPage ? null : body()}
         </SheetContent>
       </Sheet>
       <AssistantSpotlight />

@@ -7,7 +7,8 @@
     "notifications": "Notifications",
     "notificationsUnread": "Notifications, {{count}} unread",
     "reportThreadError": "Could not open the report in the assistant. Try again.",
-    "reportScheduleDeleted": "This schedule was deleted"
+    "reportScheduleDeleted": "This schedule was deleted",
+    "assistantOwnersOnly": "The Thỏ Rapiz assistant is for account owners only."
   },
   "nav": {
     "bots": "Bot training",
@@ -55,7 +56,8 @@
     "groupBusinesses": "My businesses",
     "accountOverview": "All businesses",
     "newBusiness": "New business",
-    "services": "Services"
+    "services": "Services",
+    "assistant": "Assistant"
   },
   "auth": {
     "login": "Log in",
