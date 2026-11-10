@@ -1,0 +1,54 @@
+<section class="fe-demo" id="chot-don" aria-labelledby="s{number}">
+  <div class="container">
+    <header class="fe-demo-intro"><h2 id="s{number}">Thử chốt một đơn.</h2>
+      <p>Bạn đóng vai khách mua đồ ngủ lụa. Đổi size hoặc số lượng để xem bot tính lại, rồi bấm Đặt hàng.</p></header>
+    <div class="fe-desk sl-desk" data-sale>
+      <div class="fe-appbar">
+        <span class="fe-appname"><img src="{root}images/rapiz-symbol-faceted.svg" width="24" height="21" alt="" loading="lazy"> Lụa Hiên · Messenger</span>
+        <span class="fe-example">Hội thoại minh họa</span>
+      </div>
+      <div class="fe-columns">
+        <div class="fe-work">
+          <fieldset class="sl-pick" data-sl-pick disabled>
+            <legend>Bạn là khách, chọn hàng muốn mua</legend>
+            <div class="sl-sizes" role="radiogroup" aria-label="Size">
+              <label><input type="radio" name="sl-size" value="S"><span>S</span><small>còn 5</small></label>
+              <label><input type="radio" name="sl-size" value="M" checked><span>M</span><small>còn 4</small></label>
+              <label><input type="radio" name="sl-size" value="L"><span>L</span><small>còn 2</small></label>
+              <label><input type="radio" name="sl-size" value="XL"><span>XL</span><small>hết hàng</small></label>
+            </div>
+            <div class="sl-qty"><span id="sl-qty-label">Số bộ</span>
+              <button type="button" data-sl-step="-1" aria-label="Bớt một bộ">−</button>
+              <output data-sl-qty aria-labelledby="sl-qty-label">1</output>
+              <button type="button" data-sl-step="1" aria-label="Thêm một bộ">+</button>
+            </div>
+          </fieldset>
+          <div class="fe-thread sl-thread" data-sl-thread>
+            <article class="fe-msg"><span>Mai Linh</span><p>lay 1 bo do ngu lua size M nha shop. gui Mai Linh 0912345678, 25 Nguyen Van Dau Binh Thanh</p></article>
+            <article class="fe-msg is-bot"><span>Bot</span><p>Dạ em tóm tắt đơn của mình ạ:
+• Bộ đồ ngủ lụa (M) ×1 — 880.000đ
+Phí ship: 30.000đ
+Tổng: 910.000đ
+Người nhận: Mai Linh · 0912 345 678
+Địa chỉ: 25 Nguyen Van Dau Binh Thanh</p></article>
+          </div>
+        </div>
+        <aside class="fe-result sl-orders" aria-label="Danh sách đơn hàng">
+          <div class="fe-status" data-sl-status>Chờ khách xác nhận</div>
+          <h3>Đơn hàng</h3>
+          <p class="sl-empty" data-sl-empty>Chưa có đơn nào. Đơn chỉ được tạo khi khách bấm Đặt hàng.</p>
+          <article class="sl-order" data-sl-order hidden>
+            <header><strong data-sl-code>DH000042</strong><span class="sl-chips"><span class="sl-chip">Bot</span><span class="sl-badge" data-sl-badge>Chờ duyệt</span></span></header>
+            <p><span>Khách hàng</span><b>Mai Linh</b></p>
+            <p><span>Sản phẩm</span><b data-sl-line></b></p>
+            <p><span>Tổng đơn</span><b data-sl-total></b></p>
+            <button type="button" class="fe-btn" data-sl-approve>Duyệt đơn</button>
+          </article>
+          <p class="sl-note">Giá, tồn kho và tổng tiền do hệ thống tính từ danh mục. Bot không tự nhẩm.</p>
+          <button type="button" class="fe-reset" data-sl-reset hidden>Làm lại demo</button>
+        </aside>
+      </div>
+      <p class="fe-sr" role="status" data-sl-announce></p>
+    </div>
+  </div>
+</section>

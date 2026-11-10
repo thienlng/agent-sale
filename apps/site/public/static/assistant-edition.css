@@ -1,0 +1,40 @@
+/* Trợ lý & thống kê: a real answer on the cover; the demo shows answers, a chart and proposal cards. */
+.as-scene{padding-top:22px}
+.as-panel{width:min(100%,430px);padding:0 0 18px;border:1px solid #c9b9a0;border-radius:14px;background:#fffdf9;box-shadow:0 26px 40px -30px #5a3a1c99;transform:rotate(-1.3deg)}
+.as-panel header{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid #eadfcf}
+.as-panel header img{width:26px}.as-panel header strong,.as-panel header small{display:block;line-height:1.25}.as-panel header strong{font-size:14px}.as-panel header small{font-size:11px;color:#7b6f60}
+.as-q{justify-self:end;margin:0;max-width:85%;padding:9px 13px;border-radius:14px 14px 4px 14px;background:#ff7a45;color:#1f1f1f;font-size:14px;font-weight:600;line-height:1.45}
+.as-panel .as-q{margin:14px 18px 0 auto;width:max-content}
+.as-panel .as-a{margin:12px 18px 0;padding:11px 14px;border-radius:14px 14px 14px 4px;background:#f1ece2;font-size:14px;line-height:1.55}
+.as-panel .as-a b{font-weight:750}
+.as-stub{width:min(86%,370px);margin-top:-4px;padding:12px 18px;background:#24251f;color:#fff6e6;border-radius:0 0 10px 10px;transform:rotate(1deg)}
+.as-stub small{display:block;text-transform:uppercase;letter-spacing:.08em;font-size:10px;color:#f9b384}.as-stub strong{font-size:15px}
+
+.as-asks{display:grid;gap:8px;margin-bottom:20px}.as-asks[hidden]{display:none}
+.as-asks button{min-height:44px;padding:9px 13px;border:1px solid #d6d0c2;border-radius:10px;background:#fff;text-align:left;font:600 14px/1.4 Inter,sans-serif;color:#3d372f;cursor:pointer}
+.as-asks button[aria-pressed=true]{border-color:#d4602b;background:#fff5ee;color:#7a2f0b}
+.as-thread{display:grid;gap:12px;padding-top:16px;border-top:1px solid #d9d6cd}
+.as-thread .as-a{display:grid;gap:8px;max-width:94%;padding:12px 15px;border-radius:14px 14px 14px 4px;background:#efebe3;font-size:14.5px;line-height:1.55}
+.as-thread .as-a p{margin:0}
+.as-chart{margin:4px 0 0;padding:12px;border:1px solid #d9d3c5;border-radius:10px;background:#fff;display:grid;grid-template-columns:1fr auto;gap:8px 12px;align-items:center}
+.as-chart figcaption{font-size:13px;font-weight:700}
+.as-link{border:0;background:none;color:#a54418;font:600 13px/1.2 Inter,sans-serif;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:6px 0}
+.as-bars{grid-column:1/-1;display:flex;align-items:flex-end;gap:8px;height:120px;padding-bottom:20px}
+.as-bars span{position:relative;flex:1;height:calc(var(--n) / 4 * 100px);min-height:2px;background:#ff7a45;border-radius:3px 3px 0 0}
+.as-bars span::after{content:attr(data-day);position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:4px;font-size:10px;color:#6d675b;white-space:nowrap}
+.as-bars span::before{content:attr(data-n);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:11px;font-weight:700;color:#4c463c}
+.as-bars[hidden],.as-table[hidden]{display:none}
+.as-table{grid-column:1/-1;border-collapse:collapse;font-size:13px}.as-table th,.as-table td{padding:5px 8px;border-bottom:1px solid #eee7da;text-align:left}
+.as-card{padding:12px 14px;border:1px solid #f0b48f;border-radius:10px;background:#fff8f2}
+.as-card small{display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.08em;font-size:11px;font-weight:700;color:#a54418}
+.as-card dl{margin:0;display:grid;gap:3px}.as-card dl div{display:grid;grid-template-columns:90px 1fr;gap:8px;font-size:13px}.as-card dt{color:#7a7466}.as-card dd{margin:0;font-weight:600}
+.as-card-actions{display:flex;gap:10px;margin-top:10px}.as-card-actions .fe-reset{color:#3d3b34;border-color:#a9a596}
+.as-card-state{margin:10px 0 0;font-size:13px;font-weight:700;color:#1d5a2a}
+.as-follow{justify-self:start;min-height:40px;padding:8px 13px;border:1px dashed #d4602b;border-radius:999px;background:#fff;color:#7a2f0b;font:600 13px/1.3 Inter,sans-serif;cursor:pointer}
+.as-decide h4{margin:18px 0 8px;font-size:13px;color:#ffab83}
+.as-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.as-list li{padding:9px 12px;border:1px solid #5b5a52;border-radius:8px;background:#33332e;font-size:13.5px;line-height:1.45}
+.as-list .as-empty{border-style:dashed;background:none;color:#b9b7ae}
+.as-foot{margin:20px 0 0;color:#b9b7ae;font-size:13px;line-height:1.5}
+@media(max-width:680px){.as-panel,.as-stub{transform:none}.as-bars{gap:5px}}
+.as-card-state:focus-visible{outline:3px solid #f08747;outline-offset:3px}

@@ -1,0 +1,35 @@
+<section class="fe-demo" id="theo-khach" aria-labelledby="s{number}">
+  <div class="container">
+    <header class="fe-demo-intro"><h2 id="s{number}">Thử theo một khách đến cuối.</h2>
+      <p>Bot đã ghi nhận yêu cầu và chuyển trạng thái. Phần còn lại là việc của nhân viên. Chọn ngành rồi bấm bước tiếp theo.</p></header>
+    <div class="fe-desk kh-desk" data-crm>
+      <div class="fe-appbar">
+        <span class="fe-appname"><img src="{root}images/rapiz-symbol-faceted.svg" width="24" height="21" alt="" loading="lazy"> Khách hàng</span>
+        <div class="kh-tabs" role="group" aria-label="Chọn ngành" data-kh-tabs hidden>
+          <button type="button" aria-pressed="true" data-kh-tab="spa">Spa</button>
+          <button type="button" aria-pressed="false" data-kh-tab="edu">Giáo dục</button>
+        </div>
+      </div>
+      <div class="fe-columns">
+        <div class="fe-work">
+          <p class="kh-source" data-kh-source>Hội thoại trên Website · minh họa</p>
+          <div class="fe-thread" data-kh-thread>
+            <article class="fe-msg"><span>Khách website 2391</span><p>goi dau duong sinh 60p thu 7 nay 10h, 1 nguoi. Ngoc Tram 0938111222</p></article>
+            <p class="fe-tool">Gọi tool <i>record_request</i></p>
+            <article class="fe-msg is-bot"><span>Bot</span><p>Dạ em đã ghi nhận yêu cầu đặt lịch Gội đầu dưỡng sinh 60 phút lúc 10:00, Thứ Bảy 14/11/2026, cho 1 người. Nhân viên sẽ gọi xác nhận lịch cho chị ạ.</p></article>
+          </div>
+          <div class="kh-note"><small data-kh-note-title>Bot AI · Đặt lịch (bot ghi nhận)</small><ul data-kh-note><li>Dịch vụ: Gội đầu dưỡng sinh 60 phút</li><li>Ngày: Thứ Bảy 14/11/2026</li><li>Giờ: 10:00</li><li>Số người: 1</li></ul></div>
+        </div>
+        <aside class="fe-result kh-profile" aria-label="Hồ sơ khách">
+          <div class="fe-status" data-kh-status>Bot vừa chuyển trạng thái</div>
+          <h3 data-kh-name>Ngọc Trâm</h3>
+          <p class="kh-meta" data-kh-meta>Website · 0938 111 222 · Sales: Lan</p>
+          <ol class="kh-pipe" data-kh-pipe aria-label="Trạng thái khách"></ol>
+          <ul class="kh-log" data-kh-log aria-label="Lịch sử"><li>Bot AI chuyển trạng thái sang <b>Yêu cầu đặt lịch</b></li></ul>
+          <div class="kh-actions"><button type="button" class="fe-btn" data-kh-next disabled>Xác nhận lịch</button><button type="button" class="fe-reset" data-kh-reset hidden>Làm lại</button></div>
+        </aside>
+      </div>
+      <p class="fe-sr" role="status" data-kh-announce></p>
+    </div>
+  </div>
+</section>

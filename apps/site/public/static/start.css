@@ -1,0 +1,86 @@
+/* Bắt đầu, bảng giá rút gọn và FAQ trên trang chủ. */
+
+/* Khối 6: #start và #pricing chung một nền giấy ngả ấm để đọc thành một khối "bắt đầu + chi phí". */
+.campaign-home .start-band,.campaign-home #pricing.start-pricing { background:var(--soft); }
+.campaign-home .start-band { padding-block:clamp(56px,6vw,96px) 0; border-top:1px solid var(--line); }
+.start-head { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,.7fr); gap:4vw; align-items:end; }
+.start-head h2 { margin-top:16px; max-width:19ch; font-size:clamp(35px,3.5vw,55px); font-weight:700; line-height:1.06; letter-spacing:-.035em; text-wrap:balance; }
+.start-head > p { max-width:38ch; font-size:16.5px; line-height:1.65; color:#55514b; }
+
+/* Dải bước ngang: số trong vòng tròn nằm trên một đường ray, bước cuối tô cam. */
+.start-steps { counter-reset:step; list-style:none; margin:clamp(40px,4.5vw,64px) 0 0; padding:0; display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:0; }
+.start-steps li { position:relative; counter-increment:step; display:flex; flex-direction:column; gap:8px; padding-right:clamp(16px,2vw,32px); }
+.start-steps li::before { content:counter(step,decimal-leading-zero); position:relative; z-index:1; width:38px; height:38px; margin-bottom:14px; display:grid; place-items:center; border:1px solid var(--ink); border-radius:50%; background:var(--paper); font:italic 750 14px/1 var(--display); color:var(--rust); font-variant-numeric:tabular-nums; }
+.start-steps li::after { content:""; position:absolute; top:19px; left:46px; right:8px; height:1px; background:#b9b2a6; }
+.start-steps li:last-child::after { display:none; }
+.start-steps li:last-child::before { background:var(--orange); border-color:var(--orange); color:var(--ink); }
+.start-steps strong { font:730 clamp(17px,1.35vw,20px)/1.25 var(--display); letter-spacing:-.015em; text-wrap:balance; }
+.start-steps span { font-size:14.5px; line-height:1.55; color:var(--muted); }
+
+/* Chân dải bước: CTA bên trái, hai link phụ gọn bên phải. */
+.start-foot { margin-top:clamp(36px,4vw,56px); padding-block:22px; border-block:1px solid #cfc9be; display:flex; align-items:center; justify-content:space-between; gap:20px 40px; flex-wrap:wrap; }
+.start-foot .btn { gap:14px; }
+.campaign-home .start-foot .connect-links { margin:0; display:flex; gap:clamp(20px,3vw,48px); }
+.start-foot .connect-links a { border:0; padding:0; gap:1px 14px; }
+.start-foot .connect-links a strong { font:700 16px/1.3 var(--display); }
+.start-foot .connect-links a span { font-size:13px; color:var(--muted); }
+.start-foot .connect-links a b { font-size:18px; }
+.start-foot .connect-links a:hover strong { color:var(--rust); }
+
+/* Bảng giá rút gọn: tiêu đề phụ của khối 6, thẻ chặt hơn, tối đa 3 dòng quyền lợi, ẩn chú thích dài. */
+.campaign-home #pricing.start-pricing { padding-block:clamp(40px,4.5vw,64px) clamp(56px,6vw,96px); }
+#pricing .section-intro { grid-template-columns:minmax(0,1fr) auto; align-items:baseline; gap:12px 4vw; }
+.campaign-home #pricing .section-intro h2 { margin-top:0; font-size:clamp(26px,2.2vw,34px); letter-spacing:-.03em; }
+#pricing .section-intro > p { max-width:52ch; font-size:14.5px; line-height:1.6; }
+#pricing .plans-top { margin-top:18px; }
+#pricing .plans { margin-top:20px; }
+#pricing .plan { padding:22px 20px 22px; background:var(--paper); }
+#pricing .plan.featured { padding:22px 20px 22px; }
+#pricing .plan h3 { font-size:21px; }
+#pricing .plan .for { font-size:13.5px; min-height:3em; }
+#pricing .price { margin-top:14px; }
+#pricing .price b { font-size:clamp(26px,2vw,34px); }
+#pricing .plan .btn { margin-top:16px; min-height:42px; padding-block:10px; font-size:14px; }
+#pricing .plan .ticks { margin-top:18px; font-size:13.5px; gap:7px; }
+#pricing .plan .ticks li:nth-child(n+4) { display:none; }
+#pricing .plans-foot { display:none; }
+#pricing .more-link { margin-top:20px; display:inline-flex; gap:10px; font-weight:650; }
+
+/* FAQ: hai cột, tiêu đề dính khi cuộn, khép lại bằng một dòng đặt lịch demo. */
+.faq-side { position:sticky; top:calc(var(--head-h) + 28px); align-self:start; }
+.campaign-home .faq .faq-side h2 { margin-top:0; font-size:clamp(32px,3vw,46px); }
+.faq-side p { margin-top:14px; max-width:28ch; color:var(--muted); line-height:1.6; }
+.faq details p a.faq-link { display:inline-block; margin-left:4px; color:var(--rust); font-weight:650; text-decoration:underline; text-underline-offset:3px; }
+.faq-more { margin-top:28px; padding:22px 24px; border-radius:10px; background:var(--soft); display:flex; align-items:center; justify-content:space-between; gap:16px 28px; }
+.faq-more strong { display:block; font:730 19px/1.3 var(--display); }
+.faq-more span { display:block; margin-top:4px; color:var(--muted); font-size:14.5px; line-height:1.55; }
+.faq-more .btn { flex:none; gap:14px; }
+
+@media (max-width:1100px) {
+  .start-steps { grid-template-columns:repeat(3,minmax(0,1fr)); row-gap:34px; }
+  .start-steps li:nth-child(3)::after { display:none; }
+}
+@media (max-width:760px) {
+  .start-head { grid-template-columns:1fr; gap:16px; }
+  .start-head h2 { font-size:34px; }
+  .start-head > p { font-size:15.5px; }
+  /* Dải bước thành danh sách dọc, đường ray chạy xuống giữa các số. */
+  .start-steps { grid-template-columns:1fr; row-gap:0; margin-top:30px; }
+  .start-steps li { display:grid; grid-template-columns:38px 1fr; column-gap:16px; row-gap:4px; padding:0 0 24px; }
+  .start-steps li::before { grid-row:span 2; margin:0; }
+  .start-steps li::after,.start-steps li:nth-child(3)::after { display:block; top:42px; bottom:4px; left:19px; right:auto; width:1px; height:auto; }
+  .start-steps li:last-child { padding-bottom:0; }
+  .start-steps li:last-child::after { display:none; }
+  .start-steps strong { padding-top:8px; font-size:18px; }
+  .start-foot { flex-direction:column; align-items:stretch; margin-top:30px; }
+  .start-foot .btn { width:100%; }
+  .campaign-home .start-foot .connect-links { flex-direction:column; gap:14px; }
+  /* Hiển thị gói vào cửa trên điện thoại. Link bên dưới mở toàn bộ bảng giá. */
+  #pricing .section-intro { grid-template-columns:1fr; gap:8px; }
+  .campaign-home #pricing .plans-top,.campaign-home #pricing .plan:not(:first-child) { display:none; }
+  .campaign-home #pricing .plans { display:block; margin:20px 0 0; padding:0; }
+  .campaign-home #pricing .plan { border-top:2px solid var(--ink); }
+  .faq-side { position:static; }
+  .faq-more { flex-direction:column; align-items:stretch; }
+  .faq-more .btn { width:100%; }
+}

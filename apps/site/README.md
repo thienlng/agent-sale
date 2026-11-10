@@ -18,6 +18,7 @@ pnpm --filter @agent-sales/site test:e2e   # Playwright against `astro preview` 
 | `/nganh/*/` | Industry pages: retail, villa and homestay, spa and salon, education, software |
 | `/tinh-nang/*/` | Feature pages: sales bot, Facebook comments, inbox, AI training, assistant, customers and analytics |
 | `/tich-hop/`, `/bao-mat/`, `/bang-gia/`, `/dat-lich-demo/` | Integrations, security, pricing, demo request |
+| `/ve-rapiz/` | About Rapiz |
 
 Static files live in `public/static/` (CSS and JS), `public/images/` and `public/fonts/`. The
 production routes for these paths are in `infra/deploy/Caddyfile` and, for the dev tunnel, in
@@ -26,14 +27,14 @@ production routes for these paths are in `infra/deploy/Caddyfile` and, for the d
 ## Editing content
 
 Sub-pages are generated. Edit the copy and data in `tools/site_content.py` (layout in
-`tools/build_site.py`), then run:
+`tools/build_site.py`, larger HTML blocks such as the feature demos in `tools/templates/`), then run:
 
 ```bash
 python3 apps/site/tools/build_site.py
 ```
 
 It rewrites every `public/<slug>/index.html` and the marked blocks of `public/index.html`
-(`<!--#site-head-->`, `<!--#site-foot-->`, `<!--#plans-->`, `<!--#plan-cards-->`). Do not edit
+(`<!--#site-head-->`, `<!--#site-foot-->`, `<!--#plans-->`, `<!--#plan-cards-->`, `<!--#agent-loop-->`). Do not edit
 generated pages by hand; the next build overwrites them. `public/` is excluded from Prettier for
 the same reason.
 
@@ -50,5 +51,5 @@ the same reason.
 
 - Fonts: Inter and Inter Tight, self-hosted in `public/fonts/` (OFL-1.1, notices in
   `THIRD_PARTY_NOTICES.md`). The pages make no third-party requests; `e2e/landing.spec.ts` checks it.
-- Logos come from the brand repository unchanged (`public/images/rapiz-*.svg`). Product screenshots
+- Logos are the faceted brand release files, unchanged (`public/images/rapiz-*-faceted*.svg`). Product screenshots
   show demo data; the retail photo is CC0 (see the notices).
