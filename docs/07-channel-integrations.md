@@ -86,7 +86,7 @@ interface ChannelAdapter {
 
 Decision record: [ADR-011](adr/ADR-011-website-widget-shadow-dom-and-polling.md). Design: `docs/superpowers/specs/2026-10-27-website-chat-channel-design.md`. A website is a `channel_connections` row (`provider: 'website'`, bound to a bot) and reuses the inbox pipeline like a Facebook Page.
 
-- **Embed snippet:** `<script src="https://widget.rapiz.vn/v1/widget.js?key=wk_XXXXXXXXXXXXXXXXXXXXXX" async></script>` (host decided at deploy time). `wk_` + 22 base62 characters is the public site key, not a secret.
+- **Embed snippet:** `<script src="https://rapiz.io/widget.js?key=wk_XXXXXXXXXXXXXXXXXXXXXX" async></script>` (host decided at deploy time). `wk_` + 22 base62 characters is the public site key, not a secret.
 - **Isolation:** a single script renders into a Shadow DOM root (no iframe). Plain TypeScript, ES2017 output, at most 20 KB gzip, enforced in CI.
 - **Transport:** polling on the `api` entry: 3 s while open and awaiting a reply, 4 s open, 20 s closed, paused while the page is hidden, backoff to 60 s on errors; no polling before the first message. SSE on the `realtime` entry comes later.
 - **Visitor identity:** an HMAC-SHA256 signed token (`v1.<visitorId>.<signature>`) created on the first message, kept in `localStorage`, sent as `Authorization: Visitor <token>`. No raw IP or user agent is stored.

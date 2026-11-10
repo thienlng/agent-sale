@@ -27,8 +27,8 @@ import { seedRapizSiteBot } from './rapiz-site-bot/seed.js';
  * DATABASE_SYSTEM_URL.
  */
 const USAGE =
-  'usage: rapiz-site-bot seed --owner <email> [--domains rapiz.vn,www.rapiz.vn,localhost]';
-const DEFAULT_DOMAINS = 'rapiz.vn,www.rapiz.vn';
+  'usage: rapiz-site-bot seed --owner <email> [--domains rapiz.io,www.rapiz.io,localhost]';
+const DEFAULT_DOMAINS = 'rapiz.io,www.rapiz.io';
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,

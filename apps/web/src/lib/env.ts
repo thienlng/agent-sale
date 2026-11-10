@@ -1,6 +1,6 @@
 /** Dev server of `apps/widget`; production default is the public widget host (docs/07 §5). */
 const DEV_WIDGET_URL = 'http://localhost:5174/widget.js';
-const PROD_WIDGET_URL = 'https://widget.rapiz.vn/v1/widget.js';
+const PROD_WIDGET_URL = 'https://rapiz.io/widget.js';
 
 /**
  * URL of the chat widget bundle used in the embed snippet shown to staff. A configured path
@@ -15,7 +15,7 @@ export function widgetUrl(): string {
 
 /** Dev server of `apps/site`; production default is the public marketing site (docs/04). */
 const DEV_SITE_URL = 'http://localhost:4321/';
-const PROD_SITE_URL = 'https://rapiz.vn/';
+const PROD_SITE_URL = 'https://rapiz.io/';
 
 /** URL of the marketing site (`apps/site`), opened from the account menu and the auth pages. */
 export function siteUrl(): string {

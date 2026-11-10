@@ -534,7 +534,7 @@ describe('sales-agent prompt and handoff reply', () => {
 
 describe('Website page context', () => {
   const pageContext = {
-    url: 'https://rapiz.vn/bang-gia/?email=khach@example.com#smart',
+    url: 'https://rapiz.io/bang-gia/?email=khach@example.com#smart',
     title: 'Bảng giá Rapiz',
     sections: [
       { name: 'pricing-smart', text: 'Gói Smart 400.000đ/tháng, 3 tài khoản' },
@@ -557,7 +557,7 @@ describe('Website page context', () => {
     expect(last).toContain('<visitor_page>');
     expect(last).toContain('Gói Smart 400.000đ/tháng, 3 tài khoản');
     // The query and fragment can carry the visitor's own data: only origin and path remain.
-    expect(last).toContain('"url":"https://rapiz.vn/bang-gia/"');
+    expect(last).toContain('"url":"https://rapiz.io/bang-gia/"');
     expect(last).not.toContain('khach@example.com');
     // Page text cannot close the block: it stays escaped data inside it.
     expect(last.match(/<\/visitor_page>/g)).toHaveLength(1);

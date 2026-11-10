@@ -40,7 +40,7 @@ export function requestOrigin(origin: string | undefined): string | null {
 
 /**
  * The page origin of a widget call. Browsers omit `Origin` on same-origin GETs (a site serving
- * `/widget.js` itself, like rapiz.vn behind the edge), so the `Referer` origin stands in then.
+ * `/widget.js` itself, like rapiz.io behind the edge), so the `Referer` origin stands in then.
  * Like `Origin`, it only gates browsers: any other client can send either header.
  */
 export function callerOrigin(origin: string | undefined, referer: string | undefined) {

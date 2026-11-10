@@ -63,7 +63,7 @@ the pages make no extra request.
   `PUBLIC_RAPIZ_WIDGET_API` (the widget's `data-api`, default: the script's origin) point at another
   widget host, for example `http://localhost:5174/widget.js` and `http://localhost:3000`.
 - **The key.** `pnpm --filter @agent-sales/backend rapiz-site-bot seed --owner <email> --domains
-  rapiz.vn,www.rapiz.vn` creates or updates the Rapiz business, its bot, its knowledge and the
+  rapiz.io,www.rapiz.io` creates or updates the Rapiz business, its bot, its knowledge and the
   website connection, and prints the key (`wk_…`). The bot's content is
   `apps/backend/src/cli/rapiz-site-bot/content.ts`; it may only state what these pages and
   `FEATURES.vi.md` say, so update it with the copy (prices included).
