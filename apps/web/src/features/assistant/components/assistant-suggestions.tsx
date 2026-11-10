@@ -122,7 +122,7 @@ export function AssistantSuggestions() {
   if (!items.length) return null;
   return (
     <section aria-label={t('suggestions.label')} className="max-h-40 overflow-y-auto px-4 pt-2">
-      <ul className="flex flex-col gap-2">
+      <ul data-measure className="flex flex-col gap-2">
         {items.map((s) => (
           <SuggestionCard key={s.id} suggestion={s} />
         ))}

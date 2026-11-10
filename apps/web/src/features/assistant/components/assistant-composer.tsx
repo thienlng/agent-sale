@@ -23,14 +23,23 @@ export function AssistantComposer({
   onSend,
   draft = null,
   attachments,
+  typed,
 }: {
   sending: boolean;
   onSend: (text: string) => Promise<boolean>;
   draft?: { id: string; text: string } | null;
   attachments?: AssistantAttachments;
+  /** Where the text is kept while this box remounts elsewhere (the sheet ↔ the full page). */
+  typed?: { current: string };
 }) {
   const { t } = useTranslation('assistant');
-  const [text, setText] = useState(draft?.text ?? '');
+  const [text, setTextState] = useState(draft?.text ?? typed?.current ?? '');
+  const setText = (next: string | ((current: string) => string)) =>
+    setTextState((current) => {
+      const value = typeof next === 'function' ? next(current) : next;
+      if (typed) typed.current = value;
+      return value;
+    });
   const [draftId, setDraftId] = useState(draft?.id);
   if (draft && draft.id !== draftId) {
     setDraftId(draft.id);
@@ -65,6 +74,7 @@ export function AssistantComposer({
     <div className="flex flex-col">
       {attachments ? <AttachmentTray attachments={attachments} /> : null}
       <form
+        data-measure
         className="flex items-end gap-2 border-t p-3"
         onSubmit={(event: FormEvent) => {
           event.preventDefault();

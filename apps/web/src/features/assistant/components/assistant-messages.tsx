@@ -170,7 +170,7 @@ export function AssistantMessages({
   return (
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
       {messages.length === 0 && proposals.length === 0 && !pendingTurn ? (
-        <div className="flex flex-col items-center px-6 py-12 text-center">
+        <div data-measure className="flex flex-col items-center px-6 py-12 text-center">
           <span className="grid size-14 place-items-center rounded-full bg-sidebar">
             <BrandMark className="h-6" />
           </span>
@@ -178,7 +178,7 @@ export function AssistantMessages({
           <p className="mt-1 max-w-xs text-sm text-muted-foreground">{t('emptyBody')}</p>
         </div>
       ) : (
-        <ol className="flex flex-col gap-3 p-4">
+        <ol data-measure className="flex flex-col gap-3 p-4">
           {messages.map((m) => (
             <Fragment key={m.id}>
               {m.role === 'user' ? (
@@ -209,6 +209,7 @@ export function AssistantMessages({
       {unavailable ? (
         <p
           role="alert"
+          data-measure
           className="mx-4 mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
           {t('unavailable')}
