@@ -63,6 +63,33 @@ async function expectNoOverflow(page: Page, label: string) {
   expect(overflow, `${label}: horizontal overflow (px)`).toBeLessThanOrEqual(0);
 }
 
+/** A collapsed icon rail shows no label text and centres every mark (logo included) on one axis. */
+async function expectIconRail(page: Page) {
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const rail = document.querySelector('[data-slot="sidebar-inner"]');
+        const buttons = [...(rail?.querySelectorAll('[data-sidebar="menu-button"]') ?? [])];
+        const labels = buttons.flatMap((button) =>
+          [...button.querySelectorAll('span')]
+            .filter((s) => !s.closest('.sr-only') && s.children.length === 0)
+            .filter((s) => s.textContent?.trim() && s.getBoundingClientRect().width > 1)
+            .map((s) => s.textContent),
+        );
+        // The leading visible child is the mark: icon, business avatar or the collapsed logo.
+        const centres = buttons.flatMap((button) => {
+          const mark = [...button.children]
+            .map((c) => c.getBoundingClientRect())
+            .find((r) => r.width > 0);
+          return mark ? [mark.left + mark.width / 2] : [];
+        });
+        const spread = Math.round(Math.max(...centres) - Math.min(...centres));
+        return { labels, marks: centres.length > 0, spread };
+      }),
+    )
+    .toEqual({ labels: [], marks: true, spread: 0 });
+}
+
 function trackErrors(page: Page): string[] {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -116,6 +143,7 @@ for (const prefs of COMBOS) {
     await page.getByRole('button', { name: 'Mở hoặc thu gọn thanh bên' }).click();
     await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
     await expectNoOverflow(page, `${JSON.stringify(prefs)} collapsed`);
+    if (prefs['sidebar_collapsible'] === 'icon') await expectIconRail(page);
     await page.getByRole('button', { name: 'Mở hoặc thu gọn thanh bên' }).click();
     await expect(sidebar).toHaveAttribute('data-state', 'expanded');
     await expectNoOverflow(page, `${JSON.stringify(prefs)} expanded again`);
