@@ -49,7 +49,7 @@ test('two-step verification: enable, sign in with a code, recovery code, disable
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
-  await page.getByRole('button', { name: 'Đăng nhập' }).click();
+  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
   await expect(page).toHaveURL(/\/app/);
 
   await page.goto('/app/settings/security');
@@ -76,7 +76,7 @@ test('two-step verification: enable, sign in with a code, recovery code, disable
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
-  await page.getByRole('button', { name: 'Đăng nhập' }).click();
+  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Xác minh 2 bước' })).toBeVisible();
   await page.getByLabel('Mã xác minh').fill('000000');
   await page.getByRole('button', { name: 'Xác minh' }).click();

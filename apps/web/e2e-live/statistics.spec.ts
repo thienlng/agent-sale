@@ -51,7 +51,7 @@ test('numbers come from what was done in the CRM, and a card opens its own rows'
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
-  await page.getByRole('button', { name: 'Đăng nhập' }).click();
+  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
   await expect(page).toHaveURL(/\/app/);
 
   await page.goto('/app/analytics');
