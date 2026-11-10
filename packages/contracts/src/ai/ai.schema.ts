@@ -1,4 +1,5 @@
 import { FanpageContext } from '../channel/fanpage.schema.js';
+import { MessageUi } from '../conversation/message-ui.schema.js';
 import { WebsitePageContext } from '../webchat/webchat.schema.js';
 import { z } from 'zod';
 
@@ -106,6 +107,8 @@ export const PlaygroundResponse = z.object({
           .array(z.object({ title: z.string().max(20), payload: z.string().max(100) }))
           .max(3)
           .optional(),
+        /** Website only: product cards and suggested next steps (ADR-029). */
+        ui: MessageUi.optional(),
       }),
     )
     .optional(),

@@ -1,14 +1,14 @@
 import { createApi, type Api } from './api.js';
 import { compressImage } from './image.js';
 import { checkPhone } from './phone.js';
-import { visibleSections } from './page-context.js';
+import { pageNav, sectionTarget, visibleSections } from './page-context.js';
 import { createPoller, type PollMode } from './poller.js';
 import { initialState, reduce, type Action, type State } from './state.js';
-import { firstUrlKey, readItem, removeItem, tokenKey, writeItem } from './storage.js';
+import { firstUrlKey, readItem, removeItem, reopenKey, tokenKey, writeItem } from './storage.js';
 import { getStrings } from './strings.js';
 import type { WidgetConfig, WidgetSendRequest } from './types.js';
 import { uuid } from './uuid.js';
-import { createView } from './view.js';
+import { createView, sameDocument } from './view.js';
 
 declare global {
   interface Window {
@@ -19,6 +19,47 @@ declare global {
 const DEFAULT_COLOR = '#F97316';
 const MAX_RETRIES = 3;
 const AWAIT_TIMEOUT_MS = 60000;
+/** A panel left open for a suggested page reopens there when the page loads within this time. */
+const REOPEN_MS = 30000;
+
+const reducedMotion = (): boolean =>
+  !!window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** The bottom of a fixed or sticky bar at the top of the page (a site header), else 0. */
+function stickyTop(): number {
+  const probe = document.elementFromPoint
+    ? document.elementFromPoint(window.innerWidth / 2, 2)
+    : null;
+  for (let el = probe; el && el !== document.body; el = el.parentElement) {
+    const position = getComputedStyle(el).position;
+    if (position === 'fixed' || position === 'sticky') {
+      const bottom = el.getBoundingClientRect().bottom;
+      return bottom > 0 && bottom < window.innerHeight / 3 ? bottom : 0;
+    }
+  }
+  return 0;
+}
+
+/** Scrolls a section of the page into view, then rings it once in the site's colour. */
+function reveal(target: HTMLElement, color: string): void {
+  const behavior = reducedMotion() ? 'auto' : 'smooth';
+  const cover = stickyTop();
+  if (cover > 0)
+    window.scrollTo({
+      top: target.getBoundingClientRect().top + window.scrollY - cover - 12,
+      behavior,
+    });
+  else target.scrollIntoView({ behavior, block: 'start' });
+  if (!target.animate) return;
+  const ring = /^#[0-9a-f]{3,8}$/i.test(color) ? color : DEFAULT_COLOR;
+  target.animate(
+    [
+      { outline: `3px solid ${ring}`, outlineOffset: '-3px' },
+      { outline: '3px solid transparent', outlineOffset: '-3px' },
+    ],
+    { duration: 1600, delay: reducedMotion() ? 0 : 450, easing: 'ease-out' },
+  );
+}
 
 function defaultConfig(): WidgetConfig {
   const s = getStrings('vi');
@@ -153,6 +194,24 @@ function start(api: Api, key: string, config: WidgetConfig): void {
       dispatch({ type: 'inputMode', mode: 'text' });
     },
     onPhoneSubmit: (raw) => void submitPhone(raw),
+    onNavigate(url) {
+      let to: URL;
+      try {
+        to = new URL(url, window.location.href);
+      } catch {
+        return;
+      }
+      if (to.origin !== window.location.origin || !/^https?:$/.test(to.protocol)) return;
+      const target = sameDocument(to.href) ? sectionTarget(to.hash) : null;
+      if (target) {
+        // A full-screen panel would hide the section it points at.
+        if (window.innerWidth <= 640) dispatch({ type: 'close' });
+        reveal(target, config.color);
+        return;
+      }
+      writeItem(reopenKey(key), String(Date.now()));
+      window.location.assign(to.href);
+    },
   });
 
   function dropToken(): void {
@@ -181,6 +240,7 @@ function start(api: Api, key: string, config: WidgetConfig): void {
         url: window.location.href.slice(0, 1000),
         title: document.title.slice(0, 150),
         sections: visibleSections(),
+        nav: pageNav(),
       },
     };
     if (m.text !== undefined) body.text = m.text;
@@ -324,6 +384,14 @@ function start(api: Api, key: string, config: WidgetConfig): void {
   view.update(state);
   dispatch({ type: 'token', has: token !== null });
   document.body.appendChild(view.host);
+  // Arrived from a suggestion: keep the conversation open, and find a marked part without an id.
+  const reopen = Number(readItem(reopenKey(key)) ?? 0);
+  removeItem(reopenKey(key));
+  if (token && Date.now() - reopen < REOPEN_MS) dispatch({ type: 'open' });
+  if (window.location.hash && !document.getElementById(window.location.hash.slice(1))) {
+    const target = sectionTarget(window.location.hash);
+    if (target) reveal(target, config.color);
+  }
   if (token) poller.start(); // returning visitor: restore history, poll slowly while closed
   if (token) void poller.kick();
 }

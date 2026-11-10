@@ -26,6 +26,25 @@ export interface WidgetMessage {
   /** The widget's own id of a customer message (null for agent messages). */
   clientMessageId: string | null;
   at: string;
+  /** Agent messages: product cards and suggested next steps (mirrors `MessageUi`, ADR-029). */
+  ui?: MessageUi;
+}
+
+/** A product card: tapping it asks the bot about the product. */
+export interface MessageCard {
+  productId: string;
+  title: string;
+  price: string;
+  imageUrl: string | null;
+}
+
+/** A follow-up button: a reply sent as the visitor, or a place on the site to go to. */
+export type MessageSuggestion =
+  { kind: 'reply'; text: string } | { kind: 'link'; title: string; url: string };
+
+export interface MessageUi {
+  cards?: MessageCard[];
+  suggestions?: MessageSuggestion[];
 }
 
 /** A marked part of the page on screen (mirrors `WebsitePageSection` in contracts). */
@@ -34,11 +53,17 @@ export interface PageSection {
   text: string;
 }
 
+/** A section of this page or a same-site page the bot may suggest (mirrors `WebsitePageLink`). */
+export interface PageLink {
+  label: string;
+  url: string;
+}
+
 export interface WidgetSendRequest {
   clientMessageId: string;
   text?: string;
   attachmentUrl?: string;
-  page: { url: string; title: string; sections: PageSection[] };
+  page: { url: string; title: string; sections: PageSection[]; nav: PageLink[] };
   firstUrl?: string;
   referrer?: string;
   seen?: string[];

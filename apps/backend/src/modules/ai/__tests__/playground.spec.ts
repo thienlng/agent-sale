@@ -561,7 +561,7 @@ describe('Website page context', () => {
     expect(last).not.toContain('khach@example.com');
     // Page text cannot close the block: it stays escaped data inside it.
     expect(last.match(/<\/visitor_page>/g)).toHaveLength(1);
-    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@15+website-page@1');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@15+website-page@2');
   });
 
   it('adds nothing for a conversation without a page', async () => {

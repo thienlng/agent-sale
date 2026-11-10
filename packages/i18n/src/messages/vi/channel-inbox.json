@@ -603,7 +603,9 @@
       "bot": "Bot",
       "askWhy": "Vì sao bot trả lời vậy?",
       "askWhyPrompt": "Vì sao bot trả lời tin nhắn lúc {{time}} như vậy?",
-      "messageMenu": "Tuỳ chọn tin nhắn"
+      "messageMenu": "Tuỳ chọn tin nhắn",
+      "cards": "Thẻ sản phẩm khách thấy",
+      "suggestions": "Nút gợi ý khách thấy"
     },
     "tagBar": {
       "label": "Tag của hội thoại",

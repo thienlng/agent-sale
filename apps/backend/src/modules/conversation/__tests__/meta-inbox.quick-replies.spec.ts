@@ -106,4 +106,26 @@ describe('MetaInboxProcessor — quick replies', () => {
     for (const call of vi.mocked(channels.deliver).mock.calls)
       expect(call[3].quickReplies).toBeUndefined();
   });
+
+  it('hands the rich parts (ADR-029) to the inbox on the last bubble of each message', async () => {
+    const { ai, inbox, run } = setup();
+    const first = vi.spyOn(inbox, 'commitBotReply');
+    const next = vi.spyOn(inbox, 'commitBotFollowUp');
+    const cards = [{ productId: 'p1', title: 'Gói Pro', price: '400.000đ', imageUrl: null }];
+    const suggestions = [{ kind: 'reply' as const, text: 'Gói Pro có gì?' }];
+    ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
+      await options.sink!.send({ text: 'Dạ có 2 gói ạ', images: [], ui: { cards } });
+      return answer('', {
+        reply: 'Một.\n\nHai.',
+        messages: [{ text: 'Một.\n\nHai.', images: [], ui: { suggestions }, via: 'final' }],
+      });
+    });
+    await run(job('r1', 'có gói nào'));
+    const calls = [...first.mock.calls, ...next.mock.calls].map((c) => [c[2].text, c[2].ui]);
+    expect(calls).toEqual([
+      ['Dạ có 2 gói ạ', { cards }],
+      ['Một.', undefined],
+      ['Hai.', { suggestions }],
+    ]);
+  });
 });

@@ -1,5 +1,5 @@
 import type { ChatMessage } from '@agent-sales/ai-core';
-import type { PlaygroundResponse } from '@agent-sales/contracts';
+import type { MessageUi, PlaygroundResponse } from '@agent-sales/contracts';
 
 /** A button under a message; tapping it sends `title` as the customer's text. */
 export interface QuickReply {
@@ -14,6 +14,8 @@ export interface OutgoingMessage {
   videos?: { id: string; url: string; label: string }[];
   /** At most 3, titles of 20 characters or fewer; attached to the last bubble only. */
   quickReplies?: QuickReply[];
+  /** Website only: product cards or suggested next steps, attached to the last bubble (ADR-029). */
+  ui?: MessageUi;
 }
 
 /** Where `send_message` output goes: a channel delivery or, in the playground, a collector. */

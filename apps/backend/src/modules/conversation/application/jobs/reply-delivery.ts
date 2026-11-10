@@ -1,4 +1,4 @@
-import type { InboxMessageDto } from '@agent-sales/contracts';
+import type { InboxMessageDto, MessageUi } from '@agent-sales/contracts';
 import { splitReply } from '@agent-sales/shared';
 import type { Logger } from '@nestjs/common';
 import type { MessageSink, OutgoingMessage, QuickReply } from '../../../ai/api/index.js';
@@ -154,9 +154,9 @@ export class ReplyDelivery {
         if (images) await album();
         if (video && !this.stop && !(images && (await this.stopForNewer()))) await clip(video.url);
         if (!this.stop && !(await this.stopForNewer()))
-          await this.sendText(text, key, message.quickReplies);
+          await this.sendText(text, key, message.quickReplies, message.ui);
       } else {
-        if (text) await this.sendText(text, key, message.quickReplies);
+        if (text) await this.sendText(text, key, message.quickReplies, message.ui);
         if (!this.stop && images && !(text && (await this.stopForNewer()))) await album();
         if (video && !this.stop && !((text || images) && (await this.stopForNewer())))
           await clip(video.url);
@@ -182,19 +182,21 @@ export class ReplyDelivery {
   /**
    * The final answer (key `<key>`, `:t2`…; pictures `<key>:img` when `withImages`) after the
    * agent's own sends. Throws like today when the first commit of the turn fails. Resolves whether
-   * any of it was committed (false: the final was dropped).
+   * any of it was committed (false: the final was dropped). `ui` (website: suggested next steps)
+   * rides on the last text bubble.
    */
   async sendFinal(
     text: string,
     images: readonly { url: string }[],
     withImages: boolean,
+    ui?: MessageUi,
   ): Promise<boolean> {
     if (this.stop) return false;
     if (this.sends) await this.pace();
     this.sends++;
     const before = this.lastId;
     try {
-      if (text.trim()) await this.sendText(text, this.turn.key);
+      if (text.trim()) await this.sendText(text, this.turn.key, undefined, ui);
       if (!this.stop && withImages && images.length && !(await this.newerStops()))
         await this.sendImages(images, `${this.turn.key}:img`);
     } finally {
@@ -230,13 +232,14 @@ export class ReplyDelivery {
   }
 
   /**
-   * Bubbles of one text (`splitReply`); stops at the first one not delivered. Quick replies go on
-   * the last bubble only (spec §4.4); keys and pacing do not change.
+   * Bubbles of one text (`splitReply`); stops at the first one not delivered. Quick replies and
+   * `ui` (cards, suggestions) go on the last bubble only (spec §4.4); keys and pacing do not change.
    */
   private async sendText(
     text: string,
     key: string,
     quickReplies?: readonly QuickReply[],
+    ui?: MessageUi,
   ): Promise<void> {
     const { job, conversationId, revision } = this.turn;
     const { inbox, channels } = this.deps;
@@ -250,10 +253,11 @@ export class ReplyDelivery {
           .catch(() => undefined);
       }
       const idempotencyKey = index === 0 ? key : `${key}:t${index + 1}`;
-      const buttons =
-        index === bubbles.length - 1 && quickReplies?.length
-          ? { quickReplies: quickReplies.slice(0, 3) }
-          : {};
+      const last = index === bubbles.length - 1;
+      const buttons = {
+        ...(last && quickReplies?.length ? { quickReplies: quickReplies.slice(0, 3) } : {}),
+        ...(last && ui ? { ui } : {}),
+      };
       // The turn's first message also checks that nothing changed since the context was read;
       // later ones only need the bot to still hold the conversation.
       const result = this.first

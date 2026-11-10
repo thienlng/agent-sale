@@ -240,4 +240,109 @@ describe('boot behaviour', () => {
     expect(root.textContent).toContain('old reply');
     expect(root.querySelector<HTMLElement>('.badge')!.hidden).toBe(true);
   });
+
+  describe('rich messages (ADR-029)', () => {
+    const rich = {
+      id: 'a1',
+      role: 'agent',
+      text: 'Dạ có 2 gói ạ',
+      imageUrl: null,
+      clientMessageId: null,
+      at: '2026-10-27T09:00:00.000Z',
+      ui: {
+        cards: [
+          {
+            productId: 'p1',
+            title: 'Gói Basic',
+            price: '200.000đ',
+            imageUrl: 'https://img.example/b.jpg',
+          },
+          { productId: 'p2', title: 'Gói Pro', price: 'Từ 400.000đ', imageUrl: null },
+        ],
+        suggestions: [
+          { kind: 'reply', text: 'Gói Pro có gì?' },
+          { kind: 'link', title: 'Xem bảng giá', url: 'http://localhost:3000/#pricing' },
+          { kind: 'link', title: 'Liên hệ', url: 'http://localhost:3000/lien-he' },
+        ],
+      },
+    };
+    const sentTexts = (calls: { url: string; init: RequestInit | undefined }[]) =>
+      posts(calls).map((c) => (JSON.parse(String(c.init?.body)) as { text?: string }).text);
+
+    async function richMount() {
+      localStorage.setItem('rapiz_v_abc', 'tok');
+      let answered = false;
+      const env = await mount((_u, init) => {
+        if (init?.method === 'POST') {
+          answered = true;
+          return echo(init);
+        }
+        return new Response(JSON.stringify({ ...empty, messages: answered ? [] : [rich] }));
+      });
+      await env.settle();
+      env.root.querySelector<HTMLElement>('.bubble')!.click();
+      await env.settle();
+      return env;
+    }
+
+    it('shows the product cards and the next steps under the newest answer', async () => {
+      const { root } = await richMount();
+      const cards = [...root.querySelectorAll('.card')].map((c) => c.textContent);
+      expect(cards).toEqual([
+        expect.stringContaining('Gói Basic200.000đTìm hiểu thêm'),
+        expect.stringContaining('Gói ProTừ 400.000đ'),
+      ]);
+      expect(root.querySelector('.card .pic')?.getAttribute('data-initial')).toBe('G');
+      expect([...root.querySelectorAll('.sg')].map((b) => [b.textContent, b.className])).toEqual([
+        ['Gói Pro có gì?', 'sg reply'],
+        ['Xem bảng giá', 'sg link down'],
+        ['Liên hệ', 'sg link'],
+      ]);
+    });
+
+    it('a card asks about its product; a reply is sent as the visitor and the buttons go', async () => {
+      const { root, calls, settle } = await richMount();
+      root.querySelectorAll<HTMLElement>('.card')[1]!.click();
+      await settle();
+      expect(sentTexts(calls)).toEqual(['Cho mình tìm hiểu thêm về Gói Pro']);
+      expect(root.querySelector('.sugg')).toBeNull();
+    });
+
+    it('a reply suggestion is sent as typed', async () => {
+      const { root, calls, settle } = await richMount();
+      root.querySelector<HTMLElement>('.sg.reply')!.click();
+      await settle();
+      expect(sentTexts(calls)).toEqual(['Gói Pro có gì?']);
+    });
+
+    it('a section of this page scrolls into view; another page keeps the chat open there', async () => {
+      const section = document.createElement('section');
+      section.setAttribute('data-rapiz-section', 'pricing');
+      section.scrollIntoView = vi.fn();
+      document.body.appendChild(section);
+      const { root } = await richMount();
+      root.querySelector<HTMLElement>('.sg.down')!.click();
+      expect(section.scrollIntoView).toHaveBeenCalled();
+      expect(localStorage.getItem('rapiz_reopen_abc')).toBeNull();
+      root.querySelectorAll<HTMLElement>('.sg.link')[1]!.click();
+      expect(Number(localStorage.getItem('rapiz_reopen_abc'))).toBeGreaterThan(0);
+    });
+
+    it('sends the places of the page with each message', async () => {
+      document.body.insertAdjacentHTML(
+        'afterbegin',
+        '<nav><a href="/bang-gia?x=1">Bảng giá</a></nav><section id="faq"><h2>Câu hỏi</h2></section>',
+      );
+      const { calls, send } = await mount((_u, init) =>
+        init?.method === 'POST' ? echo(init) : new Response(JSON.stringify(empty)),
+      );
+      await send('hello');
+      const page = (JSON.parse(String(posts(calls)[0]?.init?.body)) as { page: { nav: unknown } })
+        .page;
+      expect(page.nav).toEqual([
+        { label: 'Câu hỏi', url: 'http://localhost:3000/#faq' },
+        { label: 'Bảng giá', url: 'http://localhost:3000/bang-gia' },
+      ]);
+    });
+  });
 });

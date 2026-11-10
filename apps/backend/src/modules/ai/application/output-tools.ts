@@ -1,5 +1,5 @@
 import type { RunnableTool, ToolDefinition } from '@agent-sales/ai-core';
-import type { ProductDto } from '@agent-sales/contracts';
+import type { MessageSuggestion, MessageUi, ProductDto } from '@agent-sales/contracts';
 import { z } from 'zod';
 
 import { absoluteMediaUrl, mediaPath } from '../../../common/storage/media-url.js';
@@ -51,6 +51,8 @@ export interface SentMessage {
   videos?: { id: string; url: string; label: string }[];
   /** Buttons under the message (the order summary's confirm / edit). */
   quickReplies?: QuickReply[];
+  /** Website only: product cards, or the suggested next steps of the final message (ADR-029). */
+  ui?: MessageUi;
   via: 'send_message' | 'final';
 }
 
@@ -59,9 +61,11 @@ export interface OutputState {
   sent: SentMessage[];
   /** The handoff tool ran: its reason (kept server-side, never logged). */
   handoff: string | null;
+  /** `suggest_next` ran: buttons for the final message (website only). */
+  suggestions?: MessageSuggestion[] | null;
 }
 
-export const newOutputState = (): OutputState => ({ sent: [], handoff: null });
+export const newOutputState = (): OutputState => ({ sent: [], handoff: null, suggestions: null });
 
 /**
  * The pictures the bot may send this turn: focus products, image-library matches and every product
