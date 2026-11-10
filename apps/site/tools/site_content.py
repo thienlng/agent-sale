@@ -702,6 +702,10 @@ PAGES.append({
     'h1': 'Trả lời trên kênh khách nhắn,<br><em>bằng dữ liệu bạn đang có.</em>',
     'deck': 'Hai mục giống hệt trong app: Tích hợp nền tảng cho các kênh khách nhắn tới, Tích hợp PMS cho phần mềm bán hàng và kho bạn đang dùng. Đội kỹ thuật có thêm API và webhook.',
     'blocks': [
+        shot('ui-channels.jpg', 'MÀN HÌNH THẬT', 'Mỗi trang một bot,<br><em>bật tắt riêng.</em>',
+             'Màn hình Tích hợp nền tảng trong app. Cột trái lọc theo kênh, bên phải là danh sách trang đã kết nối với bot đang trả lời, mã nhúng và công tắc bật tắt.',
+             'Màn hình Tích hợp nền tảng của Rapiz: cột trái gồm Tất cả, Chưa gán bot, Facebook, Instagram, Zalo, Lazada, TikTok Business, Website; bên phải là website đã kết nối với trạng thái Đang chạy, tên bot, nút Sao chép mã nhúng và Hướng dẫn cài đặt; bên dưới là khung Bài viết và bình luận Facebook.',
+             1600, 1000),
         {'kind': 'catalog', 'id': 'channels', 'kicker': 'TÍCH HỢP NỀN TẢNG', 'h2': 'Kênh <em>nhắn tin.</em>',
          'lead': 'Kết nối từng trang hoặc tài khoản, rồi chọn bot trả lời cho trang đó. Trạng thái dưới đây khớp với app.',
          'items': [
@@ -714,10 +718,6 @@ PAGES.append({
              {'brand': 'whatsapp', 'title': 'WhatsApp', 'status': 'Sắp ra mắt', 'text': 'Trả lời tin nhắn WhatsApp trong cùng hộp thư.'},
              {'brand': 'instagram', 'title': 'Bình luận Instagram', 'status': 'Sắp ra mắt', 'text': 'Trả lời bình luận dưới bài đăng Instagram như với Facebook.'},
          ]},
-        shot('ui-channels.jpg', 'MÀN HÌNH THẬT', 'Mỗi trang một bot,<br><em>bật tắt riêng.</em>',
-             'Màn hình Tích hợp nền tảng trong app. Cột trái lọc theo kênh, bên phải là danh sách trang đã kết nối với bot đang trả lời, mã nhúng và công tắc bật tắt.',
-             'Màn hình Tích hợp nền tảng của Rapiz: cột trái gồm Tất cả, Chưa gán bot, Facebook, Instagram, Zalo, Lazada, TikTok Business, Website; bên phải là website đã kết nối với trạng thái Đang chạy, tên bot, nút Sao chép mã nhúng và Hướng dẫn cài đặt; bên dưới là khung Bài viết và bình luận Facebook.',
-             1600, 1000),
         {'kind': 'catalog', 'id': 'pms', 'cls': 'tint', 'kicker': 'TÍCH HỢP PMS', 'h2': 'Phần mềm <em>bán hàng.</em>',
          'lead': 'Bot đọc sản phẩm và tồn kho từ phần mềm bạn đang dùng, rồi đẩy đơn và khách ngược về đó.',
          'items': [
