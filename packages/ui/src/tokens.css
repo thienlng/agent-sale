@@ -50,16 +50,16 @@
   --input: #c4c4c4;
   --ring: #b54708;
 
-  /* Charcoal navigation frames the work; orange marks the active place. */
-  --sidebar: #1f1f1f;
-  --sidebar-foreground: #e6e6e6;
+  /* Navigation follows the theme (light here, charcoal in .dark); orange marks the active place. */
+  --sidebar: #fafafa;
+  --sidebar-foreground: #3d3d3d;
   --sidebar-primary: #ff7a45;
   --sidebar-primary-foreground: #1f1f1f;
-  --sidebar-accent: #2e2e2e;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #333333;
-  --sidebar-ring: #ff7a45;
-  --sidebar-muted: #a3a3a3;
+  --sidebar-accent: #efefef;
+  --sidebar-accent-foreground: #1f1f1f;
+  --sidebar-border: #e4e4e4;
+  --sidebar-ring: #b54708;
+  --sidebar-muted: #6b6b6b;
 
   /* Charts: Charcoal and greys carry data, orange highlights; violet only for AI series. */
   --chart-1: #ff7a45;
@@ -107,8 +107,12 @@
   --input: #5c5c5c;
   --ring: #ff7a45;
   --sidebar: #141414;
+  --sidebar-foreground: #e6e6e6;
   --sidebar-accent: #2b2b2b;
+  --sidebar-accent-foreground: #ffffff;
   --sidebar-border: #2b2b2b;
+  --sidebar-ring: #ff7a45;
+  --sidebar-muted: #a3a3a3;
   --chart-2: #e6e6e6;
   --chart-3: #8f8f8f;
   --chart-5: #5c5c5c;

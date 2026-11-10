@@ -1,6 +1,6 @@
 /* Theme presets chosen in the layout controls (data-theme-preset on <html>). "rapiz" is the
    brand default in tokens.css; the others are personal workspace preferences that only swap
-   the action hue. The charcoal sidebar, neutrals and logo stay Rapiz in every preset. Text on
+   the action hue. The sidebar, neutrals and logo stay Rapiz in every preset. Text on
    --primary is checked for WCAG AA (>= 4.5:1) in light and dark. */
 
 [data-theme-preset='ocean'] {
@@ -41,8 +41,8 @@
   --accent: #f4f4f5;
   --accent-foreground: #18181b;
   --ring: #52525b;
-  --sidebar-primary: #f5f5f5;
-  --sidebar-primary-foreground: #1f1f1f;
+  --sidebar-primary: #27272a;
+  --sidebar-primary-foreground: #ffffff;
   --sidebar-ring: #52525b;
   --bubble-bot: #27272a;
   --chart-1: #27272a;
@@ -71,6 +71,7 @@
   --ring: #a1a1aa;
   --sidebar-primary: #e4e4e7;
   --sidebar-primary-foreground: #18181b;
+  --sidebar-ring: #a1a1aa;
   --bubble-bot: #3f3f46;
   --chart-1: #e4e4e7;
 }
