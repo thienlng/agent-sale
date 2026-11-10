@@ -69,7 +69,7 @@ test('signup on one page: the emailed code before the account, then the first bu
   await expect(page.getByLabel('Lĩnh vực')).toHaveCount(0);
   await page.getByLabel('Họ và tên').fill('Nguyễn Lan');
   await page.getByLabel('Email').fill('lan@shop.vn');
-  await page.getByLabel('Mật khẩu').fill('a-strong-password');
+  await page.getByLabel('Mật khẩu', { exact: true }).fill('a-strong-password');
   // No account without the code.
   await page.getByRole('button', { name: 'Đăng ký' }).click();
   await expect(page.getByRole('alert')).toContainText('Gửi mã');
