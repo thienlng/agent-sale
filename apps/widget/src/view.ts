@@ -11,7 +11,6 @@ export interface ViewHandlers {
   onPhoneChip(): void;
   onPhoneSubmit(raw: string): void;
   onPhoneCancel(): void;
-  onMute(): void;
 }
 
 export interface View {
@@ -19,7 +18,6 @@ export interface View {
   update(state: State): void;
   setNotice(text: string | null): void;
   setPhoneError(text: string | null): void;
-  setMuted(muted: boolean): void;
   setBusy(busy: boolean): void;
   focusInput(): void;
 }
@@ -36,7 +34,12 @@ function icon(path: string): SVGElement {
   return svg;
 }
 
-const ICON_CHAT = 'M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2z';
+const ICON_CHAT =
+  'M5 3h14a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-7.6l-4.8 3.6A1 1 0 0 1 5 20.8V18a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zm3 7.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm4 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm4 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z';
+const ICON_CLOSE =
+  'M6.7 5.3 12 10.6l5.3-5.3a1 1 0 1 1 1.4 1.4L13.4 12l5.3 5.3a1 1 0 0 1-1.4 1.4L12 13.4l-5.3 5.3a1 1 0 0 1-1.4-1.4l5.3-5.3-5.3-5.3a1 1 0 0 1 1.4-1.4z';
+const ICON_SEND =
+  'M12 4a1 1 0 0 1 .7.3l6 6a1 1 0 0 1-1.4 1.4L13 7.4V19a1 1 0 1 1-2 0V7.4l-4.3 4.3a1 1 0 0 1-1.4-1.4l6-6A1 1 0 0 1 12 4z';
 const ICON_IMAGE =
   'M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2zM8.5 13.5l2.5 3 3.5-4.5 4.5 6H5l3.5-4.5z';
 
@@ -52,7 +55,18 @@ function el<K extends keyof HTMLElementTagNameMap>(
 }
 
 const isHttp = (u: string): boolean => /^https?:\/\//i.test(u);
-const safeColor = (c: string): string => (/^#[0-9a-f]{3,8}$/i.test(c) ? c : '#F97316');
+const safeColor = (c: string): string => (/^#[0-9a-f]{3,8}$/i.test(c) ? c : '#FF7A45');
+
+/** Text colour on the brand colour: charcoal or white, whichever contrasts more (WCAG luminance). */
+export function onColor(hex: string): string {
+  let h = hex.slice(1);
+  if (h.length <= 4) h = h.slice(0, 3).replace(/./g, (x) => x + x);
+  const lum = [0, 2, 4]
+    .map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
+    .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  const l = 0.2126 * (lum[0] ?? 0) + 0.7152 * (lum[1] ?? 0) + 0.0722 * (lum[2] ?? 0);
+  return (l + 0.05) / 0.0637 >= 1.05 / (l + 0.05) ? '#1F1F1F' : '#FFFFFF';
+}
 
 export function createView(config: WidgetConfig, strings: Strings, h: ViewHandlers): View {
   const host = el('div');
@@ -65,7 +79,9 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
   const style = el('style');
   style.textContent = CSS;
   const wrap = el('div', `root ${config.position === 'left' ? 'left' : 'right'}`);
-  wrap.style.setProperty('--c', safeColor(config.color));
+  const color = safeColor(config.color);
+  wrap.style.setProperty('--c', color);
+  wrap.style.setProperty('--on-c', onColor(color));
 
   // Bubble
   const bubble = el('button', 'bubble');
@@ -92,14 +108,15 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
   } else {
     avatar = el('div', 'avatar', (config.agentName.charAt(0) || '?').toUpperCase());
   }
+  const title = el('div', 'title');
   const name = el('div', 'name', config.agentName);
-  const muteBtn = el('button', 'hbtn', '♪');
-  muteBtn.type = 'button';
-  muteBtn.setAttribute('aria-label', strings.mute);
-  const closeBtn = el('button', 'hbtn', '×');
+  const status = el('div', 'status', strings.status);
+  title.append(name, status);
+  const closeBtn = el('button', 'hbtn');
+  closeBtn.appendChild(icon(ICON_CLOSE));
   closeBtn.type = 'button';
   closeBtn.setAttribute('aria-label', strings.close);
-  head.append(avatar, name, muteBtn, closeBtn);
+  head.append(avatar, title, closeBtn);
 
   const list = el('div', 'list');
   list.setAttribute('role', 'log');
@@ -133,9 +150,13 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
   input.maxLength = 2000;
   input.placeholder = strings.placeholder;
   input.setAttribute('aria-label', strings.placeholder);
-  const send = el('button', 'send', strings.send);
+  const send = el('button', 'send');
   send.type = 'submit';
-  composer.append(file, attach, input, send);
+  send.setAttribute('aria-label', strings.send);
+  send.appendChild(icon(ICON_SEND));
+  const field = el('div', 'field');
+  field.append(attach, input, send);
+  composer.append(file, field);
 
   // Phone composer
   const phoneForm = el('form', 'phoneform');
@@ -146,7 +167,7 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
   phoneInput.autocomplete = 'tel';
   phoneInput.placeholder = strings.phonePlaceholder;
   phoneInput.setAttribute('aria-label', strings.phonePlaceholder);
-  const phoneSend = el('button', 'send', strings.phoneSend);
+  const phoneSend = el('button', 'send text', strings.phoneSend);
   phoneSend.type = 'submit';
   const phoneCancel = el('button', 'link', strings.phoneCancel);
   phoneCancel.type = 'button';
@@ -171,7 +192,6 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
   panel.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && isOpen) closePanel();
   });
-  muteBtn.addEventListener('click', () => h.onMute());
   chip.addEventListener('click', () => h.onPhoneChip());
   attach.addEventListener('click', () => file.click());
   file.addEventListener('change', () => {
@@ -300,10 +320,6 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
     setPhoneError(text) {
       phoneErr.hidden = !text;
       phoneErr.textContent = text ?? '';
-    },
-    setMuted(muted) {
-      muteBtn.textContent = muted ? 'Ø' : '♪';
-      muteBtn.setAttribute('aria-label', muted ? strings.unmute : strings.mute);
     },
     setBusy(busy) {
       send.disabled = busy;

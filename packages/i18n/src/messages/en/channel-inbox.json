@@ -227,6 +227,7 @@
         "label": "Preview",
         "note": "Illustration of the current, unsaved settings.",
         "input": "Type a message...",
+        "status": "Usually replies right away",
         "open": "Open chat window"
       },
       "guide": {

@@ -30,5 +30,4 @@ export function removeItem(key: string): void {
 }
 
 export const tokenKey = (siteKey: string): string => `rapiz_v_${siteKey}`;
-export const muteKey = (siteKey: string): string => `rapiz_mute_${siteKey}`;
 export const firstUrlKey = (siteKey: string): string => `rapiz_first_${siteKey}`;
