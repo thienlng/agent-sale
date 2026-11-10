@@ -1,37 +1,13 @@
 <section class="sec chd-sec" id="channels-demo" aria-labelledby="s{number}">
   <div class="container">
     <div class="ut-index-head"><div><p class="kicker"><i class="slashes" aria-hidden="true"></i> TẤT CẢ KÊNH, MỘT MÀN HÌNH</p><h2 id="s{number}">Mỗi trang một bot,<br><em>bật tắt riêng.</em></h2></div>
-      <p>Đây là màn hình Tích hợp nền tảng trong app. Bấm thử các kênh, gán bot, bật tắt từng trang. Dữ liệu chỉ là mẫu.</p></div>
+      <p>Đây là chính màn hình Tích hợp nền tảng và Đào tạo Bot trong app Rapiz. Bấm thử: lọc kênh, gán bot, cài chat website, kết nối thêm trang. Dữ liệu chỉ là mẫu.</p></div>
     <div class="chd" data-chd>
-      <div class="chd-bar"><span class="chd-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="chd-url">app.rapiz.io / Tích hợp nền tảng</span><small>Dữ liệu mẫu</small></div>
       <noscript><img src="{root}images/ui-channels.jpg" width="1600" height="1000" alt="Màn hình Tích hợp nền tảng của Rapiz với danh sách trang đã kết nối." style="display:block;width:100%;height:auto"></noscript>
-      <div class="chd-body" hidden data-chd-body>
-        <nav class="chd-side" aria-label="Lọc theo kênh">
-          <button type="button" data-chd-tab="all" aria-pressed="true"><span class="chd-ic is-orange">{ic_all}</span><b>Tất cả</b><em data-chd-count="all"></em></button>
-          <button type="button" data-chd-tab="unassigned" aria-pressed="false"><span class="chd-ic">{ic_clock}</span><b>Chưa gán bot</b><em data-chd-count="unassigned"></em></button>
-          <button type="button" data-chd-tab="facebook" aria-pressed="false"><span class="chd-ic">{ic_facebook}</span><b>Facebook</b><em data-chd-count="facebook"></em></button>
-          <button type="button" data-chd-tab="instagram" aria-pressed="false"><span class="chd-ic">{ic_instagram}</span><b>Instagram</b><em data-chd-count="instagram"></em></button>
-          <button type="button" data-chd-tab="zalo" aria-pressed="false"><span class="chd-ic">{ic_zalo}</span><b>Zalo</b><em data-chd-count="zalo"></em></button>
-          <button type="button" data-chd-tab="tiktok" aria-pressed="false"><span class="chd-ic">{ic_tiktok}</span><b>TikTok Business</b><em data-chd-count="tiktok"></em></button>
-          <button type="button" data-chd-tab="website" aria-pressed="false"><span class="chd-ic">{ic_globe}</span><b>Website</b><em data-chd-count="website"></em></button>
-        </nav>
-        <div class="chd-main">
-          <div class="chd-top">
-            <h3 data-chd-title>Danh sách trang</h3>
-            <label class="chd-search"><span class="chd-sr">Tìm theo tên hoặc ID trang</span><input type="search" placeholder="Tìm theo tên hoặc ID page..." data-chd-search autocomplete="off"></label>
-          </div>
-          <div class="chd-filter"><label for="chd-bot">Lọc theo bot</label><select id="chd-bot" data-chd-bot><option value="">Tất cả bot</option></select></div>
-          <div class="chd-tools">
-            <label class="chd-all"><input type="checkbox" data-chd-all> Chọn tất cả</label>
-            <div class="chd-assign"><button type="button" class="chd-btn" data-chd-assign aria-haspopup="true" aria-expanded="false" disabled>Gán bot</button><ul class="chd-menu" data-chd-menu hidden></ul></div>
-            <button type="button" class="chd-btn" data-chd-unassign disabled>Hủy gán bot</button>
-            <button type="button" class="chd-btn is-quiet" data-chd-reset>Đặt lại demo</button>
-          </div>
-          <p class="chd-live" role="status" aria-live="polite" data-chd-live></p>
-          <div class="chd-list" data-chd-list></div>
-          <aside class="chd-fb" data-chd-fb><h4>Bài viết và bình luận Facebook</h4><p>Trả lời dựa trên đúng bài viết gốc. Trả lời công khai, inbox riêng và kiểm duyệt bật tắt độc lập, mặc định đều tắt. <a href="{root}tinh-nang/binh-luan-facebook/">Xem cách hoạt động ↗</a></p></aside>
-        </div>
+      <div class="chd-icons" hidden data-chd-icons>
+        <span data-ic="facebook">{ic_facebook}</span><span data-ic="instagram">{ic_instagram}</span><span data-ic="zalo">{ic_zalo}</span><span data-ic="tiktok">{ic_tiktok}</span><span data-ic="globe">{ic_globe}</span><span data-ic="logo"><img src="{root}images/rapiz-logo-faceted-reverse.svg" alt="" width="92" height="22"></span><span data-ic="symbol"><img src="{root}images/rapiz-symbol-faceted.svg" alt="" width="28" height="28"></span>
       </div>
+      <div class="chd-app" hidden data-chd-app></div>
     </div>
   </div>
 </section>
