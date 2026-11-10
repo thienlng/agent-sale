@@ -63,8 +63,9 @@ used everywhere the product shows its logo:
   `rapiz-symbol-faceted.svg`).
 - `apps/web/src/components/logo.tsx` inlines the same master paths so the wordmark can follow
   `currentColor` (white on charcoal surfaces); the release has no faceted file with a white
-  wordmark. The marketing site uses the brand repository's logo files as images
-  (`apps/site/public/images/rapiz-logo.svg`, `rapiz-logo-reverse.svg`, `rapiz-symbol.svg`).
+  wordmark. The marketing site uses the faceted release files as images
+  (`apps/site/public/images/rapiz-logo-faceted.svg`, `rapiz-logo-faceted-reverse.svg`,
+  `rapiz-symbol-faceted.svg`).
 - App icons, favicons and the PWA icons are the faceted symbol group from the release placed on a
   charcoal square. Only the notification badge (`icons/badge-96.png`) stays a flat single-colour
   silhouette, because the platform uses its alpha channel alone.

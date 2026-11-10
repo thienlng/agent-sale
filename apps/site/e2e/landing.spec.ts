@@ -19,6 +19,7 @@ const PAGES = [
   '/bao-mat/',
   '/bang-gia/',
   '/dat-lich-demo/',
+  '/ve-rapiz/',
 ];
 
 /** Script errors, failed same-origin requests and any request leaving the site. */
@@ -106,4 +107,14 @@ test('font licences are published with the site', async ({ request }) => {
     expect(res.status()).toBe(200);
     expect(await res.text()).toContain('SIL Open Font License');
   }
+});
+
+test('feature screenshots open in a popup, not a new tab', async ({ page }) => {
+  await page.goto('/tinh-nang/ban-hang-ai/');
+  await page.locator('.fe-inspect figcaption a[data-lightbox]').click();
+  const dialog = page.locator('dialog.lightbox');
+  await expect(dialog).toBeVisible();
+  await expect(page).toHaveURL(/\/tinh-nang\/ban-hang-ai\/$/);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
 });

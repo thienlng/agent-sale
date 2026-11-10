@@ -1,0 +1,42 @@
+<section class="fe-demo" id="day-bot" aria-labelledby="s{number}">
+  <div class="container">
+    <header class="fe-demo-intro"><h2 id="s{number}">Thử dặn bot một dòng.</h2>
+      <p>Khách hỏi đồ đã mặc có đổi được không, bot chưa có thông tin. Chọn một dòng thêm vào mục Đổi trả, lưu lại rồi xem bot trả lời lại.</p></header>
+    <div class="fe-desk td-desk" data-train>
+      <div class="fe-appbar">
+        <span class="fe-appname"><img src="{root}images/rapiz-symbol-faceted.svg" width="24" height="21" alt="" loading="lazy"> Đào tạo Bot · Tư vấn Lụa Hiên</span>
+        <span class="fe-example">Chỉnh sửa minh họa</span>
+      </div>
+      <div class="fe-columns">
+        <div class="fe-work td-form">
+          <p class="td-path">Thông tin doanh nghiệp › Theo ngành</p>
+          <p class="td-label" id="td-field-label">Đổi trả</p>
+          <p class="td-field" aria-labelledby="td-field-label"><span>Đổi size trong 7 ngày kể từ khi nhận hàng, sản phẩm còn tem mác và chưa giặt.</span> <ins data-td-added hidden></ins></p>
+          <fieldset class="td-pick" data-td-pick disabled>
+            <legend>Dặn thêm một dòng</legend>
+            <label><input type="radio" name="td-line" value="a" checked><span>Đồ đã mặc hoặc đã giặt không đổi, trừ khi lỗi từ nhà sản xuất.</span></label>
+            <label><input type="radio" name="td-line" value="b"><span>Đồ đã mặc thử tại nhà vẫn đổi được nếu còn tem mác và chưa giặt.</span></label>
+          </fieldset>
+          <div class="td-actions"><button type="button" class="fe-btn" data-td-save disabled>Lưu thay đổi</button><button type="button" class="fe-reset" data-td-reset hidden>Làm lại demo</button></div>
+        </div>
+        <aside class="fe-result td-test" aria-label="Đoạn chat thử nghiệm và lịch sử chỉnh sửa">
+          <div class="fe-status" data-td-status>Bot chưa có thông tin này</div>
+          <h3>Đoạn chat thử nghiệm</h3>
+          <div class="td-thread" data-td-thread>
+            <p class="td-msg td-customer">shop co doi size ko a, mac roi thi sao</p>
+            <p class="td-msg td-bot">Dạ Lụa Hiên hỗ trợ đổi size trong 7 ngày kể từ khi nhận hàng, sản phẩm còn tem mác và chưa giặt.</p>
+            <p class="td-msg td-bot">Với đồ đã mặc, em chưa rõ có được đổi không ạ.</p>
+            <p class="td-source">Trả lời từ FAQ: Shop có đổi size không?</p>
+          </div>
+          <div class="td-history" data-td-history hidden>
+            <h4>Lịch sử chỉnh sửa</h4>
+            <p class="td-who">Bạn chỉnh sửa Cài đặt bot Tư vấn Lụa Hiên</p>
+            <p class="td-change">Chỉnh sửa <b>Đổi trả</b> <span>…chưa giặt.</span> → <span data-td-new></span></p>
+            <button type="button" class="fe-reset" data-td-restore>Khôi phục</button>
+          </div>
+        </aside>
+      </div>
+      <p class="fe-sr" role="status" data-td-announce></p>
+    </div>
+  </div>
+</section>

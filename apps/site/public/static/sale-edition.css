@@ -1,0 +1,44 @@
+/* Tư vấn & chốt đơn: the order summary the bot sends, as a Messenger card on the cover and as a working desk. */
+.sl-scene{padding-top:18px}
+.sl-phone{position:relative;width:min(100%,420px);padding:0 0 20px;border:1px solid #c9b9a0;border-radius:22px;background:#fffdf9;box-shadow:0 26px 40px -30px #5a3a1c99;transform:rotate(-1.5deg)}
+.sl-phone header{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #eadfcf}
+.sl-phone header img{width:26px}.sl-phone header strong,.sl-phone header small{display:block;line-height:1.25}.sl-phone header strong{font-size:14px}.sl-phone header small{font-size:11px;color:#7b6f60}
+.sl-bubble{margin:14px 18px 0;padding:11px 14px;font-size:14px;line-height:1.5;border-radius:16px}
+.sl-customer{margin-left:auto;width:max-content;max-width:78%;background:#ebe7de;border-bottom-right-radius:4px}
+.sl-summary{max-width:84%;background:#24251f;color:#fff6e6;border-bottom-left-radius:4px}
+.sl-summary p{margin:0}.sl-summary b{font-weight:700;color:#ffc59d}
+.sl-scene .sl-replies{display:flex;gap:8px;flex-wrap:wrap;margin:10px 18px 0}
+.sl-replies span,.sl-replies button{padding:7px 13px;border:1px solid #d86a35;border-radius:999px;color:#9b4416;background:#fff;font:600 13px/1.3 Inter,sans-serif}
+.sl-stub{display:flex;flex-direction:column;gap:2px;margin-top:-6px;width:min(88%,380px);padding:13px 18px;background:#f8f1df;border:1px solid #d7c6a8;border-top:2px dashed #a59075;border-radius:0 0 10px 10px;color:#332d22;transform:rotate(1deg)}
+.sl-stub small{text-transform:uppercase;letter-spacing:.08em;font-size:10px;color:#774c30}.sl-stub strong{font-size:15px}
+
+.sl-pick{margin:0 0 22px;padding:0 0 18px;border:0;border-bottom:1px solid #d9d6cd;display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px 26px}
+.sl-pick legend{padding:0;margin-bottom:12px;font-size:13px;font-weight:700;color:#4c463c}
+.sl-pick[disabled]{opacity:.55}
+.sl-sizes{display:flex;gap:6px;flex-wrap:wrap}
+.sl-sizes label{position:relative;display:grid;justify-items:center;min-width:58px;padding:7px 8px;border:1px solid #c9c3b4;border-radius:8px;background:#fff;cursor:pointer}
+.sl-sizes input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.sl-sizes span{font-weight:700;font-size:15px}.sl-sizes small{font-size:11px;color:#6d675b}
+.sl-sizes label:has(input:checked){border-color:#d4602b;background:#fbe3d3;box-shadow:inset 0 0 0 1px #d4602b}
+.sl-sizes label:has(input:focus-visible){outline:3px solid #f08747;outline-offset:2px}
+.sl-sizes label:has(input[value=XL]) small{color:#a33a12}
+.sl-qty{display:flex;align-items:center;gap:6px}.sl-qty>span{font-size:13px;font-weight:700;color:#4c463c;margin-right:6px}
+.sl-qty button{width:40px;height:40px;border:1px solid #c9c3b4;border-radius:8px;background:#fff;font-size:18px;cursor:pointer}.sl-qty button:disabled{opacity:.4;cursor:default}
+.sl-qty output{min-width:28px;text-align:center;font:700 18px/1 "Inter Tight",Inter,sans-serif}
+.sl-thread{min-height:300px}
+.sl-thread .sl-replies{justify-self:end;display:flex;gap:8px;flex-wrap:wrap}
+.sl-thread .sl-replies button{cursor:pointer;min-height:40px}.sl-thread .sl-replies button:hover{background:#fbe3d3}
+
+.sl-orders h3{margin-bottom:14px}
+.sl-empty{margin:0;padding:16px;border:1px dashed #6a6960;border-radius:8px;color:#cfccc2;font-size:14px}
+.sl-order{padding:16px;border:1px solid #5b5a52;border-radius:8px;background:#33332e}
+.sl-order header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.sl-order header strong{font:700 17px/1.2 "Inter Tight",Inter,sans-serif}
+.sl-chips{display:flex;gap:6px}.sl-chip,.sl-badge{padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700}.sl-chip{background:#ffe7da;color:#8a3a12}.sl-badge{background:#fff1d6;color:#7a4a05}
+[data-phase=approved] .sl-badge{background:#d8ecd9;color:#1d5a2a}
+.sl-order p{display:flex;justify-content:space-between;gap:12px;margin:0;padding:6px 0;border-top:1px solid #4a4a43;font-size:14px}
+.sl-order p span{color:#b9b7ae}.sl-order p b{font-weight:600;text-align:right}
+.sl-order .fe-btn{margin-top:14px}
+.sl-note{margin:16px 0 0;color:#b9b7ae;font-size:13px;line-height:1.5}
+.sl-orders .fe-reset{margin-top:16px;align-self:flex-start}
+@media(max-width:680px){.sl-phone{transform:none}.sl-stub{transform:none}.sl-thread{min-height:0}}

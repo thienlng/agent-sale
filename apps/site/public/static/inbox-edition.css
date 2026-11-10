@@ -1,0 +1,19 @@
+/* Hộp thư cover scene: three conversations stacked like tickets. The shared spread lives in feature-edition.css. */
+.ib-guides{position:absolute;inset:0 -18%;z-index:-1;background:repeating-radial-gradient(ellipse at 88% 60%,transparent 0 22px,#a95e2b25 23px,transparent 24px 35px);mask-image:radial-gradient(ellipse,#000 25%,transparent 73%);transform:rotate(-12deg)}
+.ib-stack{position:relative;width:min(100%,440px);padding-top:92px}
+.ib-slip,.ib-ticket{box-sizing:border-box;border-radius:8px}
+.ib-slip{position:absolute;display:flex;justify-content:space-between;align-items:start;padding:12px 16px;width:92%;height:112px;border:1px solid #c3b198;font:680 14px/1.35 Inter,sans-serif;transform-origin:15% 50%}
+.ib-slip small{font-size:11px;font-weight:600}
+.ib-slip-back{left:0;top:12px;transform:rotate(-8deg);background:#d7e1d5;color:#344638}
+.ib-slip-mid{left:4%;top:39px;transform:rotate(-3deg);background:#f6e2cc;color:#574031}
+.ib-ticket{position:relative;transform:rotate(2deg);background:#24251f;color:#fff6e6;box-shadow:0 20px 27px -20px #48321f99}
+.ib-ticket header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 19px;border-bottom:1px solid #fff1ce38;color:#f9b384;font:600 12px/1.4 Inter,sans-serif}.ib-ticket header span{display:inline-flex;align-items:center;gap:8px}.ib-ticket header i{width:7px;height:7px;border-radius:50%;background:#ff9c66}.ib-ticket header small{color:#d4cabc;font-size:11px}
+.ib-ticket-main{padding:20px}.ib-customer{display:flex;align-items:center;gap:9px;font-size:14px}.ib-customer i{font-size:14px;font-weight:730;font-style:normal;color:#353329;background:#dadcc7;border-radius:50%;padding:3px 8px}
+.ib-ticket-main>p{margin:12px 0 0;font:620 clamp(22px,2.05vw,32px)/1.22 var(--display);letter-spacing:-.025em;text-wrap:pretty}
+.ib-stub{display:flex;align-items:center;gap:13px;padding:14px 20px;background:#f8f1df;border-top:2px dashed #a59075;border-radius:0 0 8px 8px;color:#332d22}.ib-stub img{width:28px;flex:none}.ib-stub small,.ib-stub strong{display:block}.ib-stub small{text-transform:uppercase;letter-spacing:.08em;font-size:10px;color:#774c30}.ib-stub strong{font-size:14px}
+#handoff.rh-section{background:#eee7db}.rh-intro h2{font-size:clamp(37px,4.4vw,67px)}.rh-intro>p{color:#53493e}
+@media(prefers-reduced-motion:no-preference){
+ .ib-slip-back{animation:ib-fan .82s ease-out both}.ib-slip-mid{animation:ib-fan .62s ease-out both}
+ @keyframes ib-fan{from{transform:translateY(22px) rotate(1deg);opacity:.4}}
+}
+@media(max-width:680px){.ib-stack{padding-top:85px}.ib-ticket-main{padding:16px}.ib-stub{padding:12px 16px}}

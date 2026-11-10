@@ -7,26 +7,25 @@
   --line: #dbd8d1;
   --soft: #f1efe8;
   --muted: #58564f;
+  --head-h: 62px;
 }
-.site-head { background: var(--paper); border-color: var(--ink); }
-.head-inner { height: 74px; }
+/* No rule under the header at rest: it sits on the page. Once the page scrolls, a soft shadow lifts it. */
+.site-head { background: color-mix(in srgb, var(--paper) 90%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border-bottom: 0; transition: box-shadow .2s; }
+.site-head.scrolled { box-shadow: 0 1px 0 #1f1f1f12, 0 10px 24px -14px #1f1f1f40; }
+.head-inner { height: var(--head-h); }
 .head-actions .head-cta { background: var(--orange); color: var(--ink); border-radius:8px; }
 .head-actions .head-cta:hover { background:#ff956c; }
+.head-inner .brand { flex-shrink:0; }
 .head-inner .brand img { width:145px; }
 .head-inner nav { gap:clamp(21px,2.4vw,38px); }
 .head-inner nav > a, .nav-trigger, .head-login { font-weight:650; }
-.nav-panel { top:calc(100% + 22px); border:1px solid var(--ink); border-radius:0 0 10px 10px; box-shadow:0 12px 26px #1f1f1f14; padding:14px; }
+.nav-panel { top:calc(100% + 19px); border:1px solid var(--ink); border-radius:0 0 10px 10px; box-shadow:0 12px 26px #1f1f1f14; padding:14px; }
 .head-inner .nav-panel a { border-radius:3px; padding:14px 15px; }
 .nav-panel a[aria-current=page] { background:#fae6da; }
-.site-foot { position:relative; border-top:6px solid var(--orange); }
-.site-foot .foot-grid { gap:clamp(18px,2vw,42px); }
-.site-foot .foot-brand .brand img { width:158px; height:auto; }
-.site-foot .foot-brand .btn { color:var(--ink); }
-.site-foot .foot-base { border-color:#63625e; }
 .btn.primary { color:var(--ink); }
 :where(a,button,input,textarea,select,summary):focus-visible { outline:3px solid #c24e10; outline-offset:4px; }
 @media (max-width:760px) {
-  .head-inner { height:65px; }
+  :root { --head-h: 58px; }
   .head-inner .brand img { width:118px; }
   .head-inner nav { gap:0; }
   .nav-panel { border:0; border-left:2px solid var(--orange); border-radius:0; padding:0 0 8px 12px; box-shadow:none; }
@@ -34,4 +33,22 @@
 }
 @media (max-width:380px) {
   .head-inner .brand img { width:104px; }
+}
+
+/* Between phone and desktop the full nav no longer fits beside the logo and CTA,
+   so the header uses the phone menu from 1080px down (rules mirror the 760px ones). */
+@media (min-width:761px) and (max-width:1080px) {
+  .head-inner { display:flex; gap:14px; }
+  .head-actions { margin-left:auto; gap:10px; }
+  .nav-toggle { display:grid; gap:5px; align-content:center; justify-content:center; width:38px; height:42px; border:0; background:transparent; }
+  .nav-toggle span { height:2px; width:22px; background:var(--ink); transition:transform .18s; }
+  .nav-toggle[aria-expanded=true] span:first-child { transform:translateY(3.5px) rotate(45deg); }
+  .nav-toggle[aria-expanded=true] span:last-child { transform:translateY(-3.5px) rotate(-45deg); }
+  .head-inner nav { position:absolute; inset:100% 0 auto; display:none; gap:0; background:var(--paper); border-bottom:1px solid var(--line); padding:8px var(--gutter) 16px; max-height:calc(100vh - var(--head-h)); overflow-y:auto; }
+  .head-inner nav.open { display:grid; align-items:stretch; }
+  .head-inner nav a { padding-block:13px; }
+  .nav-trigger { width:100%; justify-content:space-between; padding-block:13px; }
+  .nav-panel { position:static; transform:none; width:auto; grid-template-columns:1fr; box-shadow:none; border:0; border-left:2px solid var(--orange); border-radius:0; padding:0 0 8px 12px; background:transparent; }
+  .head-inner .nav-panel a { padding:10px 8px; }
+  .nav-panel small { display:none; }
 }

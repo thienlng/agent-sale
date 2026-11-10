@@ -22,7 +22,7 @@ One public host serves every path, as `scripts/dev-tunnel-proxy.mjs` does in dev
 | `/webhooks/*` | `webhook` |
 | `/media/*` | Bucket, GET/HEAD only |
 | `/widget.js` | Widget |
-| `/`, `/images/*`, `/fonts/*`, `/static/*` and the page folders (`/nganh/*`, `/tinh-nang/*`, `/tich-hop/`, `/bao-mat/`, `/bang-gia/`, `/dat-lich-demo/`) | Marketing site |
+| `/`, `/images/*`, `/fonts/*`, `/static/*` and the page folders (`/nganh/*`, `/tinh-nang/*`, `/tich-hop/`, `/bao-mat/`, `/bang-gia/`, `/dat-lich-demo/`, `/ve-rapiz/`) | Marketing site |
 | Anything else | Dashboard |
 
 The images do not depend on the domain. The domain lives only in `/opt/apps/rapiz/.env`.

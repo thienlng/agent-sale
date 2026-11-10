@@ -63,7 +63,7 @@
 | Landing | Kênh | Trạng thái | Ghi chú cho landing | Nguồn |
 |---|---|---|---|---|
 | [x] | Facebook Messenger | CHẠY | Logo đậm | #40, #58 |
-| [x] | **Bình luận Facebook theo ngữ cảnh bài post**: trả lời công khai, nhắn riêng, ẩn bình luận xấu | CHẠY | Điểm nhấn cho shop chạy ads | #60, T-106 |
+| [x] | **Bình luận Facebook theo ngữ cảnh bài post**: trả lời công khai, nhắn riêng (một tin văn bản, cùng nội dung), ẩn bình luận khớp từ khóa | CHẠY | Điểm nhấn cho shop chạy ads. Chỉ ẩn theo từ khóa, không tự nhận diện bình luận xấu | #60, T-106 |
 | [x] | Chat trên website (widget ~9 KB, thu số điện thoại) | CHẠY | Có mã nhúng | T-097..T-104 |
 | [x] | Instagram DM | BETA | Gắn nhãn "Beta" tới khi xác minh chạy thật | `docs/meta-inbox.md` |
 | [x] | **Zalo** | SẮP | Đang hoàn thiện. Logo đậm kèm nhãn "Sắp ra mắt"; bỏ nhãn khi chạy thật | đang làm |
@@ -90,7 +90,7 @@
 | [x] | FAQ, tài liệu, catalog riêng cho từng bot, thư viện ảnh | CHẠY | #40, #84 |
 | [x] | **Lịch sử chỉnh sửa và khôi phục** phiên bản cũ | CHẠY | #40, `docs/training-workspace.md` |
 | [x] | Chat thử hiển thị giống Messenger, cả trên điện thoại | CHẠY | #98, #141 |
-| [x] | Bộ đánh giá tự động cho câu trả lời của bot | CHẠY | T-145 (nói ở phần "chất lượng") |
+| [ ] | Bộ đánh giá tự động cho câu trả lời của bot | CHẠY (chỉ cho dev) | T-145. Lệnh `pnpm eval`, không có màn hình trong app: không nhắc trên landing |
 
 ## G. Vận hành bán hàng
 

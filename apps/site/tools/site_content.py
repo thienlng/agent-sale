@@ -1,7 +1,7 @@
 """Copy and data for the Rapiz sub-pages.
 
-Every claim here must match FEATURES.vi.md: only running features are promised, Beta and
-upcoming ones carry their label, no competitor names, and every chat, order or number is
+Every claim here must match FEATURES.vi.md: only running features are promised, "Thử nghiệm" and
+"Sắp ra mắt" ones carry their label, no competitor names, and every chat, order or number is
 marked as an illustration. Plan prices and limits come from the product's plan catalogue
 (agent-sale, packages/db/migrations/0015_billing.sql, plan version 1).
 """
@@ -18,29 +18,37 @@ def vnd(n: int) -> str:
 # ---------- navigation ----------
 
 INDUSTRY_LINKS = [
-    {'slug': 'nganh/ban-le', 'name': 'Bán lẻ online', 'blurb': 'Tư vấn size, tra tồn và chốt đơn trong chat.'},
-    {'slug': 'nganh/villa-homestay', 'name': 'Villa & homestay', 'blurb': 'Xem ngày trống, báo giá theo gói, giữ chỗ.'},
-    {'slug': 'nganh/spa-salon', 'name': 'Spa, salon, thẩm mỹ', 'blurb': 'Tư vấn dịch vụ và ghi lịch hẹn đủ thông tin.'},
-    {'slug': 'nganh/giao-duc', 'name': 'Trung tâm giáo dục', 'blurb': 'Ghi danh test trình độ và học thử.'},
-    {'slug': 'nganh/phan-mem', 'name': 'Phần mềm, SaaS', 'blurb': 'Nhận yêu cầu demo, dùng thử; theo dõi MRR.'},
+    {'slug': 'nganh/ban-le', 'name': 'Bán lẻ & thương mại điện tử', 'blurb': 'Tư vấn size, tra tồn và chốt đơn trong chat.'},
+    {'slug': 'nganh/villa-homestay', 'name': 'Lưu trú & nghỉ dưỡng', 'blurb': 'Xem ngày trống, báo giá theo gói, giữ chỗ.'},
+    {'slug': 'nganh/spa-salon', 'name': 'Làm đẹp & spa', 'blurb': 'Tư vấn dịch vụ và ghi lịch hẹn đủ thông tin.'},
+    {'slug': 'nganh/giao-duc', 'name': 'Giáo dục & đào tạo', 'blurb': 'Ghi danh test trình độ và học thử.'},
+    {'slug': 'nganh/phan-mem', 'name': 'Công nghệ & phần mềm', 'blurb': 'Nhận yêu cầu demo, dùng thử; theo dõi MRR.'},
 ]
 FEATURE_LINKS = [
-    {'slug': 'tinh-nang/ban-hang-ai', 'name': 'Bot bán hàng AI', 'blurb': 'Chốt đơn bằng nút xác nhận, không bịa giá.'},
-    {'slug': 'tinh-nang/binh-luan-facebook', 'name': 'Bình luận Facebook', 'blurb': 'Trả lời theo bài đăng, nhắn riêng, ẩn bình luận xấu.'},
-    {'slug': 'tinh-nang/hop-thu', 'name': 'Hộp thư đội sale', 'blurb': 'Bot và người làm chung, tiếp quản một chạm.'},
-    {'slug': 'tinh-nang/dao-tao-ai', 'name': 'Đào tạo AI', 'blurb': 'Dạy bot như dạy nhân viên mới, có lịch sử.'},
-    {'slug': 'tinh-nang/tro-ly-rapiz', 'name': 'Trợ lý Rapiz', 'blurb': 'Hỏi số liệu bằng tiếng Việt, nhận biểu đồ.'},
-    {'slug': 'tinh-nang/khach-hang-thong-ke', 'name': 'Khách hàng & thống kê', 'blurb': 'Từ hội thoại đến đơn, đo được từng bước.'},
+    {'slug': 'tinh-nang/ban-hang-ai', 'name': 'Tư vấn & chốt đơn', 'blurb': 'Chốt đơn bằng nút xác nhận, không bịa giá.'},
+    {'slug': 'tinh-nang/binh-luan-facebook', 'name': 'Tự động xử lý bình luận', 'blurb': 'Trả lời theo bài đăng, nhắn riêng, ẩn theo từ khóa.'},
+    {'slug': 'tinh-nang/hop-thu', 'name': 'Tin nhắn đa kênh', 'blurb': 'Messenger, Instagram, website và bình luận chung một hộp thư.'},
+    {'slug': 'tinh-nang/dao-tao-ai', 'name': 'Đào tạo Bot', 'blurb': 'Dạy bot như dạy nhân viên mới, chat thử trước khi bật.'},
+    {'slug': 'tinh-nang/tro-ly-rapiz', 'name': 'Trợ lý & thống kê', 'blurb': 'Hỏi số liệu bằng tiếng Việt, nhận báo cáo theo lịch.'},
+    {'slug': 'tinh-nang/khach-hang-thong-ke', 'name': 'Khách hàng, đơn hàng & lịch', 'blurb': 'Trạng thái khách theo ngành, đơn hàng, lịch và booking.'},
 ]
-NAV_PLAIN = [('Tích hợp', 'tich-hop'), ('Bảng giá', 'bang-gia')]
+PLATFORM_LINK = {'slug': 'tich-hop', 'name': 'Tích hợp nền tảng & PMS', 'blurb': 'Kênh nhắn tin, KiotViet, API và webhook.'}
+NAV_PLAIN = [('Tích hợp', 'tich-hop'), ('Bảng giá', 'bang-gia'), ('Về chúng tôi', 've-rapiz')]
+COMPANY = {
+    'name': 'Công ty TNHH Công nghệ Rapiz',
+    'name_en': 'Rapiz Technology Company Limited',
+    'short': 'RAPIZ TECH CO., LTD.',
+    'email': 'support@rapiz.io',
+}
 FOOT_PLATFORM = [
-    ('Tích hợp & kênh', 'tich-hop', None),
+    ('Tích hợp nền tảng & PMS', 'tich-hop', None),
     ('Bảo mật & dữ liệu', 'bao-mat', None),
     ('Bảng giá', 'bang-gia', None),
+    ('Về Rapiz', 've-rapiz', None),
     ('Câu hỏi thường gặp', '#questions', None),
 ]
 FOOT_ACCOUNT = [
-    ('Bắt đầu miễn phí', SIGNUP_URL, None),
+    ('Đăng ký', SIGNUP_URL, None),
     ('Đăng nhập', LOGIN_URL, None),
     ('Đặt lịch demo', 'dat-lich-demo', None),
 ]
@@ -50,7 +58,7 @@ for _l in INDUSTRY_LINKS:
     LINK_INDEX[_l['slug']] = {**_l, 'group': 'Giải pháp'}
 for _l in FEATURE_LINKS:
     LINK_INDEX[_l['slug']] = {**_l, 'group': 'Tính năng'}
-LINK_INDEX['tich-hop'] = {'name': 'Tích hợp & kênh', 'blurb': 'Messenger, website, KiotViet, API và webhook.', 'group': 'Nền tảng'}
+LINK_INDEX['tich-hop'] = {**PLATFORM_LINK, 'group': 'Nền tảng'}
 LINK_INDEX['bao-mat'] = {'name': 'Bảo mật & dữ liệu', 'blurb': 'Dữ liệu tách riêng, phân quyền, 2FA, nhật ký.', 'group': 'Nền tảng'}
 LINK_INDEX['bang-gia'] = {'name': 'Bảng giá', 'blurb': 'Bắt đầu miễn phí, nâng gói khi đội lớn lên.', 'group': 'Nền tảng'}
 
@@ -80,6 +88,11 @@ ICONS = {
     'history': _svg('<path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 4v4h4M12 8v4l3 2"/>'),
     'memory': _svg('<path d="M4 6h16M4 12h10M4 18h7"/><path d="m16 16 2 2 4-4"/>'),
     'users': _svg('<circle cx="9" cy="8" r="3.2"/><path d="M3 20c.5-3.2 2.8-5 6-5s5.5 1.8 6 5M16 5a3 3 0 0 1 0 6M18 15c1.8.6 2.8 2.2 3 5"/>'),
+    'globe': _svg('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.3 2.4 3.4 5.2 3.4 8.5s-1.1 6.1-3.4 8.5c-2.3-2.4-3.4-5.2-3.4-8.5S9.7 5.9 12 3.5Z"/>'),
+    'file': _svg('<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>'),
+    'code': _svg('<path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/>'),
+    'store': _svg('<path d="M4 9.5 5.5 4h13L20 9.5M4 9.5h16M4 9.5c0 1.7 1.3 3 3 3s2.7-1.3 2.7-3c0 1.7 1.3 3 2.3 3s2.3-1.3 2.3-3c0 1.7 1.3 3 2.7 3s3-1.3 3-3M5.5 12.5V20h13v-7.5"/>'),
+    'megaphone': _svg('<path d="M4 10v4h3l7 4V6l-7 4z"/><path d="M7 14v4.5h3M17.5 9.5a3.5 3.5 0 0 1 0 5"/>'),
     'bell': _svg('<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>'),
 }
 
@@ -89,9 +102,9 @@ ICONS = {
 TERMS = [('3', ''), ('6', ''), ('12', 'tiết kiệm nhất')]
 PLANS = [
     {
-        'code': 'free', 'name': 'Miễn phí', 'prices': None, 'cta': 'Tạo tài khoản',
+        'code': 'free', 'name': 'Miễn phí', 'prices': None, 'cta': 'Chọn gói Miễn phí',
         'for': 'Một người, một fanpage. Đủ để thử bot với khách thật.',
-        'ticks': ['1.000 lượt trả lời AI mỗi 14 ngày', '1 thành viên, tối đa 3 kênh', 'Inbox, đào tạo AI, chốt đơn trong chat', 'Trợ lý Rapiz cho chủ shop'],
+        'ticks': ['1.000 lượt trả lời AI mỗi 14 ngày', '1 thành viên, tối đa 3 kênh', 'Tin nhắn đa kênh, Đào tạo Bot, chốt đơn trong chat', 'Trợ lý Rapiz cho chủ shop'],
     },
     {
         'code': 'sales_smart', 'name': 'Sales Smart', 'cta': 'Chọn Sales Smart',
@@ -138,11 +151,11 @@ COMPARE = [
 # ---------- demo form ----------
 
 FORM_INDUSTRIES = [
-    ('ban-le', 'Bán lẻ online'), ('villa-homestay', 'Villa, homestay, lưu trú'), ('spa-salon', 'Spa, salon, thẩm mỹ'),
-    ('giao-duc', 'Giáo dục, trung tâm'), ('phan-mem', 'Phần mềm, SaaS'), ('khac', 'Ngành khác'),
+    ('ban-le', 'Bán lẻ & thương mại điện tử'), ('villa-homestay', 'Lưu trú & nghỉ dưỡng'), ('spa-salon', 'Làm đẹp & spa'),
+    ('giao-duc', 'Giáo dục & đào tạo'), ('phan-mem', 'Công nghệ & phần mềm'), ('khac', 'Ngành khác'),
 ]
 FORM_PLANS = [('', 'Chưa chắc, cần tư vấn')] + [(p['code'], p['name']) for p in PLANS]
-FORM_CHANNELS = ['Messenger', 'Bình luận Facebook', 'Instagram', 'Website', 'Zalo', 'TikTok']
+FORM_CHANNELS = ['Messenger', 'Bình luận Facebook', 'Instagram', 'Website', 'Zalo (sắp ra mắt)', 'TikTok (sắp ra mắt)']
 
 
 # ---------- shared FAQ answers ----------
@@ -160,19 +173,29 @@ FAQ_TRY = ('Tôi có thể thử trước khi trả tiền không?',
 
 # ---------- pages ----------
 
-def related(*slugs):
-    return {'kind': 'related', 'slugs': list(slugs)}
+def related(h2, *slugs):
+    return {'kind': 'related', 'h2': h2, 'slugs': list(slugs)}
 
 
-PAGES = []
+SHOT_NOTE = 'Ảnh chụp ứng dụng Rapiz với dữ liệu demo.'
+
+
+def shot(img, kicker, h2, lead, alt, w=2400, h=1345):
+    return {'kind': 'shot', 'kicker': kicker, 'h2': h2, 'lead': lead, 'img': img, 'alt': alt, 'w': w, 'h': h, 'caption': SHOT_NOTE}
+
+
+PAGES = [{
+    'slug': 've-rapiz', 'title': 'Về Rapiz · Sứ mệnh',
+    'description': 'Rapiz xây nhân viên AI cho đội bán hàng và trợ lý riêng cho người chủ. Tìm hiểu sứ mệnh và tầm nhìn Business OS của Rapiz.',
+}]
 
 # ===== industries =====
 
 PAGES.append({
-    'slug': 'nganh/ban-le', 'group': 'Giải pháp · Bán lẻ online',
-    'title': 'Bán lẻ online: tư vấn và chốt đơn trong chat | Rapiz',
+    'slug': 'nganh/ban-le', 'group': 'Giải pháp · Bán lẻ & thương mại điện tử',
+    'title': 'Bán lẻ & thương mại điện tử: tư vấn và chốt đơn trong chat | Rapiz',
     'description': 'Rapiz tra danh mục, giá và tồn kho của shop, gửi ảnh sản phẩm thật và gửi tóm tắt đơn để khách bấm xác nhận ngay trong Messenger.',
-    'h1': 'Khách hỏi size.<br><em>Đơn đã lên.</em>',
+    'h1': 'Khách hỏi size.<br><em>Một chạm là lên đơn.</em>',
     'deck': 'Rapiz tra danh mục, giá và tồn kho của shop, gửi ảnh sản phẩm thật, rồi gửi tóm tắt đơn để khách bấm xác nhận. Đơn vào hệ thống, giữ tồn và chờ nhân viên duyệt.',
     'demo_query': '?nganh=ban-le',
     'points': ['Hiểu tin nhắn không dấu', 'Đơn chỉ tạo khi khách bấm xác nhận'],
@@ -197,9 +220,12 @@ PAGES.append({
              ('l', 'Gửi 2 ảnh từ thư viện sản phẩm', 1),
              ('c', 'lay 2 cai, giao q7 nha'),
              ('l', 'Tính tiền: 2 × 220.000đ + phí giao 25.000đ = 465.000đ', 2),
-             ('order', {'rows': [('Áo thun cotton trắng · L', '× 2'), ('Tạm tính', '440.000đ'), ('Phí giao Quận 7', '25.000đ')], 'total': ('Tổng', '465.000đ')}, 3),
+             ('order', {'rows': [('Áo thun cotton trắng · L', '× 2'), ('Tạm tính', '440.000đ'), ('Phí ship', '30.000đ')], 'total': ('Tổng', '470.000đ')}, 3),
              ('r', 'Khách đã bấm ✅ Đặt hàng · Đơn mang nhãn “Bot tạo”, giữ 2 áo trong kho, chờ nhân viên duyệt.', 4),
          ]},
+        shot('ui-inbox-clean.jpg', 'MÀN HÌNH THẬT', 'Hội thoại và hồ sơ khách<br><em>trên cùng một màn hình.</em>',
+             'Đây là Tin nhắn đa kênh trong app. Nhân viên đọc lại những gì bot đã trả lời, xem số điện thoại, trạng thái và nhãn của khách ở cột bên phải.',
+             'Màn hình Tin nhắn đa kênh của Rapiz: bên trái là danh sách hội thoại có lọc Chưa đọc và Chờ trả lời, giữa là đoạn chat bot đang trả lời một khách trên website, bên phải là hồ sơ khách với số điện thoại, trạng thái và nhãn.'),
         {'kind': 'caps', 'kicker': 'BỘ VIỆC CỦA SHOP', 'h2': 'Những việc Rapiz<br><em>làm thay đội sale.</em>',
          'items': [
              {'icon': 'search', 'title': 'Tìm sản phẩm theo nhu cầu', 'text': 'Khách gõ không dấu, viết tắt hay chỉ tả màu và dáng, Rapiz vẫn ra đúng mẫu và biến thể.', 'proof': '“con mau den ko” → tra tồn theo màu'},
@@ -207,29 +233,25 @@ PAGES.append({
              {'icon': 'calc', 'title': 'Tính tiền chính xác', 'text': 'Mọi phép tính đi qua máy tính, kể cả khi khách gõ 1,5 hay 500,000.', 'proof': '<span class="mono">2 × 880.000 = 1.760.000đ</span>'},
              {'icon': 'check', 'title': 'Chốt đơn bằng nút bấm', 'text': 'Bot gửi tóm tắt đơn. Đơn chỉ được tạo khi khách bấm ✅ Đặt hàng, nhân viên duyệt trước khi giao.', 'link': 'tinh-nang/ban-hang-ai'},
              {'icon': 'image', 'title': 'Gửi ảnh sản phẩm thật', 'text': 'Chỉ gửi ảnh có trong thư viện sản phẩm của bạn, không lấy ảnh lạ trên mạng.'},
-             {'icon': 'comment', 'title': 'Bình luận dưới bài quảng cáo', 'text': 'Trả lời công khai theo đúng sản phẩm trong bài, nhắn riêng báo giá, ẩn bình luận xấu.', 'link': 'tinh-nang/binh-luan-facebook'},
+             {'icon': 'comment', 'title': 'Bình luận dưới bài quảng cáo', 'text': 'Trả lời công khai theo đúng sản phẩm trong bài, nhắn riêng cho người bình luận, ẩn bình luận theo từ khóa.', 'link': 'tinh-nang/binh-luan-facebook'},
              {'icon': 'hand', 'title': 'Gọi nhân viên đúng lúc', 'text': 'Đổi địa chỉ sau khi chốt, khiếu nại, xin giảm giá: bot chuyển người kèm lý do và tóm tắt.', 'link': 'tinh-nang/hop-thu'},
-             {'icon': 'plug', 'title': 'Đồng bộ KiotViet', 'status': 'Beta', 'text': 'Lấy sản phẩm và tồn theo chi nhánh, đẩy đơn và khách hàng về KiotViet.', 'link': 'tich-hop'},
+             {'icon': 'plug', 'title': 'Đồng bộ KiotViet', 'status': 'Thử nghiệm', 'text': 'Lấy sản phẩm và tồn theo chi nhánh, đẩy đơn và khách hàng về KiotViet.', 'link': 'tich-hop'},
          ]},
-        {'kind': 'shot', 'kicker': 'MÀN HÌNH THẬT', 'h2': 'Đơn của bot nằm ngay<br><em>cạnh khung chat.</em>',
-         'lead': 'Nhân viên đọc lại hội thoại, xem hồ sơ khách và duyệt đơn mà không đổi màn hình.',
-         'img': 'ui-inbox-clean.jpg', 'alt': 'Hộp thư Rapiz: danh sách hội thoại, tin nhắn tư vấn và hồ sơ khách hàng bên phải.',
-         'caption': 'Ảnh chụp ứng dụng Rapiz với dữ liệu mẫu.'},
         {'kind': 'faq', 'items': [
             ('Bot có tự tạo đơn khi khách chưa đồng ý không?', 'Không. Bot gửi tóm tắt đơn kèm nút ✅ Đặt hàng và nút sửa. Đơn chỉ được tạo khi khách bấm xác nhận, mang nhãn “Bot tạo” để nhân viên duyệt.'),
             ('Tồn kho được xử lý thế nào khi bot tạo đơn?', 'Đơn bot tạo giữ tồn kho cho các biến thể trong đơn. Nhân viên thấy nguồn đơn, trạng thái, có thể sửa món và tách tổng tiền với tiền phải thu.'),
             ('Shop tôi có nhiều màu, nhiều size?', 'Mỗi sản phẩm có biến thể, kho và tồn riêng. Bot tra theo đúng biến thể khách hỏi và báo khi một màu hoặc size đã hết.'),
             ('Nhập sản phẩm có mất nhiều thời gian không?', 'Bạn nhập từ Excel hoặc CSV kèm ảnh. Trợ lý Rapiz đọc tệp, đề xuất danh mục để bạn duyệt một lần là xong.'),
-            ('Tôi đang dùng KiotViet, có cần nhập lại không?', 'Tích hợp KiotViet đang ở bản Beta: đồng bộ sản phẩm, tồn theo chi nhánh, đẩy đơn và khách hàng. Hệ thống khác có thể kết nối qua API và webhook.'),
+            ('Tôi đang dùng KiotViet, có cần nhập lại không?', 'Không cần. Tích hợp KiotViet đang chạy thử nghiệm với một số shop: đồng bộ sản phẩm, tồn theo chi nhánh, đẩy đơn và khách hàng. Sapo, Haravan và Pancake POS sắp ra mắt; hệ thống khác kết nối được qua API và webhook.'),
             FAQ_HANDOFF,
         ]},
-        related('tinh-nang/ban-hang-ai', 'tinh-nang/binh-luan-facebook', 'tinh-nang/hop-thu'),
-        {'kind': 'close', 'h2': 'Thử Rapiz với<br><em>danh mục của shop bạn.</em>', 'demo_query': '?nganh=ban-le'},
+        related('Đơn trong chat<br><em>còn cần gì nữa?</em>', 'tinh-nang/ban-hang-ai', 'tinh-nang/binh-luan-facebook', 'tich-hop'),
+        {'kind': 'close', 'h2': 'Thử Rapiz với<br><em>danh mục của shop.</em>', 'demo_query': '?nganh=ban-le'},
     ],
 })
 
 PAGES.append({
-    'slug': 'nganh/villa-homestay', 'group': 'Giải pháp · Villa & homestay',
+    'slug': 'nganh/villa-homestay', 'group': 'Giải pháp · Lưu trú & nghỉ dưỡng',
     'title': 'Villa, homestay: báo giá, xem ngày trống, giữ chỗ trong chat | Rapiz',
     'description': 'Rapiz xem lịch trống theo từng căn, báo giá theo gói phòng và theo thứ, tạo lượt giữ chỗ có thời hạn để nhân viên xác nhận.',
     'h1': 'Hỏi ngày trống.<br><em>Giữ chỗ ngay.</em>',
@@ -260,6 +282,9 @@ PAGES.append({
              ('a', 'Em đã giữ chỗ Pine Villa tối 14/11 cho anh. Nhân viên sẽ gọi số 0912 345 678 để xác nhận và hướng dẫn đặt cọc trong hôm nay ạ.'),
              ('r', 'Giữ chỗ hiện trên lịch phòng · nhân viên nhận thông báo để gọi xác nhận.', 4),
          ]},
+        shot('ui-calendar-clean.jpg', 'MÀN HÌNH THẬT', 'Biết phòng nào trống<br><em>trước khi khách hỏi.</em>',
+             'Lịch phòng xem theo 2 tuần, tháng, quý hoặc năm; ghi booking, khoá lịch và ghi chú cho từng đêm. Bot đọc đúng lịch này khi khách hỏi ngày trống.',
+             'Màn hình Lịch của Rapiz cho một cụm villa: ô tìm theo ngày nhận, trả phòng và số khách, bảng hai tuần với giá từng đêm của mỗi căn, một đêm đang bị khoá và tỉ lệ lấp đầy ở hàng đầu.'),
         {'kind': 'caps', 'kicker': 'CHO NGƯỜI VẬN HÀNH LƯU TRÚ', 'h2': 'Lịch phòng và bảng giá<br><em>ở cùng một nơi.</em>',
          'items': [
              {'icon': 'calendar', 'title': 'Lịch trống theo căn', 'text': 'Bot đọc lịch từng căn, từng đêm trước khi trả lời, kể cả khi khách hỏi nhiều đêm liền.'},
@@ -271,10 +296,6 @@ PAGES.append({
              {'icon': 'users', 'title': 'Nhiều căn, nhiều cơ sở', 'text': 'Một tài khoản quản lý nhiều cơ sở lưu trú, mỗi nơi một bot và một lịch riêng.'},
              {'icon': 'chart', 'title': 'Hỏi công suất bằng lời', 'text': '“Doanh thu villa tháng 10?” Trợ lý Rapiz trả lời bằng số và biểu đồ.', 'link': 'tinh-nang/tro-ly-rapiz'},
          ]},
-        {'kind': 'shot', 'kicker': 'MÀN HÌNH THẬT', 'h2': 'Biết phòng nào trống<br><em>trước khi khách hỏi.</em>',
-         'lead': 'Lịch phòng xem theo 2 tuần, tháng, quý hoặc năm; ghi booking, khoá lịch và ghi chú cho từng đêm.',
-         'img': 'ui-calendar-clean.jpg', 'alt': 'Lịch phòng Rapiz của một cụm villa với các lượt đặt theo ngày.',
-         'caption': 'Ảnh chụp ứng dụng Rapiz với dữ liệu mẫu.'},
         {'kind': 'faq', 'items': [
             ('Bot có tự chốt đặt phòng không?', 'Không. Bot tạo lượt giữ chỗ có thời hạn và báo nhân viên. Việc xác nhận và nhận cọc vẫn do đội của bạn làm.'),
             ('Giữ chỗ hết hạn thì sao?', 'Lượt giữ chỗ chưa được xác nhận sẽ tự hết hạn và đêm đó mở lại trên lịch, tránh giữ phòng ảo.'),
@@ -283,16 +304,16 @@ PAGES.append({
             ('Khách hỏi ngoài lề như BBQ, thú cưng?', 'Bot trả lời theo sổ tay và câu hỏi thường gặp bạn soạn. Chưa có thông tin thì bot nói chưa có và mời nhân viên.'),
             FAQ_HANDOFF,
         ]},
-        related('tinh-nang/ban-hang-ai', 'tinh-nang/tro-ly-rapiz', 'tinh-nang/hop-thu'),
+        related('Lịch phòng<br><em>nối với những phần nào?</em>', 'tinh-nang/khach-hang-thong-ke', 'tinh-nang/ban-hang-ai', 'tinh-nang/tro-ly-rapiz'),
         {'kind': 'close', 'h2': 'Cho bot đọc<br><em>lịch phòng của bạn.</em>', 'demo_query': '?nganh=villa-homestay'},
     ],
 })
 
 PAGES.append({
-    'slug': 'nganh/spa-salon', 'group': 'Giải pháp · Spa, salon, thẩm mỹ',
-    'title': 'Spa, salon, thẩm mỹ: tư vấn dịch vụ và đặt lịch trong chat | Rapiz',
+    'slug': 'nganh/spa-salon', 'group': 'Giải pháp · Làm đẹp & spa',
+    'title': 'Làm đẹp & spa: tư vấn dịch vụ và đặt lịch trong chat | Rapiz',
     'description': 'Rapiz tư vấn dịch vụ theo bảng giá của bạn, ghi lịch hẹn đủ dịch vụ, chi nhánh, ngày giờ, số người và chuyển lễ tân xác nhận.',
-    'h1': 'Hỏi dịch vụ.<br><em>Có lịch hẹn.</em>',
+    'h1': 'Khách hỏi dịch vụ.<br><em>Lễ tân nhận lịch hẹn.</em>',
     'deck': 'Rapiz tư vấn dịch vụ theo bảng giá của bạn, ghi lịch hẹn đủ dịch vụ, chi nhánh, ngày giờ và số người, rồi chuyển lễ tân xác nhận.',
     'demo_query': '?nganh=spa-salon',
     'points': ['Lịch hẹn đủ dịch vụ, chi nhánh, ngày giờ, số người', 'Không nhận ngày đã qua'],
@@ -320,6 +341,10 @@ PAGES.append({
              ('l', 'Lưu số điện thoại vào hồ sơ khách', 3),
              ('r', 'Đã tạo yêu cầu đặt lịch: dịch vụ, chi nhánh, ngày giờ, 2 người, số điện thoại. Lễ tân Quận 3 nhận thông báo.', 4),
          ]},
+        shot('ui-contacts.jpg', 'MÀN HÌNH THẬT', 'Lễ tân thấy ngay<br><em>ai đang chờ xác nhận.</em>',
+             'Danh sách Khách hàng của một spa đếm sẵn khách theo trạng thái: khách mới, đang tư vấn, yêu cầu đặt lịch, đã xác nhận lịch, đã đến. Khách bot vừa ghi nhận nằm ở cột Yêu cầu đặt lịch.',
+             'Màn hình Khách hàng của Rapiz cho một spa: các ô đếm theo trạng thái Khách mới, Đang tư vấn, Yêu cầu đặt lịch, Đã xác nhận lịch, Đã đến, Không đến, Không quan tâm, và bảng khách với số điện thoại, nguồn Website và trạng thái Yêu cầu đặt lịch.',
+             1600, 1000),
         {'kind': 'caps', 'kicker': 'CHO LỄ TÂN VÀ CHỦ CƠ SỞ', 'h2': 'Ít tin nhắn hỏi lại,<br><em>nhiều lịch đủ thông tin.</em>',
          'items': [
              {'icon': 'calendar', 'title': 'Lịch hẹn đủ trường', 'text': 'Dịch vụ, chi nhánh, ngày giờ, số người và số điện thoại. Thiếu gì bot hỏi tiếp cái đó.'},
@@ -331,10 +356,6 @@ PAGES.append({
              {'icon': 'comment', 'title': 'Bình luận dưới bài ưu đãi', 'text': 'Trả lời giá ngay dưới bài, mời khách vào inbox để giữ giờ.', 'link': 'tinh-nang/binh-luan-facebook'},
              {'icon': 'bell', 'title': 'Báo cáo sáng mỗi ngày', 'text': '“8h sáng gửi tôi số lịch hẹn hôm nay.” Trợ lý Rapiz gửi qua chuông, email hoặc thông báo đẩy.', 'link': 'tinh-nang/tro-ly-rapiz'},
          ]},
-        {'kind': 'shot', 'kicker': 'MÀN HÌNH THẬT', 'h2': 'Lịch hẹn hiện ngay<br><em>trong hồ sơ khách.</em>',
-         'lead': 'Khách nhắn không dấu, bot hỏi số điện thoại và cơ sở, CRM ghi “Yêu cầu đặt lịch”.',
-         'img': 'ui-inbox-clean.jpg', 'alt': 'Hộp thư Rapiz với hội thoại đặt lịch spa và trạng thái yêu cầu đặt lịch trong hồ sơ khách.',
-         'caption': 'Ảnh chụp ứng dụng Rapiz với dữ liệu mẫu.'},
         {'kind': 'faq', 'items': [
             ('Bot có xác nhận lịch thay lễ tân không?', 'Bot ghi nhận yêu cầu hẹn với đủ thông tin và báo cho lễ tân. Lễ tân xác nhận lại với khách theo lịch thực tế của cơ sở.'),
             ('Khách nhắn “thứ 7” mà không nói ngày?', 'Bot quy đổi sang ngày cụ thể và nhắc lại để khách kiểm tra, không nhận ngày đã qua.'),
@@ -343,20 +364,20 @@ PAGES.append({
             FAQ_DATA,
             FAQ_HANDOFF,
         ]},
-        related('tinh-nang/khach-hang-thong-ke', 'tinh-nang/dao-tao-ai', 'tinh-nang/tro-ly-rapiz'),
-        {'kind': 'close', 'h2': 'Thử với bảng giá<br><em>dịch vụ của bạn.</em>', 'demo_query': '?nganh=spa-salon'},
+        related('Lễ tân dùng thêm<br><em>những màn hình này.</em>', 'tinh-nang/khach-hang-thong-ke', 'tinh-nang/binh-luan-facebook', 'tinh-nang/dao-tao-ai'),
+        {'kind': 'close', 'h2': 'Xem bot hỏi đủ thông tin<br><em>cho một lịch hẹn spa.</em>', 'demo_query': '?nganh=spa-salon'},
     ],
 })
 
 PAGES.append({
-    'slug': 'nganh/giao-duc', 'group': 'Giải pháp · Trung tâm giáo dục',
-    'title': 'Trung tâm giáo dục: tư vấn lộ trình, ghi danh học thử | Rapiz',
+    'slug': 'nganh/giao-duc', 'group': 'Giải pháp · Giáo dục & đào tạo',
+    'title': 'Giáo dục & đào tạo: tư vấn lộ trình, ghi danh học thử | Rapiz',
     'description': 'Rapiz tư vấn chương trình, ghi danh test trình độ và học thử, nhận đăng ký phụ huynh làm cho con và chuyển hồ sơ cho tư vấn viên.',
     'h1': 'Phụ huynh hỏi lớp.<br><em>Con có buổi học thử.</em>',
     'deck': 'Rapiz tư vấn chương trình, ghi danh test trình độ hoặc học thử, nhận đăng ký phụ huynh làm cho con. Tư vấn viên nhận hồ sơ đủ thông tin để xếp lớp.',
     'demo_query': '?nganh=giao-duc',
     'points': ['Phụ huynh đăng ký cho con'],
-    'visual': {'img': 'rapiz-education.webp', 'w': 840, 'h': 1050, 'alt': 'Lớp học nhỏ với học sinh và giáo viên',
+    'visual': {'img': 'rapiz-education-class.webp', 'w': 840, 'h': 1050, 'alt': 'Lớp học nhỏ với học sinh và giáo viên',
                'card': ('Rapiz Agent · Minh họa', 'Học thử: lớp 8 · thứ Bảy')},
     'blocks': [
         {'kind': 'pains', 'kicker': 'MÙA TUYỂN SINH', 'h2': 'Phụ huynh hỏi buổi tối,<br><em>tư vấn viên đã về.</em>',
@@ -380,6 +401,9 @@ PAGES.append({
              ('l', 'Lưu số điện thoại phụ huynh', 3),
              ('r', 'Đã ghi danh học thử: học sinh, lớp, chương trình, ca mong muốn, số điện thoại phụ huynh. Tư vấn viên nhận thông báo.', 4),
          ]},
+        shot('ui-training-clean.jpg', 'MÀN HÌNH THẬT', 'Trung tâm tự dặn bot<br><em>cách nói với phụ huynh.</em>',
+             'Trong Đào tạo Bot, bạn ghi nhiệm vụ của bot, cách xưng hô, độ dài câu và lời chào, rồi chat thử ở cột bên phải. Ảnh dưới là bot của một spa; trung tâm giáo dục điền theo cách tư vấn tuyển sinh của mình.',
+             'Màn hình Đào tạo Bot của Rapiz, mục Hướng dẫn trả lời: ô nhiệm vụ của bot, chọn cách xưng hô, độ dài câu trả lời, giọng điệu và lời chào; bên phải là Đoạn chat thử nghiệm với các câu hỏi gợi ý.'),
         {'kind': 'caps', 'kicker': 'CHO ĐỘI TƯ VẤN TUYỂN SINH', 'h2': 'Câu hỏi lặp lại<br><em>để bot trả lời.</em>',
          'items': [
              {'icon': 'book', 'title': 'Tư vấn lộ trình', 'text': 'Học phí, sĩ số, lịch khai giảng, giáo trình: bot trả lời theo tài liệu của trung tâm.'},
@@ -397,20 +421,20 @@ PAGES.append({
             FAQ_HANDOFF,
             FAQ_TRY,
         ]},
-        related('tinh-nang/khach-hang-thong-ke', 'tinh-nang/dao-tao-ai', 'tinh-nang/hop-thu'),
+        related('Hồ sơ tuyển sinh<br><em>đi tiếp tới đâu?</em>', 'tinh-nang/khach-hang-thong-ke', 'tinh-nang/dao-tao-ai', 'tinh-nang/hop-thu'),
         {'kind': 'close', 'h2': 'Để bot nhận<br><em>câu hỏi tuyển sinh.</em>', 'demo_query': '?nganh=giao-duc'},
     ],
 })
 
 PAGES.append({
-    'slug': 'nganh/phan-mem', 'group': 'Giải pháp · Phần mềm, SaaS',
-    'title': 'Phần mềm, SaaS: trả lời câu hỏi sản phẩm, nhận yêu cầu demo | Rapiz',
+    'slug': 'nganh/phan-mem', 'group': 'Giải pháp · Công nghệ & phần mềm',
+    'title': 'Công nghệ & phần mềm: trả lời câu hỏi sản phẩm, nhận yêu cầu demo | Rapiz',
     'description': 'Rapiz trả lời câu hỏi sản phẩm từ tài liệu của bạn, nhận yêu cầu demo hoặc dùng thử kèm quy mô đội và nhu cầu, theo dõi gói, MRR và khách rời bỏ.',
-    'h1': 'Khách hỏi tính năng.<br><em>Lịch demo đã có.</em>',
+    'h1': 'Khách hỏi tính năng.<br><em>Sale nhận yêu cầu demo.</em>',
     'deck': 'Rapiz trả lời câu hỏi sản phẩm từ tài liệu của bạn, nhận yêu cầu demo hoặc dùng thử kèm quy mô đội và nhu cầu, và giúp bạn theo dõi gói, MRR và khách rời bỏ.',
     'demo_query': '?nganh=phan-mem',
     'points': ['Khung chat trên website', 'Gọi API của bạn', 'Theo dõi gói và MRR'],
-    'visual': {'img': 'rapiz-software.webp', 'w': 840, 'h': 1050, 'alt': 'Đội ngũ phần mềm làm việc trước màn hình',
+    'visual': {'img': 'rapiz-software-team.webp', 'w': 840, 'h': 1050, 'alt': 'Đội ngũ phần mềm làm việc trước màn hình',
                'card': ('Rapiz Agent · Minh họa', 'Yêu cầu demo · đội 6 sale')},
     'blocks': [
         {'kind': 'pains', 'kicker': 'PHỄU B2B', 'h2': 'Khách tìm hiểu một mình,<br><em>rồi rời trang.</em>',
@@ -433,6 +457,10 @@ PAGES.append({
              ('c', 'lan@congty.vn'),
              ('r', 'Đã tạo yêu cầu demo kèm quy mô, công cụ hiện tại và nhu cầu. Chuyên viên nhận thông báo.', 3),
          ]},
+        shot('ui-channels.jpg', 'MÀN HÌNH THẬT', 'Gắn khung chat<br><em>vào website của bạn.</em>',
+             'Trong Tích hợp nền tảng, mỗi website có mã nhúng riêng và một bot được gán để trả lời. Sao chép mã, dán vào trang, bật công tắc là khung chat chạy.',
+             'Màn hình Tích hợp nền tảng của Rapiz: cột trái lọc theo Facebook, Instagram, Zalo, Lazada, TikTok Business và Website; bên phải là một website đã kết nối, trạng thái Đang chạy, nút Sao chép mã nhúng và Hướng dẫn cài đặt.',
+             1600, 1000),
         {'kind': 'caps', 'kicker': 'CHO ĐỘI SALE VÀ VẬN HÀNH SAAS', 'h2': 'Câu hỏi kỹ thuật<br><em>có câu trả lời ngay.</em>',
          'items': [
              {'icon': 'book', 'title': 'Trả lời từ tài liệu', 'text': 'Đưa tài liệu sản phẩm, bảng giá, câu hỏi thường gặp; bot trả lời trong phạm vi đó.'},
@@ -449,7 +477,7 @@ PAGES.append({
             FAQ_HANDOFF,
             FAQ_TRY,
         ]},
-        related('tich-hop', 'tinh-nang/ban-hang-ai', 'tinh-nang/khach-hang-thong-ke'),
+        related('Cho đội sale<br><em>và đội kỹ thuật.</em>', 'tich-hop', 'tinh-nang/ban-hang-ai', 'tinh-nang/khach-hang-thong-ke'),
         {'kind': 'close', 'h2': 'Đặt bot lên<br><em>trang giá của bạn.</em>', 'demo_query': '?nganh=phan-mem'},
     ],
 })
@@ -458,271 +486,193 @@ PAGES.append({
 # ===== features =====
 
 PAGES.append({
-    'slug': 'tinh-nang/ban-hang-ai', 'group': 'Tính năng · Bot bán hàng AI',
-    'title': 'Bot bán hàng AI: chốt đơn trong chat bằng dữ liệu của bạn | Rapiz',
-    'description': 'Bot bán hàng AI tra giá, tồn kho và ngày trống từ dữ liệu của bạn, tính tiền bằng máy tính, gửi tóm tắt đơn để khách bấm xác nhận.',
-    'h1': 'Bot bán hàng<br><em>nói đúng giá của bạn.</em>',
-    'deck': 'Bot tra giá, tồn kho và ngày trống từ dữ liệu của bạn, tính tiền bằng máy tính, gửi tóm tắt đơn để khách bấm xác nhận, và biết lúc nào cần gọi người.',
-    'points': ['Đơn chỉ tạo khi khách xác nhận', 'Tính tiền bằng máy tính', 'Gọi API của bạn có xác nhận'],
-    'visual': {'mock': {'type': 'order', 'title': 'Messenger · Rapiz Agent',
-                        'before': [('c', 'lay 2 bo do ngu size M nha shop')],
-                        'order': {'rows': [('Bộ đồ ngủ lụa · M', '× 2'), ('Tạm tính', '1.760.000đ'), ('Phí giao', '30.000đ')], 'total': ('Tổng', '1.790.000đ')},
-                        'after': [('r', 'Đơn được tạo sau khi khách bấm ✅')]}},
+    'slug': 'tinh-nang/ban-hang-ai', 'group': 'Tính năng · Tư vấn & chốt đơn',
+    'title': 'Tư vấn & chốt đơn: bot báo đúng giá, khách bấm Đặt hàng | Rapiz',
+    'description': 'Bot tra giá và tồn kho trong danh mục của bạn, gửi tóm tắt đơn để khách bấm Đặt hàng. Đơn bot tạo mang nhãn Bot và chờ nhân viên duyệt.',
+    'assets': ['feature-edition.css', 'sale-edition.css', 'image-lightbox.js', 'sale-demo.js'],
+    'cover': {'h1': 'Bot báo giá,<br><em>khách tự chốt.</em>',
+              'deck': 'Giá và tồn kho lấy từ danh mục của bạn. Đơn chỉ được tạo khi khách xác nhận tóm tắt đơn, rồi chờ nhân viên kiểm tra.',
+              'cta': 'Thử chốt một đơn', 'demo': 'chot-don', 'scene': 'scene-ban-hang-ai.html'},
     'blocks': [
-        {'kind': 'rows', 'kicker': 'CÁCH BOT LÀM VIỆC', 'h2': 'Mỗi câu trả lời<br><em>đều có nguồn.</em>',
-         'lead': 'Bot không trả lời bằng kiến thức chung. Giá, tồn, lịch và phép tính đều đi qua công cụ.',
-         'rows': [
-             {'title': 'Chốt đơn bằng nút xác nhận', 'text': 'Khi khách muốn mua, bot gửi tóm tắt đơn kèm nút ✅ Đặt hàng và nút sửa. Đơn chỉ được tạo khi khách bấm.',
-              'ticks': ['Đơn vào hệ thống và giữ tồn kho', 'Đánh dấu “Bot tạo” để nhân viên duyệt', 'Khách sửa số lượng, biến thể trước khi xác nhận'],
-              'mock': {'type': 'order', 'title': 'Tóm tắt đơn gửi khách',
-                       'order': {'rows': [('Áo thun cotton trắng · L', '× 2'), ('Tạm tính', '440.000đ'), ('Phí giao Quận 7', '25.000đ')], 'total': ('Tổng', '465.000đ')},
-                       'after': [('r', 'Khách đã xác nhận · Đơn chờ nhân viên duyệt')]}},
-             {'title': 'Tính tiền chính xác', 'text': 'Mọi phép tính đi qua công cụ máy tính, bot không được tự nhẩm. Cách gõ số quen thuộc của người Việt cũng được đọc đúng.',
-              'ticks': ['Đọc đúng 1.760.000, 500,000 và 1,5', 'Cộng phí giao, giảm giá theo chính sách bạn khai báo', 'Tách tổng tiền và tiền phải thu'],
-              'mock': {'type': 'calc', 'title': 'Phép tính trong một đơn',
-                       'before': [('c', 'lay 2 bo, moi bo 880,000 dung ko shop')],
-                       'rows': [('2 × 880.000', '1.760.000', False), ('Phí giao', '30.000', False), ('Tổng phải thu', '1.790.000đ', True)],
-                       'foot': 'Tính bằng công cụ máy tính, không ước lượng'}},
-             {'title': 'Giá, tồn, ngày trống lấy từ dữ liệu của bạn', 'text': 'Trước khi trả lời, bot tra hồ sơ doanh nghiệp, câu hỏi thường gặp và danh mục. Không có dữ liệu thì bot nói chưa có.',
-              'mock': {'type': 'kv', 'title': 'Bot tra trước khi trả lời',
-                       'rows': [('Áo sơ mi trắng · M', 'Còn 4', 'ok'), ('Áo sơ mi trắng · XL', 'Hết hàng', 'warn'), ('Giá bán', '350.000đ', ''), ('Chính sách đổi size', '7 ngày', '')],
-                       'foot': 'Nguồn: danh mục sản phẩm và sổ tay cửa hàng'}},
-             {'title': 'Hiểu cách khách nhắn thật', 'text': 'Không dấu, viết tắt, gõ nhầm hay chỉ tả màu và dáng, bot vẫn tìm ra đúng sản phẩm.',
-              'mock': {'type': 'chat', 'title': 'Messenger · tin nhắn thật của khách',
-                       'thread': [('c', 'ao thun trang con size L ko'), ('l', 'Tìm: áo thun · trắng · L'), ('c', 'con mau den ko'), ('l', 'Tra tồn theo màu: đen · L · còn 3'),
-                                  ('a', 'Dạ màu đen size L còn 3 chiếc ạ. Em gửi chị ảnh thật nhé.')]}},
-             {'title': 'Gọi API riêng của bạn', 'text': 'Tra đơn, kiểm tra tồn ở hệ thống khác, đặt lịch: bot gọi API bạn khai báo, có bước xác nhận trước khi thực hiện.',
-              'ticks': ['Khai báo hành động bằng biểu mẫu, không cần viết code bot', 'Chặn gọi vào mạng nội bộ', 'Trợ lý Rapiz giúp soạn nháp hành động'],
-              'mock': {'type': 'kv', 'title': 'Hành động: Tra trạng thái đơn',
-                       'rows': [('Phương thức', '<span class="mono">GET /orders/{mã}</span>', ''), ('Xác nhận với khách trước khi gọi', 'Bật', 'ok'), ('Địa chỉ mạng nội bộ', 'Bị chặn', 'warn'), ('Kết quả', 'Đang giao · dự kiến thứ Năm', '')],
-                       'foot': 'Ví dụ cấu hình một hành động API'}},
-             {'title': 'Nhớ ngữ cảnh khi chat dài', 'text': 'Bot làm nhiều bước trong một lượt trả lời, tra song song, tự sửa khi một bước lỗi và tóm tắt hội thoại dài để không quên điều khách đã nói.',
-              'mock': {'type': 'list', 'title': 'Các bước trong một lượt trả lời',
-                       'items': [('1', 'Tìm sản phẩm', 'search_products · áo khoác · M', 'xong', 'ok'), ('2', 'Kiểm tra tồn hai màu', 'chạy song song', 'xong', 'ok'),
-                                 ('3', 'Tính tiền', 'calculator', 'xong', 'ok'), ('4', 'Soạn câu trả lời', 'dựa trên kết quả các bước', 'gửi', 'hot')],
-                       'foot': 'Tối đa 10 bước cho một lượt trả lời'}},
-             {'title': 'Gọi nhân viên đúng lúc', 'text': 'Khiếu nại, đổi địa chỉ sau khi chốt, xin ngoại lệ: bot chuyển hội thoại cho người, kèm lý do và tóm tắt. Nhân viên nhận thông báo đẩy ngay.',
-              'mock': {'type': 'kv', 'title': 'Ghi chú chuyển giao',
-                       'rows': [('Khách', 'Mai Linh · Messenger', ''), ('Yêu cầu', 'Đổi địa chỉ giao sau khi đã chốt', ''), ('Lý do cần người', 'Phải kiểm tra đơn đã bàn giao chưa', 'warn'), ('Thông báo', 'Đã gửi tới 2 nhân viên', 'ok')]}},
-         ]},
-        {'kind': 'faq', 'items': [
-            ('Bot dùng mô hình AI nào?', 'Rapiz dùng nhiều nhà cung cấp AI. Gói Miễn phí và Sales Smart dùng mô hình Smart; Sales Pro thêm Pro; Sales Neo thêm Neo. Bạn cũng có thể dùng gói ChatGPT của mình.'),
-            ('Bot trả lời sai thì sao?', 'Hỏi Trợ lý Rapiz vì sao bot trả lời như vậy: trợ lý chỉ ra quy tắc hay dữ liệu đã dùng và đề xuất sửa. Bạn duyệt rồi mới áp dụng.'),
-            ('Bot có tự giảm giá cho khách không?', 'Không, trừ khi bạn khai báo chính sách giảm giá. Yêu cầu ngoại lệ được chuyển cho nhân viên.'),
-            FAQ_DATA, FAQ_HANDOFF, FAQ_TRY,
+        {'kind': 'demo', 'template': 'demo-ban-hang-ai.html'},
+        {'kind': 'inspect', 'kicker': 'GIAO DIỆN ĐƠN HÀNG', 'h2': 'Đơn bot tạo<br><em>chờ bạn kiểm tra.</em>',
+         'img': 'ui-orders-list-2026.webp', 'w': 2000, 'h': 788, 'window': 'Đơn hàng › Danh sách đơn hàng',
+         'alt': 'Danh sách đơn hàng của Rapiz với bốn đơn: ba đơn mang nhãn Bot, có đơn đã duyệt và đơn tạo trong Đoạn chat thử nghiệm mang nhãn Chat thử; một đơn từ Facebook do nhân viên tạo. Mỗi dòng ghi mã đơn, khách, sản phẩm, tiền cần thu, nguồn, người tạo, thời gian và trạng thái.',
+         'notes': [('Đơn bot tạo', 'Mang nhãn Bot. Đơn tạo khi thử bot trong Đoạn chat thử nghiệm có thêm nhãn Chat thử; đơn nhân viên nhập ghi tên người tạo.'),
+                   ('Sản phẩm và tiền', 'Mỗi đơn ghi mã đơn, khách, sản phẩm và số tiền cần thu, kể cả phần thu hộ khi giao.')],
+         'caption': 'Đơn bot tạo nằm chung với đơn nhân viên nhập. Lọc cột Người tạo để xem riêng đơn của bot.'},
+        {'kind': 'more', 'h2': 'Những điều<br><em>bot giữ đúng.</em>', 'items': [
+            ('Bật chốt đơn và phí ship', 'Bật Bot chốt đơn và đặt Phí ship mặc định. Để trống thì tóm tắt ghi “Phí ship: shop báo sau”.', 'Đào tạo Bot › Cài đặt › Thiết lập bot › Cài đặt nâng cao'),
+            ('Không chốt theo giá cũ', 'Tóm tắt đơn giữ trong 30 phút. Nếu giá đổi hoặc hết hàng trước khi khách xác nhận, đơn không được tạo theo số cũ.', 'Áp dụng cho mọi đơn bot tạo'),
+            ('Gửi ảnh thật của sản phẩm', 'Khách hỏi mẫu, bot gửi ảnh có sẵn trong danh mục thay vì tả bằng lời.', 'Sản phẩm › ảnh của từng sản phẩm'),
+            ('Gọi API riêng của bạn', 'Bot tra đơn hay lịch ở hệ thống khác. Thao tác ghi dữ liệu như đặt lịch chỉ chạy khi khách đồng ý.', 'Đào tạo Bot › Hành động API'),
         ]},
-        related('nganh/ban-le', 'tinh-nang/dao-tao-ai', 'tinh-nang/hop-thu'),
-        {'kind': 'close'},
+        {'kind': 'faq', 'h2': 'Trước khi<br><em>giao bot bán hàng.</em>', 'items': [
+            ('Bot có tự đổi giá cho khách không?', 'Không. Giá trong tóm tắt đơn do hệ thống tính từ danh mục. Ưu đãi bot nói lấy từ ô Khuyến mãi đang chạy trong thông tin doanh nghiệp.'),
+            ('Phí ship tính thế nào?', 'Bạn đặt Phí ship mặc định cho bot. Nếu để trống, tóm tắt đơn ghi “Phí ship: shop báo sau”.'),
+            ('Đơn bot tạo khác đơn nhân viên nhập thế nào?', 'Đơn bot tạo mang nhãn Bot và Chờ duyệt. Nhân viên mở đơn, kiểm tra rồi bấm Duyệt đơn. Nếu bạn nối KiotViet (đang thử nghiệm), đơn chưa duyệt không được đẩy sang đó.'),
+            ('Tôi sửa giá thì bot dùng giá nào?', 'Bot đọc giá mới ngay. Tóm tắt đã gửi theo giá cũ sẽ không thành đơn, khách cần xác nhận một tóm tắt mới.'),
+        ]},
+        {'kind': 'related', 'compact': True, 'slugs': ['tinh-nang/khach-hang-thong-ke', 'tinh-nang/dao-tao-ai', 'nganh/ban-le']},
+        {'kind': 'close', 'h2': 'Để bot báo giá<br><em>bằng danh mục của bạn.</em>'},
     ],
 })
 
 PAGES.append({
-    'slug': 'tinh-nang/binh-luan-facebook', 'group': 'Tính năng · Bình luận Facebook',
-    'title': 'Trả lời bình luận Facebook theo bài đăng | Rapiz',
-    'description': 'Rapiz đọc ngữ cảnh bài đăng để trả lời bình luận công khai, nhắn riêng báo giá và ẩn bình luận xấu, xử lý chung trong hộp thư đội sale.',
-    'h1': 'Trả lời bình luận<br><em>theo đúng bài đăng.</em>',
-    'deck': 'Rapiz đọc ngữ cảnh bài đăng để trả lời bình luận công khai, nhắn riêng báo giá cho khách và ẩn bình luận xấu. Tất cả hiện chung trong hộp thư đội sale.',
-    'points': ['Có trong gói Sales Smart trở lên'],
-    'visual': {'mock': {'type': 'comment', 'title': 'Fanpage · bài quảng cáo', 'post_img': 'rapiz-retail.webp', 'page': 'Linen House',
-                        'post': 'Áo sơ mi linen mới về, 4 màu, size S đến XL.',
-                        'comments': [('user', 'Thu Hà', 'gia sao shop, con mau be size M ko', '', ''),
-                                     ('page', 'Linen House', 'Dạ màu be size M còn ạ. Shop đã nhắn riêng giá và ảnh thật cho chị nhé!', 'Rapiz trả lời theo bài đăng', '')],
-                        'dm': 'Đã nhắn riêng cho Thu Hà: giá, ảnh màu be, nút đặt hàng'}},
+    'slug': 'tinh-nang/binh-luan-facebook', 'group': 'Tính năng · Tự động xử lý bình luận',
+    'title': 'Tự động xử lý bình luận Facebook theo bài đăng | Rapiz',
+    'description': 'Rapiz đọc bài viết gốc để trả lời bình luận công khai, nhắn riêng cho người bình luận và ẩn bình luận khớp từ khóa bạn đặt. Ba việc bật tắt riêng cho từng fanpage.',
+    'assets': ['feature-edition.css', 'comment-edition.css', 'comment-demo.js'],
+    'cover': {'h1': 'Đáp bình luận<br><em>theo đúng bài.</em>',
+              'deck': 'Rapiz đọc bài viết gốc để trả lời công khai, nhắn riêng cho người bình luận và ẩn bình luận khớp từ khóa bạn đặt. Ba việc bật tắt riêng.',
+              'cta': 'Thử bật công tắc', 'demo': 'cong-tac', 'scene': 'scene-binh-luan-facebook.html', 'more_link': 'Xem nơi bật'},
     'blocks': [
-        {'kind': 'rows', 'kicker': 'TRẢ LỜI DƯỚI BÀI ĐĂNG', 'h2': 'Trả lời ngay dưới bài,<br><em>chốt trong tin nhắn riêng.</em>',
-         'rows': [
-             {'title': 'Hiểu bài đăng khách đang bình luận', 'text': '“Giá sao shop” dưới bài áo linen khác với dưới bài váy maxi. Rapiz đọc nội dung bài đăng để trả lời đúng sản phẩm.',
-              'mock': {'type': 'comment', 'title': 'Bình luận dưới bài đăng', 'post_img': 'rapiz-spa.webp', 'page': 'Mộc Spa',
-                       'post': 'Ưu đãi gội dưỡng sinh 60 phút trong tháng 11.',
-                       'comments': [('user', 'Ngọc Trâm', 'gia bn v spa', '', ''),
-                                    ('page', 'Mộc Spa', 'Dạ gói gội dưỡng sinh 60 phút đang ưu đãi 180.000đ ạ. Spa đã nhắn riêng để giữ giờ cho chị nhé.', 'Rapiz trả lời theo bài đăng', '')]}},
-             {'title': 'Nhắn riêng để chốt', 'text': 'Giá chi tiết, ảnh, tóm tắt đơn được gửi qua tin nhắn riêng, nơi khách có thể đặt hàng hoặc đặt lịch ngay.',
-              'mock': {'type': 'chat', 'title': 'Messenger · tin nhắn riêng',
-                       'thread': [('a', 'Chào chị Thu Hà, áo sơ mi linen màu be size M giá 390.000đ ạ. Em gửi chị ảnh thật nhé.'), ('l', 'Gửi 2 ảnh màu be'),
-                                  ('c', 'lay 1 cai nha'), ('a', 'Dạ em gửi tóm tắt đơn để chị xác nhận ạ.')]}},
-             {'title': 'Ẩn bình luận xấu', 'text': 'Bình luận spam, chửi bới hay để lại số điện thoại lừa đảo được ẩn khỏi bài, không xoá dữ liệu.',
-              'mock': {'type': 'comment', 'title': 'Kiểm duyệt bình luận', 'post_img': 'rapiz-retail.webp', 'page': 'Linen House',
-                       'post': 'Áo sơ mi linen mới về, 4 màu.',
-                       'comments': [('user', 'Tài khoản lạ', 'Inbox 09xx để nhận quà miễn phí!!!', 'Đã ẩn: nội dung spam', 'hidden'),
-                                    ('user', 'Minh Thư', 'size L con mau trang ko a', '', '')]}},
-             {'title': 'Xử lý chung trong hộp thư', 'text': 'Bình luận và tin nhắn nằm chung một hộp thư. Nhân viên xem những bình luận bot chưa trả lời, hoặc tự trả lời khi cần.',
-              'mock': {'type': 'list', 'title': 'Hộp thư · bình luận',
-                       'items': [('TH', 'Thu Hà', 'Bình luận · Áo sơ mi linen', 'Bot đã trả lời', 'ok'), ('MT', 'Minh Thư', 'Bình luận · Áo sơ mi linen', 'Chờ trả lời', 'hot'),
-                                 ('NT', 'Ngọc Trâm', 'Tin nhắn · Gội dưỡng sinh', 'Bot đang chat', 'ai')]}},
-         ]},
-        {'kind': 'faq', 'items': [
-            ('Tính năng này có trong gói nào?', 'Trả lời bình luận theo bài đăng có trong các gói Sales Smart, Sales Pro và Sales Neo.'),
-            ('Bot có trả lời mọi bình luận không?', 'Bot trả lời bình luận hỏi về sản phẩm hoặc dịch vụ. Bình luận cần người xử lý được đưa vào hộp thư cho nhân viên.'),
-            ('Ẩn bình luận có xoá bình luận không?', 'Không. Bình luận chỉ bị ẩn khỏi bài đăng, bạn có thể xem lại trong hộp thư.'),
-            ('Hết lượt trả lời AI thì bình luận thế nào?', 'Bình luận mới được đưa vào danh sách chờ để nhân viên xem, bot không trả lời thay.'),
+        {'kind': 'demo', 'template': 'demo-binh-luan-facebook.html'},
+        {'kind': 'more', 'kicker': 'BẬT Ở ĐÂU', 'h2': 'Một màn cài đặt<br><em>cho mỗi fanpage.</em>', 'items': [
+            ('Ba công tắc, mặc định đều tắt', 'Trả lời công khai, nhắn riêng và ẩn theo từ khóa bật tắt độc lập. Bạn bật phần nào cần.', 'Tích hợp nền tảng › Bài viết và bình luận Facebook'),
+            ('Chọn bài được tự động', 'Bật hoặc tắt tự động cho từng bài trong 50 bài viết gần nhất. Tắt một bài thì cả ẩn theo từ khóa cũng tắt cho bài đó.', 'Tích hợp nền tảng › Bài viết và bình luận Facebook'),
+            ('Xử lý tiếp trong hộp thư', 'Xem bài gốc, trả lời công khai, nhắn riêng hoặc ẩn những bình luận cần người xem.', 'Tin nhắn đa kênh › Bình luận trên Facebook'),
+            ('Hết lượt AI vẫn ẩn được', 'Khi hết lượt trả lời AI, bình luận mới chờ nhân viên. Ẩn theo từ khóa vẫn chạy.', 'Áp dụng cho mọi fanpage đã bật'),
         ]},
-        related('nganh/ban-le', 'tinh-nang/hop-thu', 'tinh-nang/ban-hang-ai'),
-        {'kind': 'close'},
+        {'kind': 'faq', 'h2': 'Trước khi<br><em>bật tự động.</em>', 'items': [
+            ('Tính năng này có trong gói nào?', 'Từ gói Sales Smart trở lên.'),
+            ('Rapiz ẩn những bình luận nào?', 'Chỉ bình luận khớp từ khóa bạn đặt, mỗi dòng một từ. Phản ánh khác vẫn hiển thị để nhân viên kiểm tra.'),
+            ('Ẩn có xoá bình luận không?', 'Không. Bình luận chỉ bị ẩn khỏi bài và bấm Hiện lại là hiển thị trở lại.'),
+            ('Tin nhắn riêng gửi được gì?', 'Một tin văn bản, cùng nội dung với câu trả lời, vào Messenger của người bình luận. Facebook chỉ cho gửi một tin trong 7 ngày kể từ bình luận.'),
+        ]},
+        {'kind': 'related', 'compact': True, 'slugs': ['tinh-nang/hop-thu', 'tinh-nang/ban-hang-ai', 'nganh/ban-le']},
+        {'kind': 'close', 'h2': 'Bài quảng&nbsp;cáo lên<br><em>là có người trực bình luận.</em>'},
     ],
 })
 
 PAGES.append({
-    'slug': 'tinh-nang/hop-thu', 'group': 'Tính năng · Hộp thư đội sale',
-    'title': 'Hộp thư đội sale: bot và nhân viên làm chung | Rapiz',
+    'slug': 'tinh-nang/hop-thu', 'group': 'Tính năng · Tin nhắn đa kênh',
+    'title': 'Tin nhắn đa kênh: bot và nhân viên làm chung | Rapiz',
     'description': 'Hộp thư đa kênh cho đội sale: bật tắt bot từng hội thoại, tiếp quản một chạm, hồ sơ khách và tạo đơn cạnh khung chat, thông báo đẩy trên điện thoại.',
-    'h1': 'Bot trả lời trước,<br><em>nhân viên tiếp lời khi cần.</em>',
-    'deck': 'Một hộp thư cho Messenger, bình luận và website. Nhân viên thấy bot đang làm gì, tiếp quản một chạm, xem hồ sơ khách và tạo đơn ngay cạnh khung chat.',
-    'points': ['Bật, tắt bot từng hội thoại', 'Cài như app trên điện thoại', 'Tự chia khách cho sale'],
-    'visual': {'img': 'ui-inbox-clean.jpg', 'w': 2400, 'h': 1345, 'shot': True, 'alt': 'Hộp thư Rapiz với danh sách hội thoại, tin nhắn và hồ sơ khách.'},
+    'assets': ['feature-edition.css', 'inbox-edition.css', 'handoff.css', 'image-lightbox.js', 'handoff.js'],
+    'cover': {'h1': 'Biết khách nào<br><em>đang chờ bạn.</em>',
+              'deck': 'Tin từ nhiều kênh về cùng một hộp thư. Khi khách cần người hỗ trợ, Rapiz gửi kèm lý do để bạn tiếp lời.',
+              'cta': 'Thử tiếp quản', 'demo': 'handoff', 'scene': 'scene-hop-thu.html'},
     'blocks': [
-        {'kind': 'caps', 'kicker': 'MỘT MÀN HÌNH CHO CẢ ĐỘI', 'h2': 'Mọi thứ nhân viên cần<br><em>cạnh khung chat.</em>',
-         'items': [
-             {'icon': 'inbox', 'title': 'Hộp thư đa kênh', 'text': 'Messenger, bình luận Facebook, website trong một danh sách. Lọc chưa đọc, nhãn, bot và thời gian.'},
-             {'icon': 'hand', 'title': 'Tiếp quản một chạm', 'text': 'Tắt bot cho riêng hội thoại này và trả lời ngay. Bật lại khi xong việc.'},
-             {'icon': 'users', 'title': 'Hồ sơ khách, tạo đơn', 'text': 'Thông tin khách, đơn gần nhất và nút tạo đơn nằm ngay bên phải khung chat.'},
-             {'icon': 'memory', 'title': 'Nháp tự lưu, phím tắt', 'text': 'Nháp không mất khi đổi hội thoại; có chế độ trả lời, nhắc theo dõi và phím tắt.'},
-             {'icon': 'comment', 'title': 'Bình luận chung hộp thư', 'text': 'Bình luận dưới bài đăng được xử lý cùng chỗ với tin nhắn.', 'link': 'tinh-nang/binh-luan-facebook'},
-             {'icon': 'phone', 'title': 'Cài như app trên điện thoại', 'text': 'Thêm Rapiz vào màn hình chính, nhận thông báo đẩy khi bot cần người.'},
-             {'icon': 'bell', 'title': 'Thông báo kèm lý do', 'text': 'Mỗi lần bot chuyển người đều có lý do và tóm tắt, không phải đọc lại từ đầu.'},
-             {'icon': 'data', 'title': 'Tự chia khách cho sale', 'text': 'Khách mới được chia cho nhân viên theo chính sách bạn đặt.', 'link': 'tinh-nang/khach-hang-thong-ke'},
-         ]},
-        {'kind': 'rows', 'cls': 'tint', 'kicker': 'KHI BOT GỌI NGƯỜI', 'h2': 'Nhận bàn giao<br><em>không cần hỏi lại.</em>',
-         'rows': [
-             {'title': 'Ghi chú chuyển giao', 'text': 'Bot ghi yêu cầu của khách và lý do cần người. Nhân viên đọc ba dòng là nắm được việc.',
-              'mock': {'type': 'kv', 'title': 'Chờ tiếp quản',
-                       'rows': [('Yêu cầu', 'Đổi địa chỉ giao áo sơ mi', ''), ('Lý do', 'Cần kiểm tra đơn đã bàn giao chưa', 'warn'), ('Đơn gần nhất', 'Áo sơ mi trắng · M', ''), ('Kênh', 'Messenger', '')]}},
-             {'title': 'Thông báo đẩy trên điện thoại', 'text': 'Cài Rapiz như một app. Khi bot cần người, điện thoại của nhân viên trực rung ngay, kể cả khi đang không mở máy tính.',
-              'mock': {'type': 'list', 'title': 'Thông báo',
-                       'items': [('R', 'Bot cần người: Mai Linh', 'Đổi địa chỉ sau khi chốt đơn', 'vừa xong', 'hot'), ('R', 'Đơn mới chờ duyệt', '2 áo thun trắng · 465.000đ', '3 phút', 'ok'),
-                                 ('R', 'Giữ chỗ chờ xác nhận', 'Pine Villa · T7 14/11', '12 phút', 'ai')]}},
-         ]},
-        {'kind': 'faq', 'items': [
-            FAQ_HANDOFF,
-            ('Nhiều nhân viên cùng trực thì sao?', 'Khách mới được chia theo chính sách bạn đặt. Mỗi thành viên có vai trò riêng; số ghế tuỳ gói.'),
-            ('Có app điện thoại không?', 'Rapiz cài được như app trên điện thoại từ trình duyệt và gửi thông báo đẩy khi bot cần người.'),
-            ('Bot có trả lời khi nhân viên đang chat không?', 'Không. Khi nhân viên tiếp quản, bot tắt cho hội thoại đó cho tới khi được bật lại.'),
+        {'kind': 'demo', 'template': 'demo-hop-thu.html'},
+        {'kind': 'inspect', 'kicker': 'GIAO DIỆN HỘP THƯ', 'h2': 'Đọc lại trước khi<br><em>tiếp lời.</em>',
+         'img': 'ui-inbox-handoff-2026.webp', 'w': 4032, 'h': 2808, 'window': 'Hộp thư',
+         'alt': 'Hộp thư Rapiz: danh sách hội thoại từ website bên trái; ở giữa khách báo đơn giao thiếu và bot chuyển cho nhân viên, thanh chế độ ghi nhân viên đang trả lời và bot bật lại sau vài phút; bên phải là trang khách vào, ô gắn khách hàng CRM, nhãn và ghi chú.',
+         'notes': [('Cuộc trò chuyện', 'Khách báo đơn giao thiếu, bot chuyển cho nhân viên. Thanh trên cùng cho biết nhân viên đang trả lời và bot tự bật lại sau bao lâu.'),
+                   ('Danh sách hội thoại', 'Chọn kênh và lọc Chưa đọc, Chờ trả lời hoặc Ưu tiên.'),
+                   ('Hồ sơ khách', 'Xem khách vào từ trang nào, đang xem trang nào và đã để lại số điện thoại chưa.')],
+         'caption': 'Danh sách hội thoại, cuộc trò chuyện và hồ sơ khách nằm trên cùng một màn.'},
+        {'kind': 'more', 'h2': 'Những thứ<br><em>đội trực hay dùng.</em>', 'items': [
+            ('Lọc việc cần làm', 'Một chạm để xem hội thoại Chưa đọc, Chờ trả lời hoặc Ưu tiên, trên mọi kênh.', 'Tin nhắn đa kênh › bộ lọc'),
+            ('Bình luận chung một chỗ', 'Xem bài gốc rồi trả lời công khai, nhắn riêng hoặc ẩn bình luận ngay trong hộp thư.', 'Tin nhắn đa kênh › Bình luận trên Facebook'),
+            ('Hồ sơ khách cạnh khung chat', 'Xem nguồn khách, số điện thoại, trạng thái và nhãn, mở hồ sơ đầy đủ khi cần.', 'Tin nhắn đa kênh › cột phải'),
+            ('Phím tắt cho người trực', 'J và K đổi khách, R soạn tin, E đánh dấu xong, U đánh dấu chưa đọc.', 'Tin nhắn đa kênh'),
         ]},
-        related('tinh-nang/ban-hang-ai', 'tinh-nang/khach-hang-thong-ke', 'tinh-nang/binh-luan-facebook'),
-        {'kind': 'close'},
+        {'kind': 'faq', 'h2': 'Khi cả đội<br><em>cùng trực.</em>', 'items': [
+            ('Nhân viên trả lời thì bot có dừng không?', 'Có. Bot dừng trong cuộc trò chuyện đó. Bạn có thể bật lại bằng tay hoặc đặt thời gian tự bật lại.'),
+            ('Ai phụ trách khách mới?', 'Khách mới được chia theo quy tắc bạn đặt. Bạn cũng có thể giao một hội thoại cho một nhân viên cụ thể.'),
+            ('Tôi có thể trực trên điện thoại không?', 'Có. Bạn có thể cài Rapiz như một ứng dụng và bật thông báo khi bot cần người tiếp quản.'),
+        ]},
+        {'kind': 'related', 'compact': True, 'slugs': ['tinh-nang/binh-luan-facebook', 'tinh-nang/khach-hang-thong-ke', 'tich-hop']},
+        {'kind': 'close', 'h2': 'Cả đội và bot<br><em>chung một hộp thư.</em>'},
     ],
 })
 
 PAGES.append({
-    'slug': 'tinh-nang/dao-tao-ai', 'group': 'Tính năng · Đào tạo AI',
-    'title': 'Đào tạo AI: dạy bot như dạy nhân viên mới | Rapiz',
-    'description': 'Hồ sơ doanh nghiệp có cấu trúc, quy tắc theo tình huống, tài liệu và danh mục riêng từng bot, chat thử giống Messenger, lịch sử và khôi phục phiên bản.',
-    'h1': 'Dạy bot như<br><em>dạy nhân viên mới.</em>',
-    'deck': 'Điền hồ sơ doanh nghiệp, đưa tài liệu và danh mục, đặt quy tắc theo tình huống, rồi chat thử như trên Messenger. Sửa sai thì khôi phục được phiên bản cũ.',
-    'points': ['Bộ mẫu theo ngành', 'Lịch sử và khôi phục', 'Chat thử trên điện thoại', 'Chấm điểm câu trả lời'],
-    'visual': {'img': 'ui-training-clean.jpg', 'w': 2400, 'h': 1345, 'shot': True, 'alt': 'Khu vực đào tạo bot Rapiz với hồ sơ doanh nghiệp và chat thử.'},
+    'slug': 'tinh-nang/dao-tao-ai', 'group': 'Tính năng · Đào tạo Bot',
+    'title': 'Đào tạo Bot: dặn bot bằng tiếng Việt, hỏi thử ngay | Rapiz',
+    'description': 'Điền thông tin cửa hàng, dặn bot cách xử lý từng tình huống và hỏi thử ngay trong Đoạn chat thử nghiệm. Mọi lần sửa được ghi vào Lịch sử chỉnh sửa để khôi phục.',
+    'assets': ['feature-edition.css', 'train-edition.css', 'image-lightbox.js', 'train-demo.js'],
+    'cover': {'h1': 'Bot chưa rõ,<br><em>bạn dặn thêm.</em>',
+              'deck': 'Điền thông tin cửa hàng, dặn cách xử lý từng tình huống, rồi hỏi thử ngay bên cạnh. Mỗi lần sửa đều được ghi lại để khôi phục.',
+              'cta': 'Thử dặn bot', 'demo': 'day-bot', 'scene': 'scene-dao-tao-ai.html'},
     'blocks': [
-        {'kind': 'steps', 'kicker': 'TỪ TRỐNG ĐẾN SẴN SÀNG', 'h2': 'Bốn phần bot cần học<br><em>trước khi đón khách.</em>',
-         'items': [
-             ('Hồ sơ doanh nghiệp', 'Địa chỉ, hotline, giờ làm việc, chính sách; tính cách, độ dài câu và cách dùng emoji.'),
-             ('Tài liệu và danh mục', 'Câu hỏi thường gặp, tài liệu, catalog và thư viện ảnh riêng cho từng bot.'),
-             ('Quy tắc theo tình huống', 'Bật, tắt theo ngữ cảnh: sau khi chốt đơn, khi khách phàn nàn, khi hỏi giá sỉ.'),
-             ('Chat thử rồi bật', 'Chat thử hiển thị giống Messenger, cả trên điện thoại, trước khi bot gặp khách thật.'),
-         ]},
-        {'kind': 'rows', 'cls': 'tint', 'kicker': 'GIỮ BOT ĐÚNG Ý BẠN', 'h2': 'Đổi chính sách hôm nay,<br><em>bot trả lời khác ngay.</em>',
-         'rows': [
-             {'title': 'Quy tắc và bộ mẫu theo ngành', 'text': 'Bắt đầu từ bộ mẫu cho bán lẻ, lưu trú, spa, giáo dục hoặc phần mềm, rồi chỉnh theo cách shop bạn làm.',
-              'mock': {'type': 'list', 'title': 'Quy tắc của bot',
-                       'items': [('1', 'Sau khi khách chốt đơn', 'Cảm ơn, nhắc thời gian giao dự kiến', 'Bật', 'ok'), ('2', 'Khách hỏi giá sỉ', 'Chuyển nhân viên kinh doanh', 'Bật', 'ok'),
-                                 ('3', 'Khách phàn nàn chất lượng', 'Xin lỗi, xin ảnh, gọi người', 'Bật', 'ok'), ('4', 'Ngoài giờ làm việc', 'Hẹn gọi lại sáng mai', 'Tắt', '')]}},
-             {'title': 'Lịch sử chỉnh sửa và khôi phục', 'text': 'Mọi thay đổi hồ sơ, quy tắc, tài liệu đều được ghi lại: ai sửa, sửa gì, lúc nào. Khôi phục bản cũ bằng một nút.',
-              'mock': {'type': 'list', 'title': 'Lịch sử chỉnh sửa',
-                       'items': [('L', 'Hotline: 0901 → 0902', 'Lan · hôm nay 09:12', 'Hiện tại', 'ok'), ('L', 'Thêm ghi chú: Nghỉ Tết từ 28/1', 'Lan · hôm qua', 'Khôi phục', ''),
-                                 ('M', 'Chính sách đổi size: 7 → 14 ngày', 'Minh · 03/11', 'Khôi phục', '')]}},
-             {'title': 'Chấm điểm câu trả lời tự động', 'text': 'Bộ đánh giá chạy các câu hỏi mẫu qua bot và chỉ ra câu trả lời lệch dữ liệu, trước khi khách thấy.',
-              'mock': {'type': 'kv', 'title': 'Kết quả đánh giá mẫu',
-                       'rows': [('Hỏi giá có trong danh mục', 'Đạt', 'ok'), ('Hỏi sản phẩm đã hết', 'Đạt', 'ok'), ('Hỏi phí giao tỉnh', 'Cần bổ sung dữ liệu', 'warn')],
-                       'foot': 'Ví dụ báo cáo, không phải số liệu thật'}},
-         ]},
-        {'kind': 'faq', 'items': [
-            ('Tôi không rành công nghệ, có tự đào tạo được không?', 'Được. Bạn điền biểu mẫu bằng tiếng Việt và chọn bộ mẫu theo ngành. Trợ lý Rapiz còn giúp điền thông tin shop và soạn kịch bản để bạn duyệt.'),
-            ('Một tài khoản có nhiều bot được không?', 'Có. Mỗi bot có tài liệu, danh mục và thư viện ảnh riêng, ví dụ một bot cho fanpage bán lẻ và một bot cho villa.'),
-            ('Lỡ sửa sai quy tắc thì sao?', 'Mở lịch sử chỉnh sửa và khôi phục phiên bản trước. Bot dùng lại bản cũ ngay.'),
-            FAQ_TRY,
+        {'kind': 'demo', 'template': 'demo-dao-tao-ai.html'},
+        {'kind': 'inspect', 'kicker': 'GIAO DIỆN ĐÀO TẠO BOT', 'h2': 'Sửa bên trái,<br><em>hỏi thử bên phải.</em>',
+         'img': 'ui-training-rules-2026.webp', 'w': 2000, 'h': 1443, 'window': 'Đào tạo Bot › Hướng dẫn trả lời',
+         'alt': 'Màn Hướng dẫn trả lời trong Đào tạo Bot của Rapiz, cửa hàng là một villa cho thuê: các tình huống nhóm Chung và Sau khi chốt đơn, mỗi tình huống ghi “Khi khách …” và việc Bot sẽ làm, kèm công tắc bật tắt; bên phải là Đoạn chat thử nghiệm với ba câu hỏi gợi ý.',
+         'notes': [('Danh sách tình huống', 'Mỗi tình huống ghi rõ khi nào áp dụng và bot sẽ làm gì. Tắt một cái là bot thôi làm theo.'),
+                   ('Đoạn chat thử nghiệm', 'Hỏi như khách thật, hoặc bấm câu hỏi gợi ý để xem bot trả lời ra sao.')],
+         'caption': 'Sửa tình huống bên trái, hỏi lại ngay bên phải mà không cần mở Messenger.'},
+        {'kind': 'more', 'h2': 'Còn gì<br><em>để dạy bot.</em>', 'items': [
+            ('Ô thông tin theo ngành', 'Mỗi ngành có sẵn các ô như thanh toán, giao hàng, đổi trả. Bot đọc đúng những gì bạn ghi.', 'Đào tạo Bot › Thông tin doanh nghiệp'),
+            ('Câu hỏi thường gặp từ tệp CSV', 'Nhập tối đa 100 câu hỏi và câu trả lời một lần, thêm vào danh sách đang có.', 'Đào tạo Bot › Thông tin doanh nghiệp'),
+            ('Tin nhắn nhanh', 'Lưu sẵn câu hay dùng với từ viết tắt như /uudai để nhân viên gõ nhanh trong hộp thư.', 'Đào tạo Bot › Cài đặt › Tin nhắn nhanh'),
+            ('Tool Ads Facebook', 'Tạo mã JSON cho mẫu tin nhắn của quảng cáo Click-to-Messenger, rồi dán vào Trình quản lý quảng cáo.', 'Đào tạo Bot › Tool Ads Facebook'),
         ]},
-        related('tinh-nang/tro-ly-rapiz', 'tinh-nang/ban-hang-ai', 'nganh/spa-salon'),
-        {'kind': 'close'},
+        {'kind': 'faq', 'h2': 'Trước khi<br><em>dạy bot.</em>', 'items': [
+            ('Tôi không rành công nghệ, có tự dạy bot được không?', 'Được. Bạn điền biểu mẫu bằng tiếng Việt, bắt đầu từ mẫu của ngành. Trợ lý Rapiz có thể soạn sẵn nội dung thành đề xuất, bạn kiểm tra rồi bấm Áp dụng.'),
+            ('Bot trả lời sai thì sửa ở đâu?', 'Hỏi lại trong Đoạn chat thử nghiệm và mở Các bước bot đã làm để xem bot đã tra gì. Sửa ô thông tin hoặc tình huống liên quan rồi hỏi lại.'),
+            ('Lỡ sửa sai thì sao?', 'Mở Lịch sử chỉnh sửa và bấm Khôi phục ở lần sửa trước đó.'),
+            ('Một tài khoản có nhiều bot được không?', 'Có. Mỗi bot có thông tin, tình huống và danh sách sản phẩm riêng, gắn với trang riêng.'),
+        ]},
+        {'kind': 'related', 'compact': True, 'slugs': ['tinh-nang/ban-hang-ai', 'tinh-nang/tro-ly-rapiz', 'tich-hop']},
+        {'kind': 'close', 'h2': 'Soạn sổ tay một lần,<br><em>bot dùng mỗi ngày.</em>'},
     ],
 })
 
 PAGES.append({
-    'slug': 'tinh-nang/tro-ly-rapiz', 'group': 'Tính năng · Trợ lý Rapiz',
-    'title': 'Trợ lý Rapiz: hỏi số liệu bán hàng bằng tiếng Việt',
-    'description': 'Trợ lý riêng cho chủ doanh nghiệp: hỏi số liệu nhận biểu đồ, báo cáo định kỳ, giải thích câu trả lời của bot, nhập sản phẩm. Mọi thay đổi chờ bạn duyệt.',
-    'h1': 'Hỏi như hỏi<br><em>trưởng phòng kinh doanh.</em>',
-    'deck': 'Trợ lý riêng cho chủ doanh nghiệp. Hỏi số liệu bằng tiếng Việt và nhận biểu đồ, hẹn giờ nhận báo cáo, hỏi vì sao bot trả lời như vậy. Trợ lý đề xuất, bạn quyết định.',
-    'points': ['Mọi thay đổi chờ bạn duyệt'],
-    'visual': {'mock': {'type': 'bars', 'title': 'Trợ lý Rapiz', 'question': 'Tuần này có bao nhiêu đơn?', 'answer': '72 đơn trong tuần, cao nhất vào Chủ nhật.',
-                        'bars': [('T2', 4), ('T3', 9), ('T4', 8), ('T5', 12), ('T6', 10), ('T7', 14), ('CN', 15)],
-                        'aria': 'Đơn hàng từ thứ Hai đến Chủ nhật: 4, 9, 8, 12, 10, 14, 15.'}},
+    'slug': 'tinh-nang/tro-ly-rapiz', 'group': 'Tính năng · Trợ lý & thống kê',
+    'title': 'Trợ lý & thống kê: hỏi số liệu bằng tiếng Việt, duyệt mọi thay đổi | Rapiz',
+    'description': 'Trợ lý Rapiz đọc số liệu cửa hàng và trả lời bằng chữ, biểu đồ hoặc bảng; đặt lịch báo cáo; tìm lý do bot trả lời chưa tốt. Mọi thay đổi đều chờ chủ shop bấm Áp dụng.',
+    'assets': ['feature-edition.css', 'assistant-edition.css', 'image-lightbox.js', 'assistant-demo.js'],
+    'cover': {'h1': 'Tuần này<br><em>bao nhiêu đơn?</em>',
+              'deck': 'Hỏi bằng tiếng Việt, Trợ lý Rapiz đọc số liệu cửa hàng rồi trả lời bằng chữ, biểu đồ hoặc bảng. Việc cần sửa thành đề xuất chờ bạn duyệt.',
+              'cta': 'Thử hỏi trợ lý', 'demo': 'hoi-tro-ly', 'scene': 'scene-tro-ly-rapiz.html'},
     'blocks': [
-        {'kind': 'rows', 'kicker': 'VIỆC CỦA TRỢ LÝ', 'h2': 'Bớt mở báo cáo,<br><em>hỏi thẳng câu cần hỏi.</em>',
-         'rows': [
-             {'title': 'Báo cáo, cảnh báo định kỳ', 'text': 'Nói bằng lời: “Mỗi sáng 8h gửi tôi số đơn hôm qua.” Trợ lý gửi qua chuông trong app, email hoặc thông báo đẩy.',
-              'mock': {'type': 'list', 'title': 'Lịch báo cáo',
-                       'items': [('8h', 'Số đơn hôm qua', 'Mỗi ngày · email và thông báo đẩy', 'Đang bật', 'ok'), ('T2', 'Hội thoại cần người tuần trước', 'Mỗi thứ Hai · chuông', 'Đang bật', 'ok'),
-                                 ('!', 'Cảnh báo khi bot chuyển người quá 10 lần/ngày', 'Theo sự kiện', 'Đang bật', 'hot')]}},
-             {'title': 'Bác sĩ bot', 'text': 'Hỏi “vì sao bot trả lời khách này như vậy?”. Trợ lý chỉ ra quy tắc và dữ liệu đã dùng, rồi đề xuất cách sửa.',
-              'mock': {'type': 'chat', 'title': 'Trợ lý Rapiz',
-                       'thread': [('c', 'Sao bot từ chối đổi size cho khách Mai Linh?'), ('l', 'Đọc hội thoại và quy tắc đã dùng'),
-                                  ('a', 'Bot áp dụng “Chính sách đổi size: 7 ngày”. Khách nhận áo 10 ngày trước nên đã quá hạn. Nếu muốn nới lên 14 ngày, mình soạn thay đổi để bạn duyệt nhé?')]}},
-             {'title': 'Nhập sản phẩm từ Excel và ảnh', 'text': 'Gửi tệp Excel, CSV và ảnh. Trợ lý đọc, ghép biến thể, đề xuất danh mục; bạn duyệt một lần.',
-              'mock': {'type': 'kv', 'title': 'Đề xuất nhập danh mục',
-                       'rows': [('Tệp', '<span class="mono">san-pham-thang-11.xlsx</span>', ''), ('Sản phẩm', '48', ''), ('Biến thể', '196', ''), ('Ảnh khớp tên', '41 / 48', 'warn')],
-                       'foot': 'Chờ bạn duyệt trước khi lưu'}},
-             {'title': 'Điền mẫu giúp bạn', 'text': 'Nút “Nhờ trợ lý điền mẫu” điền thông tin shop, kịch bản tư vấn và nháp hành động API từ những gì bạn đã có.',
-              'mock': {'type': 'list', 'title': 'Thay đổi chờ duyệt',
-                       'items': [('1', 'Giờ làm việc', '8:00 – 21:00, nghỉ trưa 12:00 – 13:30', 'Chờ duyệt', 'ai'), ('2', 'Kịch bản: khách hỏi giá sỉ', 'Chuyển nhân viên kinh doanh', 'Chờ duyệt', 'ai'),
-                                 ('3', 'Hành động API: Tra trạng thái đơn', 'Nháp, chưa bật', 'Chờ duyệt', 'ai')],
-                       'foot': 'Trợ lý đề xuất, bạn quyết định'}},
-         ]},
-        {'kind': 'faq', 'items': [
-            ('Trợ lý có tự sửa bot không?', 'Không. Mọi thay đổi trợ lý đề xuất đều chờ chủ doanh nghiệp duyệt rồi mới áp dụng.'),
-            ('Trợ lý xem được dữ liệu nào?', 'Dữ liệu của doanh nghiệp bạn đang quản lý: hội thoại, đơn hàng, khách hàng, bot. Dữ liệu của mỗi doanh nghiệp được tách riêng.'),
-            ('Tôi hỏi được những câu gì?', 'Ví dụ: “Tuần này bao nhiêu đơn?”, “Doanh thu villa tháng 10?”, “Hôm nay bot chuyển người mấy lần, vì sao?”.'),
-            ('Báo cáo gửi qua kênh nào?', 'Chuông trong ứng dụng, email và thông báo đẩy trên điện thoại.'),
+        {'kind': 'demo', 'template': 'demo-tro-ly-rapiz.html'},
+        {'kind': 'inspect', 'kicker': 'GIAO DIỆN THỐNG KÊ', 'h2': 'Hỏi ngay<br><em>cạnh con số.</em>',
+         'img': 'ui-assistant-2026.webp', 'w': 4000, 'h': 3000, 'window': 'Thống kê',
+         'alt': 'Màn Thống kê của Rapiz với các ô Hội thoại mới, Khách hàng mới, Số điện thoại thu được; bên phải là khung trợ lý đang trả lời câu hỏi số đơn 7 ngày qua bằng một biểu đồ cột và nút Xem bảng.',
+         'notes': [('Câu trả lời của trợ lý', 'Trợ lý vẽ biểu đồ từ số liệu thật của cửa hàng, kèm nút Xem bảng để xem từng con số.')],
+         'caption': 'Khung trợ lý mở được ở mọi màn trong app, cạnh số liệu bạn đang xem.'},
+        {'kind': 'more', 'h2': 'Trợ lý còn<br><em>làm được gì.</em>', 'items': [
+            ('Nhập sản phẩm từ Excel và ảnh', 'Gửi tệp Excel, CSV hoặc ảnh sản phẩm. Trợ lý soạn bản xem trước, bạn duyệt rồi mới tạo.', 'Khung trợ lý › Đính kèm tệp'),
+            ('Cảnh báo khi cần', 'Đặt cảnh báo khách chờ trả lời quá lâu hay sản phẩm sắp hết hàng, gửi trong ứng dụng, email hoặc thông báo đẩy.', 'Khung trợ lý › Lịch báo cáo'),
+            ('Nhớ điều bạn dặn', 'Trợ lý ghi nhớ cách bạn muốn làm việc. Bạn xem và xoá từng điều bất cứ lúc nào.', 'Khung trợ lý › Trợ lý nhớ gì'),
+            ('Nhiều doanh nghiệp, một màn hình', 'Một tài khoản quản lý nhiều doanh nghiệp, xem số liệu chung rồi bấm vào từng nơi.', 'Tổng quan các business'),
         ]},
-        related('tinh-nang/khach-hang-thong-ke', 'tinh-nang/dao-tao-ai', 'nganh/villa-homestay'),
-        {'kind': 'close'},
+        {'kind': 'faq', 'h2': 'Trước khi<br><em>giao việc cho trợ lý.</em>', 'items': [
+            ('Trợ lý có tự sửa bot hay dữ liệu không?', 'Không. Mọi thay đổi hiện thành thẻ đề xuất. Chỉ khi bạn bấm Áp dụng thì thay đổi mới có hiệu lực.'),
+            ('Trợ lý xem được số liệu nào?', 'Số liệu của doanh nghiệp bạn đang quản lý, qua truy vấn chỉ đọc. Dữ liệu của mỗi doanh nghiệp được tách riêng.'),
+            ('Báo cáo gửi qua kênh nào?', 'Trong ứng dụng, email hoặc thông báo đẩy trên điện thoại.'),
+            ('Thống kê đếm những gì?', 'Hội thoại mới, khách hàng mới, số điện thoại thu được và tin nhắn khách gửi, xem theo ngày và lọc theo trang hoặc kênh.'),
+        ]},
+        {'kind': 'related', 'compact': True, 'slugs': ['tinh-nang/dao-tao-ai', 'tinh-nang/khach-hang-thong-ke', 'tinh-nang/ban-hang-ai']},
+        {'kind': 'close', 'h2': 'Muốn sáng mai biết doanh thu?<br><em>Hẹn trợ lý gửi báo cáo.</em>'},
     ],
 })
 
 PAGES.append({
-    'slug': 'tinh-nang/khach-hang-thong-ke', 'group': 'Tính năng · Khách hàng & thống kê',
-    'title': 'Khách hàng và thống kê: đo từ hội thoại tới đơn hàng | Rapiz',
-    'description': 'CRM theo ngành, tự chia khách cho sale, thống kê hội thoại → khách mới → số điện thoại → đơn hàng, lọc theo trang, bot, ngày và xem chi tiết.',
-    'h1': 'Mỗi hội thoại<br><em>thành một khách hàng.</em>',
-    'deck': 'Mỗi hội thoại thành một khách hàng có nguồn, trạng thái và lịch sử. Thống kê đi từ hội thoại đến khách mới, số điện thoại và đơn hàng, lọc theo trang, bot và ngày.',
-    'points': ['Trạng thái khách theo ngành', 'Tự chia khách cho sale', 'Tổng quan nhiều doanh nghiệp'],
-    'visual': {'mock': {'type': 'list', 'title': 'Khách hàng',
-                        'items': [('ML', 'Mai Linh', 'Messenger · Áo sơ mi trắng', 'Đã đặt hàng', 'ok'), ('NT', 'Ngọc Trâm', 'Bình luận · Gội dưỡng sinh', 'Đã hẹn', 'ai'),
-                                  ('MA', 'Minh Anh (phụ huynh)', 'Messenger · Giao tiếp THCS', 'Học thử', 'hot'), ('TH', 'Thu Hà', 'Website · Linen be', 'Có SĐT', '')],
-                        'foot': 'Dữ liệu minh họa'}},
+    'slug': 'tinh-nang/khach-hang-thong-ke', 'group': 'Tính năng · Khách hàng, đơn hàng & lịch',
+    'title': 'Khách hàng, đơn hàng & lịch: trạng thái theo ngành, yêu cầu bot ghi nhận | Rapiz',
+    'description': 'Mỗi khách có nguồn, trạng thái theo ngành, nhãn và người phụ trách. Bot ghi nhận yêu cầu đặt lịch hay học thử, nhân viên xác nhận; đơn hàng và lịch lưu trú nằm cùng một chỗ.',
+    'assets': ['feature-edition.css', 'crm-edition.css', 'image-lightbox.js', 'crm-demo.js'],
+    'cover': {'h1': 'Khách đang<br><em>ở bước nào?</em>',
+              'deck': 'Mỗi khách có nguồn, trạng thái theo ngành, nhãn và người phụ trách. Bot ghi nhận yêu cầu, nhân viên làm các bước sau.',
+              'cta': 'Thử theo một khách', 'demo': 'theo-khach', 'scene': 'scene-khach-hang-thong-ke.html'},
     'blocks': [
-        {'kind': 'rows', 'kicker': 'ĐO TỪNG BƯỚC', 'h2': 'Phễu bán hàng<br><em>đọc được bằng số.</em>',
-         'rows': [
-             {'title': 'Phễu hội thoại đến đơn', 'text': 'Thấy được bao nhiêu hội thoại thành khách mới, bao nhiêu để lại số điện thoại và bao nhiêu thành đơn. Lọc theo trang, bot, ngày; bấm vào từng bước để xem danh sách.',
-              'mock': {'type': 'kv', 'title': 'Tháng 11 · tất cả trang',
-                       'rows': [('Hội thoại', '1.240', ''), ('Khách mới', '836', ''), ('Để lại số điện thoại', '412', ''), ('Đơn hàng', '187', 'ok')],
-                       'foot': 'Số liệu minh họa'}},
-             {'title': 'Khách hàng theo ngành', 'text': 'Nguồn, trạng thái theo đúng quy trình của ngành, nhãn, ghi chú và toàn bộ lịch sử trao đổi trong một hồ sơ.',
-              'mock': {'type': 'kv', 'title': 'Hồ sơ khách · Ngọc Trâm',
-                       'rows': [('Nguồn', 'Bình luận · bài ưu đãi tháng 11', ''), ('Trạng thái', 'Đã hẹn', 'ok'), ('Nhãn', 'Khách mới, Quận 3', ''), ('Ghi chú', 'Da nhạy cảm, tránh tinh dầu bạc hà', '')]}},
-             {'title': 'Tự chia khách cho sale', 'text': 'Khách mới được giao cho nhân viên theo chính sách bạn đặt, mỗi người thấy rõ khách của mình.',
-              'mock': {'type': 'list', 'title': 'Chia khách hôm nay',
-                       'items': [('L', 'Lan', 'Ca sáng · Messenger', '14 khách', ''), ('M', 'Minh', 'Ca chiều · Messenger, bình luận', '11 khách', ''), ('H', 'Hoa', 'Ca tối · Website', '9 khách', '')],
-                       'foot': 'Ví dụ chính sách chia đều theo ca'}},
-             {'title': 'Tổng quan nhiều doanh nghiệp', 'text': 'Một tài khoản quản lý nhiều doanh nghiệp, mỗi nơi một ngành. Xem số liệu tất cả trên một màn hình.',
-              'mock': {'type': 'list', 'title': 'Tổng quan tài khoản',
-                       'items': [('LH', 'Linen House', 'Bán lẻ online', '96 đơn', 'ok'), ('PV', 'Pine Villa', 'Lưu trú', '23 giữ chỗ', 'ai'), ('MS', 'Mộc Spa', 'Spa', '58 lịch hẹn', 'hot')],
-                       'foot': 'Số liệu minh họa'}},
-         ]},
-        {'kind': 'faq', 'items': [
-            ('Số liệu lấy từ đâu?', 'Từ hội thoại, khách hàng và đơn hàng trong Rapiz. Bộ lọc theo trang, bot và khoảng ngày; mỗi bước của phễu mở ra được danh sách chi tiết.'),
-            ('Tôi có nhiều fanpage cho nhiều thương hiệu?', 'Một tài khoản quản lý nhiều doanh nghiệp, mỗi doanh nghiệp một ngành, dữ liệu tách riêng và có màn hình tổng quan chung.'),
-            ('Có gửi tin nhắn hàng loạt, chăm sóc lại khách cũ không?', 'Chưa. Rapiz hiện tập trung vào trả lời, chốt đơn và theo dõi khách; tính năng chăm sóc lại tự động chưa có.'),
+        {'kind': 'demo', 'template': 'demo-khach-hang-thong-ke.html'},
+        {'kind': 'inspect', 'kicker': 'GIAO DIỆN KHÁCH HÀNG', 'h2': 'Đếm sẵn khách<br><em>ở từng bước.</em>',
+         'img': 'ui-contacts-spa-2026.webp', 'w': 3978, 'h': 2028, 'window': 'Khách hàng',
+         'alt': 'Màn Khách hàng của một spa trên Rapiz: các ô đếm Yêu cầu 7 ngày qua, Đang chờ xử lý và từng trạng thái; bảng bảy khách với số điện thoại, nguồn Website, Hotline, Facebook, Instagram và trạng thái Yêu cầu đặt lịch, Đã xác nhận lịch, Đã đến, Đang tư vấn.',
+         'notes': [('Nguồn và trạng thái', 'Khách đặt lịch qua website được bot chuyển sang Yêu cầu đặt lịch. Nhân viên chuyển tiếp các bước sau.'),
+                   ('Ô đếm theo trạng thái', 'Mỗi ngành có bộ trạng thái riêng. Bấm một ô để lọc danh sách.')],
+         'caption': 'Tìm theo tên, số điện thoại hoặc email, lọc và chọn cột muốn xem.'},
+        {'kind': 'more', 'h2': 'Đơn, lịch<br><em>và người phụ trách.</em>', 'items': [
+            ('Đơn bot tạo chờ duyệt', 'Đơn khách xác nhận trong chat mang nhãn Bot. Lọc cột Người tạo để xem riêng đơn chờ duyệt.', 'Đơn hàng › Danh sách đơn'),
+            ('Lịch và Booking cho lưu trú', 'Xem căn trống theo 2 tuần hoặc theo tháng. Giữ chỗ tự hết hạn sau số phút bạn đặt.', 'Lịch · Booking · Căn hộ'),
+            ('Tự chia khách cho Sales', 'Khách mới từ mỗi nguồn được giao lần lượt cho các Sales theo tỉ lệ bạn đặt.', 'Cài đặt khách hàng › Phân chia khách'),
+            ('Trạng thái và nhãn của riêng bạn', 'Sửa, thêm và sắp xếp trạng thái. Nhãn có thể kèm trường riêng, như hạng của khách VIP.', 'Cài đặt khách hàng › Trạng thái · Tag'),
         ]},
-        related('tinh-nang/tro-ly-rapiz', 'tinh-nang/hop-thu', 'bao-mat'),
-        {'kind': 'close'},
+        {'kind': 'faq', 'h2': 'Trước khi<br><em>giao việc cho đội.</em>', 'items': [
+            ('Bot có tự xác nhận lịch hẹn không?', 'Không. Bot chỉ ghi nhận yêu cầu và chuyển khách sang Yêu cầu đặt lịch. Nhân viên gọi xác nhận rồi mới chuyển sang Đã xác nhận lịch.'),
+            ('Khách nhắn nhiều lần có bị trùng hồ sơ không?', 'Bot tìm khách theo số điện thoại. Cùng một số thì yêu cầu mới ghi vào hồ sơ cũ.'),
+            ('Spa, trung tâm giáo dục có Lịch phòng không?', 'Lịch, Booking và Căn hộ dành cho lưu trú. Spa và giáo dục theo dõi lịch hẹn, học thử bằng trạng thái khách.'),
+            ('Có gửi tin nhắn hàng loạt cho khách cũ không?', 'Chưa. Rapiz hiện tập trung vào trả lời, chốt đơn và theo dõi khách.'),
+        ]},
+        {'kind': 'related', 'compact': True, 'slugs': ['tinh-nang/ban-hang-ai', 'tinh-nang/hop-thu', 'nganh/spa-salon']},
+        {'kind': 'close', 'h2': 'Một hồ sơ cho mỗi khách,<br><em>từ tin nhắn đầu tiên.</em>'},
     ],
 })
 
@@ -730,61 +680,81 @@ PAGES.append({
 # ===== platform =====
 
 PAGES.append({
-    'slug': 'tich-hop', 'group': 'Nền tảng · Tích hợp & kênh',
-    'title': 'Tích hợp và kênh: Messenger, website, KiotViet, API | Rapiz',
-    'description': 'Rapiz kết nối Messenger, bình luận Facebook, khung chat website; Instagram đang Beta, Zalo và TikTok sắp ra mắt. Đồng bộ KiotViet (Beta), API công khai và webhook.',
+    'slug': 'tich-hop', 'group': 'Nền tảng · Tích hợp nền tảng & PMS',
+    'title': 'Tích hợp nền tảng & PMS: Messenger, Instagram, website, KiotViet, API | Rapiz',
+    'description': 'Rapiz kết nối Messenger, Instagram, bình luận Facebook và khung chat website; Zalo và TikTok sắp ra mắt. KiotViet đang thử nghiệm, Excel/CSV, API công khai, webhook có chữ ký và Tool Ads Facebook.',
     'h1': 'Trả lời trên kênh khách nhắn,<br><em>bằng dữ liệu bạn đang có.</em>',
-    'deck': 'Rapiz trả lời trên các kênh khách đang nhắn, đọc dữ liệu từ hệ thống bạn đang dùng, và đẩy khách hàng, đơn hàng về nơi bạn cần.',
+    'deck': 'Hai mục giống hệt trong app: Tích hợp nền tảng cho các kênh khách nhắn tới, Tích hợp PMS cho phần mềm bán hàng và kho bạn đang dùng. Đội kỹ thuật có thêm API và webhook.',
     'blocks': [
-        {'kind': 'caps', 'kicker': 'KÊNH NHẮN TIN', 'h2': 'Một bot,<br><em>nhiều nơi khách hỏi.</em>',
+        {'kind': 'catalog', 'id': 'channels', 'kicker': 'TÍCH HỢP NỀN TẢNG', 'h2': 'Kênh <em>nhắn tin.</em>',
+         'lead': 'Kết nối từng trang hoặc tài khoản, rồi chọn bot trả lời cho trang đó. Trạng thái dưới đây khớp với app.',
          'items': [
-             {'icon': 'comment', 'title': 'Facebook Messenger', 'text': 'Kết nối fanpage, bot trả lời tin nhắn và gửi tóm tắt đơn có nút xác nhận.'},
-             {'icon': 'comment', 'title': 'Bình luận Facebook', 'text': 'Trả lời công khai theo bài đăng, nhắn riêng, ẩn bình luận xấu.', 'link': 'tinh-nang/binh-luan-facebook'},
-             {'icon': 'search', 'title': 'Khung chat website', 'text': 'Mã nhúng nhẹ, khoảng 9 KB. Khách chat ngay trên website và để lại số điện thoại.'},
-             {'icon': 'image', 'title': 'Instagram DM', 'status': 'Beta', 'text': 'Trả lời tin nhắn Instagram từ cùng hộp thư.'},
-             {'icon': 'comment', 'title': 'Zalo', 'status': 'Sắp ra mắt', 'text': 'Đang hoàn thiện kết nối Zalo.'},
-             {'icon': 'comment', 'title': 'TikTok', 'status': 'Sắp ra mắt', 'text': 'Đang hoàn thiện kết nối tin nhắn TikTok.'},
+             {'icon': 'comment', 'title': 'Facebook Messenger', 'text': 'Kết nối fanpage, bot trả lời tin nhắn và gửi tóm tắt đơn có nút xác nhận.', 'link': 'tinh-nang/hop-thu'},
+             {'icon': 'comment', 'title': 'Bình luận Facebook', 'status': 'Gói Smart trở lên', 'text': 'Trả lời công khai theo bài đăng, nhắn riêng, ẩn bình luận theo từ khoá, loại trừ bài.', 'link': 'tinh-nang/binh-luan-facebook'},
+             {'icon': 'image', 'title': 'Instagram DM', 'status': 'Beta', 'text': 'Trả lời tin nhắn Instagram của tài khoản chuyên nghiệp, ngay trong cùng hộp thư.'},
+             {'icon': 'globe', 'title': 'Khung chat website', 'status': 'Gói Smart trở lên', 'text': 'Mã nhúng nhẹ, khoảng 9 KB. Khách chat ngay trên website và để lại số điện thoại.'},
+             {'icon': 'comment', 'title': 'Zalo OA', 'status': 'Sắp ra mắt', 'text': 'Trả lời tin nhắn gửi tới Zalo Official Account của bạn.'},
+             {'icon': 'phone', 'title': 'TikTok Business', 'status': 'Sắp ra mắt', 'text': 'Trả lời tin nhắn từ tài khoản TikTok doanh nghiệp.'},
+             {'icon': 'comment', 'title': 'WhatsApp', 'status': 'Sắp ra mắt', 'text': 'Trả lời tin nhắn WhatsApp trong cùng hộp thư.'},
+             {'icon': 'image', 'title': 'Bình luận Instagram', 'status': 'Sắp ra mắt', 'text': 'Trả lời bình luận dưới bài đăng Instagram như với Facebook.'},
          ]},
-        {'kind': 'duo', 'cls': 'tint', 'kicker': 'DỮ LIỆU VÀ HỆ THỐNG', 'h2': 'Đọc từ hệ thống cũ,<br><em>ghi về nơi bạn cần.</em>',
+        shot('ui-channels.jpg', 'MÀN HÌNH THẬT', 'Mỗi trang một bot,<br><em>bật tắt riêng.</em>',
+             'Màn hình Tích hợp nền tảng trong app. Cột trái lọc theo kênh, bên phải là danh sách trang đã kết nối với bot đang trả lời, mã nhúng và công tắc bật tắt.',
+             'Màn hình Tích hợp nền tảng của Rapiz: cột trái gồm Tất cả, Chưa gán bot, Facebook, Instagram, Zalo, Lazada, TikTok Business, Website; bên phải là website đã kết nối với trạng thái Đang chạy, tên bot, nút Sao chép mã nhúng và Hướng dẫn cài đặt; bên dưới là khung Bài viết và bình luận Facebook.',
+             1600, 1000),
+        {'kind': 'catalog', 'id': 'pms', 'cls': 'tint', 'kicker': 'TÍCH HỢP PMS', 'h2': 'Phần mềm <em>bán hàng.</em>',
+         'lead': 'Bot đọc sản phẩm và tồn kho từ phần mềm bạn đang dùng, rồi đẩy đơn và khách ngược về đó.',
+         'items': [
+             {'icon': 'plug', 'title': 'KiotViet', 'status': 'Beta', 'text': 'Lấy sản phẩm và tồn theo chi nhánh, đẩy đơn, đồng bộ khách hàng. Đang chạy với một số shop.'},
+             {'icon': 'plug', 'title': 'Sapo', 'status': 'Sắp ra mắt', 'text': 'Đồng bộ sản phẩm, tồn kho và đơn hàng.'},
+             {'icon': 'plug', 'title': 'Haravan', 'status': 'Sắp ra mắt', 'text': 'Đồng bộ sản phẩm, tồn kho và đơn hàng.'},
+             {'icon': 'plug', 'title': 'Pancake POS', 'status': 'Sắp ra mắt', 'text': 'Đồng bộ sản phẩm, tồn kho và đơn hàng.'},
+             {'icon': 'file', 'title': 'Excel, CSV và ảnh', 'text': 'Chưa dùng phần mềm nào thì nhập danh mục từ tệp. Trợ lý Rapiz đọc tệp, ghép biến thể và chờ bạn duyệt.'},
+         ]},
+        {'kind': 'duo', 'kicker': 'MỞ RỘNG', 'h2': 'Dành cho đội kỹ thuật<br><em>và người chạy quảng cáo.</em>',
          'cards': [
-             {'kicker': 'BÁN HÀNG', 'title': 'Danh mục và tồn kho', 'text': 'Đưa sản phẩm vào Rapiz bằng tệp hoặc đồng bộ từ phần mềm bán hàng.',
-              'chips': [('Excel, CSV và ảnh', None), ('KiotViet', 'Beta'), ('Sapo', 'Sắp ra mắt'), ('Haravan', 'Sắp ra mắt'), ('Pancake POS', 'Sắp ra mắt')],
-              'ticks': ['KiotViet: sản phẩm, tồn theo chi nhánh, đẩy đơn, đồng bộ khách', 'Trợ lý Rapiz đọc tệp Excel, ghép biến thể, chờ bạn duyệt']},
-             {'kicker': 'CHO ĐỘI KỸ THUẬT', 'title': 'API và webhook', 'text': 'Kết nối Rapiz với CRM, kho dữ liệu hay hệ thống nội bộ.',
-              'chips': [('API công khai', 'Gói Pro, Neo'), ('Webhook có chữ ký', None), ('Tài liệu OpenAPI', None), ('Hành động API của bot', None)],
-              'ticks': ['Bot gọi API của bạn để tra đơn, kiểm tra tồn, đặt lịch, có bước xác nhận', 'Chặn gọi vào mạng nội bộ', 'Giới hạn 120 yêu cầu mỗi phút trên gói Pro và Neo']},
+             {'kicker': 'DÀNH CHO ĐỘI KỸ THUẬT', 'title': 'API và webhook', 'text': 'Cho bot gọi hệ thống của bạn, hoặc kéo dữ liệu Rapiz về CRM và kho dữ liệu.',
+              'chips': [('Hành động API', None), ('API công khai', 'Gói Pro, Neo'), ('Webhook có chữ ký', 'Gói Pro, Neo'), ('Tài liệu OpenAPI', None)],
+              'ticks': ['Hành động API: bot tra đơn, kiểm tồn ở hệ thống của bạn, có bước xác nhận', 'Chặn gọi vào mạng nội bộ', 'Giới hạn 120 yêu cầu mỗi phút trên gói Pro và Neo'],
+              'link': ('Xem hành động API', 'tinh-nang/ban-hang-ai')},
+             {'kicker': 'QUẢNG CÁO', 'title': 'Tool Ads Facebook', 'text': 'Soạn sẵn đoạn JSON cho quảng cáo Click-to-Messenger: khách bấm quảng cáo là vào thẳng cuộc chat với bot bạn chọn.',
+              'ticks': ['Nằm trong Đào tạo Bot, mục Tool Ads Facebook'],
+              'link': ('Xem trong Đào tạo Bot', 'tinh-nang/dao-tao-ai')},
          ]},
-        {'kind': 'steps', 'kicker': 'BẮT ĐẦU NHANH', 'h2': 'Bốn bước<br><em>để bot bắt đầu trả lời.</em>',
+        {'kind': 'steps', 'cls': 'tint', 'kicker': 'BẮT ĐẦU NHANH', 'h2': 'Bốn bước<br><em>để bot bắt đầu trả lời.</em>',
          'items': [
              ('Tạo tài khoản', 'Đăng ký bằng email và mã xác thực, chọn ngành cho doanh nghiệp đầu tiên.'),
-             ('Kết nối kênh', 'Chọn fanpage Messenger, bật bình luận, hoặc dán mã nhúng khung chat vào website.'),
-             ('Đưa dữ liệu vào', 'Nhập danh mục từ Excel hoặc KiotViet, điền hồ sơ doanh nghiệp theo bộ mẫu ngành.'),
-             ('Chat thử rồi bật', 'Thử như khách thật trên giao diện giống Messenger, rồi bật bot cho kênh.'),
+             ('Kết nối kênh', 'Chọn fanpage Messenger hoặc tài khoản Instagram, bật bình luận, hoặc dán mã nhúng khung chat vào website.'),
+             ('Đưa dữ liệu vào', 'Nhập danh mục từ Excel hoặc KiotViet (đang thử nghiệm), điền thông tin doanh nghiệp theo bộ mẫu ngành.'),
+             ('Chat thử rồi bật', 'Thử như khách thật ở Đoạn chat thử nghiệm, rồi gán bot cho trang.'),
          ]},
         {'kind': 'faq', 'items': [
             ('Kết nối Messenger có ảnh hưởng fanpage không?', 'Rapiz kết nối qua quyền Meta cấp cho ứng dụng. Bạn vẫn dùng fanpage như bình thường và có thể tắt bot bất cứ lúc nào.'),
-            ('Khi nào có Zalo và TikTok?', 'Cả hai đang được hoàn thiện. Nhãn “Sắp ra mắt” sẽ được bỏ khi kết nối chạy thật.'),
-            ('Tôi dùng phần mềm bán hàng khác KiotViet?', 'Bạn nhập danh mục qua Excel hoặc CSV, hoặc để đội kỹ thuật kết nối qua API và webhook. Sapo, Haravan, Pancake POS sắp có.'),
+            ('Khi nào có Zalo và TikTok?', 'Các kênh này đang được hoàn thiện. Nhãn “Sắp ra mắt” sẽ được bỏ khi kết nối chạy thật.'),
+            ('Tôi dùng phần mềm bán hàng khác KiotViet?', 'Bạn nhập danh mục qua Excel hoặc CSV, hoặc để đội kỹ thuật kết nối qua API và webhook. Kết nối Sapo, Haravan và Pancake POS sắp ra mắt.'),
             ('Webhook có chữ ký là gì?', 'Mỗi sự kiện Rapiz gửi đi kèm chữ ký để hệ thống của bạn kiểm tra đúng là từ Rapiz và không bị sửa trên đường truyền.'),
         ]},
-        related('bao-mat', 'tinh-nang/ban-hang-ai', 'bang-gia'),
-        {'kind': 'close'},
+        related('Trước khi kết nối,<br><em>nên xem thêm.</em>', 'tinh-nang/hop-thu', 'bao-mat', 'bang-gia'),
+        {'kind': 'close', 'h2': 'Kể cho chúng tôi<br><em>hệ thống bạn đang dùng.</em>'},
     ],
 })
 
 PAGES.append({
     'slug': 'bao-mat', 'group': 'Nền tảng · Bảo mật & dữ liệu',
     'title': 'Bảo mật và dữ liệu: tách riêng, phân quyền, 2FA | Rapiz',
-    'description': 'Dữ liệu mỗi doanh nghiệp tách riêng ở tầng cơ sở dữ liệu, phân quyền thành viên, xác thực hai lớp, nhật ký thao tác; bot cần khách xác nhận trước khi tạo đơn.',
+    'description': 'Dữ liệu mỗi doanh nghiệp tách riêng ở tầng cơ sở dữ liệu, mã hoá khi truyền và khi lưu, phân quyền thành viên, xác thực hai lớp, nhật ký thao tác, xuất toàn bộ dữ liệu ra tệp ZIP.',
     'h1': 'Bot làm nhanh.<br><em>Việc quan trọng có người duyệt.</em>',
     'deck': 'Bot làm việc trong phạm vi bạn cho phép. Dữ liệu mỗi doanh nghiệp tách riêng, thành viên có vai trò, thao tác quan trọng được ghi nhật ký và việc tốn tiền cần người xác nhận.',
     'blocks': [
         {'kind': 'caps', 'kicker': 'BẢO VỆ DỮ LIỆU', 'h2': 'Dữ liệu mỗi doanh nghiệp<br><em>nằm riêng.</em>',
          'items': [
              {'icon': 'data', 'title': 'Dữ liệu tách riêng', 'text': 'Mỗi doanh nghiệp có vùng dữ liệu riêng, được khoá ở tầng cơ sở dữ liệu bằng chính sách theo dòng.'},
-             {'icon': 'users', 'title': 'Vai trò và ghế', 'text': 'Mời thành viên, gán vai trò, giới hạn số ghế theo gói. Thu hồi quyền ngay khi cần.'},
-             {'icon': 'shield', 'title': 'Xác thực hai lớp', 'text': 'Bật 2FA cho tài khoản; đăng ký bằng mã xác thực email.'},
+             {'icon': 'shield', 'title': 'Mã hoá khi truyền và khi lưu', 'text': 'Dữ liệu đi qua kết nối mã hoá. Khoá kết nối kênh và khoá API được mã hoá trước khi lưu.'},
+             {'icon': 'users', 'title': 'Vai trò và ghế', 'text': 'Mời thành viên bằng đường link, gán vai trò chủ, quản trị, sale, chăm sóc khách hàng hoặc phân tích. Số ghế theo gói, thu hồi quyền ngay khi cần.'},
+             {'icon': 'check', 'title': 'Xác thực hai lớp', 'text': 'Bật 2FA cho tài khoản; đăng ký bằng mã xác thực email.'},
              {'icon': 'history', 'title': 'Nhật ký thao tác', 'text': 'Thay đổi quan trọng được ghi lại: ai làm, làm gì, lúc nào.'},
+             {'icon': 'file', 'title': 'Xuất toàn bộ dữ liệu', 'text': 'Tải toàn bộ dữ liệu của doanh nghiệp về một tệp ZIP để lưu trữ hoặc chuyển sang hệ thống khác.'},
+             {'icon': 'search', 'title': 'Nhật ký gỡ lỗi AI tự xoá', 'text': 'Bản ghi dùng để gỡ lỗi câu trả lời của bot tự xoá sau 30 ngày. Số điện thoại và email trong đó được che trước khi lưu.'},
          ]},
         {'kind': 'caps', 'cls': 'tint', 'kicker': 'KIỂM SOÁT BOT', 'h2': 'Bot làm trong phạm vi.<br><em>Người duyệt việc quan trọng.</em>',
          'items': [
@@ -801,9 +771,10 @@ PAGES.append({
             ('Nhân viên của doanh nghiệp này có xem được dữ liệu doanh nghiệp khác không?', 'Không. Dữ liệu tách riêng theo doanh nghiệp ở tầng cơ sở dữ liệu. Thành viên chỉ thấy doanh nghiệp họ được mời vào.'),
             ('Rapiz có dùng hội thoại của tôi cho khách khác không?', 'Bot của bạn trả lời dựa trên dữ liệu doanh nghiệp bạn. Dữ liệu một doanh nghiệp không được dùng để trả lời khách của doanh nghiệp khác.'),
             ('Tôi muốn ngừng dùng bot ngay lập tức?', 'Tắt bot cho từng hội thoại, cho từng kênh hoặc cho cả bot trong phần cài đặt. Hội thoại vẫn nằm trong hộp thư để nhân viên xử lý.'),
+            ('Tôi muốn lấy dữ liệu ra khỏi Rapiz?', 'Bạn xuất được toàn bộ dữ liệu ra một tệp ZIP để lưu trữ hoặc chuyển sang hệ thống khác.'),
             ('Có cam kết tuân thủ tiêu chuẩn nào không?', 'Trang này chỉ liệt kê những biện pháp đang chạy trong sản phẩm. Nếu doanh nghiệp bạn cần hồ sơ bảo mật cho thẩm định, hãy đặt lịch trao đổi với Rapiz.'),
         ]},
-        related('tich-hop', 'tinh-nang/hop-thu', 'bang-gia'),
+        related('Ai được làm gì<br><em>trong Rapiz?</em>', 'tinh-nang/tro-ly-rapiz', 'tich-hop', 'bang-gia'),
         {'kind': 'close', 'h2': 'Cần trao đổi<br><em>về bảo mật?</em>'},
     ],
 })
@@ -813,7 +784,7 @@ PAGES.append({
     'title': 'Bảng giá | Rapiz',
     'description': 'Gói Miễn phí không thời hạn. Sales Smart từ 785.000đ, Sales Pro từ 974.000đ, Sales Neo từ 1.624.000đ mỗi tháng khi thanh toán 12 tháng. Chuyển khoản VietQR.',
     'h1': 'Bắt đầu miễn phí.<br><em>Trả khi đội lớn lên.</em>',
-    'deck': 'Mọi gói đều có bot bán hàng, hộp thư đội sale, đào tạo AI và Trợ lý Rapiz. Gói trả phí mở thêm thành viên, kênh, bình luận Facebook, khung chat website và API.',
+    'deck': 'Mọi gói đều có bot bán hàng, Tin nhắn đa kênh, Đào tạo Bot và Trợ lý Rapiz. Gói trả phí mở thêm thành viên, kênh, bình luận Facebook, khung chat website và API.',
     'hero_actions': False,
     'blocks': [
         {'kind': 'plans', 'kicker': 'CÁC GÓI', 'h2': 'Chọn theo<br><em>quy mô đội.</em>', 'lead': 'Giá mỗi tháng giảm khi trả theo kỳ dài hơn.'},

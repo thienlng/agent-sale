@@ -3,6 +3,21 @@
 (() => {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  /* ---------- local preview: send sign-in links to the dashboard dev server ---------- */
+  if (['127.0.0.1', 'localhost'].includes(location.hostname) && location.port === '8790') {
+    document.querySelectorAll('a[href^="https://rapiz.io/login"], a[href^="https://rapiz.io/signup"]').forEach(a => {
+      a.href = a.href.replace('https://rapiz.io', `${location.protocol}//${location.hostname}:8791`);
+    });
+  }
+
+  /* ---------- header: lift with a shadow once the page scrolls ---------- */
+  const head = document.querySelector('.site-head');
+  if (head) {
+    const lift = () => head.classList.toggle('scrolled', scrollY > 4);
+    addEventListener('scroll', lift, { passive: true });
+    lift();
+  }
+
   /* ---------- header: mobile menu and dropdown panels ---------- */
   const menuButton = document.querySelector('.nav-toggle');
   const menu = document.getElementById('nav');
@@ -221,4 +236,14 @@
       form.elements.name.focus();
     });
   }
+})();
+
+// Animate the decorative footer ribbon only while it is on screen.
+(() => {
+  const footer = document.getElementById('footer');
+  if (!footer || !('IntersectionObserver' in window)) return;
+  let onScreen = false;
+  const update = () => { footer.dataset.visible = String(onScreen && !document.hidden); };
+  new IntersectionObserver(([entry]) => { onScreen = entry.isIntersecting; update(); }).observe(footer);
+  document.addEventListener('visibilitychange', update);
 })();

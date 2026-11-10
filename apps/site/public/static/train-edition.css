@@ -1,0 +1,36 @@
+/* Đào tạo Bot: one Tình huống on the cover; the demo edits one field and asks the test chat again. */
+.td-scene{padding-top:24px}
+.td-card{width:min(100%,430px);padding:20px 22px 22px;border:1px solid #c9b9a0;border-radius:12px;background:#fffdf9;box-shadow:0 26px 40px -30px #5a3a1c99;transform:rotate(-1.5deg)}
+.td-card header{display:flex;justify-content:space-between;align-items:center;color:#7b6f60;font:600 12px/1.3 Inter,sans-serif}
+.td-switch{width:34px;height:20px;border-radius:999px;background:#2f8a4c;position:relative}.td-switch::after{content:"";position:absolute;right:3px;top:3px;width:14px;height:14px;border-radius:50%;background:#fff}
+.td-card h3{margin:12px 0 14px;font:720 clamp(22px,1.9vw,28px)/1.2 "Inter Tight",Inter,sans-serif;letter-spacing:-.02em;color:#28251f}
+.td-when,.td-then{margin:0;padding:11px 14px;font-size:15px;line-height:1.5;color:#3d372f;text-wrap:pretty}
+.td-when{background:#f3ede2;border-radius:8px 8px 0 0}.td-then{background:#fbe3d3;border-radius:0 0 8px 8px}
+.td-when b,.td-then b{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8a5a3b}
+.td-note{width:min(88%,380px);margin-top:-4px;padding:13px 18px;background:#24251f;color:#fff6e6;border-radius:0 0 10px 10px;transform:rotate(1deg)}
+.td-note small{display:block;text-transform:uppercase;letter-spacing:.08em;font-size:10px;color:#f9b384;margin-bottom:4px}.td-note p{margin:0;font-size:14px;line-height:1.5}
+
+.td-path{margin:0 0 18px;color:#7a7466;font-size:13px;font-weight:600}
+.td-label{margin:0 0 6px;font-weight:700;font-size:14px}
+.td-field{margin:0;padding:12px 14px;border:1px solid #c9c3b4;border-radius:8px;background:#fff;line-height:1.55}
+.td-field ins{text-decoration:none;background:#fde3c4;box-shadow:inset 0 -2px #e07a3c;padding:0 2px}
+.td-pick{margin:22px 0 0;padding:0;border:0;display:grid;gap:8px}
+.td-pick legend{padding:0;margin-bottom:10px;font-size:13px;font-weight:700;color:#4c463c}
+.td-pick label{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border:1px solid #d6d0c2;border-radius:8px;background:#fff;cursor:pointer;line-height:1.45}
+.td-pick input{margin-top:3px;accent-color:#d4602b}
+.td-pick label:has(input:checked){border-color:#d4602b;background:#fff5ee}
+.td-pick[disabled] label{opacity:.6;cursor:default}
+.td-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}
+
+.td-test h3{margin-bottom:14px}
+.td-thread{display:grid;gap:10px;align-content:start;max-height:420px;overflow:auto;padding-right:4px}
+.td-msg{margin:0;max-width:88%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.5;white-space:pre-line}
+.td-customer{justify-self:end;background:#3d3d37;color:#f7f5ef;border-bottom-right-radius:4px}
+.td-bot{justify-self:start;background:#f0763d;color:#fff;border-bottom-left-radius:4px}
+.td-divider{margin:6px 0 0;text-align:center;color:#b9b7ae;font-size:12px}
+.td-history{margin-top:18px;padding-top:14px;border-top:1px solid #4d4d46}
+.td-history h4{margin:0 0 8px;font-size:13px;color:#ffab83}
+.td-who{margin:0;color:#d0cec5;font-size:13px}
+.td-change{margin:6px 0 10px;font-size:13px;line-height:1.5;color:#f4f2ec}.td-change span{color:#c9c6bc}
+@media(max-width:680px){.td-card,.td-note{transform:none}.td-thread{max-height:none}}
+.td-source{margin:0;justify-self:start;padding:3px 9px;border-radius:999px;background:#2f4a37;color:#bfe6c8;font-size:12px;font-weight:600}

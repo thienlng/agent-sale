@@ -8,13 +8,15 @@ marked header, footer and pricing blocks inside index.html. Run from anywhere:
 from __future__ import annotations
 
 import json
+import os
 import re
 from html import escape
 from pathlib import Path
 
 import site_content as C
 
-ROOT = Path(__file__).resolve().parent.parent / 'public'
+SITE = Path(__file__).resolve().parent.parent
+ROOT = SITE / 'public'
 
 
 # ---------- small helpers ----------
@@ -31,7 +33,7 @@ def tag(status: str | None) -> str:
 
 
 def href(root: str, slug: str) -> str:
-    """Link to a page by slug ('' is home, '#x' an anchor on home, 'http…' or '/…' as given)."""
+    """Link to a page by slug ('' is home, '#x' an anchor on home, 'http…' external)."""
     if slug.startswith(('http', '/')):
         return slug
     if slug.startswith('#'):
@@ -74,9 +76,9 @@ def header(root: str, current: str = '') -> str:
 <a class="skip" href="#main">Đến nội dung chính</a>
 <header class="site-head">
   <div class="container head-inner">
-    <a class="brand" href="{home}" aria-label="Rapiz, trang chủ"><img src="{root}images/rapiz-logo.svg" width="143" height="50" alt="Rapiz"></a>
+    <a class="brand" href="{home}" aria-label="Rapiz, trang chủ"><img src="{root}images/rapiz-logo-faceted.svg" width="143" height="50" alt="Rapiz"></a>
     <nav id="nav" aria-label="Điều hướng chính">
-      {panel("nav-solutions", "Giải pháp", C.INDUSTRY_LINKS, "industries")}{panel("nav-features", "Tính năng", C.FEATURE_LINKS, "features")}{plain}<a class="nav-login" href="{C.LOGIN_URL}">Đăng nhập</a>
+      {panel("nav-solutions", "Giải pháp", C.INDUSTRY_LINKS, "industries")}{panel("nav-features", "Tính năng", C.FEATURE_LINKS + [C.PLATFORM_LINK], "features")}{plain}<a class="nav-login" href="{C.LOGIN_URL}">Đăng nhập</a>
     </nav>
     <div class="head-actions">
       <a class="head-login" href="{C.LOGIN_URL}">Đăng nhập</a>
@@ -88,36 +90,84 @@ def header(root: str, current: str = '') -> str:
 <!--/site-head-->'''
 
 
-def footer(root: str) -> str:
-    def col(title: str, links: list[tuple]) -> str:
-        lis = ''.join(f'<li><a href="{href(root, s)}">{n}</a>{tag(st)}</li>' for n, s, st in links)
-        return f'<nav class="foot-col" aria-label="{title}"><p class="foot-title">{title}</p><ul>{lis}</ul></nav>'
+def tie(heading: str) -> str:
+    """Joins the last two words of each heading line with a no-break space, so a line never ends on one
+    orphan word and Vietnamese compounds ("kiểm tra", "cài đặt") are not split across lines."""
+    def line(part: str) -> str:
+        head, sep, tail = part.rpartition(' ')
+        return f'{head}&nbsp;{tail}' if sep and head.strip() and '<' not in tail.replace('</em>', '') else part
+    return '<br>'.join(line(part) for part in re.split(r'<br\s*/?>', heading))
 
-    industries = [(l['name'], l['slug'], l.get('status')) for l in C.INDUSTRY_LINKS]
-    features = [(l['name'], l['slug'], l.get('status')) for l in C.FEATURE_LINKS]
+
+def footer(root: str, page: dict | None = None) -> str:
+    page = page or {}
+    closing = next((block for block in page.get('blocks', []) if block['kind'] == 'close'), {})
+    title = closing.get('h2', 'Sẵn sàng thử <em>Rapiz?</em>')
+    demo = href(root, 'dat-lich-demo') + closing.get('demo_query', '')
+    if page.get('slug') == 'dat-lich-demo':
+        demo = '#demo-form'
+
+    def col(label: str, links: list[tuple]) -> str:
+        items = ''.join(f'<li><a href="{href(root, slug)}">{name}</a>{tag(status)}</li>'
+                        for name, slug, status in links)
+        return f'<nav class="foot-col" aria-label="{label}"><p class="foot-title">{label}</p><ul>{items}</ul></nav>'
+
+    industries = [(link['name'], link['slug'], link.get('status')) for link in C.INDUSTRY_LINKS]
+    features = [(link['name'], link['slug'], link.get('status')) for link in C.FEATURE_LINKS]
+    words = ('Tư vấn khách hàng', 'Tra dữ liệu của shop', 'Chốt đơn trong chat', 'Phối hợp cùng đội sale')
+    ribbon = ''.join(f'<span>{word}<i></i></span>' for word in words)
     return f'''<!--#site-foot-->
-<footer class="site-foot">
-  <div class="container foot-grid">
-    <div class="foot-brand">
-      <a class="brand" href="{href(root, "")}" aria-label="Rapiz, trang chủ"><img src="{root}images/rapiz-logo-reverse.svg" width="137" height="48" alt="Rapiz" loading="lazy"></a>
-      <p>Nhân viên sale AI cho doanh nghiệp Việt. Tư vấn bằng dữ liệu của bạn, chốt đơn và giữ chỗ trong chat, gọi người khi cần.</p>
-      <div class="close-links"><a class="btn primary" href="{C.SIGNUP_URL}">Bắt đầu miễn phí <span aria-hidden="true">↗</span></a><a class="text-link" href="{href(root, "dat-lich-demo")}">Đặt lịch demo <span aria-hidden="true">→</span></a></div>
+<footer class="site-foot" id="footer" aria-labelledby="close-title">
+  <div class="rf-ribbon" aria-hidden="true"><div class="rf-track">
+    <div>{ribbon}</div><div>{ribbon}</div>
+  </div></div>
+  <div class="rf-center">
+    <h2 class="rf-title" id="close-title">{tie(title)}</h2>
+    <div class="rf-actions">
+      <a class="rf-primary" href="{demo}">Đặt lịch demo <span aria-hidden="true">↗</span></a>
+      <a class="rf-secondary" href="{href(root, '#solutions')}">Thử hội thoại <span aria-hidden="true">→</span></a>
     </div>
-    {col("Giải pháp", industries)}
-    {col("Tính năng", features)}
-    {col("Nền tảng", C.FOOT_PLATFORM)}
-    {col("Tài khoản", C.FOOT_ACCOUNT)}
+    <nav class="rf-quick" aria-label="Tìm hiểu về Rapiz">
+      <a href="{href(root, 've-rapiz')}">Về Rapiz</a><a href="{href(root, 'bang-gia')}">Bảng giá</a><a href="{href(root, 'bao-mat')}">Bảo mật</a>
+    </nav>
   </div>
-  <div class="container foot-base">
-    <span>© 2026 Rapiz</span>
-    <span>Hội thoại, đơn hàng và số liệu trên trang là minh họa, trừ khi ghi rõ.</span>
-    <a href="#top">Về đầu trang ↑</a>
+  <div class="rf-tail">
+    <div class="rf-imprint" aria-hidden="true"></div>
+    <div class="rf-grid">
+      <div class="rf-company">
+        <a class="rf-brand" href="{href(root, '')}" aria-label="Rapiz, trang chủ"><img src="{root}images/rapiz-symbol-faceted.svg" alt="" width="23" height="20"><span>Rapiz</span></a>
+        <p>Nhân viên sale AI cho doanh nghiệp Việt.</p>
+        <address>
+          <strong>{C.COMPANY['name']}</strong>
+          <span>{C.COMPANY['name_en']}</span>
+          <a href="mailto:{C.COMPANY['email']}">{C.COMPANY['email']}</a>
+        </address>
+      </div>
+      <div class="rf-columns">
+        {col('Giải pháp', industries)}
+        {col('Tính năng', features)}
+        {col('Nền tảng', C.FOOT_PLATFORM)}
+        {col('Tài khoản', C.FOOT_ACCOUNT)}
+      </div>
+    </div>
+    <div class="rf-base">
+      <span>© 2026 {C.COMPANY['short']}</span>
+      <a class="rf-up" href="#top" aria-label="Về đầu trang"><span aria-hidden="true">↑</span></a>
+    </div>
   </div>
 </footer>
 <!--/site-foot-->'''
 
 
-def head(root: str, title: str, description: str, canonical: str) -> str:
+def head(root: str, title: str, description: str, canonical: str, assets: list[str] | None = None) -> str:
+    styles = 'detail-design.css' if canonical.startswith(('nganh/', 'tinh-nang/')) else 'utility-design.css'
+    if canonical == 've-rapiz/':
+        styles = 'business-os.css'
+    # Feature pages list their own styles and scripts; only the route that uses a demo loads it.
+    handoff_assets = ''.join(
+        f'<link rel="stylesheet" href="{root}static/{name}">' if name.endswith('.css') else f'<script defer src="{root}static/{name}"></script>'
+        for name in assets or []
+    )
     return f'''<!doctype html>
 <html lang="vi">
 <head>
@@ -130,14 +180,14 @@ def head(root: str, title: str, description: str, canonical: str) -> str:
   <meta property="og:title" content="{escape(title)}">
   <meta property="og:description" content="{escape(description)}">
   <meta property="og:locale" content="vi_VN">
-  <link rel="icon" type="image/svg+xml" href="{root}images/rapiz-symbol.svg">
+  <link rel="icon" type="image/svg+xml" href="{root}images/favicon-light.svg">
   <link rel="preload" as="font" href="{root}fonts/inter-tight.woff2" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{root}static/landing.css">
   <link rel="stylesheet" href="{root}static/motion.css">
   <link rel="stylesheet" href="{root}static/site.css">
   <link rel="stylesheet" href="{root}static/brand.css">
-  <link rel="stylesheet" href="{root}static/{'detail-design.css' if canonical.startswith(('nganh/', 'tinh-nang/')) else 'utility-design.css'}">
-  <script defer src="{root}static/site.js"></script>
+  <link rel="stylesheet" href="{root}static/{styles}">
+  {handoff_assets}<script defer src="{root}static/site.js"></script>
   <script defer src="{root}static/motion.js"></script>
 </head>
 <body id="top">'''
@@ -152,9 +202,12 @@ def detail_crumb(root: str, group: str) -> str:
 def detail_actions(root: str, p: dict) -> str:
     if p.get('hero_actions') is False:
         return ''
+    first_demo = next((n for n, block in enumerate(p["blocks"], 1) if block["kind"] == "player"), None)
+    target = f"#s{first_demo or 1}"
+    label = "Xem hội thoại mẫu" if first_demo else "Khám phá tính năng"
     return (
-        f'<div class="hero-actions"><a class="btn primary" href="{C.SIGNUP_URL}">Bắt đầu miễn phí '
-        f'<span aria-hidden="true">↗</span></a><a class="text-link" href="{href(root, "dat-lich-demo")}'
+        f'<div class="hero-actions"><a class="btn primary" href="{target}">{label} '
+        f'<span aria-hidden="true">↓</span></a><a class="text-link" href="{href(root, "dat-lich-demo")}'
         f'{p.get("demo_query", "")}">Đặt lịch demo <span aria-hidden="true">→</span></a></div>'
     )
 
@@ -163,37 +216,44 @@ def detail_points(points: list[str]) -> str:
     return '<ul class="detail-points">' + ''.join(f'<li>{point}</li>' for point in points) + '</ul>'
 
 
+def detail_title(p: dict) -> str:
+    text = re.sub(r'<br\s*/?>', ' ', p['h1'], flags=re.I)
+    return text.replace('<em>', '').replace('</em>', '')
+
+
 def industry_hero(root: str, p: dict) -> str:
     v = p['visual']
     demo_number, demo = next((n, block) for n, block in enumerate(p['blocks'], 1) if block['kind'] == 'player')
     message = next(item[1] for item in demo['thread'] if item[0] == 'c')
     label, result = v['card']
-    return f'''<section class="industry-spread" aria-labelledby="page-title">
-  <div class="container industry-sheet">
-    <div class="industry-intro">
-      {detail_crumb(root, p["group"])}
-      <h1 id="page-title">{p["h1"]}</h1>
+    edition = p['slug'].split('/')[-1]
+    return f'''<section class="industry-spread" data-edition="{edition}" aria-labelledby="page-title">
+  <div class="industry-cover">
+    <img class="industry-photo" src="{root}images/{v["img"]}" width="{v["w"]}" height="{v["h"]}" alt="{escape(v["alt"])}" fetchpriority="high">
+    <div class="container industry-cover-inner">
+      <header class="industry-nameplate">
+        {detail_crumb(root, p["group"])}
+        <h1 id="page-title">{detail_title(p)}</h1>
+      </header>
+    </div>
+  </div>
+  <div class="container industry-notes">
+    <div class="industry-brief">
       <p class="detail-deck">{p["deck"]}</p>
       {detail_actions(root, p)}
-      {detail_points(p.get("points", []))}
     </div>
-    <figure class="industry-plate">
-      <img src="{root}images/{v["img"]}" width="{v["w"]}" height="{v["h"]}" alt="{escape(v["alt"])}" fetchpriority="high">
-      <figcaption>
-        <a class="industry-vignette" href="#s{demo_number}">
-          <small>{label}</small>
-          <q>{escape(message)}</q>
-          <span>{result}</span>
-          <i aria-hidden="true">↘</i>
-        </a>
-      </figcaption>
-    </figure>
+    <a class="industry-vignette" href="#s{demo_number}">
+      <small>{label}</small><q>{escape(message)}</q>
+      <span>{result}</span><i aria-hidden="true">↘</i>
+    </a>
   </div>
+  <div class="container industry-facts">{detail_points(p.get("points", []))}</div>
 </section>'''
 
 
 def feature_hero(root: str, p: dict) -> str:
     v = p['visual']
+    medium = v.get('mock', {}).get('type', 'screen')
     if v.get('mock'):
         proof = render_mock(root, v['mock'])
     else:
@@ -203,18 +263,70 @@ def feature_hero(root: str, p: dict) -> str:
             f'<img src="{image}" width="{v["w"]}" height="{v["h"]}" alt="{escape(v["alt"])}" fetchpriority="high">'
             '<span>Mở ảnh gốc ↗</span></a>'
         )
-    return f'''<section class="feature-dossier" aria-labelledby="page-title">
-  <div class="container">
-    <div class="dossier-mast">{detail_crumb(root, p["group"])}<i aria-hidden="true"></i></div>
-    <h1 id="page-title">{p["h1"]}</h1>
-    <div class="dossier-spread">
-      <div class="dossier-copy">
-        <p class="detail-deck">{p["deck"]}</p>
-        {detail_actions(root, p)}
-        {detail_points(p.get("points", []))}
-      </div>
+    return f'''<section class="feature-dossier" data-exhibit="{medium}" aria-labelledby="page-title">
+  <header class="container exhibit-mast">
+    {detail_crumb(root, p["group"])}
+    <h1 id="page-title">{detail_title(p)}</h1>
+  </header>
+  <div class="exhibit-stage">
+    <div class="container exhibit-inner">
       <div class="dossier-proof">{proof}</div>
     </div>
+  </div>
+  <div class="container exhibit-caption">
+    <div class="exhibit-description"><p class="detail-deck">{p["deck"]}</p>{detail_points(p.get("points", []))}</div>
+    {detail_actions(root, p)}
+  </div>
+</section>'''
+
+
+def feature_cover(root: str, p: dict) -> str:
+    c = p['cover']
+    # The second link goes to the real screen, or to the "more" block on a page that has no screenshot yet.
+    proof, label = next(((n, 'Xem giao diện') for n, block in enumerate(p['blocks'], 1) if block['kind'] == 'inspect'), (None, ''))
+    if proof is None:
+        proof, label = next((n, c.get('more_link', 'Xem thêm')) for n, block in enumerate(p['blocks'], 1) if block['kind'] == 'more')
+    return f'''<section class="fe-cover" data-edition="{p["slug"].split("/")[-1]}" aria-labelledby="page-title">
+  <div class="container fe-layout">
+    <header class="fe-opening">
+      <p class="fe-crumb"><a href="{href(root, "")}">Rapiz</a><span aria-hidden="true">/</span> {C.LINK_INDEX[p["slug"]]["name"]}</p>
+      <h1 id="page-title">{c["h1"]}</h1>
+      <p class="fe-deck">{c["deck"]}</p>
+      <div class="fe-actions"><a href="#{c["demo"]}" class="btn primary">{c["cta"]} <span aria-hidden="true">↘</span></a><a class="text-link" href="#s{proof}">{label} <span aria-hidden="true">↓</span></a></div>
+    </header>
+    {template(c["scene"], root=root)}
+  </div>
+</section>'''
+
+
+def render_inspect(root: str, block: dict, n: int) -> str:
+    # The real screen, always shown whole. Notes beside it say what to look at; the image opens larger in a popup.
+    image = f'{root}images/{block["img"]}'
+    notes = ''.join(f'<div><dt>{label}</dt><dd>{text}</dd></div>' for label, text in block['notes'])
+    lead = f'<p>{block["lead"]}</p>' if block.get('lead') else ''
+    # Light window bar so a cropped screenshot does not float bare on the page.
+    bar = (f'<div class="fe-window" aria-hidden="true"><span><i></i><i></i><i></i></span><small>{block["window"]}</small></div>'
+           if block.get('window') else '')
+    return f'''<section class="fe-proof" aria-labelledby="s{n}">
+ <div class="container fe-atlas">
+  <div class="fe-proof-intro">{kicker(block["kicker"])}
+   <h2 id="s{n}">{tie(block["h2"])}</h2>{lead}
+   <dl class="fe-notes">{notes}</dl>
+  </div>
+  <figure class="fe-inspect">
+   {bar}<a class="fe-frame" href="{image}" tabindex="-1" data-lightbox="{escape(block["caption"])}"><img src="{image}" width="{block["w"]}" height="{block["h"]}" alt="{escape(block["alt"])}" decoding="async" loading="lazy"></a>
+   <figcaption><span>{block["caption"]}</span><a href="{image}" data-lightbox="{escape(block["caption"])}">Xem ảnh lớn <span aria-hidden="true">↗</span></a></figcaption>
+  </figure>
+ </div>
+</section>'''
+
+
+def render_more(root: str, block: dict, n: int) -> str:
+    items = ''.join(f'<li><b>{title}</b><p>{text}</p><small>{where}</small></li>' for title, text, where in block['items'])
+    return f'''<section class="fe-more" aria-labelledby="s{n}">
+  <div class="container fe-more-grid">
+    <div>{kicker(block.get("kicker", "CÒN TRONG TÍNH NĂNG NÀY"))}<h2 id="s{n}">{tie(block["h2"])}</h2></div>
+    <ul>{items}</ul>
   </div>
 </section>'''
 
@@ -222,13 +334,15 @@ def feature_hero(root: str, p: dict) -> str:
 def page_hero(root: str, p: dict) -> str:
     if p['slug'].startswith('nganh/'):
         return industry_hero(root, p)
+    if p.get('cover'):
+        return feature_cover(root, p)
     if p['slug'].startswith('tinh-nang/'):
         return feature_hero(root, p)
     crumbs = f'<a href="{href(root, "")}">Rapiz</a>'
     if p.get('group'):
         crumbs += f' <span aria-hidden="true">/</span> {p["group"]}'
     actions = (
-        f'<a class="btn primary" href="{C.SIGNUP_URL}">Bắt đầu miễn phí <span aria-hidden="true">↗</span></a>'
+        f'<a class="btn primary" href="{href(root, "#solutions")}">Thử hội thoại <span aria-hidden="true">↗</span></a>'
         f'<a class="text-link" href="{href(root, "dat-lich-demo")}{p.get("demo_query", "")}">Đặt lịch demo <span aria-hidden="true">→</span></a>'
     )
     if p.get('hero_actions') is False:
@@ -243,7 +357,7 @@ def page_hero(root: str, p: dict) -> str:
         if v.get('card'):
             small, strong = v['card']
             card = (
-                f'<p class="float-card"><span class="receipt-mark"><img src="{root}images/rapiz-symbol.svg" width="26" height="22" alt=""></span>'
+                f'<p class="float-card"><span class="receipt-mark"><img src="{root}images/rapiz-symbol-faceted.svg" width="26" height="22" alt=""></span>'
                 f'<span><small>{small}</small><strong>{strong}</strong></span></p>'
             )
         if v.get('mock'):
@@ -316,7 +430,7 @@ def order_card(o: dict) -> str:
     return (
         f'<div class="order-card"><p>{o.get("title", "Tóm tắt đơn")}</p><dl>{rows}'
         f'<dt class="total">{o["total"][0]}</dt><dd class="total">{o["total"][1]}</dd></dl>'
-        f'<div class="order-actions" aria-hidden="true"><span>{o.get("ok", "✅ Đặt hàng")}</span><span>{o.get("edit", "Sửa đơn")}</span></div></div>'
+        f'<div class="order-actions" aria-hidden="true"><span>{o.get("ok", "✅ Đặt hàng")}</span><span>{o.get("edit", "✏️ Sửa thông tin")}</span></div></div>'
     )
 
 
@@ -333,7 +447,7 @@ def render_player(root: str, block: dict, n: int) -> str:
         <ol class="play-steps">{steps}</ol>
       </div>
       <div class="chat">
-        <div class="chat-head"><span class="chat-avatar"><img src="{root}images/rapiz-symbol.svg" alt="" width="30" height="27"></span><div><strong>Rapiz Agent</strong><small>{block.get("channel", "Messenger")} · Hội thoại minh họa</small></div></div>
+        <div class="chat-head"><span class="chat-avatar"><img src="{root}images/rapiz-symbol-faceted.svg" alt="" width="30" height="27"></span><div><strong>Rapiz Agent</strong><small>{block.get("channel", "Messenger")} · Hội thoại minh họa</small></div></div>
         <div class="chat-thread">
           {thread}
         </div>
@@ -378,7 +492,7 @@ def render_mock(root: str, m: dict) -> str:
         body = f'<div class="comment-post">{img}<p><strong>{m["page"]}</strong>{m["post"]}</p></div>'
         for c in m['comments']:
             who, name, text, note, extra = c
-            avatar = f'<img src="{root}images/rapiz-symbol.svg" alt="">' if who == 'page' else name[0]
+            avatar = f'<img src="{root}images/rapiz-symbol-faceted.svg" alt="">' if who == 'page' else name[0]
             cls = 'cmt page reply' if who == 'page' else f'cmt {extra}'.strip()
             note_html = f'<small>{note}</small>' if note else ''
             body += f'<div class="{cls}"><span aria-hidden="true">{avatar}</span><div><p><strong>{name}</strong>{text}</p>{note_html}</div></div>'
@@ -449,7 +563,7 @@ def render_shot(root: str, block: dict, n: int) -> str:
     return f'''{sec_open(block.get("cls", ""), sid)}
     {sec_head(sid, block["kicker"], block["h2"], block.get("lead", ""))}
     <figure class="tour-frame below" style="margin:clamp(30px,4vw,56px) 0 0">
-      <img src="{root}images/{block["img"]}" width="2400" height="1345" loading="lazy" decoding="async" alt="{escape(block["alt"])}" style="border:1px solid var(--line);border-radius:12px">
+      <img src="{root}images/{block["img"]}" width="{block.get("w", 2400)}" height="{block.get("h", 1345)}" loading="lazy" decoding="async" alt="{escape(block["alt"])}" style="display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:12px">
     </figure>
     <p class="fineprint">{block["caption"]}</p>
   </div>
@@ -481,13 +595,17 @@ def render_faq(root: str, block: dict, n: int) -> str:
     )
     return f'''<section id="questions" class="faq" aria-labelledby="faq-title">
   <div class="container faq-grid">
-    <div>{kicker(block.get("kicker", "CÂU HỎI THƯỜNG GẶP"))}<h2 id="faq-title">{block.get("h2", "Bạn muốn<br>biết <em>thêm?</em>")}</h2></div>
+    <div>{kicker(block.get("kicker", "CÂU HỎI THƯỜNG GẶP"))}<h2 id="faq-title">{tie(block.get("h2", "Bạn muốn<br>biết <em>thêm?</em>"))}</h2></div>
     <div class="faq-items">{items}</div>
   </div>
 </section>'''
 
 
 def render_related(root: str, block: dict, n: int) -> str:
+    if block.get('compact'):
+        links = ''.join(f'<a href="{href(root, slug)}">{C.LINK_INDEX[slug]["name"]} <span aria-hidden="true">↗</span></a>'
+                        for slug in block['slugs'])
+        return f'<nav class="fe-related" aria-label="Tìm hiểu thêm"><div class="container"><strong>Tìm hiểu thêm</strong>{links}</div></nav>'
     sid = f's{n}'
     cards = ''
     for slug in block['slugs']:
@@ -495,18 +613,8 @@ def render_related(root: str, block: dict, n: int) -> str:
         cards += (f'<a class="rel" href="{href(root, slug)}"><small>{info["group"]}</small><strong>{info["name"]}</strong>'
                   f'<span>{info["blurb"]}</span><em>Xem chi tiết →</em></a>')
     return f'''{sec_open("tint", sid)}
-    {sec_head(sid, block.get("kicker", "XEM TIẾP"), block.get("h2", "Rapiz còn <em>làm được gì?</em>"), "", solo=True)}
+    {sec_head(sid, block.get("kicker", "XEM TIẾP"), block["h2"], "", solo=True)}
     <div class="related below">{cards}</div>
-  </div>
-</section>'''
-
-
-def render_close(root: str, block: dict, n: int) -> str:
-    return f'''<section class="close" aria-labelledby="close-title">
-  <img class="close-mark" src="{root}images/rapiz-symbol.svg" alt="" loading="lazy">
-  <div class="container">
-    <h2 id="close-title">{block.get("h2", "Đón cuộc trò chuyện<br><em>tiếp theo.</em>")}</h2>
-    <div class="close-links"><a href="{C.SIGNUP_URL}" class="btn dark">Bắt đầu miễn phí <span aria-hidden="true">↗</span></a><a class="text-link" href="{href(root, "dat-lich-demo")}{block.get("demo_query", "")}">Đặt lịch demo với Rapiz <span aria-hidden="true">→</span></a></div>
   </div>
 </section>'''
 
@@ -526,7 +634,7 @@ def plan_cards(root: str) -> str:
         else:
             data = ''
             price = '<p class="price"><b>0đ</b><span>/ không thời hạn</span></p><p class="price-note">Không cần thẻ thanh toán</p>'
-            cta = f'<a class="btn ghost" href="{C.SIGNUP_URL}">{p["cta"]} <span aria-hidden="true">↗</span></a>'
+            cta = f'<a class="btn ghost" href="{href(root, "dat-lich-demo")}?goi=free">{p["cta"]} <span aria-hidden="true">→</span></a>'
         cards += f'''<article class="plan{featured}"{data}>{badge}
         <h3>{p["name"]}</h3><p class="for">{p["for"]}</p>{price}{cta}{ticks(p["ticks"])}
       </article>'''
@@ -595,7 +703,7 @@ def render_form(root: str, block: dict, n: int) -> str:
         <div><h2>Nội dung buổi demo</h2>{ticks(block["ticks"])}</div></div>
         <a class="ut-link" href="{C.LOGIN_URL}">Đã có tài khoản? Đăng nhập <span aria-hidden="true">↗</span></a>
       </div>
-      <form class="demo-form ut-demo-form" data-demo-form novalidate>
+      <form id="demo-form" class="demo-form ut-demo-form" data-demo-form novalidate>
         <div class="ut-form-intro"><h2>Phiếu chuẩn bị demo</h2><p data-brief-info>Điền thử để xem trước phiếu trên thiết bị của bạn.</p></div>
         <div class="field"><label for="f-name">Họ và tên</label><input id="f-name" name="name" autocomplete="name" required aria-describedby="f-name-err"><p class="err" id="f-name-err" aria-live="polite"></p></div>
         <div class="field"><label for="f-phone">Số điện thoại / Zalo</label><input id="f-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" required aria-describedby="f-phone-err"><p class="err" id="f-phone-err" aria-live="polite"></p></div>
@@ -627,7 +735,9 @@ RENDERERS = {
     'duo': render_duo,
     'faq': render_faq,
     'related': render_related,
-    'close': render_close,
+    'inspect': render_inspect,
+    'more': render_more,
+    'demo': lambda root, block, n: template(block['template'], root=root, number=n),
     'plans': render_plans,
     'compare': render_compare,
     'form': render_form,
@@ -648,24 +758,34 @@ def utility_hero(root: str, page: dict) -> str:
         label = 'BẢNG GIÁ'
         target, action = '#compare-plans', 'Xem bảng so sánh'
         seats = next(row[1:] for row in C.COMPARE if isinstance(row, tuple) and row[0] == 'Thành viên')
-        rows = ''.join(f'<li><span>{plan["name"]}</span><b>{seat}</b></li>' for plan, seat in zip(C.PLANS, seats))
-        visual = f'''<aside class="ut-capacity"><div class="ut-cap-head"><span>Quy mô đội</span><span>Thành viên</span></div><ul>{rows}</ul></aside>'''
+        # One small figure per seat: the owner in orange, the team in sand. The crowd grows plan by plan.
+        rows, k = [], 0
+        for plan, seat in zip(C.PLANS, seats):
+            people = ''
+            for i in range(int(seat)):
+                people += f'<i style="--d:{k}"></i>'
+                k += 1
+            price = f'từ {C.vnd(plan["prices"]["12"])}/tháng' if plan['prices'] else '0đ'
+            rows.append(f'<li><div><b>{plan["name"]}</b><small><span>{seat} thành viên ·</span> <span>{price}</span></small></div>'
+                        f'<span class="ut-crowd" aria-hidden="true">{people}</span></li>')
+        visual = f'''<figure class="ut-team" aria-label="Số thành viên dùng chung app theo từng gói">
+          <figcaption><span>Ai cùng trả lời khách</span><span class="ut-team-key" aria-hidden="true"><i class="is-owner"></i>Bạn<i></i>Đội sale</span></figcaption>
+          <ul>{''.join(rows)}</ul>
+          <p class="ut-team-note">Giá mỗi tháng khi trả theo năm.</p>
+        </figure>'''
     elif slug == 'tich-hop':
         title = 'Nơi khách nhắn.<br><em>Nơi bạn bán.</em>'
         label = 'DANH MỤC TÍCH HỢP'
         target, action = '#channels', 'Xem trạng thái các kênh'
-        visual = f'''<div class="ut-channel-art" aria-hidden="true">
-          <div class="ut-wire"></div><div class="ut-channel-logos">
-            <span>{C.ICONS["comment"]}</span><span>{C.ICONS["inbox"]}</span><span>{C.ICONS["plug"]}</span>
-          </div><img src="{root}images/rapiz-symbol.svg" width="146" height="126" alt="">
-        </div>'''
+        # Architecture diagram (diagram-design): channels → Rapiz → shop data, wide and portrait variants.
+        visual = (SITE / 'tools/templates/integration-map.html').read_text(encoding='utf-8')
     else:
         title = 'Quyền truy cập,<br><em>trong tầm tay.</em>'
         label = 'BẢO MẬT & DỮ LIỆU'
         target, action = '#security-controls', 'Xem các lớp bảo vệ'
         visual = f'''<figure class="ut-security-visual"><div class="ut-vault">
           <div class="ut-vault-top"><span>Không gian doanh nghiệp</span><span aria-hidden="true">{C.ICONS["shield"]}</span></div>
-          <div class="ut-vault-symbol" aria-hidden="true"><i></i><i></i><img src="{root}images/rapiz-symbol.svg" width="96" height="83" alt=""></div>
+          <div class="ut-vault-symbol" aria-hidden="true"><i></i><i></i><img src="{root}images/rapiz-symbol-faceted.svg" width="96" height="83" alt=""></div>
           <p>Dữ liệu tách riêng cho từng doanh nghiệp</p>
         </div></figure>'''
     return f'''<section class="ut-hero" aria-labelledby="page-title"><div class="container ut-hero-layout">
@@ -682,12 +802,20 @@ def utility_catalog(root: str, block: dict, n: int) -> str:
         if item.get('link'):
             title = f'<a href="{href(root, item["link"])}">{title} <span aria-hidden="true">↗</span></a>'
         status = item.get('status') or 'Đang hoạt động'
-        status_cls = 'live' if 'status' not in item else 'upcoming' if status == 'Sắp ra mắt' else 'beta'
+        if 'status' not in item:
+            status_cls = 'live'
+        elif status == 'Sắp ra mắt':
+            status_cls = 'upcoming'
+        elif status.startswith('Gói'):
+            status_cls = 'tier'
+        else:
+            status_cls = 'beta'
         rows.append(f'''<li><span class="ut-channel-icon" aria-hidden="true">{C.ICONS[item["icon"]]}</span>
           <h3>{title}</h3><p>{item["text"]}</p><span class="ut-status {status_cls}">{status}</span></li>''')
-    return f'''<section class="sec ut-catalog" id="channels" aria-labelledby="s{n}"><div class="container">
-      <div class="ut-index-head"><div>{kicker(block["kicker"])}<h2 id="s{n}">Danh mục <em>kênh.</em></h2></div>
-      <p>Chọn kênh khách hàng đang dùng và kiểm tra trạng thái kết nối trước khi triển khai.</p></div>
+    anchor = f' id="{block["id"]}"' if block.get('id') else ''
+    return f'''<section class="sec ut-catalog {block.get("cls", "")}"{anchor} aria-labelledby="s{n}"><div class="container">
+      <div class="ut-index-head"><div>{kicker(block["kicker"])}<h2 id="s{n}">{block["h2"]}</h2></div>
+      <p>{block.get("lead", "")}</p></div>
       <ul class="ut-channel-list">{''.join(rows)}</ul>
     </div></section>'''
 
@@ -704,39 +832,54 @@ def utility_controls(root: str, block: dict, n: int) -> str:
 def render_utility_page(p: dict, root: str) -> str:
     slug = p['slug']
     overrides = {
-        'tich-hop': {'caps': utility_catalog},
+        'tich-hop': {'catalog': utility_catalog},
         'bao-mat': {'caps': utility_controls},
     }.get(slug, {})
     blocks = []
     for n, block in enumerate(p['blocks'], 1):
-        renderer = overrides.get(block['kind'], RENDERERS[block['kind']])
+        if block['kind'] == 'close':
+            continue  # The shared footer renders the page-specific closing message.
+        renderer = overrides.get(block['kind']) or RENDERERS[block['kind']]
         blocks.append(renderer(root, block, n))
     description = 'Chuẩn bị nội dung buổi demo 30 phút và xem trước phiếu theo ngành, gói và kênh của doanh nghiệp.' if slug == 'dat-lich-demo' else p['description']
     return f'''{head(root, p["title"], description, slug + "/")}
 {header(root, slug)}
 <main id="main" class="ut-page ut-{slug}">{utility_hero(root, p)}{"".join(blocks)}</main>
-{footer(root)}
+{footer(root, p)}
 </body></html>
 '''
+
+
+def template(name: str, **values: str | int) -> str:
+    return (SITE / 'tools' / 'templates' / name).read_text(encoding='utf-8').format(**values)
 
 
 def render_page(p: dict) -> str:
     depth = p['slug'].count('/') + 1
     root = rel(depth)
+    if p['slug'] == 've-rapiz':
+        return f'''{head(root, p["title"], p["description"], "ve-rapiz/")}
+{header(root, p["slug"])}
+<main class="os-page" id="main">{template("about.html", root=root)}</main>
+{footer(root, p)}
+</body></html>
+'''
     if p['slug'] in UTILITY_PAGES:
         return render_utility_page(p, root)
     blocks = []
     for n, b in enumerate(p['blocks'], start=1):
+        if b['kind'] == 'close':
+            continue
         fn = RENDERERS[b['kind']]
         blocks.append(fn(root, b, n))
     body = '\n'.join(blocks)
-    return f'''{head(root, p["title"], p["description"], p["slug"] + "/")}
+    return f'''{head(root, p["title"], p["description"], p["slug"] + "/", p.get("assets"))}
 {header(root, p["slug"])}
 <main id="main">
 {page_hero(root, p)}
 {body}
 </main>
-{footer(root)}
+{footer(root, p)}
 </body></html>
 '''
 
@@ -748,12 +891,28 @@ def replace_block(text: str, name: str, html: str) -> str:
     return pattern.sub(lambda _: html, text)
 
 
+def agent_loop(root: str) -> str:
+    section = (SITE / 'tools/templates/agent-loop.html').read_text(encoding='utf-8')
+    weave = (SITE / 'tools/templates/agent-weave.svg').read_text(encoding='utf-8')
+    return section.replace('{{root}}', root).replace('{{weave}}', weave)
+
+
+def build_agent_loop() -> None:
+    path = ROOT / 'index.html'
+    markup = f'<!--#agent-loop-->{agent_loop("")}<!--/agent-loop-->'
+    path.write_text(replace_block(path.read_text(encoding='utf-8'), 'agent-loop', markup), encoding='utf-8')
+
+
 def main() -> None:
     for p in C.PAGES:
         out = ROOT / p['slug'] / 'index.html'
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(render_page(p), encoding='utf-8')
         print('wrote', out.relative_to(ROOT))
+    if os.environ.get('SKIP_INDEX'):
+        print('skipped index.html (SKIP_INDEX)')
+        return
+    build_agent_loop()
     index = ROOT / 'index.html'
     text = index.read_text(encoding='utf-8')
     text = replace_block(text, 'site-head', header(''))
