@@ -140,8 +140,9 @@ function SectionNav({
         <CollapsibleTrigger asChild>
           <SidebarMenuButton tooltip={t(label)} isActive={inside}>
             <Icon />
-            <span>{t(label)}</span>
-            <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
+            {/* Truncate: the chevron, not the label, is the last child the button truncates. */}
+            <span className="truncate">{t(label)}</span>
+            <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden" />
           </SidebarMenuButton>
         </CollapsibleTrigger>
         <CollapsibleContent>
