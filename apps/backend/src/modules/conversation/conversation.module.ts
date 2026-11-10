@@ -51,7 +51,9 @@ import { ConversationController } from './interface/http/conversation.controller
       provide: CONVERSATION_STORE,
       inject: [{ token: DB_TENANT, optional: true }],
       useFactory: (db: Database | null | undefined) =>
-        db ? new DrizzleConversationStore(db) : new UnavailableConversationStore(),
+        db
+          ? new DrizzleConversationStore(db, getEnv().S3_PUBLIC_URL)
+          : new UnavailableConversationStore(),
     },
     {
       provide: InboxAlerts,

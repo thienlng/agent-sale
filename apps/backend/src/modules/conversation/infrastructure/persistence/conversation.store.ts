@@ -21,6 +21,7 @@ import type {
   ConversationStore,
   ConversationTx,
 } from '../../application/ports/conversation-store.js';
+import { absoluteMediaUrl } from '../../../../common/storage/media-url.js';
 import { ConversationError } from '../../domain/conversation.errors.js';
 import {
   effectiveSort,
@@ -99,9 +100,29 @@ const indexColumns = (d: ConversationView) => ({
   botId: d.botId,
   contactId: d.contactId,
 });
+/** A stored message, with Rapiz attachments on the current public host (see the constructor). */
+function readMessage(data: unknown, mediaBase: string | undefined): InboxMessageDto {
+  const msg = InboxMessageDto.parse(data);
+  if (!mediaBase || msg.attachments.length === 0) return msg;
+  return {
+    ...msg,
+    attachments: msg.attachments.map((a) => ({ ...a, url: absoluteMediaUrl(a.url, mediaBase) })),
+  };
+}
+
 export class DrizzleConversationStore implements ConversationStore {
-  constructor(private readonly db: Database) {}
+  /**
+   * `mediaBase` is the current `S3_PUBLIC_URL`: stored attachments of Rapiz objects keep the host
+   * they were uploaded on (a dev tunnel that no longer exists, an old domain), so they are served
+   * on the current one (docs/lodging.md "Pictures"). External links are left as they are.
+   */
+  constructor(
+    private readonly db: Database,
+    private readonly mediaBase?: string,
+  ) {}
+
   run<T>(ws: WorkspaceId, fn: (tx: ConversationTx) => Promise<T>): Promise<T> {
+    const mediaBase = this.mediaBase;
     return withTenant(this.db, ws, (tx) =>
       fn({
         async lockPeer(channelId, customerId) {
@@ -211,7 +232,7 @@ export class DrizzleConversationStore implements ConversationStore {
               .orderBy(desc(m.createdAt))
               .limit(200)
           )
-            .map((r) => InboxMessageDto.parse(r.data))
+            .map((r) => readMessage(r.data, mediaBase))
             .reverse();
         },
         async peerMessagesAfter(channelId, customerId, after, limit) {
@@ -236,7 +257,7 @@ export class DrizzleConversationStore implements ConversationStore {
             .limit(limit);
           return {
             conversationId: conv.id,
-            messages: rows.map((r) => InboxMessageDto.parse(r.data)),
+            messages: rows.map((r) => readMessage(r.data, mediaBase)),
           };
         },
         async findMessage(id, key) {
@@ -244,7 +265,7 @@ export class DrizzleConversationStore implements ConversationStore {
             .select()
             .from(m)
             .where(and(eq(m.workspaceId, ws), eq(m.conversationId, id), eq(m.idempotencyKey, key)));
-          return r ? InboxMessageDto.parse(r.data) : null;
+          return r ? readMessage(r.data, mediaBase) : null;
         },
         async saveMessage(data, key) {
           await tx

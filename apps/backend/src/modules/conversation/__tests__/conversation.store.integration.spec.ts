@@ -153,6 +153,38 @@ describe('DrizzleConversationStore', () => {
     const outbound = (await service.get(a, c.id)).messages.filter((m) => m.direction !== 'inbound');
     expect(outbound).toHaveLength(1);
   });
+
+  it('serves stored Rapiz attachments on the current public host, other links unchanged', async () => {
+    const c = await service.receive(a, channelId, event('old-host', 'customer-media'));
+    const key =
+      'products/01a1a2cd-8961-74a4-a65d-3b4c9bfb5d7b/01a1a2cd-9029-775e-897b-7cecc54682ac.jpg';
+    const fb = 'https://scontent.xx.fbcdn.net/v/t1/x.jpg?_nc_cat=1';
+    const msg = {
+      id: newId(),
+      conversationId: c.id,
+      direction: 'outbound' as const,
+      sender: 'bot' as const,
+      text: '',
+      attachments: [
+        { type: 'image' as const, url: `https://dead-tunnel.trycloudflare.com/media/${key}` },
+        { type: 'image' as const, url: fb },
+      ],
+      status: 'sent' as const,
+      failureCode: null,
+      externalId: null,
+      createdAt: new Date().toISOString(),
+    };
+    await store.run(a, (tx) => tx.saveMessage(msg, newId()));
+    const current = new DrizzleConversationStore(tenantDb, 'https://penguin.example.com/media');
+    const read = await current.run(a, (tx) => tx.messages(c.id));
+    expect(read.find((m) => m.id === msg.id)?.attachments.map((x) => x.url)).toEqual([
+      `https://penguin.example.com/media/${key}`,
+      fb,
+    ]);
+    // Without a configured base the stored URL is returned as it is.
+    const plain = await store.run(a, (tx) => tx.messages(c.id));
+    expect(plain.find((m) => m.id === msg.id)?.attachments[0]?.url).toContain('dead-tunnel');
+  });
 });
 
 /** SQL filtering, counting and sorting must agree with the reference the unit tests exercise. */
