@@ -18,7 +18,7 @@ import { conversations } from './conversation.js';
 import { contacts } from './crm.js';
 import { tenantPolicies, workspaces } from './workspace.js';
 
-/** Tables of the `brain` module (migration 0072, spec 2026-11-11 Business Brain v1). */
+/** Tables of the `brain` module (migration 0073, spec 2026-11-11 Business Brain v1). */
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 const workspaceRef = () =>
   uuid('workspace_id')

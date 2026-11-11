@@ -77,7 +77,7 @@ agent acting on its own) builds on the same primitives but is not designed yet.
 - Signals lag a conversation by the idle wait (≥ 30 min). The **Chưa trả lời** queue is a plain
   fact (`awaiting_since` > 15 min) so urgent unanswered messages never wait for an evaluation.
 - When the cap is used up, Today still works from facts and older signals.
-- Six new tenant tables with forced RLS (migration 0072, additive). The data export (SET-10)
+- Six new tenant tables with forced RLS (migration 0073, additive). The data export (SET-10)
   includes `tasks.csv` (crm) and `conversation_signals.csv` (brain); the operational tables
   (`signal_jobs`, `signal_runs`, `signal_usage`, `brain_settings`) are not exported, like
   `ai_runs` and the analytics projections. `exportTable()` gains a `key` option because

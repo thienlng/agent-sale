@@ -16,7 +16,7 @@ import { DrizzleBrainStore } from '../src/modules/brain/infrastructure/persisten
 import { DrizzleMessageEventSource } from '../src/modules/brain/infrastructure/persistence/message-events.drizzle.js';
 
 /**
- * The brain's Drizzle store and outbox reader on a real Postgres (migration 0072): the atomic
+ * The brain's Drizzle store and outbox reader on a real Postgres (migration 0073): the atomic
  * daily reservation, the job upsert/claim/lease, tenant isolation and the outbox window.
  */
 let pg: TestPostgres;

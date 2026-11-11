@@ -1,4 +1,4 @@
--- 0072_business_brain: Business Brain v1 and the Today screen (spec 2026-11-11, ADR-030).
+-- 0073_business_brain: Business Brain v1 and the Today screen (spec 2026-11-11, ADR-030).
 -- The `brain` module stores one AI judgement per conversation (conversation_signals), the idle
 -- evaluation queue (signal_jobs), per-run metering (signal_runs), the daily evaluation counter
 -- (signal_usage), per-business settings (brain_settings) and its outbox position

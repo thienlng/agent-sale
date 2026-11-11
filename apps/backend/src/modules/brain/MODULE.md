@@ -2,7 +2,7 @@
 
 **Purpose:** Business Brain v1 (spec `docs/superpowers/specs/2026-11-11-business-brain-today-design.md`, ADR-030): one AI judgement per conversation (stage, intent, mood, needs-a-person, follow-up, rolling note), evaluated when a conversation goes idle or on request, within a daily cap; the complaint alert.
 
-**Owned tables:** `conversation_signals`, `signal_jobs`, `signal_runs`, `signal_usage`, `brain_settings`, `brain_checkpoints` (global, app_system only: the outbox position, row `brain.signals`) (schema `packages/db/src/schema/brain.ts`, migration 0072).
+**Owned tables:** `conversation_signals`, `signal_jobs`, `signal_runs`, `signal_usage`, `brain_settings`, `brain_checkpoints` (global, app_system only: the outbox position, row `brain.signals`) (schema `packages/db/src/schema/brain.ts`, migration 0073).
 
 **Public API (`api/`):**
 - `BRAIN_FACADE` → `signalsFor(ws, convIds)`, `evaluateNow(ws, convId, 'manual'|'refresh')` → `{status: ok|capped|nothing_new|disabled, signal}`, `usage(ws)` → `{day, used, limit}`, `settings(ws)`.

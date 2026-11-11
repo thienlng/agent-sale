@@ -159,7 +159,7 @@ Desktop and phone layouts both; empty state per queue.
   `ARCHITECTURE.md §3`. Owns `conversation_signals`, `signal_jobs`, `signal_runs`,
   `signal_usage`, the Today query API and the briefing tick.
 - `crm` gains `tasks` (tier unchanged; links stored as ids).
-- Migration **0072** (additive, RLS like every tenant table). Data export (SET-10) includes
+- Migration **0073** (additive, RLS like every tenant table). Data export (SET-10) includes
   signals and tasks; deleting a conversation deletes its signals, while deleting a contact
   only clears the signal's `contact_id` (the signal follows its conversation, which survives a
   contact delete).
