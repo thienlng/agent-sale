@@ -1,7 +1,7 @@
 import type { WorkspaceId } from '@agent-sales/shared';
 
 import type { BrainSettings } from '../schedule.js';
-import type { ConversationSignal, SignalTrigger } from '../signal.js';
+import type { ConversationSignal, StageChange, SignalTrigger } from '../signal.js';
 
 /** A due idle evaluation, claimed with a lease (`signal_jobs`). */
 export interface SignalJob {
@@ -12,10 +12,10 @@ export interface SignalJob {
   attempts: number;
 }
 
-/** One model call (`signal_runs`), for cost reporting. */
+/** One model call (`signal_runs`), for cost reporting: an evaluation, or a reply draft. */
 export interface SignalRunRecord {
   conversationId: string;
-  trigger: SignalTrigger;
+  trigger: SignalTrigger | 'draft';
   tier: string;
   model: string | null;
   inputTokens: number;
@@ -33,8 +33,33 @@ export interface BrainStore {
 
   getSignal(ws: WorkspaceId, conversationId: string): Promise<ConversationSignal | null>;
   signalsFor(ws: WorkspaceId, conversationIds: readonly string[]): Promise<ConversationSignal[]>;
-  /** Insert or replace the row (the caller already bumped `version`). */
-  saveSignal(ws: WorkspaceId, signal: ConversationSignal): Promise<void>;
+  /**
+   * Writes an evaluation. Only the model's columns are written (intent, mood, needs-a-person,
+   * follow-up, note, `evaluated_until`, `evaluated_at`, the customer link): the stage only when
+   * the STORED row is not locked, and the stored dismissal is cleared only when
+   * `lastCustomerMessageAt` is newer than it. So a member's lock, stage or dismissal written while
+   * the model was answering survives. Bumps `version`; returns the stored row.
+   */
+  saveEvaluation(
+    ws: WorkspaceId,
+    signal: ConversationSignal,
+    lastCustomerMessageAt: Date | null,
+  ): Promise<ConversationSignal>;
+  /** A member's stage change: writes only the stage and the lock (a blank row when none). */
+  saveStage(
+    ws: WorkspaceId,
+    conversationId: string,
+    contactId: string | null,
+    change: StageChange,
+    now: Date,
+  ): Promise<ConversationSignal>;
+  /** Today's dismiss: writes only `dismissed_until_message_after` (a blank row when none). */
+  dismissSignal(
+    ws: WorkspaceId,
+    conversationId: string,
+    contactId: string | null,
+    at: Date,
+  ): Promise<void>;
 
   /**
    * Upserts the conversation's idle job (brief rule 1): `run_after = max(existing, due)`, status
@@ -44,16 +69,19 @@ export interface BrainStore {
   /** Due `pending` jobs, or ones whose lease expired, leased for `leaseMs` (FOR UPDATE SKIP LOCKED). */
   claimDueJobs(now: Date, limit: number, leaseMs: number): Promise<SignalJob[]>;
   /**
-   * Drops the job unless a newer message pushed it past `claimedRunAfter` meanwhile (then only
-   * its lease is released, so it runs again later).
+   * Drops the job unless a newer message pushed it past `claimedRunAfter` meanwhile (then its
+   * lease is released and its attempts reset, so it runs again later).
    */
   finishJob(ws: WorkspaceId, conversationId: string, claimedRunAfter: Date): Promise<void>;
-  /** Cap reached: the job waits as `capped` until `until` (the next local day). */
+  /** Cap reached: the job waits as `capped` until `until` (the next local day); attempts reset. */
   capJob(ws: WorkspaceId, conversationId: string, until: Date): Promise<void>;
   /** A failed call: retried at `retryAt` (attempt counted at claim). */
   retryJob(ws: WorkspaceId, conversationId: string, retryAt: Date): Promise<void>;
-  /** The next day's first tick: capped jobs whose day has come are `pending` again. */
-  resetCappedJobs(now: Date): Promise<number>;
+  /**
+   * The next day's first tick: capped jobs whose day has come are `pending` again, due at
+   * `runAfter` (a little after now, so the day's fresh jobs, due already, are claimed first).
+   */
+  resetCappedJobs(now: Date, runAfter: Date): Promise<number>;
 
   /**
    * Takes one evaluation of the day atomically: `insert … on conflict do update set count =

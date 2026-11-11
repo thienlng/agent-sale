@@ -8,20 +8,24 @@ import {
   type TodayResponse,
 } from '@agent-sales/contracts';
 import { userId, type WorkspaceId } from '@agent-sales/shared';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+
+import { COMMERCE_FACADE, type CommerceFacade } from '../../commerce/api/index.js';
+import { LODGING_FACADE, type LodgingFacade } from '../../lodging/api/index.js';
 
 import { CONVERSATION_FACADE, type ConversationFacade } from '../../conversation/api/index.js';
 import { CRM_FACADE, type CrmFacade } from '../../crm/api/index.js';
 import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.js';
 import { SignalConversationNotFoundError } from '../domain/brain.errors.js';
 import { BRAIN_STORE, type BrainStore } from '../domain/ports/brain.store.js';
-import { blankSignal, type ConversationSignal } from '../domain/signal.js';
+import { type ConversationSignal, newAfter } from '../domain/signal.js';
 import {
   buildQueues,
   endOfHcmDay,
   type TodayEntry,
   type TodayFacts,
   type TodayViewer,
+  orderedSinceSignal,
   UNANSWERED_AFTER_MS,
   visibleTo,
 } from '../domain/today.js';
@@ -69,6 +73,8 @@ export class TodayQuery {
     @Inject(SettingsService) private readonly settings: SettingsService,
     @Inject(UsageService) private readonly usage: UsageService,
     @Inject(SignalEvaluator) private readonly evaluator: SignalEvaluator,
+    @Inject(COMMERCE_FACADE) @Optional() private readonly commerce?: CommerceFacade,
+    @Inject(LODGING_FACADE) @Optional() private readonly lodging?: LodgingFacade,
   ) {}
 
   /** The queues, counts included, as the viewer sees them. */
@@ -87,7 +93,7 @@ export class TodayQuery {
       facts.map((f) => f.id),
       signals,
     );
-    const taskScope = { userId: viewer.userId };
+    const taskScope = { userId: viewer.userId, viewAll: viewer.viewAll };
     const [taskCount, open] = await Promise.all([
       this.crm.countOpenTasks(ws, { ...taskScope, dueBefore: endOfDay }),
       this.crm.listOpenTasks(ws, { ...taskScope, limit: TASKS_READ }),
@@ -95,8 +101,9 @@ export class TodayQuery {
     const tasks = open
       .filter((t) => t.dueAt !== null && Date.parse(t.dueAt) < endOfDay.getTime())
       .slice(0, TODAY_QUEUE_ITEMS_MAX);
+    const ordered = await this.#ordered(ws, facts, signals);
     return {
-      queues: buildQueues(facts, signals, viewer, now),
+      queues: buildQueues(facts, signals, viewer, now, ordered),
       taskCount,
       tasks,
       facts,
@@ -187,7 +194,7 @@ export class TodayQuery {
     for (const f of ordered) {
       if (picked.length >= REFRESH_MAX) break;
       if (picked.includes(f.id) || f.status === 'spam' || !visibleTo(f, viewer)) continue;
-      if (hasUnevaluated(f, snap.signals.get(f.id) ?? null)) picked.push(f.id);
+      if (hasUnevaluated(f, snap.signals.get(f.id) ?? null, now)) picked.push(f.id);
     }
 
     let evaluated = 0;
@@ -229,15 +236,37 @@ export class TodayQuery {
     if (!f || f.id !== conversationId || !visibleTo(f, viewer)) {
       throw new SignalConversationNotFoundError(conversationId);
     }
-    const prev =
-      (await this.store.getSignal(ws, conversationId)) ??
-      blankSignal(conversationId, f.contactId, now);
-    await this.store.saveSignal(ws, {
-      ...prev,
-      dismissedUntilMessageAfter: now,
-      version: prev.version + 1,
-      updatedAt: now,
-    });
+    await this.store.dismissSignal(ws, conversationId, f.contactId, now);
+  }
+
+  /**
+   * Conversations whose signal says `ready` but that got an order or booking since it was judged
+   * (spec §5: "Sắp chốt" ends there). A failed read leaves them listed.
+   */
+  async #ordered(
+    ws: WorkspaceId,
+    facts: readonly TodayFacts[],
+    signals: ReadonlyMap<string, ConversationSignal>,
+  ): Promise<Set<string>> {
+    const ready = facts.filter((f) => signals.get(f.id)?.stage === 'ready').map((f) => f.id);
+    const out = new Set<string>();
+    if (!ready.length) return out;
+    const read = (p: Promise<{ conversationId: string; at: Date }[]> | undefined) =>
+      (p ?? Promise.resolve([])).catch((e: unknown) => {
+        this.#log.warn(`orders of Today not read (${errorClass(e)})`);
+        return [];
+      });
+    const times = (
+      await Promise.all([
+        read(this.commerce?.latestOrderTimes(ws, ready)),
+        read(this.lodging?.latestBookingTimes(ws, ready)),
+      ])
+    ).flat();
+    for (const t of times) {
+      const s = signals.get(t.conversationId);
+      if (s && orderedSinceSignal(s, t.at)) out.add(t.conversationId);
+    }
+    return out;
   }
 
   async #loadSignals(
@@ -263,11 +292,10 @@ export class TodayQuery {
   }
 }
 
-/** A customer message arrived after the messages the last evaluation covered. */
-function hasUnevaluated(f: TodayFacts, s: ConversationSignal | null): boolean {
+/** A customer message arrived after the messages the last evaluation covered (`newAfter`). */
+function hasUnevaluated(f: TodayFacts, s: ConversationSignal | null, now: Date): boolean {
   if (!f.lastInboundAt) return false;
-  const covered = s?.evaluatedUntil?.getTime() ?? Number.NEGATIVE_INFINITY;
-  return Date.parse(f.lastInboundAt) > covered;
+  return Date.parse(f.lastInboundAt) > newAfter(s, now);
 }
 
 function toItem(e: TodayEntry, names: ReadonlyMap<string, string | null>): TodayItem {

@@ -16,12 +16,8 @@ import type { MessageEventLease, MessageEventSource } from '../../domain/ports/b
 const CONSUMER = 'brain.signals';
 const EVENT = 'conversation.message.received.v1';
 const o = schema.outboxEvents;
-/**
- * The consumer position. Consumers of the outbox keep one row each in a consumer-keyed checkpoint
- * table; migration 0072 added no table for the brain, so it keeps its row (`brain.signals`) in
- * the platform's `analytics_checkpoints` (app_system only) next to the analytics projector's.
- */
-const cp = schema.analyticsCheckpoints;
+/** The consumer position: the brain's own `brain_checkpoints` row (app_system only). */
+const cp = schema.brainCheckpoints;
 
 const xid = (n: number) => sql`${String(n)}::xid8`;
 

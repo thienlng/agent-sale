@@ -32,7 +32,13 @@ agent acting on its own) builds on the same primitives but is not designed yet.
    - **Cap:** entitlement `brain.evaluations.daily` per business per day in Asia/Ho_Chi_Minh
      (200 on every plan, `null` = unlimited for internal shops), reserved atomically in
      `signal_usage` before the call and released on failure. A capped job is kept as `capped`
-     and becomes `pending` again the next day.
+     and becomes `pending` again the next day, a few minutes after local midnight (behind the
+     day's fresh jobs); one whose customer last wrote more than a day ago is then dropped.
+     **Deviation from the billing pattern:** the limit is read from `BillingFacade.entitlements`
+     instead of `BillingFacade.limit`, because `limit` reads a key the plan does not define as 0
+     and plans created before this key exist; a plan without the key gets the default (200), a
+     key set to `null` means unlimited. Adding the key to every plan row makes the fallback
+     unused but it stays as the safe default.
    - **Manual controls:** `POST /conversations/{id}/signals/evaluate` (**Đánh giá lại**) and
      `POST /today/refresh` (**Làm mới**, ≤ 20 conversations with unevaluated customer messages,
      highest priority first) run now and count toward the cap. In **manual mode**

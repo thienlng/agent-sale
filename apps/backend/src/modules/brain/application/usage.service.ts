@@ -40,6 +40,12 @@ export class UsageService {
     return (await this.store.reserveUsage(ws, day, await this.limit(ws))) ? { day } : null;
   }
 
+  /** Whether today still has an evaluation left (a cheap read; `reserve` decides). */
+  async hasRoom(ws: WorkspaceId, now: Date): Promise<boolean> {
+    const limit = await this.limit(ws);
+    return limit === null || (await this.store.usedOn(ws, hcmDay(now))) < limit;
+  }
+
   release(ws: WorkspaceId, r: UsageReservation): Promise<void> {
     return this.store.releaseUsage(ws, r.day);
   }

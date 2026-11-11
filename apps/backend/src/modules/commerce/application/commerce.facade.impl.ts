@@ -2,7 +2,12 @@ import type { OrderDto, OrderOverviewResponse } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
-import type { CommerceFacade, LowStock, OrdersPlaced } from '../api/commerce.facade.js';
+import type {
+  CommerceFacade,
+  ConversationTime,
+  LowStock,
+  OrdersPlaced,
+} from '../api/commerce.facade.js';
 import { BotOrderService } from './bot-order.service.js';
 import { OrderService } from './order.service.js';
 
@@ -56,5 +61,12 @@ export class CommerceFacadeImpl implements CommerceFacade {
 
   lowStock(ws: WorkspaceId, q: { threshold: number; limit: number }): Promise<LowStock> {
     return this.orders.lowStock(ws, q);
+  }
+
+  latestOrderTimes(
+    ws: WorkspaceId,
+    conversationIds: readonly string[],
+  ): Promise<ConversationTime[]> {
+    return this.orders.latestByConversation(ws, conversationIds);
   }
 }

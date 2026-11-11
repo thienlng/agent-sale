@@ -129,6 +129,24 @@ describe('Today queue rules', () => {
     expect((queue(r, 'ready') as TodayConversationQueue).items[0]?.reason).toBe('Chốt 2 áo size M');
   });
 
+  it('ready ends once an order or a booking was made since the evaluation', async () => {
+    const { h, add } = setup();
+    // Evaluated 30 minutes ago (the setup's evaluatedAt).
+    const ordered = add({}, { stage: 'ready' });
+    const booked = add({}, { stage: 'ready' });
+    const orderedBefore = add({}, { stage: 'ready' });
+    const bookedAndDue = add({}, { stage: 'ready', followUpAt: new Date(ago(5)) });
+    h.orders.set(ordered, new Date(ago(10)));
+    h.bookings.set(booked, new Date(ago(10)));
+    h.orders.set(orderedBefore, new Date(ago(45)));
+    h.bookings.set(bookedAndDue, new Date(ago(1)));
+    const r = await h.today.today(WS, ownerView, NOW);
+    expect(ids(r, 'ready')).toEqual([orderedBefore]);
+    expect(queue(r, 'ready').count).toBe(1);
+    // Not "ready" any more, it still falls to its next queue.
+    expect(ids(r, 'follow_up')).toEqual([bookedAndDue]);
+  });
+
   it('price_silent: stage price_asked and silent for 24 hours', async () => {
     const { h, add } = setup();
     const silent = add({ lastInboundAt: ago(25 * 60) }, { stage: 'price_asked' });
@@ -277,6 +295,20 @@ describe('POST /today/refresh', () => {
     expect((await h.usage.usage(WS, NOW)).used).toBe(2);
   });
 
+  it('does not pay again for a conversation evaluated minutes ago', async () => {
+    const { h, add } = setup();
+    // Evaluated 2 minutes ago, after its last customer message (evaluated_until kept 10 minutes
+    // behind the evaluation for late messages).
+    const fresh = add(
+      { awaitingSince: ago(30), lastInboundAt: ago(5) },
+      { evaluatedUntil: new Date(ago(12)), evaluatedAt: new Date(ago(2)) },
+    );
+    withMessages(h, fresh, ago(5));
+    const r = await h.today.refresh(WS, ownerView, NOW);
+    expect(r).toMatchObject({ evaluated: 0 });
+    expect(h.gateway.calls).toHaveLength(0);
+  });
+
   it('stops at the cap and says so', async () => {
     const { h, add } = setup();
     h.setLimit(1);
@@ -313,6 +345,8 @@ describe('POST /conversations/{id}/reply-draft', () => {
     expect(input).toContain('tin 24');
     expect(input).not.toContain('tin 4\n');
     expect((await h.usage.usage(WS, NOW)).used).toBe(1);
+    // Metered apart from evaluations.
+    expect(h.store.runs.map((x) => x.trigger)).toEqual(['draft']);
   });
 
   it('refuses when the day is used up, and gives the evaluation back on failure', async () => {

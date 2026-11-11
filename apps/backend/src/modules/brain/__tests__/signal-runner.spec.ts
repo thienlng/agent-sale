@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { JOBS_PER_TICK, TICK_BUDGET_MS } from '../application/signal-runner.js';
 import { DEFAULT_BRAIN_SETTINGS } from '../domain/schedule.js';
 import { brainHarness, CONV, conversation, WS } from './factories/brain-harness.js';
 
@@ -64,6 +65,35 @@ describe('rule 2: the tick runs due jobs', () => {
     expect(h.store.runs[0]?.trigger).toBe('idle');
   });
 
+  it('claims batch after batch within the time budget', async () => {
+    const { h } = setup();
+    const ids = Array.from(
+      { length: 12 },
+      (_, i) => `0190f5c2-0000-7000-8000-0000000d${String(i).padStart(4, '0')}`,
+    );
+    for (const id of ids) {
+      const c = conversation();
+      c.messages.push({ sender: 'customer', text: 'Giá?', at: T0.toISOString() });
+      h.conversations.set(id, c);
+      await h.store.scheduleJob(WS, id, T0);
+    }
+    expect(await h.runner.tick(plus(1))).toBe(12);
+    expect(h.gateway.calls).toHaveLength(12);
+
+    // Past the budget no new batch starts (the first always runs).
+    for (const id of ids) await h.store.scheduleJob(WS, id, plus(100));
+    for (const id of ids) {
+      h.conversations.get(id)?.messages.push({
+        sender: 'customer',
+        text: 'Còn không?',
+        at: plus(60).toISOString(),
+      });
+    }
+    let t = 0;
+    h.runner.clock = () => (t += TICK_BUDGET_MS);
+    expect(await h.runner.tick(plus(101))).toBe(JOBS_PER_TICK);
+  });
+
   it('leases a claimed job for two minutes', async () => {
     const { h } = setup();
     await h.store.scheduleJob(WS, CONV, T0);
@@ -125,9 +155,15 @@ describe('rule 3: the cap', () => {
     await h.runner.tick(new Date('2026-11-11T16:00:00.000Z'));
     expect(h.store.jobs.get(`${WS}/${CONV}`)?.status).toBe('capped');
 
-    // The next day's first tick puts it back in line and runs it.
+    // The next day's first tick puts it back in line, a few minutes behind the day's fresh jobs.
     h.setLimit(200);
     await h.runner.tick(new Date('2026-11-11T17:00:15.000Z'));
+    expect(h.store.jobs.get(`${WS}/${CONV}`)).toMatchObject({
+      status: 'pending',
+      runAfter: new Date('2026-11-11T17:05:15.000Z'),
+    });
+    expect(h.gateway.calls).toHaveLength(0);
+    await h.runner.tick(new Date('2026-11-11T17:05:15.000Z'));
     expect(h.gateway.calls).toHaveLength(1);
     expect(h.store.jobs.size).toBe(0);
     expect(await h.store.usedOn(WS, '2026-11-12')).toBe(1);

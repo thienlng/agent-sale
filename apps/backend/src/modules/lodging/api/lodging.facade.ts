@@ -11,6 +11,15 @@ export interface LodgingFacade {
    * guest data. Money is integer VND.
    */
   stayRevenue(workspaceId: WorkspaceId, range: { from: string; to: string }): Promise<StayRevenue>;
+  /**
+   * When the newest stay booking (held, confirmed, checked in or out) of each of these
+   * conversations was created; conversations without one are absent. At most 1 000 ids. For the
+   * Business Brain's Today ("ready" ends once a booking exists).
+   */
+  latestBookingTimes(
+    workspaceId: WorkspaceId,
+    conversationIds: readonly string[],
+  ): Promise<{ conversationId: string; at: Date }[]>;
 }
 
 export interface StayRevenue {

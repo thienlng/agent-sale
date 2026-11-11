@@ -6,9 +6,11 @@ import { AccountModule } from '../account/account.module.js';
 import { AiModule } from '../ai/ai.module.js';
 import { BillingModule } from '../billing/billing.module.js';
 import { BotModule } from '../bot/bot.module.js';
+import { CommerceModule } from '../commerce/commerce.module.js';
 import { ConversationModule } from '../conversation/conversation.module.js';
 import { CrmModule } from '../crm/crm.module.js';
 import { IdentityModule } from '../identity/identity.module.js';
+import { LodgingModule } from '../lodging/lodging.module.js';
 import { NotificationModule } from '../notification/notification.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { BRAIN_EXPORT } from './api/brain-export.js';
@@ -47,6 +49,8 @@ import { ReplyDraftController, TodayController } from './interface/http/today.co
     AccountModule,
     IdentityModule,
     BotModule,
+    CommerceModule,
+    LodgingModule,
   ],
   controllers: [SignalsController, BrainController, TodayController, ReplyDraftController],
   providers: [

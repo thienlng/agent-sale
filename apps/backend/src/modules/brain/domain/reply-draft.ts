@@ -1,3 +1,5 @@
+import { fenceSafe } from './evaluation-prompt.js';
+
 /** Versioned system prompt in `packages/ai-core/prompts/` (Rule 05). */
 export const REPLY_DRAFT_PROMPT = { name: 'brain-reply-draft', version: 1 } as const;
 export const REPLY_DRAFT_TIER = 'basic' as const;
@@ -44,7 +46,7 @@ export function buildReplyDraftInput(input: {
   bot: DraftPersona | null;
 }): string {
   const lines = input.messages.map(
-    (m) => `[${localTime(m.at)}] ${SENDER_LABEL[m.sender]}: ${m.text.replace(/\s+/g, ' ').trim()}`,
+    (m) => `[${localTime(m.at)}] ${SENDER_LABEL[m.sender]}: ${fenceSafe(m.text)}`,
   );
   return [
     `PERSONA: ${personaLine(input.bot)}`,

@@ -277,6 +277,23 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
           .where(and(isNull(o.deletedAt), pendingReview));
         return n(r?.c);
       },
+      async latestByConversation(conversationIds) {
+        if (!conversationIds.length) return [];
+        const rows = await tx
+          .select({ conversationId: o.conversationId, at: sql<Date | string>`max(${o.createdAt})` })
+          .from(o)
+          .where(
+            and(
+              inArray(o.conversationId, [...conversationIds]),
+              isNull(o.deletedAt),
+              sql`${o.status} <> 'cancelled'`,
+            ),
+          )
+          .groupBy(o.conversationId);
+        return rows.flatMap((r) =>
+          r.conversationId ? [{ conversationId: r.conversationId, at: new Date(r.at) }] : [],
+        );
+      },
       async placedSummary({ since, until, limit }) {
         const placed = and(
           isNull(o.deletedAt),

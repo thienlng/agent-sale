@@ -230,6 +230,15 @@ describe('HTTP: conversation signals', () => {
     expect(
       (await a.call('PATCH', `/conversations/${CONV}/signals`, { stage: 'maybe' })).statusCode,
     ).toBe(400);
+    // A stage set by hand is always locked: asking for it unlocked is refused.
+    expect(
+      (
+        await a.call('PATCH', `/conversations/${CONV}/signals`, {
+          stage: 'won',
+          stageLocked: false,
+        })
+      ).statusCode,
+    ).toBe(400);
   });
 
   it('keeps other businesses out (404) and checks permissions', async () => {

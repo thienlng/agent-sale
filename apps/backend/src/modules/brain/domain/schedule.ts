@@ -20,6 +20,13 @@ export const JOB_LEASE_MS = 2 * 60_000;
 /** A failed evaluation is retried this much later, at most `MAX_JOB_ATTEMPTS` times. */
 export const JOB_RETRY_MS = 10 * 60_000;
 export const MAX_JOB_ATTEMPTS = 3;
+/**
+ * A capped job back after local midnight runs this long after the reset, so the day's fresh jobs
+ * (due already) are claimed before yesterday's backlog.
+ */
+export const CAPPED_RESET_DELAY_MS = 5 * 60_000;
+/** An idle job whose newest customer message is older than this is dropped (a stale backlog). */
+export const STALE_JOB_AFTER_MS = 24 * 3_600_000;
 /** Default daily cap when the plan does not define `brain.evaluations.daily`. */
 export const DEFAULT_DAILY_EVALUATIONS = 200;
 
@@ -58,21 +65,29 @@ export function isCustomerMessage(eventType: string): boolean {
   return eventType !== 'echo';
 }
 
-export type SkipReason = 'manual_mode' | 'test' | 'closed' | 'nothing_new';
+export type SkipReason = 'manual_mode' | 'test' | 'closed' | 'nothing_new' | 'stale';
 
 /**
  * Why a due idle job must not call the model (brief rule 2), or null to evaluate. Every skip
- * drops the job: a newer customer message schedules a fresh one.
+ * drops the job: a newer customer message schedules a fresh one. `stale`: the customer last wrote
+ * more than a day ago (a job that waited out a cap); the next message schedules a fresh one.
  */
 export function shouldSkip(input: {
   mode: BrainSettings['mode'];
   isTest: boolean;
   status: 'open' | 'resolved' | 'spam';
   hasNewCustomerMessage: boolean;
+  /** The newest new customer message (a job capped for a day may be older than a day). */
+  lastCustomerMessageAt?: Date | null;
+  now?: Date;
 }): SkipReason | null {
   if (input.mode === 'manual') return 'manual_mode';
   if (input.isTest) return 'test';
   if (input.status !== 'open') return 'closed';
   if (!input.hasNewCustomerMessage) return 'nothing_new';
+  const last = input.lastCustomerMessageAt;
+  if (last && input.now && input.now.getTime() - last.getTime() > STALE_JOB_AFTER_MS) {
+    return 'stale';
+  }
   return null;
 }

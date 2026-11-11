@@ -78,6 +78,10 @@ export const UpdateConversationSignalRequest = z
   .strict()
   .refine((b) => b.stage !== undefined || b.stageLocked !== undefined, {
     message: 'Give a stage or stageLocked',
+  })
+  // A stage set by hand is always locked; unlocking keeps the stored stage.
+  .refine((b) => b.stage === undefined || b.stageLocked !== false, {
+    message: 'A stage set by hand is locked: send stageLocked: false alone to unlock',
   });
 export type UpdateConversationSignalRequest = z.infer<typeof UpdateConversationSignalRequest>;
 

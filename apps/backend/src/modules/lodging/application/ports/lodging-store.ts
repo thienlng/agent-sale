@@ -212,6 +212,13 @@ export interface LodgingTx {
    * whose check-in night is in [from, to] inclusive.
    */
   stayTotals(from: string, to: string): Promise<StayTotals>;
+  /**
+   * The newest stay booking (held, confirmed, checked in or out) of each of these conversations,
+   * by creation time; conversations without one are absent.
+   */
+  latestBookingByConversation(
+    conversationIds: readonly string[],
+  ): Promise<{ conversationId: string; at: Date }[]>;
   /** Inserts the booking and its `unitIds` rows (with their `unitPackages`). */
   insertBooking(b: BookingRecord): Promise<void>;
   /** Updates the booking and replaces its `unitIds` rows (with their `unitPackages`). */

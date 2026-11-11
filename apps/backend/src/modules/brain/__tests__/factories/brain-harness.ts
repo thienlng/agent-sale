@@ -31,6 +31,9 @@ type AccountFacade = AlertDeps[2];
 type NotifyInput = Parameters<NotificationFacade['notify']>[0];
 type IdentityFacade = ConstructorParameters<typeof TodayQuery>[3];
 type BotFacade = ConstructorParameters<typeof ReplyDraftService>[2];
+type TodayDeps = ConstructorParameters<typeof TodayQuery>;
+type CommerceFacade = NonNullable<TodayDeps[7]>;
+type LodgingFacade = NonNullable<TodayDeps[8]>;
 export type SignalContext = NonNullable<Awaited<ReturnType<ConversationFacade['signalContext']>>>;
 type SignalContextMessage = SignalContext['messages'][number];
 
@@ -118,6 +121,22 @@ export function brainHarness(opts: { limit?: number | null | 'missing' } = {}) {
     { userId: SALES, role: 'sales', status: 'active', joinedAt: new Date(0) },
   ];
   const workspaceIds: WorkspaceId[] = [WS];
+  /** Newest order / stay booking per conversation (`latestOrderTimes`, `latestBookingTimes`). */
+  const orders = new Map<string, Date>();
+  const bookings = new Map<string, Date>();
+  const times = (m: Map<string, Date>, ids: readonly string[]) =>
+    Promise.resolve(
+      ids.flatMap((id) => {
+        const at = m.get(id);
+        return at ? [{ conversationId: id, at }] : [];
+      }),
+    );
+  const commerce = {
+    latestOrderTimes: (_ws: WorkspaceId, ids: readonly string[]) => times(orders, ids),
+  } as unknown as CommerceFacade;
+  const lodging = {
+    latestBookingTimes: (_ws: WorkspaceId, ids: readonly string[]) => times(bookings, ids),
+  } as unknown as LodgingFacade;
 
   const conversationFacade = {
     signalContext: (ws: WorkspaceId, id: string, after: Date | null) => {
@@ -252,6 +271,8 @@ export function brainHarness(opts: { limit?: number | null | 'missing' } = {}) {
     settings,
     usage,
     evaluator,
+    commerce,
+    lodging,
   );
   const briefing = new Briefing(store, workspaces, notifications, today);
   const runner = new SignalRunner(store, scheduler, evaluator, briefing);
@@ -278,6 +299,8 @@ export function brainHarness(opts: { limit?: number | null | 'missing' } = {}) {
     tasks,
     members,
     workspaceIds,
+    orders,
+    bookings,
     setLimit: (l: number | null | 'missing') => {
       limit = l;
     },

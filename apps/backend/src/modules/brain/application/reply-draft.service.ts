@@ -96,7 +96,7 @@ export class ReplyDraftService {
     await this.store
       .recordRun(ws, {
         conversationId,
-        trigger: 'manual',
+        trigger: 'draft',
         tier: REPLY_DRAFT_TIER,
         model: res.model.slice(0, 120) || null,
         inputTokens: res.usage.inputTokens + res.usage.cachedInputTokens,

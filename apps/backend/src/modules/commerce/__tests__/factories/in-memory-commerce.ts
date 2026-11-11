@@ -216,6 +216,17 @@ export class InMemoryCommerce implements CommerceStore {
             },
           };
         },
+        latestByConversation: async (conversationIds: readonly string[]) => {
+          const latest = new Map<string, Date>();
+          for (const o of this.orders) {
+            const conv = (o as { conversationId?: string | null }).conversationId;
+            if (!conv || !conversationIds.includes(conv)) continue;
+            if (this.deletedOrderIds.has(o.id) || o.status === 'cancelled') continue;
+            const prev = latest.get(conv);
+            if (!prev || o.createdAt > prev) latest.set(conv, o.createdAt);
+          }
+          return [...latest].map(([conversationId, at]) => ({ conversationId, at }));
+        },
         placedSummary: async ({
           since,
           until,

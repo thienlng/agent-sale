@@ -45,7 +45,7 @@ assistant goal delegation.
 | `needs_human` | true when the AI judges a person must step in (with `reason`) |
 | `follow_up_at`, `follow_up_reason` | when and why to get back in touch (nullable) |
 | `note` | rolling memory note of the conversation (≤ 1 500 chars, Vietnamese) — the incremental input of the next run |
-| `evaluated_until` | id/time of the last message covered |
+| `evaluated_until` | time of the last message covered, kept at least 10 min before the evaluation so a message stored late (channel time) is read next run |
 | `stage_locked` | set when a member changes the stage by hand; the AI stops writing `stage` |
 | `evaluated_at`, `version` | bookkeeping |
 
@@ -76,8 +76,10 @@ status in v1 — changing customer data is an action and waits for autonomy leve
 - One call on the **`basic`** tier with a JSON schema output (all fields above + new `note`).
   `maxOutputTokens` 600, timeout 20 s, one retry on invalid JSON.
 - Expected size (estimate, to be measured on dev): 1–2 k input tokens, 150–300 output tokens.
-- Each run writes a `signal_runs` row (tokens, tier, model, outcome, trigger `idle|manual|refresh`)
-  for cost reporting; `ai_runs` stays bot-only.
+- Each run writes a `signal_runs` row (tokens, tier, model, outcome, trigger `idle|manual|refresh`;
+  a reply draft records `draft`) for cost reporting; `ai_runs` stays bot-only.
+- Unknown enums or booleans make an answer invalid; over-long text is cut to the column limits and
+  an unusable `followUpAt` (past, > 60 days, unreadable) becomes none.
 - Never runs on test/playground conversations.
 
 ### 3.4 Cap
@@ -106,8 +108,9 @@ status in v1 — changing customer data is an action and waits for autonomy leve
 - API: list (mine / all with `contacts.view_all`, open/overdue/done), create, update, complete,
   cancel. Contracts declare `assistant: write` so the owner assistant can propose tasks through
   its existing approval flow.
-- Reminder: a worker tick notifies the assignee (in-app + push) when `due_at` passes, once
-  (`dedupKey task:<id>:due`). Offsets (SET-05) later.
+- Reminder: a worker tick notifies the assignee (in-app + push) when `due_at` passes, once per
+  due time and assignee (`dedupKey task:<id>:due:<due ms>`; editing either reminds again).
+  Offsets (SET-05) later.
 - Web: a "Việc" block on Today, a "Thêm việc" action on each Today item, and a task list in the
   customer panel of the inbox. The existing conversation `followUpAt` stays as is and is shown in
   Today's follow-up queue; merging it into tasks is a later clean-up.

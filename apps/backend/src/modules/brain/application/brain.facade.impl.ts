@@ -16,7 +16,7 @@ import {
   SignalEvaluationFailedError,
 } from '../domain/brain.errors.js';
 import { BRAIN_STORE, type BrainStore } from '../domain/ports/brain.store.js';
-import { blankSignal, type ConversationSignal, overrideStage } from '../domain/signal.js';
+import { type ConversationSignal, stageChange } from '../domain/signal.js';
 import { SettingsService } from './settings.service.js';
 import { SignalEvaluator } from './signal-evaluator.js';
 import { UsageService } from './usage.service.js';
@@ -25,6 +25,7 @@ import { UsageService } from './usage.service.js';
 export const MAX_SIGNALS_PER_READ = 500;
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
+const EPOCH = new Date(0);
 
 export function toSignalDto(s: ConversationSignal): ConversationSignalDto {
   return {
@@ -94,11 +95,15 @@ export class BrainFacadeImpl implements BrainFacade {
     now = new Date(),
   ): Promise<ConversationSignalDto> {
     const contactId = await this.#assertConversation(ws, conversationId);
-    const prev =
-      (await this.store.getSignal(ws, conversationId)) ??
-      blankSignal(conversationId, contactId, now);
-    const next = overrideStage(prev, change, now);
-    await this.store.saveSignal(ws, next);
+    // Only the stage and its lock are written: an evaluation running meanwhile keeps its answer
+    // and this change (the store's write rules).
+    const next = await this.store.saveStage(
+      ws,
+      conversationId,
+      contactId,
+      stageChange(change),
+      now,
+    );
     return toSignalDto(next);
   }
 
@@ -114,10 +119,18 @@ export class BrainFacadeImpl implements BrainFacade {
     return this.settingsService.put(ws, input);
   }
 
-  /** The conversation's customer id; NOT_FOUND when it is not in this workspace. */
+  /**
+   * The conversation's customer id; NOT_FOUND when it is not in this workspace. Reads the
+   * conversation row only (`todayCandidates` by id, spam included), not its messages.
+   */
   async #assertConversation(ws: WorkspaceId, conversationId: string): Promise<string | null> {
-    const ctx = await this.conversations.signalContext(ws, conversationId, new Date());
-    if (!ctx) throw new SignalConversationNotFoundError(conversationId);
-    return ctx.facts.contactId;
+    const [f] = await this.conversations.todayCandidates(ws, {
+      ids: [conversationId],
+      awaitingBefore: EPOCH,
+      followUpBefore: EPOCH,
+      limit: 1,
+    });
+    if (!f || f.id !== conversationId) throw new SignalConversationNotFoundError(conversationId);
+    return f.contactId;
   }
 }

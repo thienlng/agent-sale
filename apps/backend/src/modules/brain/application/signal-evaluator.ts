@@ -34,6 +34,7 @@ import {
   becameComplaint,
   blankSignal,
   type ConversationSignal,
+  newAfter,
 } from '../domain/signal.js';
 import { ComplaintAlert } from './complaint-alert.js';
 import { SettingsService } from './settings.service.js';
@@ -84,6 +85,10 @@ export class SignalEvaluator {
     now = new Date(),
   ): Promise<EvaluationResult> {
     const prev = await this.store.getSignal(ws, conversationId);
+    // The worker's jobs: a business whose day is used up costs no context read.
+    if (trigger === 'idle' && !(await this.usage.hasRoom(ws, now))) {
+      return { status: 'capped', signal: prev };
+    }
     const ctx = await this.conversations.signalContext(
       ws,
       conversationId,
@@ -91,20 +96,25 @@ export class SignalEvaluator {
     );
     if (!ctx) throw new SignalConversationNotFoundError(conversationId);
     const customerAts = ctx.messages.filter((m) => m.sender === 'customer').map((m) => m.at);
-    const hasNew = customerAts.length > 0;
+    const lastCustomer = customerAts[customerAts.length - 1];
     if (trigger === 'idle') {
       const { mode } = await this.settings.get(ws);
       const reason = shouldSkip({
         mode,
         isTest: ctx.facts.isTest,
         status: ctx.facts.status,
-        hasNewCustomerMessage: hasNew,
+        hasNewCustomerMessage: customerAts.length > 0,
+        lastCustomerMessageAt: lastCustomer ? new Date(lastCustomer) : null,
+        now,
       });
       if (reason) return { status: 'skipped', reason };
     } else {
       if (ctx.facts.isTest || ctx.facts.status === 'spam')
         return { status: 'disabled', signal: prev };
-      if (!hasNew) return { status: 'nothing_new', signal: prev };
+      const after = newAfter(prev, now);
+      if (!customerAts.some((at) => Date.parse(at) > after)) {
+        return { status: 'nothing_new', signal: prev };
+      }
     }
     const reservation = await this.usage.reserve(ws, now);
     if (!reservation) return { status: 'capped', signal: prev };
@@ -126,18 +136,20 @@ export class SignalEvaluator {
 
     const base = prev ?? blankSignal(conversationId, ctx.facts.contactId, now);
     const last = ctx.messages[ctx.messages.length - 1];
-    const lastCustomer = customerAts[customerAts.length - 1];
-    const next = applyEvaluation(
+    const lastCustomerMessageAt = lastCustomer ? new Date(lastCustomer) : null;
+    const computed = applyEvaluation(
       base,
       answer,
       {
         lastMessageAt: new Date(last?.at ?? now),
-        lastCustomerMessageAt: lastCustomer ? new Date(lastCustomer) : null,
+        lastCustomerMessageAt,
         contactId: ctx.facts.contactId,
       },
       now,
     );
-    await this.store.saveSignal(ws, next);
+    // The stored row decides the stage lock and the dismissal (a member may have changed them
+    // while the model answered).
+    const next = await this.store.saveEvaluation(ws, computed, lastCustomerMessageAt);
     if (becameComplaint(base, next)) {
       await this.alert.raise(
         ws,

@@ -12,6 +12,7 @@ import {
 } from './factories/brain-harness.js';
 
 const NOW = new Date('2026-11-11T03:00:00.000Z');
+const LATER = new Date('2026-11-11T04:00:00.000Z');
 const msg = (sender: 'customer' | 'human' | 'bot', text: string, at: string) => ({
   sender,
   text,
@@ -57,9 +58,9 @@ describe('SignalEvaluator', () => {
     expect(userInput(h)).toContain('Khách: Áo khoác này giá bao nhiêu?');
 
     // Incremental: the next run sends only the messages after evaluated_until, with the note.
-    c.messages.push(msg('customer', 'Còn size L không?', '2026-11-11T02:00:00.000Z'));
+    c.messages.push(msg('customer', 'Còn size L không?', '2026-11-11T03:30:00.000Z'));
     h.gateway.replies.push(answer({ stage: 'ready', note: 'Ghi chú mới' }));
-    await h.evaluator.evaluate(WS, CONV, 'manual', NOW);
+    await h.evaluator.evaluate(WS, CONV, 'manual', LATER);
     const second = userInput(h, 1);
     expect(second).toContain('PREVIOUS NOTE:\nKhách hỏi giá áo khoác size M.');
     expect(second).not.toContain('EARLIER SUMMARY');
@@ -169,6 +170,78 @@ describe('SignalEvaluator', () => {
     h.gateway.replies.push(answer({ mood: 'complaint' }));
     await h.evaluator.evaluate(WS, CONV, 'manual', NOW);
     expect(h.notified).toHaveLength(2);
+  });
+
+  it("keeps a member's stage lock and dismissal made while the model was answering", async () => {
+    const { h } = setup();
+    const generate = h.gateway.generate.bind(h.gateway);
+    h.gateway.generate = async (request) => {
+      await h.facade.updateSignal(WS, CONV, { stage: 'won' }, NOW);
+      await h.today.dismiss(WS, { userId: OWNER, viewAll: true }, CONV, NOW);
+      return generate(request);
+    };
+    h.facts.set(CONV, {
+      ws: WS,
+      id: CONV,
+      provider: 'facebook',
+      status: 'open',
+      contactId: null,
+      customerName: 'Chị Lan',
+      customerAvatarUrl: null,
+      assigneeId: null,
+      awaitingSince: null,
+      lastInboundAt: '2026-11-11T01:00:00.000Z',
+      followUpAt: null,
+      followUpNote: '',
+      lastHumanReplyAt: null,
+    });
+    h.gateway.replies.push(answer({ stage: 'exploring', note: 'Ghi chú của AI' }));
+    const r = await h.evaluator.evaluate(WS, CONV, 'manual', NOW);
+    expect(r.status).toBe('ok');
+    expect(await h.store.getSignal(WS, CONV)).toMatchObject({
+      stage: 'won',
+      stageLocked: true,
+      note: 'Ghi chú của AI',
+      dismissedUntilMessageAfter: NOW,
+      version: 3,
+    });
+  });
+
+  it('reads a message stored late (behind its channel time) on the next idle run', async () => {
+    const { h, c } = setup();
+    c.messages.push(msg('customer', 'Ship tới quận 7 được không?', '2026-11-11T02:55:00.000Z'));
+    await h.evaluator.evaluate(WS, CONV, 'manual', NOW);
+    // evaluated_until stays 10 minutes behind the evaluation.
+    expect((await h.store.getSignal(WS, CONV))?.evaluatedUntil).toEqual(
+      new Date('2026-11-11T02:50:00.000Z'),
+    );
+    // Asking again right away costs nothing.
+    expect((await h.evaluator.evaluate(WS, CONV, 'manual', NOW)).status).toBe('nothing_new');
+    // A webhook stores a 02:52 message after the evaluation; the idle job reads it.
+    c.messages.splice(2, 0, msg('customer', 'Mã giảm giá còn không?', '2026-11-11T02:52:00.000Z'));
+    const r = await h.evaluator.evaluate(WS, CONV, 'idle', LATER);
+    expect(r.status).toBe('ok');
+    expect(userInput(h, 1)).toContain('Mã giảm giá còn không?');
+  });
+
+  it('answers capped for an idle job before reading the conversation', async () => {
+    const { h } = setup({ limit: 1 });
+    await h.store.reserveUsage(WS, '2026-11-11', 1);
+    let reads = 0;
+    const read = h.conversationFacade.signalContext.bind(h.conversationFacade);
+    h.conversationFacade.signalContext = (...args) => {
+      reads++;
+      return read(...args);
+    };
+    expect((await h.evaluator.evaluate(WS, CONV, 'idle', NOW)).status).toBe('capped');
+    expect(reads).toBe(0);
+  });
+
+  it('drops an idle job whose customer last wrote more than a day ago', async () => {
+    const { h } = setup();
+    const r = await h.evaluator.evaluate(WS, CONV, 'idle', new Date('2026-11-12T02:00:00.000Z'));
+    expect(r).toEqual({ status: 'skipped', reason: 'stale' });
+    expect(h.gateway.calls).toHaveLength(0);
   });
 
   it('throws NOT_FOUND for a conversation of another workspace', async () => {

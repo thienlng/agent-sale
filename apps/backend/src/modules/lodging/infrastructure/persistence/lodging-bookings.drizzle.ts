@@ -42,6 +42,8 @@ const TODAY_STATUSES = statuses(['confirmed', 'checked_in', 'checked_out']);
 const REVENUE_STATUSES = statuses(['confirmed', 'checked_in', 'checked_out']);
 /** Stay statuses still ahead of or in the house, for the "upcoming" view. */
 const UPCOMING_STATUSES = statuses(['hold', 'confirmed', 'checked_in']);
+/** A stay the customer booked: held (the bot's), confirmed or under way. */
+const BOOKED_STATUSES = statuses(['hold', 'confirmed', 'checked_in', 'checked_out']);
 const PAGE_PROBE = 101;
 
 /** `column ILIKE %q%` with the user's text taken literally (\\, % and _ escaped). */
@@ -57,6 +59,7 @@ export type BookingPort = Pick<
   | 'listBookings'
   | 'bookingsInRange'
   | 'stayTotals'
+  | 'latestBookingByConversation'
   | 'insertBooking'
   | 'updateBooking'
   | 'takeNights'
@@ -229,6 +232,25 @@ export function bookingPort(tx: TenantTx, ws: WorkspaceId): BookingPort {
         revenue: Number(row?.revenue ?? 0),
         cost: Number(row?.cost ?? 0),
       };
+    },
+
+    async latestBookingByConversation(conversationIds) {
+      if (!conversationIds.length) return [];
+      const rows = await tx
+        .select({ conversationId: B.conversationId, at: sql<Date | string>`max(${B.createdAt})` })
+        .from(B)
+        .where(
+          and(
+            eq(B.workspaceId, ws),
+            eq(B.kind, 'stay'),
+            inArray(B.conversationId, [...conversationIds]),
+            inArray(B.status, BOOKED_STATUSES),
+          ),
+        )
+        .groupBy(B.conversationId);
+      return rows.flatMap((r) =>
+        r.conversationId ? [{ conversationId: r.conversationId, at: new Date(r.at) }] : [],
+      );
     },
 
     async insertBooking(b) {

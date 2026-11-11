@@ -19,7 +19,7 @@ import type {
   SignalRunRecord,
 } from '../../domain/ports/brain.store.js';
 import type { BrainSettings } from '../../domain/schedule.js';
-import type { ConversationSignal } from '../../domain/signal.js';
+import type { ConversationSignal, StageChange } from '../../domain/signal.js';
 
 const cs = schema.conversationSignals;
 const jb = schema.signalJobs;
@@ -120,11 +120,14 @@ export class DrizzleBrainStore implements BrainStore {
     );
   }
 
-  saveSignal(ws: WorkspaceId, s: ConversationSignal): Promise<void> {
+  saveEvaluation(
+    ws: WorkspaceId,
+    s: ConversationSignal,
+    lastCustomerMessageAt: Date | null,
+  ): Promise<ConversationSignal> {
     return withTenant(this.db, ws, async (tx) => {
-      const values = {
+      const model = {
         contactId: s.contactId,
-        stage: s.stage,
         intent: s.intent,
         mood: s.mood,
         needsHuman: s.needsHuman,
@@ -134,15 +137,97 @@ export class DrizzleBrainStore implements BrainStore {
         note: s.note,
         evaluatedUntil: s.evaluatedUntil,
         evaluatedAt: s.evaluatedAt,
-        stageLocked: s.stageLocked,
-        dismissedUntilMessageAfter: s.dismissedUntilMessageAfter,
-        version: s.version,
         updatedAt: s.updatedAt,
       };
+      const newer = lastCustomerMessageAt?.toISOString() ?? null;
+      const [r] = await tx
+        .insert(cs)
+        .values({
+          workspaceId: ws,
+          conversationId: s.conversationId,
+          ...model,
+          stage: s.stage,
+          version: 1,
+        })
+        .onConflictDoUpdate({
+          target: [cs.workspaceId, cs.conversationId],
+          // The member-owned columns are re-read from the stored row, not from the evaluation's
+          // starting point: a lock, stage or dismissal written meanwhile wins.
+          set: {
+            ...model,
+            contactId: sql`coalesce(excluded.contact_id, ${cs.contactId})`,
+            stage: sql`case when ${cs.stageLocked} then ${cs.stage} else excluded.stage end`,
+            dismissedUntilMessageAfter: sql`case
+              when ${newer}::timestamptz > ${cs.dismissedUntilMessageAfter} then null
+              else ${cs.dismissedUntilMessageAfter} end`,
+            version: sql`${cs.version} + 1`,
+          },
+        })
+        .returning();
+      if (!r) throw new Error('signal not written');
+      return toSignal(r);
+    });
+  }
+
+  saveStage(
+    ws: WorkspaceId,
+    conversationId: string,
+    contactId: string | null,
+    change: StageChange,
+    now: Date,
+  ): Promise<ConversationSignal> {
+    return withTenant(this.db, ws, async (tx) => {
+      const [r] = await tx
+        .insert(cs)
+        .values({
+          workspaceId: ws,
+          conversationId,
+          contactId,
+          stage: change.stage ?? 'new',
+          stageLocked: change.stageLocked,
+          version: 1,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [cs.workspaceId, cs.conversationId],
+          set: {
+            stage: change.stage ?? sql`${cs.stage}`,
+            stageLocked: change.stageLocked,
+            version: sql`${cs.version} + 1`,
+            updatedAt: now,
+          },
+        })
+        .returning();
+      if (!r) throw new Error('signal not written');
+      return toSignal(r);
+    });
+  }
+
+  dismissSignal(
+    ws: WorkspaceId,
+    conversationId: string,
+    contactId: string | null,
+    at: Date,
+  ): Promise<void> {
+    return withTenant(this.db, ws, async (tx) => {
       await tx
         .insert(cs)
-        .values({ workspaceId: ws, conversationId: s.conversationId, ...values })
-        .onConflictDoUpdate({ target: [cs.workspaceId, cs.conversationId], set: values });
+        .values({
+          workspaceId: ws,
+          conversationId,
+          contactId,
+          dismissedUntilMessageAfter: at,
+          version: 1,
+          updatedAt: at,
+        })
+        .onConflictDoUpdate({
+          target: [cs.workspaceId, cs.conversationId],
+          set: {
+            dismissedUntilMessageAfter: at,
+            version: sql`${cs.version} + 1`,
+            updatedAt: at,
+          },
+        });
     });
   }
 
@@ -204,8 +289,9 @@ export class DrizzleBrainStore implements BrainStore {
     return withTenant(this.db, ws, async (tx) => {
       const key = and(eq(jb.workspaceId, ws), eq(jb.conversationId, conversationId));
       await tx.delete(jb).where(and(key, sql`${jb.runAfter} <= ${claimedRunAfter.toISOString()}`));
-      // A newer customer message moved it: it stays, free to be claimed when due.
-      await tx.update(jb).set({ leaseUntil: null }).where(key);
+      // A newer customer message moved it: it stays, free to be claimed when due, with its own
+      // attempts.
+      await tx.update(jb).set({ leaseUntil: null, attempts: 0 }).where(key);
     });
   }
 
@@ -213,7 +299,7 @@ export class DrizzleBrainStore implements BrainStore {
     return withTenant(this.db, ws, async (tx) => {
       await tx
         .update(jb)
-        .set({ status: 'capped', runAfter: until, leaseUntil: null })
+        .set({ status: 'capped', runAfter: until, leaseUntil: null, attempts: 0 })
         .where(and(eq(jb.workspaceId, ws), eq(jb.conversationId, conversationId)));
     });
   }
@@ -230,11 +316,11 @@ export class DrizzleBrainStore implements BrainStore {
     });
   }
 
-  resetCappedJobs(now: Date): Promise<number> {
+  resetCappedJobs(now: Date, runAfter: Date): Promise<number> {
     return withSystem(this.systemDb, async (tx) => {
       const rows = await tx
         .update(jb)
-        .set({ status: 'pending' })
+        .set({ status: 'pending', runAfter })
         .where(and(eq(jb.status, 'capped'), sql`${jb.runAfter} <= ${now.toISOString()}`))
         .returning({ id: jb.conversationId });
       return rows.length;

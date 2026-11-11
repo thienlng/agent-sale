@@ -10,7 +10,7 @@ import type {
   SignalRunRecord,
 } from '../../domain/ports/brain.store.js';
 import { type BrainSettings, DEFAULT_BRAIN_SETTINGS, nextRunAfter } from '../../domain/schedule.js';
-import type { ConversationSignal } from '../../domain/signal.js';
+import { blankSignal, type ConversationSignal, type StageChange } from '../../domain/signal.js';
 
 interface MemoryJob extends SignalJob {
   status: 'pending' | 'capped';
@@ -45,8 +45,53 @@ export class MemoryBrainStore implements BrainStore {
       }),
     );
   }
+  /** Test seeding: stores the row as given (not part of the port). */
   saveSignal(ws: WorkspaceId, s: ConversationSignal) {
     this.signals.set(key(ws, s.conversationId), { ...s });
+    return Promise.resolve();
+  }
+  /** Same rules as the SQL upsert: member-owned columns come from the stored row. */
+  saveEvaluation(ws: WorkspaceId, s: ConversationSignal, lastCustomerMessageAt: Date | null) {
+    const stored = this.signals.get(key(ws, s.conversationId));
+    if (!stored) {
+      const row = { ...s, stageLocked: false, dismissedUntilMessageAfter: null, version: 1 };
+      this.signals.set(key(ws, s.conversationId), row);
+      return Promise.resolve({ ...row });
+    }
+    const dismissed = stored.dismissedUntilMessageAfter;
+    const row: ConversationSignal = {
+      ...s,
+      contactId: s.contactId ?? stored.contactId,
+      stage: stored.stageLocked ? stored.stage : s.stage,
+      stageLocked: stored.stageLocked,
+      dismissedUntilMessageAfter:
+        dismissed && lastCustomerMessageAt && lastCustomerMessageAt > dismissed ? null : dismissed,
+      version: stored.version + 1,
+    };
+    this.signals.set(key(ws, s.conversationId), row);
+    return Promise.resolve({ ...row });
+  }
+  saveStage(ws: WorkspaceId, id: string, contactId: string | null, change: StageChange, now: Date) {
+    const stored = this.signals.get(key(ws, id));
+    const base = stored ?? { ...blankSignal(id, contactId, now), version: 0 };
+    const row: ConversationSignal = {
+      ...base,
+      stage: change.stage ?? base.stage,
+      stageLocked: change.stageLocked,
+      version: base.version + 1,
+      updatedAt: now,
+    };
+    this.signals.set(key(ws, id), row);
+    return Promise.resolve({ ...row });
+  }
+  dismissSignal(ws: WorkspaceId, id: string, contactId: string | null, at: Date) {
+    const base = this.signals.get(key(ws, id)) ?? { ...blankSignal(id, contactId, at), version: 0 };
+    this.signals.set(key(ws, id), {
+      ...base,
+      dismissedUntilMessageAfter: at,
+      version: base.version + 1,
+      updatedAt: at,
+    });
     return Promise.resolve();
   }
   scheduleJob(ws: WorkspaceId, id: string, due: Date) {
@@ -81,12 +126,12 @@ export class MemoryBrainStore implements BrainStore {
   finishJob(ws: WorkspaceId, id: string, claimedRunAfter: Date) {
     const j = this.jobs.get(key(ws, id));
     if (j && j.runAfter <= claimedRunAfter) this.jobs.delete(key(ws, id));
-    else if (j) j.leaseUntil = null;
+    else if (j) Object.assign(j, { leaseUntil: null, attempts: 0 });
     return Promise.resolve();
   }
   capJob(ws: WorkspaceId, id: string, until: Date) {
     const j = this.jobs.get(key(ws, id));
-    if (j) Object.assign(j, { status: 'capped', runAfter: until, leaseUntil: null });
+    if (j) Object.assign(j, { status: 'capped', runAfter: until, leaseUntil: null, attempts: 0 });
     return Promise.resolve();
   }
   retryJob(ws: WorkspaceId, id: string, retryAt: Date) {
@@ -97,11 +142,12 @@ export class MemoryBrainStore implements BrainStore {
     }
     return Promise.resolve();
   }
-  resetCappedJobs(now: Date) {
+  resetCappedJobs(now: Date, runAfter: Date) {
     let n = 0;
     for (const j of this.jobs.values()) {
       if (j.status === 'capped' && j.runAfter <= now) {
         j.status = 'pending';
+        j.runAfter = runAfter;
         n++;
       }
     }

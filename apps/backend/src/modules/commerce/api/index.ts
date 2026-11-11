@@ -5,6 +5,7 @@ export {
   COMMERCE_FACADE,
   type CommerceFacade,
   type ConfirmBotOrderResult,
+  type ConversationTime,
   type LowStock,
   type OrdersPlaced,
   type PrepareBotOrderResult,

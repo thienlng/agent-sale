@@ -108,11 +108,14 @@ describe('DrizzleBrainStore', () => {
     if (!a) throw new Error('setup');
     await store.scheduleJob(a.ws, a.conv, T0);
     await store.capJob(a.ws, a.conv, plus(600));
-    expect(await store.resetCappedJobs(plus(10))).toBe(0);
+    expect(await store.resetCappedJobs(plus(10), plus(15))).toBe(0);
     expect(await store.claimDueJobs(plus(10), 5, 120_000)).toHaveLength(0);
-    expect(await store.resetCappedJobs(plus(600))).toBe(1);
-    expect(await store.claimDueJobs(plus(601), 5, 120_000)).toHaveLength(1);
-    await store.finishJob(a.ws, a.conv, plus(600));
+    // Back in line a few minutes after the reset, behind the jobs due already.
+    expect(await store.resetCappedJobs(plus(600), plus(605))).toBe(1);
+    expect(await store.claimDueJobs(plus(601), 5, 120_000)).toHaveLength(0);
+    const [job] = await store.claimDueJobs(plus(605), 5, 120_000);
+    expect(job).toMatchObject({ runAfter: plus(605), attempts: 1 });
+    await store.finishJob(a.ws, a.conv, plus(605));
   });
 
   it('ignores a job for a conversation that no longer exists', async () => {
@@ -124,7 +127,7 @@ describe('DrizzleBrainStore', () => {
   it('keeps signals and settings per business', async () => {
     const [a, b] = shops;
     if (!a || !b) throw new Error('setup');
-    await store.saveSignal(a.ws, { ...blankSignal(a.conv, null, T0), stage: 'ready', version: 1 });
+    await store.saveEvaluation(a.ws, { ...blankSignal(a.conv, null, T0), stage: 'ready' }, null);
     expect((await store.getSignal(a.ws, a.conv))?.stage).toBe('ready');
     expect(await store.getSignal(b.ws, a.conv)).toBeNull();
     expect(await store.signalsFor(b.ws, [a.conv])).toEqual([]);
@@ -145,6 +148,49 @@ describe('DrizzleBrainStore', () => {
       outputTokens: 2,
       outcome: 'ok',
     });
+    await store.recordRun(a.ws, {
+      conversationId: a.conv,
+      trigger: 'draft',
+      tier: 'basic',
+      model: 'm',
+      inputTokens: 1,
+      outputTokens: 2,
+      outcome: 'ok',
+    });
+  });
+
+  it("keeps a member's lock, stage and dismissal written while an evaluation ran", async () => {
+    const [, b] = shops;
+    if (!b) throw new Error('setup');
+    // The evaluation read no row; meanwhile a member locks the stage and dismisses.
+    const evaluated = {
+      ...blankSignal(b.conv, null, T0),
+      stage: 'exploring' as const,
+      note: 'Khách hỏi size',
+      evaluatedAt: plus(1),
+      evaluatedUntil: T0,
+    };
+    await store.saveStage(b.ws, b.conv, null, { stage: 'won', stageLocked: true }, plus(0.5));
+    await store.dismissSignal(b.ws, b.conv, null, plus(0.6));
+    const saved = await store.saveEvaluation(b.ws, evaluated, T0);
+    expect(saved).toMatchObject({
+      stage: 'won',
+      stageLocked: true,
+      note: 'Khách hỏi size',
+      dismissedUntilMessageAfter: plus(0.6),
+      version: 3,
+    });
+    // Unlocked, the next evaluation sets the stage; a newer customer message clears the dismissal.
+    const unlocked = await store.saveStage(
+      b.ws,
+      b.conv,
+      null,
+      { stage: null, stageLocked: false },
+      plus(2),
+    );
+    expect(unlocked).toMatchObject({ stage: 'won', stageLocked: false, version: 4 });
+    const next = await store.saveEvaluation(b.ws, { ...evaluated, stage: 'ready' }, plus(3));
+    expect(next).toMatchObject({ stage: 'ready', dismissedUntilMessageAfter: null, version: 5 });
   });
 });
 
@@ -178,5 +224,12 @@ describe('DrizzleMessageEventSource', () => {
     expect(rows).toHaveLength(1);
     expect(rows?.[0]).toMatchObject({ workspaceId: a.ws, conversationId: a.conv });
     expect(await read()).toEqual([]);
+    // Its position is its own table's row, not the analytics projector's.
+    const own = await exec(sql`select consumer from brain_checkpoints`);
+    expect([...own]).toEqual([{ consumer: 'brain.signals' }]);
+    const analytics = await exec(
+      sql`select 1 from analytics_checkpoints where consumer = 'brain.signals'`,
+    );
+    expect([...analytics]).toEqual([]);
   });
 });

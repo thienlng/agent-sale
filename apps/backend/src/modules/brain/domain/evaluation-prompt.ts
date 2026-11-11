@@ -24,38 +24,51 @@ export const EvaluationWireSchema = z.object({
   note: z.string(),
 });
 
+/** Text cut to the column's limit (a long answer is still usable). */
+const text = (max: number) => z.string().transform((v) => v.trim().slice(0, max).trim());
 const optionalText = (max: number) =>
   z
     .string()
-    .trim()
-    .max(max)
     .nullish()
-    .transform((v) => (v ? v : undefined));
+    .transform((v) => v?.trim().slice(0, max).trim() || undefined);
+
+/** An ISO time with an offset (`Z` or `+07:00`); a time without one is read as Asia/Ho_Chi_Minh. */
+const ISO_WITH_OFFSET = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/i;
+const ISO_LOCAL = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/;
 
 /**
- * The validated answer (brief rule 4): `intent` ≤ 160, the reasons ≤ 200 (the columns' limits),
- * `note` ≤ 1 500, and `followUpAt` an ISO time in the future and at most 60 days away.
+ * The model's follow-up time, or undefined: unreadable, in the past or more than 60 days away is
+ * no follow-up (the rest of the answer stays usable).
+ */
+function followUpTime(v: string | null | undefined, now: Date): string | undefined {
+  const raw = v?.trim();
+  if (!raw) return undefined;
+  const iso = ISO_WITH_OFFSET.test(raw) ? raw : ISO_LOCAL.test(raw) ? `${raw}+07:00` : null;
+  const at = iso ? Date.parse(iso) : Number.NaN;
+  if (!Number.isFinite(at)) return undefined;
+  if (at <= now.getTime() || at > now.getTime() + FOLLOW_UP_MAX_DAYS * 86_400_000) return undefined;
+  return new Date(at).toISOString();
+}
+
+/**
+ * The validated answer (brief rule 4). Strict on the enums and booleans (an unknown stage or mood
+ * is unusable); lenient on text: `intent` is cut to 160, the reasons to 200 and `note` to 1 500
+ * characters (the columns' limits), and a `followUpAt` that is not a usable future time (≤ 60
+ * days) becomes none.
  */
 export function evaluationOutputSchema(now: Date) {
   return z.object({
     stage: SignalStage,
-    intent: z.string().trim().max(160),
+    intent: text(160),
     mood: SignalMood,
     needsHuman: z.boolean(),
     needsHumanReason: optionalText(200),
-    followUpAt: z.iso
-      .datetime({ offset: true })
+    followUpAt: z
+      .string()
       .nullish()
-      .transform((v) => v ?? undefined)
-      .refine(
-        (v) =>
-          v === undefined ||
-          (Date.parse(v) > now.getTime() &&
-            Date.parse(v) <= now.getTime() + FOLLOW_UP_MAX_DAYS * 86_400_000),
-        { message: 'followUpAt must be in the future and at most 60 days away' },
-      ),
+      .transform((v) => followUpTime(v, now)),
     followUpReason: optionalText(200),
-    note: z.string().trim().max(1500),
+    note: text(1500),
   });
 }
 export type EvaluationOutput = z.output<ReturnType<typeof evaluationOutputSchema>>;
@@ -97,6 +110,19 @@ export interface EvaluationFacts {
 }
 
 const SENDER_LABEL = { customer: 'Khách', human: 'Nhân viên', bot: 'Bot' } as const;
+
+/**
+ * A message as one line inside the `<<<` … `>>>` data fence: whitespace collapsed, and the fence
+ * marks a customer could type broken up (`<<<` → `< < <`), so a message cannot close the fence
+ * and pass instructions as if outside it.
+ */
+export function fenceSafe(text: string): string {
+  return text
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/<{3,}/g, (m) => m.split('').join(' '))
+    .replace(/>{3,}/g, (m) => m.split('').join(' '));
+}
 const HCM_OFFSET_MS = 7 * 3_600_000;
 /** `2026-11-11 14:05` in Asia/Ho_Chi_Minh. */
 const localTime = (iso: string) =>
@@ -133,7 +159,7 @@ export function buildEvaluationInput(input: {
       ? `EARLIER SUMMARY:\n${input.summary}`
       : 'PREVIOUS NOTE:\n(none: first evaluation)';
   const lines = input.messages.map(
-    (m) => `[${localTime(m.at)}] ${SENDER_LABEL[m.sender]}: ${m.text.replace(/\s+/g, ' ').trim()}`,
+    (m) => `[${localTime(m.at)}] ${SENDER_LABEL[m.sender]}: ${fenceSafe(m.text)}`,
   );
   return [
     memory,

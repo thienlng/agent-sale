@@ -17,7 +17,9 @@ export class UnavailableBrainStore implements BrainStore {
   putSettings = unavailable;
   getSignal = unavailable;
   signalsFor = unavailable;
-  saveSignal = unavailable;
+  saveEvaluation = unavailable;
+  saveStage = unavailable;
+  dismissSignal = unavailable;
   scheduleJob = unavailable;
   claimDueJobs = unavailable;
   finishJob = unavailable;
