@@ -6,7 +6,7 @@ import type {
   DueTaskReminder,
   TaskReminderStore,
 } from '../application/ports/task-reminder-store.js';
-import { TaskReminderRunner } from '../application/task-reminder.runner.js';
+import { MAX_REMINDER_FAILURES, TaskReminderRunner } from '../application/task-reminder.runner.js';
 
 const ws = '018d0000-0000-7000-8000-000000000001';
 const assignee = '018d0000-0000-7000-8000-00000000000a';
@@ -79,7 +79,7 @@ describe('TaskReminderRunner.tick', () => {
       params: { taskId: row({}).id },
       target: { kind: 'path', path: '/app/today' },
       channels: ['in_app', 'push'],
-      dedupKey: `task:${row({}).id}:due`,
+      dedupKey: `task:${row({}).id}:due:${row({}).dueAt.getTime()}`,
     });
     expect(t.sent[0]?.title).toContain('Gọi lại chị B');
     expect(t.sent[0]?.body).toContain('Chị B');
@@ -108,5 +108,31 @@ describe('TaskReminderRunner.tick', () => {
       };
     expect(await t.runner.tick(now)).toBe(0);
     expect(t.rows[0]?.remindedAt).toBeNull();
+  });
+
+  it('gives up on a task whose notice keeps failing, so it does not hold the queue', async () => {
+    const t = setup([row({})]);
+    (t.runner as unknown as { notifications: NotificationFacade }).notifications.notify =
+      async () => {
+        throw new Error('bad row');
+      };
+    for (let i = 1; i < MAX_REMINDER_FAILURES; i++) {
+      await t.runner.tick(new Date(now.getTime() + i * 30_000));
+    }
+    expect(t.rows[0]?.remindedAt).toBeNull();
+    await t.runner.tick(new Date(now.getTime() + MAX_REMINDER_FAILURES * 30_000));
+    expect(t.rows[0]?.remindedAt).not.toBeNull();
+  });
+
+  it('a new due time gets a notice of its own (the dedup key carries it)', async () => {
+    const t = setup([row({})]);
+    await t.runner.tick(now);
+    const moved = new Date('2026-11-11T03:10:00.000Z');
+    Object.assign(t.rows[0] ?? {}, { remindedAt: null, dueAt: moved });
+    await t.runner.tick(new Date('2026-11-11T03:11:00.000Z'));
+    expect(t.sent.map((x) => x.dedupKey)).toEqual([
+      `task:${row({}).id}:due:${row({}).dueAt.getTime()}`,
+      `task:${row({}).id}:due:${moved.getTime()}`,
+    ]);
   });
 });

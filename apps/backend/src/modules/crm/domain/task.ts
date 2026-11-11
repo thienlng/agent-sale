@@ -36,7 +36,8 @@ export interface TaskViewer {
 
 /**
  * Without `contacts.view_all` (Sales, CSKH) a member sees the tasks assigned to them and the
- * unassigned ones, like customers (crm-rules `canSee`).
+ * unassigned ones, like customers (crm-rules `canSee`). An unassigned task linked to a customer
+ * also needs that customer to be visible (checked where the customer is read: `TaskService`).
  */
 export function canSeeTask(t: Pick<Task, 'assigneeUserId'>, viewer: TaskViewer): boolean {
   return viewer.viewAll || t.assigneeUserId === null || t.assigneeUserId === viewer.userId;

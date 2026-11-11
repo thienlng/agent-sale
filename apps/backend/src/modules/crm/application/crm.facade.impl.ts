@@ -106,11 +106,17 @@ export class CrmFacadeImpl implements CrmFacade {
     return this.requests.recorded(ws, q);
   }
 
-  countOpenTasks(ws: WorkspaceId, q: { userId?: string; dueBefore: Date }): Promise<number> {
+  countOpenTasks(
+    ws: WorkspaceId,
+    q: { userId?: string; viewAll?: boolean; dueBefore: Date },
+  ): Promise<number> {
     return this.tasks.countOpen(ws, q);
   }
 
-  listOpenTasks(ws: WorkspaceId, q: { userId?: string; limit: number }): Promise<TaskDto[]> {
+  listOpenTasks(
+    ws: WorkspaceId,
+    q: { userId?: string; viewAll?: boolean; limit: number },
+  ): Promise<TaskDto[]> {
     return this.tasks.listOpen(ws, q);
   }
 }

@@ -166,6 +166,11 @@ export interface PolicyRecord {
 export interface TaskFilter {
   /** Only tasks assigned to this user or unassigned; null = every task. */
   assigneeScope: string | null;
+  /**
+   * Without `contacts.view_all`: an unassigned task linked to a customer counts only when this
+   * user may see the customer (crm-rules `canSee`: their Sales/CSKH, or nobody's). null = no limit.
+   */
+  customerScope?: string | null | undefined;
   /** `overdue`: open with `due_at` before `now`. Absent: every status. */
   status?: 'open' | 'done' | 'overdue' | undefined;
   contactId?: string | undefined;
@@ -276,7 +281,10 @@ export interface CrmTx {
      */
     list(f: TaskFilter, page: { offset: number; limit: number }): Promise<Task[]>;
     /** Open tasks in the scope with `due_at` before `dueBefore`. */
-    countOpenDueBefore(assigneeScope: string | null, dueBefore: Date): Promise<number>;
+    countOpenDueBefore(
+      scope: Pick<TaskFilter, 'assigneeScope' | 'customerScope'>,
+      dueBefore: Date,
+    ): Promise<number>;
   };
   history: {
     add(h: HistoryRecord): Promise<void>;

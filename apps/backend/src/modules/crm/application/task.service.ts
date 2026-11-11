@@ -37,6 +37,12 @@ const taskViewer = (v: Viewer): TaskViewer => ({
   viewAll: roleCan(v.role, 'contacts.view_all'),
 });
 
+/** The task scope of a Today read: without `viewAll`, unassigned tasks of hidden customers go. */
+const scopeOf = (q: { userId?: string; viewAll?: boolean }) => ({
+  assigneeScope: q.userId ?? null,
+  customerScope: q.userId && q.viewAll !== true ? q.userId : null,
+});
+
 /** The list cursor is the offset of the next page (tasks lists are short and ordered by due). */
 function offsetOf(cursor: string | undefined): number {
   if (cursor === undefined) return 0;
@@ -62,6 +68,7 @@ export class TaskService {
       tx.tasks.list(
         {
           assigneeScope: q.scope === 'mine' ? me.userId : null,
+          customerScope: me.viewAll ? null : me.userId,
           status: q.status,
           contactId: q.contactId,
           conversationId: q.conversationId,
@@ -140,16 +147,25 @@ export class TaskService {
     return this.#change(ws, id, viewer, (t, now) => cancelTask(t, viewer.userId, now));
   }
 
-  /** Open tasks due before `dueBefore`: of `userId` and unassigned ones, or all without it. */
-  countOpen(ws: WorkspaceId, q: { userId?: string; dueBefore: Date }): Promise<number> {
-    return this.store.run(ws, (tx) => tx.tasks.countOpenDueBefore(q.userId ?? null, q.dueBefore));
+  /**
+   * Open tasks due before `dueBefore`: of `userId` and unassigned ones, or all without it. Without
+   * `viewAll`, unassigned tasks of customers the user may not see are left out.
+   */
+  countOpen(
+    ws: WorkspaceId,
+    q: { userId?: string; viewAll?: boolean; dueBefore: Date },
+  ): Promise<number> {
+    return this.store.run(ws, (tx) => tx.tasks.countOpenDueBefore(scopeOf(q), q.dueBefore));
   }
 
-  /** Open tasks by due time: of `userId` and unassigned ones, or all without it. */
-  async listOpen(ws: WorkspaceId, q: { userId?: string; limit: number }): Promise<TaskDto[]> {
+  /** Open tasks by due time, scoped like `countOpen`. */
+  async listOpen(
+    ws: WorkspaceId,
+    q: { userId?: string; viewAll?: boolean; limit: number },
+  ): Promise<TaskDto[]> {
     const rows = await this.store.run(ws, (tx) =>
       tx.tasks.list(
-        { assigneeScope: q.userId ?? null, status: 'open', now: new Date() },
+        { ...scopeOf(q), status: 'open', now: new Date() },
         { offset: 0, limit: q.limit },
       ),
     );
@@ -174,13 +190,20 @@ export class TaskService {
 
   async #visible(tx: CrmTx, id: string, viewer: Viewer): Promise<Task> {
     const t = isUuid(id) ? await tx.tasks.find(id, { forUpdate: true }) : null;
-    if (!t || !canSeeTask(t, taskViewer(viewer))) throw new TaskNotFoundError(id);
+    const me = taskViewer(viewer);
+    if (!t || !canSeeTask(t, me)) throw new TaskNotFoundError(id);
+    // An unassigned task is visible with its customer only (`canSee`).
+    if (!me.viewAll && t.assigneeUserId === null && t.contactId) {
+      const contact = await tx.contacts.find(t.contactId);
+      if (!contact || !canSee(contact, viewer)) throw new TaskNotFoundError(id);
+    }
     return t;
   }
 
   async #assertMember(ws: WorkspaceId, id: string): Promise<void> {
     const members = await this.workspaces.listMembers(ws);
-    if (!members.some((m) => String(m.userId) === id)) throw new TaskAssigneeNotMemberError(id);
+    const active = members.some((m) => String(m.userId) === id && m.status === 'active');
+    if (!active) throw new TaskAssigneeNotMemberError(id);
   }
 
   async #dto(ws: WorkspaceId, t: Task): Promise<TaskDto> {

@@ -228,10 +228,93 @@ describe('crm tasks on Postgres', () => {
     const rows = await owner.db
       .select()
       .from(schema.notifications)
-      .where(eq(schema.notifications.dedupKey, `task:${t.id}:due`));
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ type: 'task.due', userId: a.userId });
+      .where(eq(schema.notifications.type, 'task.due'));
+    const mine = rows.filter((r) => r.dedupKey?.startsWith(`task:${t.id}:due`));
+    expect(mine).toHaveLength(1);
+    expect(mine[0]).toMatchObject({ type: 'task.due', userId: a.userId });
     const [task] = await owner.db.select().from(schema.tasks).where(eq(schema.tasks.id, t.id));
     expect(task?.remindedAt).not.toBeNull();
+  });
+
+  it('reminds again after the due time or the assignee changes', async () => {
+    const a = await shop('tasks-owner5@shop.vn', 'Chủ shop Cúc');
+    const b = await shop('tasks-sales5@shop.vn', 'Sales Hà');
+    await addMember(a.workspaceId, b.userId);
+    const t = await create(a.h, {
+      title: 'Gửi lại báo giá',
+      assigneeUserId: a.userId,
+      dueAt: new Date(Date.now() - 120_000).toISOString(),
+    });
+    const runner = app.get<CrmTaskRunner>(CRM_TASK_RUNNER, { strict: false });
+    await runner.tick();
+    const reminded = async () =>
+      (await owner.db.select().from(schema.tasks).where(eq(schema.tasks.id, t.id)))[0]?.remindedAt;
+    const notices = async (userId: string) =>
+      (
+        await owner.db
+          .select()
+          .from(schema.notifications)
+          .where(eq(schema.notifications.userId, userId))
+      ).filter((r) => r.dedupKey?.startsWith(`task:${t.id}:due`));
+    expect(await reminded()).not.toBeNull();
+    expect(await notices(a.userId)).toHaveLength(1);
+
+    // A title edit keeps the reminder done.
+    const v2 = await call(a.h, 'PATCH', `/tasks/${t.id}`, { title: 'Gửi báo giá', version: 1 });
+    expect(v2.statusCode, v2.body).toBe(200);
+    expect(await reminded()).not.toBeNull();
+
+    // A new due time (passed again) reminds the assignee once more.
+    const moved = await call(a.h, 'PATCH', `/tasks/${t.id}`, {
+      dueAt: new Date(Date.now() - 60_000).toISOString(),
+      version: 2,
+    });
+    expect(moved.statusCode, moved.body).toBe(200);
+    expect(await reminded()).toBeNull();
+    await runner.tick();
+    expect(await notices(a.userId)).toHaveLength(2);
+
+    // A new assignee is reminded too.
+    const handed = await call(a.h, 'PATCH', `/tasks/${t.id}`, {
+      assigneeUserId: b.userId,
+      version: 3,
+    });
+    expect(handed.statusCode, handed.body).toBe(200);
+    expect(await reminded()).toBeNull();
+    await runner.tick();
+    expect(await notices(b.userId)).toHaveLength(1);
+  });
+
+  it("does not show sales an unassigned task of another rep's customer", async () => {
+    const a = await shop('tasks-owner6@shop.vn', 'Chủ shop Lê');
+    const b = await shop('tasks-sales6@shop.vn', 'Sales Bình');
+    const c = await shop('tasks-sales7@shop.vn', 'Sales Chi');
+    await addMember(a.workspaceId, b.userId);
+    await addMember(a.workspaceId, c.userId);
+    const bh = b.in(a.workspaceId);
+    const contact = async (body: object) => {
+      const r = await call(a.h, 'POST', '/contacts', body);
+      expect(r.statusCode, r.body).toBe(201);
+      return ContactDto.parse(r.json());
+    };
+    const ofC = await contact({ name: 'Khách của Chi', salesUserId: c.userId });
+    const ofB = await contact({ name: 'Khách của Bình', careUserId: b.userId });
+    const free = await contact({ name: 'Khách chưa ai nhận' });
+    const hidden = await create(a.h, { title: 'Gọi khách của Chi', contactId: ofC.id });
+    const own = await create(a.h, { title: 'Gọi khách của Bình', contactId: ofB.id });
+    const open = await create(a.h, { title: 'Gọi khách mới', contactId: free.id });
+    const plain = await create(a.h, { title: 'Dọn kho' });
+    const mineOfC = await create(a.h, {
+      title: 'Bình giúp Chi',
+      contactId: ofC.id,
+      assigneeUserId: b.userId,
+    });
+
+    const seen = ids(await list(bh));
+    expect(seen.sort()).toEqual([own.id, open.id, plain.id, mineOfC.id].sort());
+    expect(seen).not.toContain(hidden.id);
+    expect((await call(bh, 'POST', `/tasks/${hidden.id}/complete`)).statusCode).toBe(404);
+    // The owner (contacts.view_all) still sees every unassigned task.
+    expect(ids(await list(a.h))).toEqual(expect.arrayContaining([hidden.id, own.id, open.id]));
   });
 });

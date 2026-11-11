@@ -13,6 +13,11 @@ import {
 
 /** Tasks reminded per tick; the rest wait for the next one. */
 const BATCH = 100;
+/**
+ * A task whose notice failed this many ticks (~10 min) is marked reminded anyway: a batch full of
+ * such tasks would hold the queue.
+ */
+export const MAX_REMINDER_FAILURES = 20;
 /** Where a reminder opens: the Today screen lists the user's tasks. */
 export const TASK_DUE_PATH = '/app/today';
 
@@ -27,13 +32,17 @@ interface WorkspaceInfo {
 
 /**
  * Due-task reminders (spec 2026-11-11 §4): when `due_at` passes, the assignee gets one in-app and
- * push notice (`dedupKey task:<id>:due`), then the task is marked `reminded_at`. An assignee who
- * is no longer an active member is marked without a notice; a failed notice is retried next tick
- * (the dedup key keeps it to one notice). Logs carry ids and error classes only.
+ * push notice (`dedupKey task:<id>:due:<due ms>`), then the task is marked `reminded_at` (cleared
+ * when the due time or the assignee changes, so the new one is reminded). An assignee who is no
+ * longer an active member is marked without a notice; a failed notice is retried next tick (the
+ * dedup key keeps it to one notice), and after `MAX_REMINDER_FAILURES` failed ticks the task is
+ * marked anyway. Logs carry ids and error classes only.
  */
 @Injectable()
 export class TaskReminderRunner implements CrmTaskRunner {
   readonly #log = new Logger('TaskReminderRunner');
+  /** Failed ticks per task, in this process (a restart starts over: at worst a few more tries). */
+  readonly #failures = new Map<string, number>();
 
   constructor(
     @Inject(TASK_REMINDER_STORE) private readonly store: TaskReminderStore,
@@ -59,10 +68,18 @@ export class TaskReminderRunner implements CrmTaskRunner {
           sent++;
         }
         await this.store.markReminded(task.id, now);
+        this.#failures.delete(task.id);
       } catch (e) {
+        const failures = (this.#failures.get(task.id) ?? 0) + 1;
         this.#log.warn(
-          `task ${task.id}: reminder not sent (${e instanceof Error ? e.name : 'unknown'})`,
+          `task ${task.id}: reminder not sent (${e instanceof Error ? e.name : 'unknown'}, try ${failures})`,
         );
+        if (failures < MAX_REMINDER_FAILURES) {
+          this.#failures.set(task.id, failures);
+          continue;
+        }
+        this.#failures.delete(task.id);
+        await this.store.markReminded(task.id, now).catch(() => undefined);
       }
     }
     return sent;
@@ -100,7 +117,7 @@ export class TaskReminderRunner implements CrmTaskRunner {
       body: fill(body ?? '', vars).slice(0, 4000),
       target: { kind: 'path', path: TASK_DUE_PATH },
       channels: ['in_app', 'push'],
-      dedupKey: `task:${task.id}:due`,
+      dedupKey: `task:${task.id}:due:${task.dueAt.getTime()}`,
     });
   }
 }

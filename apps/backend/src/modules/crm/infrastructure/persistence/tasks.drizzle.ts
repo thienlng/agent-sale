@@ -4,6 +4,7 @@ import type { CrmTx, TaskFilter } from '../../application/ports/crm-store.js';
 import type { Task } from '../../domain/task.js';
 
 const t = schema.tasks;
+const c = schema.contacts;
 
 const toTask = (r: typeof t.$inferSelect): Task => ({
   id: r.id,
@@ -37,14 +38,30 @@ const writable = (rec: Task) => ({
   version: rec.version,
 });
 
-const inScope = (assigneeScope: string | null) =>
-  assigneeScope === null
+/** The customer of the task is one `me` may see: their Sales or CSKH, or nobody's (`canSee`). */
+const customerVisible = (me: string) =>
+  or(
+    isNull(t.contactId),
+    sql`exists (select 1 from ${c}
+      where ${c.workspaceId} = ${t.workspaceId} and ${c.id} = ${t.contactId}
+        and (${c.salesUserId} = ${me} or ${c.careUserId} = ${me}
+          or (${c.salesUserId} is null and ${c.careUserId} is null)))`,
+  );
+
+const inScope = (f: Pick<TaskFilter, 'assigneeScope' | 'customerScope'>) =>
+  f.assigneeScope === null
     ? undefined
-    : or(eq(t.assigneeUserId, assigneeScope), isNull(t.assigneeUserId));
+    : or(
+        eq(t.assigneeUserId, f.assigneeScope),
+        and(
+          isNull(t.assigneeUserId),
+          f.customerScope ? customerVisible(f.customerScope) : undefined,
+        ),
+      );
 
 function where(f: TaskFilter) {
   return and(
-    inScope(f.assigneeScope),
+    inScope(f),
     f.status === 'done' ? eq(t.status, 'done') : undefined,
     f.status === 'open' ? eq(t.status, 'open') : undefined,
     f.status === 'overdue' ? and(eq(t.status, 'open'), lt(t.dueAt, f.now)) : undefined,
@@ -68,7 +85,14 @@ export function tasksTx(tx: TenantTx): Pick<CrmTx, 'tasks'> {
       async update(rec, expectedVersion) {
         const rows = await tx
           .update(t)
-          .set(writable(rec))
+          .set({
+            ...writable(rec),
+            // A new due time or assignee is reminded again (SET reads the row before the update).
+            remindedAt: sql`case
+              when ${t.dueAt} is distinct from ${rec.dueAt?.toISOString() ?? null}::timestamptz
+                or ${t.assigneeUserId} is distinct from ${rec.assigneeUserId}::uuid
+              then null else ${t.remindedAt} end`,
+          })
           .where(and(eq(t.id, rec.id), eq(t.version, expectedVersion)))
           .returning({ id: t.id });
         return rows.length > 0;
@@ -87,11 +111,11 @@ export function tasksTx(tx: TenantTx): Pick<CrmTx, 'tasks'> {
           .limit(page.limit);
         return rows.map(toTask);
       },
-      async countOpenDueBefore(assigneeScope, dueBefore) {
+      async countOpenDueBefore(scope, dueBefore) {
         const [r] = await tx
           .select({ n: sql<number>`count(*)::int` })
           .from(t)
-          .where(and(inScope(assigneeScope), eq(t.status, 'open'), lt(t.dueAt, dueBefore)));
+          .where(and(inScope(scope), eq(t.status, 'open'), lt(t.dueAt, dueBefore)));
         return Number(r?.n ?? 0);
       },
     },
