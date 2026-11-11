@@ -58,6 +58,25 @@ export class DrizzleWorkspaceDirectory implements WorkspaceDirectory {
     });
   }
 
+  listActiveIds(afterId: WorkspaceId | null, limit: number): Promise<WorkspaceId[]> {
+    return withSystem(this.systemDb, async (tx) => {
+      const w = schema.workspaces;
+      const rows = await tx
+        .select({ id: w.id })
+        .from(w)
+        .where(
+          and(
+            eq(w.status, 'active'),
+            isNull(w.deletedAt),
+            afterId ? sql`${w.id} > ${afterId}` : undefined,
+          ),
+        )
+        .orderBy(asc(w.id))
+        .limit(limit);
+      return rows.map((r) => workspaceId(r.id));
+    });
+  }
+
   listByAccounts(accountIds: readonly string[]): Promise<AccountBusiness[]> {
     return withSystem(this.systemDb, async (tx) => {
       const w = schema.workspaces;
@@ -129,6 +148,16 @@ export class InMemoryWorkspaceDirectory implements WorkspaceDirectory {
     return this.store.members.rows
       .filter((m) => m.workspaceId === ws && (includeRemoved || m.status === 'active'))
       .map((m) => ({ userId: m.userId, role: m.role, status: m.status, joinedAt: new Date(0) }));
+  }
+
+  async listActiveIds(afterId: WorkspaceId | null, limit: number): Promise<WorkspaceId[]> {
+    return this.store.workspaces
+      .all()
+      .map((w) => w.snapshot())
+      .filter((s) => s.status === 'active' && (afterId === null || s.id > afterId))
+      .map((s) => s.id)
+      .sort()
+      .slice(0, limit);
   }
 
   async listByAccounts(accountIds: readonly string[]): Promise<AccountBusiness[]> {

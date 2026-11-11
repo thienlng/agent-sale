@@ -1,7 +1,13 @@
 import type { GenerateRequest, GenerateResponse } from '@agent-sales/ai-core';
 import { workspaceId, type WorkspaceId } from '@agent-sales/shared';
 
+import type { TaskDto } from '@agent-sales/contracts';
+
 import { BrainFacadeImpl } from '../../application/brain.facade.impl.js';
+import { Briefing } from '../../application/briefing.js';
+import { ReplyDraftService } from '../../application/reply-draft.service.js';
+import { TodayQuery } from '../../application/today.query.js';
+import type { TodayFacts } from '../../domain/today.js';
 import { ComplaintAlert } from '../../application/complaint-alert.js';
 import { SettingsService } from '../../application/settings.service.js';
 import { SignalEvaluator } from '../../application/signal-evaluator.js';
@@ -23,6 +29,8 @@ type NotificationFacade = AlertDeps[0];
 type WorkspaceFacade = AlertDeps[1];
 type AccountFacade = AlertDeps[2];
 type NotifyInput = Parameters<NotificationFacade['notify']>[0];
+type IdentityFacade = ConstructorParameters<typeof TodayQuery>[3];
+type BotFacade = ConstructorParameters<typeof ReplyDraftService>[2];
 export type SignalContext = NonNullable<Awaited<ReturnType<ConversationFacade['signalContext']>>>;
 type SignalContextMessage = SignalContext['messages'][number];
 
@@ -101,6 +109,15 @@ export function brainHarness(opts: { limit?: number | null | 'missing' } = {}) {
   const summaries = new Map<string, string>();
   const notified: NotifyInput[] = [];
   let limit: number | null | 'missing' = opts.limit === undefined ? 200 : opts.limit;
+  /** Conversation facts Today reads, by id (`todayCandidates`). */
+  const facts = new Map<string, TodayFacts & { ws: WorkspaceId; botId?: string | null }>();
+  /** Open tasks (already scoped by the fake CRM like the real one: mine + unassigned). */
+  const tasks: TaskDto[] = [];
+  const members = [
+    { userId: OWNER, role: 'owner', status: 'active', joinedAt: new Date(0) },
+    { userId: SALES, role: 'sales', status: 'active', joinedAt: new Date(0) },
+  ];
+  const workspaceIds: WorkspaceId[] = [WS];
 
   const conversationFacade = {
     signalContext: (ws: WorkspaceId, id: string, after: Date | null) => {
@@ -112,10 +129,74 @@ export function brainHarness(opts: { limit?: number | null | 'missing' } = {}) {
         facts: c.facts,
       });
     },
+    todayCandidates: (
+      ws: WorkspaceId,
+      q: { ids: readonly string[]; awaitingBefore: Date; followUpBefore: Date; limit: number },
+    ) =>
+      Promise.resolve(
+        [...facts.values()]
+          .filter((f) => f.ws === ws)
+          .filter(
+            (f) =>
+              q.ids.includes(f.id) ||
+              (f.status === 'open' &&
+                f.awaitingSince !== null &&
+                Date.parse(f.awaitingSince) <= q.awaitingBefore.getTime()) ||
+              (f.status !== 'spam' &&
+                f.followUpAt !== null &&
+                Date.parse(f.followUpAt) <= q.followUpBefore.getTime()),
+          )
+          .slice(0, q.limit)
+          .map(({ ws: _ws, botId: _bot, ...f }) => f),
+      ),
+    get: (ws: WorkspaceId, id: string) => {
+      const f = facts.get(id);
+      if (!f || f.ws !== ws) return Promise.reject(new Error('NOT_FOUND'));
+      return Promise.resolve({ conversation: { id, botId: f.botId ?? null }, messages: [] });
+    },
   } as unknown as ConversationFacade;
+  const visibleTask = (t: TaskDto, userId?: string) =>
+    t.status === 'open' &&
+    (userId === undefined || t.assigneeUserId === null || t.assigneeUserId === userId);
   const crm = {
     getContact: () => Promise.resolve({ phone: '0901234567' }),
+    countOpenTasks: (_ws: WorkspaceId, q: { userId?: string; dueBefore: Date }) =>
+      Promise.resolve(
+        tasks.filter(
+          (t) =>
+            visibleTask(t, q.userId) &&
+            t.dueAt !== null &&
+            Date.parse(t.dueAt) < q.dueBefore.getTime(),
+        ).length,
+      ),
+    listOpenTasks: (_ws: WorkspaceId, q: { userId?: string; limit: number }) =>
+      Promise.resolve(
+        tasks
+          .filter((t) => visibleTask(t, q.userId))
+          .sort(
+            (a, b) =>
+              (a.dueAt ? Date.parse(a.dueAt) : Infinity) -
+              (b.dueAt ? Date.parse(b.dueAt) : Infinity),
+          )
+          .slice(0, q.limit),
+      ),
   } as unknown as CrmFacade;
+  const identity = {
+    displayName: (id: string) =>
+      Promise.resolve(id === OWNER ? 'Chủ shop' : id === SALES ? 'Bán hàng' : null),
+  } as unknown as IdentityFacade;
+  const bots = {
+    getBot: () =>
+      Promise.resolve({
+        name: 'Bot Lan',
+        selfPronoun: 'em',
+        customerPronoun: 'chị',
+        tone: 'friendly',
+        allowEmoji: false,
+        replyLength: 'short',
+        language: 'vi',
+      }),
+  } as unknown as BotFacade;
   const ai = {
     conversationSummary: (_ws: WorkspaceId, id: string) => {
       const summary = summaries.get(id);
@@ -138,11 +219,11 @@ export function brainHarness(opts: { limit?: number | null | 'missing' } = {}) {
   const workspaces = {
     accountOf: () => Promise.resolve(ACCOUNT),
     getById: () => Promise.resolve({ name: 'Shop Lan' }),
-    listMembers: () =>
-      Promise.resolve([
-        { userId: OWNER, role: 'owner', status: 'active', joinedAt: new Date(0) },
-        { userId: SALES, role: 'sales', status: 'active', joinedAt: new Date(0) },
-      ]),
+    listMembers: () => Promise.resolve(members),
+    listActiveIds: (q: { afterId: WorkspaceId | null; limit: number }) =>
+      Promise.resolve(
+        workspaceIds.filter((id) => q.afterId === null || id > q.afterId).slice(0, q.limit),
+      ),
   } as unknown as WorkspaceFacade;
   const accounts = {
     listForUser: (userId: string) =>
@@ -163,7 +244,18 @@ export function brainHarness(opts: { limit?: number | null | 'missing' } = {}) {
     alert,
   );
   const scheduler = new SignalScheduler(events, store, settings);
-  const runner = new SignalRunner(store, scheduler, evaluator);
+  const today = new TodayQuery(
+    store,
+    conversationFacade,
+    crm,
+    identity,
+    settings,
+    usage,
+    evaluator,
+  );
+  const briefing = new Briefing(store, workspaces, notifications, today);
+  const runner = new SignalRunner(store, scheduler, evaluator, briefing);
+  const drafts = new ReplyDraftService(store, conversationFacade, bots, gateway, usage);
   const facade = new BrainFacadeImpl(store, conversationFacade, evaluator, usage, settings);
   return {
     store,
@@ -179,6 +271,13 @@ export function brainHarness(opts: { limit?: number | null | 'missing' } = {}) {
     runner,
     facade,
     conversationFacade,
+    today,
+    briefing,
+    drafts,
+    facts,
+    tasks,
+    members,
+    workspaceIds,
     setLimit: (l: number | null | 'missing') => {
       limit = l;
     },

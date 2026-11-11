@@ -28,6 +28,10 @@ export class UnavailableBrainStore implements BrainStore {
   releaseUsage = unavailable;
   usedOn = unavailable;
   recordRun = unavailable;
+  todaySignals = unavailable;
+  pendingJobIds = unavailable;
+  briefingStates = unavailable;
+  claimBriefing = unavailable;
 }
 
 export class UnavailableMessageEventSource implements MessageEventSource {

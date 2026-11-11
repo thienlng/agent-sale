@@ -56,6 +56,31 @@ export class MemoryConversationStore implements ConversationStore {
             ids: waiting.slice(0, Math.max(0, Math.min(limit, 200))).map((c) => c.id),
           };
         },
+        todayCandidates: async ({ ids, awaitingBefore, followUpBefore, limit }) =>
+          [...rows.entries()]
+            .filter(([key]) => key.startsWith(`${ws}/`))
+            .map(([, c]) => c)
+            .filter(
+              (c) =>
+                ids.includes(c.id) ||
+                (c.status === 'open' &&
+                  c.awaitingSince !== null &&
+                  Date.parse(c.awaitingSince) <= awaitingBefore.getTime()) ||
+                (c.status !== 'spam' &&
+                  !!c.followUpAt &&
+                  Date.parse(c.followUpAt) <= followUpBefore.getTime()),
+            )
+            .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+            .slice(0, limit)
+            .map((c) => {
+              const human = [...messages.entries()]
+                .filter(([key]) => key.startsWith(`${ws}/${c.id}/`))
+                .map(([, msg]) => msg)
+                .filter((msg) => msg.sender === 'human' && msg.status !== 'failed')
+                .map((msg) => msg.createdAt)
+                .sort();
+              return { conversation: c, lastHumanReplyAt: human[human.length - 1] ?? null };
+            }),
         query: async (filter) =>
           filterConversations(
             [...rows.entries()].filter(([key]) => key.startsWith(`${ws}/`)).map(([, c]) => c),

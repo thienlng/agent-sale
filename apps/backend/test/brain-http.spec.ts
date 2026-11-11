@@ -6,6 +6,8 @@ import {
   BrainUsageDto,
   ConversationSignalResponse,
   EvaluateSignalsResponse,
+  ReplyDraftResponse,
+  TodayResponse,
 } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -26,6 +28,7 @@ import {
   type ConversationFacade,
   type SignalContext,
 } from '../src/modules/conversation/api/index.js';
+import { CRM_FACADE, type CrmFacade } from '../src/modules/crm/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../src/modules/workspace/api/index.js';
 import { signUpVerified } from './support/signup.js';
 
@@ -69,6 +72,32 @@ async function setup() {
       };
       return Promise.resolve(ctx);
     },
+    todayCandidates: (ws: WorkspaceId, q: { ids: readonly string[]; awaitingBefore: Date }) =>
+      Promise.resolve(
+        [...owners.entries()]
+          .filter(
+            ([id, owner]) =>
+              owner === ws && (q.ids.includes(id) || Date.parse(at) <= q.awaitingBefore.getTime()),
+          )
+          .map(([id]) => ({
+            id,
+            provider: 'facebook',
+            status: 'open',
+            contactId: null,
+            customerName: 'Khách',
+            customerAvatarUrl: null,
+            assigneeId: null,
+            awaitingSince: at,
+            lastInboundAt: at,
+            followUpAt: null,
+            followUpNote: '',
+            lastHumanReplyAt: null,
+          })),
+      ),
+    get: (ws: WorkspaceId, id: string) =>
+      owners.get(id) === ws
+        ? Promise.resolve({ conversation: { id, botId: null }, messages: [] })
+        : Promise.reject(new Error('NOT_FOUND')),
   } as unknown as ConversationFacade;
   const billing = {
     entitlements: () => Promise.resolve({ limits: { 'brain.evaluations.daily': limit } }),
@@ -93,6 +122,10 @@ async function setup() {
   await app.init();
   const http = app.getHttpAdapter().getInstance();
   await http.ready();
+  // Tasks need a database; without one Today reads none.
+  const crm = nest.get<CrmFacade>(CRM_FACADE, { strict: false });
+  vi.spyOn(crm, 'countOpenTasks').mockResolvedValue(0);
+  vi.spyOn(crm, 'listOpenTasks').mockResolvedValue([]);
 
   const signup = async (email: string) => {
     const res = await signUpVerified(nest, {
@@ -263,5 +296,43 @@ describe('HTTP: brain settings', () => {
     expect(BrainSettingsDto.parse((await b.call('GET', '/brain/settings')).json()).mode).toBe(
       'auto',
     );
+  });
+});
+
+describe('HTTP: Today', () => {
+  it('lists the queues, dismisses an item and drafts a reply', async () => {
+    const t = await setup();
+    const a = await t.signup('brain-today@example.test');
+    const b = await t.signup('brain-today-b@example.test');
+    t.owners.set(CONV, a.ws);
+
+    const first = await a.call('GET', '/today');
+    expect(first.statusCode).toBe(200);
+    const today = TodayResponse.parse(first.json());
+    expect(today.queues.map((q) => q.key)).toEqual([
+      'attention',
+      'unanswered',
+      'ready',
+      'price_silent',
+      'follow_up',
+      'tasks',
+    ]);
+    expect(today.queues[1]?.items[0]).toMatchObject({ conversationId: CONV });
+
+    expect((await b.call('POST', `/today/items/${CONV}/dismiss`)).statusCode).toBe(404);
+    expect((await a.call('POST', `/today/items/${CONV}/dismiss`)).statusCode).toBe(204);
+    const after = TodayResponse.parse((await a.call('GET', '/today')).json());
+    expect(after.queues[1]?.count).toBe(0);
+
+    t.gateway.replies = ['Dạ shop gửi giá ngay ạ.'];
+    const draft = await a.call('POST', `/conversations/${CONV}/reply-draft`);
+    expect(draft.statusCode).toBe(200);
+    expect(ReplyDraftResponse.parse(draft.json()).text).toBe('Dạ shop gửi giá ngay ạ.');
+    expect((await b.call('POST', `/conversations/${CONV}/reply-draft`)).statusCode).toBe(404);
+
+    t.actAs('analyst');
+    expect((await a.call('GET', '/today')).statusCode).toBe(200);
+    expect((await a.call('POST', `/conversations/${CONV}/reply-draft`)).statusCode).toBe(403);
+    expect((await a.call('POST', '/today/refresh')).statusCode).toBe(403);
   });
 });

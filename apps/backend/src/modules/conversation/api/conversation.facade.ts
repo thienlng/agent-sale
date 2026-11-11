@@ -127,6 +127,32 @@ export interface ConversationFacade {
    * conversation's facts. Null when the conversation does not exist in the workspace.
    */
   signalContext(ws: WorkspaceId, id: string, after: Date | null): Promise<SignalContext | null>;
+  /**
+   * What the Today screen may show (spec 2026-11-11 §5): the conversations with these ids, plus
+   * the open ones waiting since `awaitingBefore` or earlier and the ones with a follow-up reminder
+   * due by `followUpBefore` (spam left out), at most `limit` (≤ 1 000). No message text.
+   */
+  todayCandidates(
+    ws: WorkspaceId,
+    q: { ids: readonly string[]; awaitingBefore: Date; followUpBefore: Date; limit: number },
+  ): Promise<TodayConversation[]>;
+}
+/** One conversation as the Today screen reads it. */
+export interface TodayConversation {
+  id: string;
+  provider: string;
+  status: 'open' | 'resolved' | 'spam';
+  contactId: string | null;
+  customerName: string;
+  customerAvatarUrl: string | null;
+  assigneeId: string | null;
+  /** ISO times. */
+  awaitingSince: string | null;
+  lastInboundAt: string | null;
+  followUpAt: string | null;
+  followUpNote: string;
+  /** Time of the last message a person of the shop sent (not failed); null when none. */
+  lastHumanReplyAt: string | null;
 }
 /** One message as the Business Brain reads it. */
 export interface SignalContextMessage {

@@ -66,6 +66,32 @@ export interface BrainStore {
   usedOn(ws: WorkspaceId, day: string): Promise<number>;
 
   recordRun(ws: WorkspaceId, run: SignalRunRecord): Promise<void>;
+
+  /**
+   * Signals that may put a conversation on Today (spec §5): complaint or needs a person, stage
+   * `ready` or `price_asked`, or a follow-up due by `now`. At most `limit`, newest first.
+   */
+  todaySignals(ws: WorkspaceId, now: Date, limit: number): Promise<ConversationSignal[]>;
+  /** Conversations with an idle evaluation waiting (customer messages not evaluated yet). */
+  pendingJobIds(ws: WorkspaceId, limit: number): Promise<string[]>;
+  /**
+   * The morning briefing settings of these businesses (worker, cross-tenant); a business
+   * without a row is absent (it has the defaults).
+   */
+  briefingStates(ids: readonly WorkspaceId[]): Promise<BriefingState[]>;
+  /**
+   * Takes today's briefing of the business: sets `last_briefing_day = day` unless it already is
+   * `day` or later (a row with the defaults is created). False when another pass took it.
+   */
+  claimBriefing(ws: WorkspaceId, day: string): Promise<boolean>;
+}
+
+/** `brain_settings` as the briefing pass reads it. */
+export interface BriefingState {
+  workspaceId: WorkspaceId;
+  briefingEnabled: boolean;
+  briefingHour: number;
+  lastBriefingDay: string | null;
 }
 export const BRAIN_STORE = Symbol('BRAIN_STORE');
 

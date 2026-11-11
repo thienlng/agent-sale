@@ -7,12 +7,20 @@
 **Public API (`api/`):**
 - `BRAIN_FACADE` → `signalsFor(ws, convIds)`, `evaluateNow(ws, convId, 'manual'|'refresh')` → `{status: ok|capped|nothing_new|disabled, signal}`, `usage(ws)` → `{day, used, limit}`, `settings(ws)`.
 - `BRAIN_RUNNER.tick()` — worker, every 15 s: outbox pass → reset capped jobs whose day came → claim ≤ 5 due jobs (`FOR UPDATE SKIP LOCKED`, 2-minute lease) → evaluate.
-- HTTP (`packages/contracts/src/brain/`): `GET|PATCH /conversations/{id}/signals`, `POST /conversations/{id}/signals/evaluate`, `GET|PUT /brain/settings`, `GET /brain/usage`.
+- `BRAIN_RUNNER.tick()` also runs the morning briefing pass at most once a minute.
+- `BRAIN_EXPORT` — `conversation_signals.csv` of the workspace data export (SET-10), keyed by `conversation_id`.
+- HTTP (`packages/contracts/src/brain/`): `GET|PATCH /conversations/{id}/signals`, `POST /conversations/{id}/signals/evaluate`, `GET|PUT /brain/settings`, `GET /brain/usage`, `GET /today`, `POST /today/refresh`, `POST /today/items/{conversationId}/dismiss`, `POST /conversations/{id}/reply-draft`.
+
+**Today (spec §5, `application/today.query.ts`, rules in `domain/today.ts`):** candidates = signals flagged for Today (`todaySignals`) + `ConversationFacade.todayCandidates` (waiting ≥ 15 min, reminder due by the end of the local day). Queues in order, first match only: `attention` (complaint or needs a person, open, no staff message after `evaluated_until`), `unanswered` (open, waiting ≥ 15 min), `ready`, `price_silent` (`price_asked`, last customer message ≥ 24 h ago), `follow_up` (signal follow-up ≤ now or conversation reminder before the local midnight), `tasks` (`CRM_FACADE` open tasks due before the local midnight, mine + unassigned for every role). Spam is never listed. Without `contacts.view_all` only conversations assigned to the viewer or unassigned. ≤ 20 items per queue, `count` is the full number. Dismiss writes `dismissed_until_message_after = now` (a blank signal row when none exists); the item is hidden while `lastInboundAt ≤` it. Refresh: Today's conversations in queue order, then those with a pending idle job, whose last customer message is after `evaluated_until`; ≤ 20 per call, 3 at a time, stops at the cap.
+
+**Reply draft (`application/reply-draft.service.ts`):** one tier-`basic` call (prompt `brain-reply-draft@1`, 600 tokens, 20 s) from the signal note, the last 20 messages and the persona of the conversation's bot (pronouns, tone, length, emoji, language; no free text of the bot). Reserves one evaluation of the day (released when the call fails), records a `signal_runs` row (trigger `manual`); never sends. `RATE_LIMITED` when the cap is used up.
+
+**Morning briefing (`application/briefing.ts`):** once a minute from the tick; for each active business (`WorkspaceFacade.listActiveIds`) with the briefing on and the local hour equal to `briefing_hour` (default 8), `claimBriefing` sets `last_briefing_day` atomically (insert-or-update where older), then each active owner/admin gets `today.briefing` (in-app + push, `/app/today`, title from `notification` i18n `today.briefing.*`, non-zero counts only) unless all their counts are zero. No model call.
 - Events: none published.
 
 **Events consumed:** `conversation.message.received.v1` (outbox, transaction horizon like analytics; a fresh install starts at the current horizon). Only customer messages (not `echo`) schedule.
 
-**Uses:** `conversation` (`signalContext`), `crm` (`getContact`), `ai` (`AI_LLM_GATEWAY`, `conversationSummary`), `billing` (`entitlements` → `brain.evaluations.daily`), `notification`, `workspace` (`accountOf`, members), `account` (`listForUser`, ownership).
+**Uses:** `conversation` (`signalContext`, `todayCandidates`, `get`), `crm` (`getContact`, `countOpenTasks`, `listOpenTasks`), `ai` (`AI_LLM_GATEWAY`, `conversationSummary`), `bot` (`getBot`, persona of a reply draft), `billing` (`entitlements` → `brain.evaluations.daily`), `notification`, `workspace` (`accountOf`, members, `listActiveIds`), `account` (`listForUser`, ownership), `identity` (`displayName` of assignees).
 
 **Invariants:**
 - An LLM call only on idle (no customer message for `idle_minutes`, default 45, 30–120), manual or refresh triggers; never per turn, no keyword rules. Tier `basic`, 600 output tokens, 20 s, one retry on invalid output; prompt `packages/ai-core/prompts/brain-signals@1.md`.

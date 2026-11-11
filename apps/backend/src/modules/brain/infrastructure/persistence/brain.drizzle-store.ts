@@ -1,8 +1,10 @@
 import {
   and,
   type Database,
+  desc,
   eq,
   inArray,
+  or,
   schema,
   sql,
   withSystem,
@@ -10,7 +12,12 @@ import {
 } from '@agent-sales/db';
 import { newId, workspaceId as asWorkspaceId, type WorkspaceId } from '@agent-sales/shared';
 
-import type { BrainStore, SignalJob, SignalRunRecord } from '../../domain/ports/brain.store.js';
+import type {
+  BrainStore,
+  BriefingState,
+  SignalJob,
+  SignalRunRecord,
+} from '../../domain/ports/brain.store.js';
 import type { BrainSettings } from '../../domain/schedule.js';
 import type { ConversationSignal } from '../../domain/signal.js';
 
@@ -272,6 +279,74 @@ export class DrizzleBrainStore implements BrainStore {
   recordRun(ws: WorkspaceId, run: SignalRunRecord): Promise<void> {
     return withTenant(this.db, ws, async (tx) => {
       await tx.insert(schema.signalRuns).values({ id: newId(), workspaceId: ws, ...run });
+    });
+  }
+
+  todaySignals(ws: WorkspaceId, now: Date, limit: number): Promise<ConversationSignal[]> {
+    return withTenant(this.db, ws, async (tx) =>
+      (
+        await tx
+          .select()
+          .from(cs)
+          .where(
+            and(
+              eq(cs.workspaceId, ws),
+              or(
+                eq(cs.mood, 'complaint'),
+                eq(cs.needsHuman, true),
+                inArray(cs.stage, ['ready', 'price_asked']),
+                sql`${cs.followUpAt} <= ${now.toISOString()}::timestamptz`,
+              ),
+            ),
+          )
+          .orderBy(desc(cs.updatedAt))
+          .limit(limit)
+      ).map(toSignal),
+    );
+  }
+
+  pendingJobIds(ws: WorkspaceId, limit: number): Promise<string[]> {
+    return withTenant(this.db, ws, async (tx) =>
+      (
+        await tx
+          .select({ id: jb.conversationId })
+          .from(jb)
+          .where(eq(jb.workspaceId, ws))
+          .orderBy(jb.runAfter)
+          .limit(limit)
+      ).map((r) => r.id),
+    );
+  }
+
+  briefingStates(ids: readonly WorkspaceId[]): Promise<BriefingState[]> {
+    if (!ids.length) return Promise.resolve([]);
+    return withSystem(this.systemDb, async (tx) =>
+      (
+        await tx
+          .select({
+            workspaceId: st.workspaceId,
+            briefingEnabled: st.briefingEnabled,
+            briefingHour: st.briefingHour,
+            lastBriefingDay: st.lastBriefingDay,
+          })
+          .from(st)
+          .where(inArray(st.workspaceId, [...ids]))
+      ).map((r) => ({ ...r, workspaceId: asWorkspaceId(r.workspaceId) })),
+    );
+  }
+
+  claimBriefing(ws: WorkspaceId, day: string): Promise<boolean> {
+    return withTenant(this.db, ws, async (tx) => {
+      const rows = await tx
+        .insert(st)
+        .values({ workspaceId: ws, lastBriefingDay: day })
+        .onConflictDoUpdate({
+          target: st.workspaceId,
+          set: { lastBriefingDay: day },
+          setWhere: sql`${st.lastBriefingDay} is null or ${st.lastBriefingDay} < ${day}::date`,
+        })
+        .returning({ id: st.workspaceId });
+      return rows.length > 0;
     });
   }
 }

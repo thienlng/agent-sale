@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TaskDto } from '../crm/task.schema.js';
 
 // ─── Business Brain v1: conversation signals (spec 2026-11-11 §3, ADR-030) ──────────────────────
 
@@ -105,3 +106,78 @@ export type BrainUsageDto = z.infer<typeof BrainUsageDto>;
 
 /** Entitlement key of the daily evaluation cap (per business). */
 export const BRAIN_EVALUATIONS_DAILY = 'brain.evaluations.daily';
+
+// ─── Today (spec 2026-11-11 §5) ───────────────────────────────────────────────────────────────
+
+/** The conversation queues of Today, in display order; a conversation shows in the first match. */
+export const TODAY_CONVERSATION_QUEUES = [
+  'attention',
+  'unanswered',
+  'ready',
+  'price_silent',
+  'follow_up',
+] as const;
+export const TodayConversationQueueKey = z.enum(TODAY_CONVERSATION_QUEUES);
+export type TodayConversationQueueKey = z.infer<typeof TodayConversationQueueKey>;
+export const TODAY_QUEUES = [...TODAY_CONVERSATION_QUEUES, 'tasks'] as const;
+export type TodayQueueKey = (typeof TODAY_QUEUES)[number];
+/** Items per queue at most (the count is the full number). */
+export const TODAY_QUEUE_ITEMS_MAX = 20;
+
+/** One customer on Today. */
+export const TodayItem = z.object({
+  conversationId: z.uuid(),
+  contactId: z.uuid().nullable(),
+  customerName: z.string(),
+  avatarUrl: z.string().nullable(),
+  /** Channel provider (`facebook`, `instagram`, `website`…). */
+  channel: z.string(),
+  /** One line: the intent, why a person is needed, or why to follow up; may be empty. */
+  reason: z.string(),
+  stage: SignalStage,
+  mood: SignalMood,
+  /** The time the reason refers to (waiting since, last customer message, follow-up due…). */
+  at: z.iso.datetime(),
+  assigneeId: z.uuid().nullable(),
+  assigneeName: z.string().nullable(),
+  stageLocked: z.boolean(),
+});
+export type TodayItem = z.infer<typeof TodayItem>;
+
+export const TodayConversationQueue = z.object({
+  key: TodayConversationQueueKey,
+  count: z.number().int().min(0),
+  items: z.array(TodayItem).max(TODAY_QUEUE_ITEMS_MAX),
+});
+export type TodayConversationQueue = z.infer<typeof TodayConversationQueue>;
+
+export const TodayTaskQueue = z.object({
+  key: z.literal('tasks'),
+  count: z.number().int().min(0),
+  items: z.array(TaskDto).max(TODAY_QUEUE_ITEMS_MAX),
+});
+export type TodayTaskQueue = z.infer<typeof TodayTaskQueue>;
+
+export const TodayQueue = z.union([TodayConversationQueue, TodayTaskQueue]);
+export type TodayQueue = z.infer<typeof TodayQueue>;
+
+export const TodayResponse = z.object({
+  /** Always the six queues, in `TODAY_QUEUES` order. */
+  queues: z.array(TodayQueue),
+  usage: z.object({ used: z.number().int().min(0), limit: z.number().int().min(0).nullable() }),
+  mode: z.enum(['auto', 'manual']),
+  generatedAt: z.iso.datetime(),
+});
+export type TodayResponse = z.infer<typeof TodayResponse>;
+
+/** `POST /today/refresh`: how many conversations were evaluated, then the fresh Today. */
+export const RefreshTodayResponse = TodayResponse.extend({
+  evaluated: z.number().int().min(0),
+  /** True when the daily evaluations ran out before every conversation was evaluated. */
+  capped: z.boolean(),
+});
+export type RefreshTodayResponse = z.infer<typeof RefreshTodayResponse>;
+
+/** `POST /conversations/{id}/reply-draft`: a suggested reply, never sent by itself. */
+export const ReplyDraftResponse = z.object({ text: z.string().min(1).max(2000) });
+export type ReplyDraftResponse = z.infer<typeof ReplyDraftResponse>;

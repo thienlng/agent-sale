@@ -5,6 +5,8 @@ import { Module } from '@nestjs/common';
 import { getEnv } from '../../common/config.js';
 import { DB_SYSTEM, DB_TENANT } from '../../common/db/db.module.js';
 import { BOT_EXPORT } from '../bot/api/index.js';
+import { BRAIN_EXPORT } from '../brain/api/index.js';
+import { BrainModule } from '../brain/brain.module.js';
 import { BotModule } from '../bot/bot.module.js';
 import { COMMERCE_EXPORT } from '../commerce/api/index.js';
 import { CommerceModule } from '../commerce/commerce.module.js';
@@ -46,6 +48,7 @@ const SOURCE_TOKENS = [
   LODGING_EXPORT,
   BOT_EXPORT,
   SAAS_EXPORT,
+  BRAIN_EXPORT,
 ];
 
 /** Whole-workspace data export (SET-10): requests and downloads in the api, builds in the worker. */
@@ -56,6 +59,7 @@ const SOURCE_TOKENS = [
     NotificationModule,
     CrmModule,
     ConversationModule,
+    BrainModule,
     CommerceModule,
     KnowledgeModule,
     LodgingModule,

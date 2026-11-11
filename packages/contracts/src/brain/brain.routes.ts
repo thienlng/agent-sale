@@ -4,6 +4,9 @@ import {
   BrainUsageDto,
   ConversationSignalResponse,
   EvaluateSignalsResponse,
+  RefreshTodayResponse,
+  ReplyDraftResponse,
+  TodayResponse,
   UpdateBrainSettingsRequest,
   UpdateConversationSignalRequest,
 } from './brain.schema.js';
@@ -79,5 +82,51 @@ export const brainRoutes = defineRoutes([
     auth: true,
     workspaceScoped: true,
     responses: { 200: BrainUsageDto },
+  },
+  {
+    method: 'get',
+    path: '/today',
+    assistant: {
+      use: 'read',
+      when: 'What needs attention today: complaints, unanswered, ready to buy, price asked then silent, follow-ups, due tasks',
+    },
+    summary:
+      "Today's queues for the caller (sales and care see their own and unassigned customers)",
+    tag: 'brain',
+    auth: true,
+    workspaceScoped: true,
+    responses: { 200: TodayResponse },
+  },
+  {
+    method: 'post',
+    path: '/today/refresh',
+    assistant: { use: 'never' },
+    summary:
+      'Evaluate conversations with unevaluated customer messages (at most 20, within the daily cap), then Today',
+    tag: 'brain',
+    auth: true,
+    workspaceScoped: true,
+    responses: { 200: RefreshTodayResponse },
+  },
+  {
+    method: 'post',
+    path: '/today/items/{conversationId}/dismiss',
+    assistant: { use: 'never' },
+    summary: 'Hide a conversation from Today until the customer writes again',
+    tag: 'brain',
+    auth: true,
+    workspaceScoped: true,
+    responses: { 204: null },
+  },
+  {
+    method: 'post',
+    path: '/conversations/{id}/reply-draft',
+    assistant: { use: 'never' },
+    summary:
+      'Draft a reply to the customer (one evaluation of the daily cap; never sent by itself)',
+    tag: 'brain',
+    auth: true,
+    workspaceScoped: true,
+    responses: { 200: ReplyDraftResponse },
   },
 ]);

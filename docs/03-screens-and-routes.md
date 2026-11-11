@@ -188,7 +188,7 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
   | Sắp chốt | `ready` | stage `ready` (ready to buy or book) |
   | Hỏi giá rồi im | `price_silent` | stage `price_asked` and the customer silent for more than 24 hours |
   | Đến hạn chăm lại | `follow_up` | the signal's follow-up time has passed, or the conversation's own follow-up date is today or earlier |
-  | Việc của tôi | `tasks` | open tasks due by the end of today or overdue (with `contacts.view_all`: everyone's) |
+  | Việc của tôi | `tasks` | open tasks due by the end of today or overdue, assigned to me or unassigned (every role; the whole team's list stays on `GET /tasks?scope=all`) |
 
 - **Item:** avatar or initials, customer name, channel icon, one-line reason (intent, the reason a person is needed, or the follow-up reason), relative time, stage badge and assignee. Stage labels are generic; the dashboard group (shop/hotel/saas/service) only changes the wording.
 - **Item actions:** **Mở hội thoại** (`/app/inbox?conversation=<id>`) · **Soạn trả lời** (`POST /conversations/{id}/reply-draft`, one LLM call on click that counts toward the cap; opens the inbox composer with the draft prefilled; never sent automatically) · **Thêm việc** (task dialog prefilled with the conversation and customer) · **Bỏ qua** (`POST /today/items/{conversationId}/dismiss`; hidden until a newer customer message) · **Đánh giá lại** (`POST /conversations/{id}/signals/evaluate`; answers `capped` when the cap is used up) · stage menu (`PATCH /conversations/{id}/signals`; the chosen stage is locked against later evaluations).

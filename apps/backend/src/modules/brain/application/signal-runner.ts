@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import type { BrainRunner } from '../api/brain.runner.js';
 import { BRAIN_STORE, type BrainStore, type SignalJob } from '../domain/ports/brain.store.js';
@@ -8,11 +8,14 @@ import {
   MAX_JOB_ATTEMPTS,
   nextHcmMidnight,
 } from '../domain/schedule.js';
+import { Briefing } from './briefing.js';
 import { SignalEvaluator } from './signal-evaluator.js';
 import { SignalScheduler } from './signal-scheduler.js';
 
 /** Jobs claimed per tick at most; each is one model call of up to 20 s, run side by side. */
 export const JOBS_PER_TICK = 5;
+/** The morning briefing pass runs at most this often (the tick runs every 15 s). */
+export const BRIEFING_EVERY_MS = 60_000;
 
 const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof e);
 
@@ -31,9 +34,20 @@ export class SignalRunner implements BrainRunner {
     @Inject(BRAIN_STORE) private readonly store: BrainStore,
     @Inject(SignalScheduler) private readonly scheduler: SignalScheduler,
     @Inject(SignalEvaluator) private readonly evaluator: SignalEvaluator,
+    @Inject(Briefing) @Optional() private readonly briefing?: Briefing,
   ) {}
 
+  #lastBriefingAt = Number.NEGATIVE_INFINITY;
+
   async tick(now = new Date()): Promise<number> {
+    if (this.briefing && now.getTime() - this.#lastBriefingAt >= BRIEFING_EVERY_MS) {
+      this.#lastBriefingAt = now.getTime();
+      try {
+        await this.briefing.pass(now);
+      } catch (e) {
+        this.#log.warn(`morning briefing pass failed (${errorClass(e)})`);
+      }
+    }
     try {
       await this.scheduler.pass(now);
     } catch (e) {

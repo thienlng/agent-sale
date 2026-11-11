@@ -32,6 +32,7 @@ import type {
   BotQuickReplies,
   ConversationFacade,
   SignalContext,
+  TodayConversation,
 } from '../api/conversation.facade.js';
 import { ConversationError } from '../domain/conversation.errors.js';
 import { nextMessageId } from '../domain/message-id.js';
@@ -94,6 +95,31 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
     return this.store.run(ws, async (tx) => {
       const c = await tx.find(id);
       return c ? buildSignalContext(c, await tx.messages(id), after) : null;
+    });
+  }
+  async todayCandidates(
+    ws: WorkspaceId,
+    q: { ids: readonly string[]; awaitingBefore: Date; followUpBefore: Date; limit: number },
+  ): Promise<TodayConversation[]> {
+    const ids = q.ids.filter(isUuid);
+    const limit = Math.max(0, Math.min(q.limit, 1000));
+    const rows = await this.store.run(ws, (tx) => tx.todayCandidates({ ...q, ids, limit }));
+    return rows.map(({ conversation, lastHumanReplyAt }) => {
+      const c = named(conversation.provider, conversation.customerId, conversation);
+      return {
+        id: c.id,
+        provider: c.provider,
+        status: c.status,
+        contactId: c.contactId,
+        customerName: c.customerName,
+        customerAvatarUrl: c.customerAvatarUrl,
+        assigneeId: c.assigneeId,
+        awaitingSince: c.awaitingSince,
+        lastInboundAt: Date.parse(c.lastInboundAt) > 0 ? c.lastInboundAt : null,
+        followUpAt: c.followUpAt ?? null,
+        followUpNote: c.followUpNote ?? '',
+        lastHumanReplyAt,
+      };
     });
   }
   async list(ws: WorkspaceId, q: ConversationListQuery, viewerId?: string) {

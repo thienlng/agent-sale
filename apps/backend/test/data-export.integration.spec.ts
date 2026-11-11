@@ -129,6 +129,7 @@ describe('data export', () => {
       'tasks.csv',
       'conversations.csv',
       'messages.csv',
+      'conversation_signals.csv',
       'products.csv',
       'product_variants.csv',
       'orders.csv',

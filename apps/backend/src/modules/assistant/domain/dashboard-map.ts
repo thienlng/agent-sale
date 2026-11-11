@@ -38,6 +38,12 @@ export const DASHBOARD_PAGES: readonly DashboardPage[] = [
     purpose: 'create a new business (shop) in the account: name and industry',
     audience: 'all',
   },
+  {
+    path: '/app/today',
+    purpose:
+      "what needs doing today: complaints, unanswered customers, ready to buy, price asked then silent, follow-ups, the user's due tasks",
+    audience: 'all',
+  },
   { path: '/app/analytics', purpose: 'statistics', audience: 'all' },
   {
     path: '/app/inbox',
@@ -125,6 +131,12 @@ export const DASHBOARD_PAGES: readonly DashboardPage[] = [
   { path: '/app/settings/security', purpose: 'account security', audience: 'all' },
   { path: '/app/settings/developers', purpose: 'API keys and webhooks', audience: 'all' },
   { path: '/app/settings/audit', purpose: 'activity log', audience: 'all' },
+  {
+    path: '/app/settings/brain',
+    purpose:
+      "AI conversation evaluation settings: today's evaluations used, automatic or on-click mode, quiet time, morning briefing",
+    audience: 'all',
+  },
 ];
 
 /**

@@ -2,13 +2,14 @@ import type { WorkspaceId } from '@agent-sales/shared';
 
 import type {
   BrainStore,
+  BriefingState,
   MessageEventLease,
   MessageEventRow,
   MessageEventSource,
   SignalJob,
   SignalRunRecord,
 } from '../../domain/ports/brain.store.js';
-import { type BrainSettings, nextRunAfter } from '../../domain/schedule.js';
+import { type BrainSettings, DEFAULT_BRAIN_SETTINGS, nextRunAfter } from '../../domain/schedule.js';
 import type { ConversationSignal } from '../../domain/signal.js';
 
 interface MemoryJob extends SignalJob {
@@ -122,6 +123,57 @@ export class MemoryBrainStore implements BrainStore {
   recordRun(ws: WorkspaceId, run: SignalRunRecord) {
     this.runs.push({ workspaceId: ws, ...run });
     return Promise.resolve();
+  }
+  todaySignals(ws: WorkspaceId, now: Date, limit: number) {
+    return Promise.resolve(
+      [...this.signals.entries()]
+        .filter(([k]) => k.startsWith(`${ws}/`))
+        .map(([, s]) => s)
+        .filter(
+          (s) =>
+            s.mood === 'complaint' ||
+            s.needsHuman ||
+            s.stage === 'ready' ||
+            s.stage === 'price_asked' ||
+            (s.followUpAt !== null && s.followUpAt <= now),
+        )
+        .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+        .slice(0, limit),
+    );
+  }
+  pendingJobIds(ws: WorkspaceId, limit: number) {
+    return Promise.resolve(
+      [...this.jobs.values()]
+        .filter((j) => j.workspaceId === ws)
+        .sort((a, b) => a.runAfter.getTime() - b.runAfter.getTime())
+        .slice(0, limit)
+        .map((j) => j.conversationId),
+    );
+  }
+  /** `last_briefing_day` per business (memory twin of the column). */
+  briefingDays = new Map<string, string>();
+  briefingStates(ids: readonly WorkspaceId[]) {
+    return Promise.resolve(
+      ids.flatMap((ws): BriefingState[] => {
+        const s = this.settings.get(ws);
+        const last = this.briefingDays.get(ws) ?? null;
+        if (!s && last === null) return [];
+        return [
+          {
+            workspaceId: ws,
+            briefingEnabled: (s ?? DEFAULT_BRAIN_SETTINGS).briefingEnabled,
+            briefingHour: (s ?? DEFAULT_BRAIN_SETTINGS).briefingHour,
+            lastBriefingDay: last,
+          },
+        ];
+      }),
+    );
+  }
+  claimBriefing(ws: WorkspaceId, day: string) {
+    const last = this.briefingDays.get(ws);
+    if (last !== undefined && last >= day) return Promise.resolve(false);
+    this.briefingDays.set(ws, day);
+    return Promise.resolve(true);
   }
 }
 

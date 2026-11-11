@@ -32,6 +32,11 @@ export function hcmDay(now: Date): string {
   return new Date(now.getTime() + HCM_OFFSET_MS).toISOString().slice(0, 10);
 }
 
+/** The local hour (0–23) in Asia/Ho_Chi_Minh: the morning briefing's clock. */
+export function hcmHour(now: Date): number {
+  return new Date(now.getTime() + HCM_OFFSET_MS).getUTCHours();
+}
+
 /** The next local midnight in Asia/Ho_Chi_Minh: a capped job waits until then. */
 export function nextHcmMidnight(now: Date): Date {
   const local = now.getTime() + HCM_OFFSET_MS;

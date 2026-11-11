@@ -5,20 +5,27 @@ import { DB_SYSTEM, DB_TENANT } from '../../common/db/db.module.js';
 import { AccountModule } from '../account/account.module.js';
 import { AiModule } from '../ai/ai.module.js';
 import { BillingModule } from '../billing/billing.module.js';
+import { BotModule } from '../bot/bot.module.js';
 import { ConversationModule } from '../conversation/conversation.module.js';
 import { CrmModule } from '../crm/crm.module.js';
+import { IdentityModule } from '../identity/identity.module.js';
 import { NotificationModule } from '../notification/notification.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
+import { BRAIN_EXPORT } from './api/brain-export.js';
 import { BRAIN_FACADE } from './api/brain.facade.js';
 import { BRAIN_RUNNER } from './api/brain.runner.js';
 import { BrainFacadeImpl } from './application/brain.facade.impl.js';
+import { Briefing } from './application/briefing.js';
 import { ComplaintAlert } from './application/complaint-alert.js';
+import { ReplyDraftService } from './application/reply-draft.service.js';
 import { SettingsService } from './application/settings.service.js';
 import { SignalEvaluator } from './application/signal-evaluator.js';
 import { SignalRunner } from './application/signal-runner.js';
 import { SignalScheduler } from './application/signal-scheduler.js';
+import { TodayQuery } from './application/today.query.js';
 import { UsageService } from './application/usage.service.js';
 import { BRAIN_STORE, MESSAGE_EVENT_SOURCE } from './domain/ports/brain.store.js';
+import { BrainExportSource } from './infrastructure/export/brain.export.js';
 import { DrizzleBrainStore } from './infrastructure/persistence/brain.drizzle-store.js';
 import { DrizzleMessageEventSource } from './infrastructure/persistence/message-events.drizzle.js';
 import {
@@ -26,6 +33,7 @@ import {
   UnavailableMessageEventSource,
 } from './infrastructure/persistence/unavailable.js';
 import { BrainController, SignalsController } from './interface/http/brain.controller.js';
+import { ReplyDraftController, TodayController } from './interface/http/today.controller.js';
 
 /** Business Brain v1 (spec 2026-11-11, ADR-030): conversation signals, cap, settings, alert. */
 @Module({
@@ -37,8 +45,10 @@ import { BrainController, SignalsController } from './interface/http/brain.contr
     NotificationModule,
     WorkspaceModule,
     AccountModule,
+    IdentityModule,
+    BotModule,
   ],
-  controllers: [SignalsController, BrainController],
+  controllers: [SignalsController, BrainController, TodayController, ReplyDraftController],
   providers: [
     {
       provide: BRAIN_STORE,
@@ -55,16 +65,24 @@ import { BrainController, SignalsController } from './interface/http/brain.contr
       useFactory: (system: Database | null | undefined) =>
         system ? new DrizzleMessageEventSource(system) : new UnavailableMessageEventSource(),
     },
+    {
+      provide: BRAIN_EXPORT,
+      inject: [{ token: DB_TENANT, optional: true }],
+      useFactory: (db: Database | null | undefined) => new BrainExportSource(db ?? null),
+    },
     SettingsService,
     UsageService,
     ComplaintAlert,
     SignalEvaluator,
     SignalScheduler,
+    TodayQuery,
+    ReplyDraftService,
+    Briefing,
     SignalRunner,
     BrainFacadeImpl,
     { provide: BRAIN_FACADE, useExisting: BrainFacadeImpl },
     { provide: BRAIN_RUNNER, useExisting: SignalRunner },
   ],
-  exports: [BRAIN_FACADE, BRAIN_RUNNER],
+  exports: [BRAIN_FACADE, BRAIN_RUNNER, BRAIN_EXPORT],
 })
 export class BrainModule {}

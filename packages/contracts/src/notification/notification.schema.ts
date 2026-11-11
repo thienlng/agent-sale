@@ -17,6 +17,8 @@ export const NotificationType = z.enum([
   'task.due',
   /** An evaluation newly found a customer complaint (Business Brain, spec 2026-11-11 §6). */
   'brain.complaint',
+  /** The morning briefing of Today's counts (Business Brain, spec 2026-11-11 §6). */
+  'today.briefing',
 ]);
 export type NotificationType = z.infer<typeof NotificationType>;
 

@@ -59,6 +59,11 @@ export interface WorkspaceFacade {
     /** The owner's contact (signup), for `account.account.created.v1` (ADR-021). */
     owner?: { name: string; email: string; phone: string | null } | undefined;
   }): Promise<WorkspaceDto>;
+  /**
+   * Every active (not deleted) business, oldest first, at most `limit` after `afterId` (worker
+   * scans such as the morning briefing). Ids only.
+   */
+  listActiveIds(q: { afterId: WorkspaceId | null; limit: number }): Promise<WorkspaceId[]>;
   /** Businesses of an account (platform admin), oldest first. */
   listByAccounts(accountIds: readonly string[]): Promise<AccountBusiness[]>;
   /** Active membership of `userId` in `workspaceId`, or null (used by the auth guard). */
