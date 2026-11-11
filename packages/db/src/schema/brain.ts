@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   boolean,
   check,
   date,
@@ -38,6 +39,8 @@ export type SignalStage = (typeof SIGNAL_STAGES)[number];
 export const SIGNAL_MOODS = ['positive', 'neutral', 'negative', 'complaint'] as const;
 export type SignalMood = (typeof SIGNAL_MOODS)[number];
 export type SignalTrigger = 'idle' | 'manual' | 'refresh';
+/** A `signal_runs` row: an evaluation by its trigger, or a reply draft (`draft`). */
+export type SignalRunTrigger = SignalTrigger | 'draft';
 
 /**
  * One AI judgement per conversation. Deleting the conversation deletes it; a deleted customer
@@ -97,6 +100,9 @@ export const conversationSignals = pgTable(
     check('conversation_signals_note_length', sql`char_length(${t.note}) <= 1500`),
     index('conversation_signals_stage_idx').on(t.workspaceId, t.stage),
     index('conversation_signals_follow_up_idx').on(t.workspaceId, t.followUpAt),
+    index('conversation_signals_contact_idx')
+      .on(t.workspaceId, t.contactId)
+      .where(sql`${t.contactId} is not null`),
     ...tenantPolicies('conversation_signals'),
   ],
 );
@@ -125,18 +131,21 @@ export const signalJobs = pgTable(
     index('signal_jobs_due_idx')
       .on(t.runAfter)
       .where(sql`${t.status} = 'pending'`),
+    index('signal_jobs_capped_idx')
+      .on(t.runAfter)
+      .where(sql`${t.status} = 'capped'`),
     ...tenantPolicies('signal_jobs'),
   ],
 );
 
-/** One row per evaluation call, for cost reporting. History: no key to conversations. */
+/** One row per model call (evaluations, reply drafts), for cost reporting. No conversation key. */
 export const signalRuns = pgTable(
   'signal_runs',
   {
     id: uuid('id').primaryKey(),
     workspaceId: workspaceRef(),
     conversationId: uuid('conversation_id').notNull(),
-    trigger: text('trigger').$type<SignalTrigger>().notNull(),
+    trigger: text('trigger').$type<SignalRunTrigger>().notNull(),
     tier: text('tier').notNull(),
     model: text('model'),
     inputTokens: integer('input_tokens').notNull().default(0),
@@ -145,7 +154,7 @@ export const signalRuns = pgTable(
     createdAt: ts('created_at').notNull().defaultNow(),
   },
   (t) => [
-    check('signal_runs_trigger_check', sql`${t.trigger} in ('idle','manual','refresh')`),
+    check('signal_runs_trigger_check', sql`${t.trigger} in ('idle','manual','refresh','draft')`),
     check('signal_runs_tier_length', sql`char_length(${t.tier}) <= 40`),
     check('signal_runs_model_length', sql`char_length(${t.model}) <= 120`),
     check('signal_runs_outcome_check', sql`${t.outcome} in ('ok','invalid','error','timeout')`),
@@ -189,3 +198,13 @@ export const brainSettings = pgTable(
     ...tenantPolicies('brain_settings'),
   ],
 );
+
+/**
+ * GLOBAL (app_system only, no RLS): the brain's outbox position per consumer (`brain.signals`),
+ * like `analytics_checkpoints` of the analytics module.
+ */
+export const brainCheckpoints = pgTable('brain_checkpoints', {
+  consumer: text('consumer').primaryKey(),
+  horizon: bigint('horizon', { mode: 'number' }).notNull().default(0),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});

@@ -324,6 +324,10 @@ export const tasks = pgTable(
     check('tasks_source_check', sql`${t.source} in ('manual','today','assistant')`),
     check('tasks_subject_type_length', sql`char_length(${t.subjectType}) <= 40`),
     check('tasks_subject_check', sql`(${t.subjectType} is null) = (${t.subjectId} is null)`),
+    check(
+      'tasks_done_at_check',
+      sql`(${t.status} in ('done','cancelled')) = (${t.doneAt} is not null)`,
+    ),
     index('tasks_status_due_idx').on(t.workspaceId, t.status, t.dueAt),
     index('tasks_open_assignee_idx')
       .on(t.workspaceId, t.assigneeUserId)
@@ -331,6 +335,14 @@ export const tasks = pgTable(
     index('tasks_contact_idx')
       .on(t.workspaceId, t.contactId)
       .where(sql`${t.contactId} is not null`),
+    index('tasks_conversation_idx')
+      .on(t.workspaceId, t.conversationId)
+      .where(sql`${t.conversationId} is not null`),
+    index('tasks_reminder_due_idx')
+      .on(t.dueAt)
+      .where(
+        sql`${t.status} = 'open' and ${t.remindedAt} is null and ${t.assigneeUserId} is not null`,
+      ),
     ...tenantPolicies('tasks'),
   ],
 );

@@ -1,8 +1,9 @@
 -- 0072_business_brain: Business Brain v1 and the Today screen (spec 2026-11-11, ADR-030).
 -- The `brain` module stores one AI judgement per conversation (conversation_signals), the idle
 -- evaluation queue (signal_jobs), per-run metering (signal_runs), the daily evaluation counter
--- (signal_usage) and per-business settings (brain_settings). The `crm` module gains `tasks`
--- (CRM-04). Workspace-scoped (RLS on app.workspace_id); worker ticks use app_system.
+-- (signal_usage), per-business settings (brain_settings) and its outbox position
+-- (brain_checkpoints, global). The `crm` module gains `tasks` (CRM-04). Workspace-scoped (RLS on
+-- app.workspace_id); worker ticks use app_system.
 -- Additive only.
 
 -- One row per conversation. Deleting the conversation deletes its signals; a deleted customer
@@ -37,6 +38,8 @@ CREATE TABLE conversation_signals (
 );
 CREATE INDEX conversation_signals_stage_idx ON conversation_signals(workspace_id, stage);
 CREATE INDEX conversation_signals_follow_up_idx ON conversation_signals(workspace_id, follow_up_at);
+CREATE INDEX conversation_signals_contact_idx ON conversation_signals(workspace_id, contact_id)
+  WHERE contact_id IS NOT NULL;
 
 -- Idle evaluation queue: one row per conversation; a newer customer message pushes run_after back.
 CREATE TABLE signal_jobs (
@@ -54,15 +57,16 @@ CREATE TABLE signal_jobs (
     REFERENCES conversations(workspace_id, id) ON DELETE CASCADE
 );
 CREATE INDEX signal_jobs_due_idx ON signal_jobs(run_after) WHERE status = 'pending';
+CREATE INDEX signal_jobs_capped_idx ON signal_jobs(run_after) WHERE status = 'capped';
 
--- One row per evaluation call, for cost reporting (ai_runs stays bot-only). History: no key to
--- conversations, like ai_runs.
+-- One row per model call, for cost reporting (ai_runs stays bot-only): evaluations by trigger,
+-- and reply drafts (`draft`). History: no key to conversations, like ai_runs.
 CREATE TABLE signal_runs (
   id uuid PRIMARY KEY,
   workspace_id uuid NOT NULL REFERENCES workspaces(id),
   conversation_id uuid NOT NULL,
   trigger text NOT NULL CONSTRAINT signal_runs_trigger_check
-    CHECK (trigger IN ('idle','manual','refresh')),
+    CHECK (trigger IN ('idle','manual','refresh','draft')),
   tier text NOT NULL CONSTRAINT signal_runs_tier_length CHECK (char_length(tier) <= 40),
   model text CONSTRAINT signal_runs_model_length CHECK (char_length(model) <= 120),
   input_tokens integer NOT NULL DEFAULT 0,
@@ -122,12 +126,29 @@ CREATE TABLE tasks (
   version integer NOT NULL DEFAULT 1,
   reminded_at timestamptz,
   CONSTRAINT tasks_subject_check CHECK ((subject_type IS NULL) = (subject_id IS NULL)),
+  -- A closed task records when it was closed; an open one has no such time.
+  CONSTRAINT tasks_done_at_check CHECK ((status IN ('done','cancelled')) = (done_at IS NOT NULL)),
   CONSTRAINT tasks_contact_fk FOREIGN KEY (workspace_id, contact_id)
     REFERENCES contacts(workspace_id, id) ON DELETE CASCADE
 );
 CREATE INDEX tasks_status_due_idx ON tasks(workspace_id, status, due_at);
 CREATE INDEX tasks_open_assignee_idx ON tasks(workspace_id, assignee_user_id) WHERE status = 'open';
 CREATE INDEX tasks_contact_idx ON tasks(workspace_id, contact_id) WHERE contact_id IS NOT NULL;
+CREATE INDEX tasks_conversation_idx ON tasks(workspace_id, conversation_id)
+  WHERE conversation_id IS NOT NULL;
+-- The worker's due-reminder scan (every 30 s, across businesses) reads only this slice.
+CREATE INDEX tasks_reminder_due_idx ON tasks(due_at)
+  WHERE status = 'open' AND reminded_at IS NULL AND assignee_user_id IS NOT NULL;
+
+-- The brain's outbox position (consumer-keyed like analytics_checkpoints, which belongs to the
+-- analytics module). Global and operator-owned: app_system only, no RLS.
+CREATE TABLE brain_checkpoints (
+  consumer text PRIMARY KEY,
+  horizon bigint NOT NULL DEFAULT 0,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+REVOKE ALL ON brain_checkpoints FROM app_tenant;
+GRANT SELECT, INSERT, UPDATE, DELETE ON brain_checkpoints TO app_system;
 
 ALTER TABLE conversation_signals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversation_signals FORCE ROW LEVEL SECURITY;
