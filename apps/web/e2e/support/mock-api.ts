@@ -5,6 +5,7 @@ import { backofficeRoute } from './mock-backoffice';
 import { crmRoute } from './mock-crm';
 import { analyticsRoute } from './mock-analytics';
 import { settingsRoute } from './mock-settings';
+import { todayMock } from './mock-today';
 
 /** Deliberately long Vietnamese content: layout must wrap or truncate, never overflow. */
 export const LONG =
@@ -164,6 +165,7 @@ export async function mockApi(page: Page) {
           })),
         }),
       );
+    if (path === '/today') return route.fulfill(json(todayMock(LONG, user, now)));
     const commerce = commerceRoute(path);
     if (commerce !== undefined) return route.fulfill(json(commerce));
     return route.fulfill(json({ error: { code: 'NOT_FOUND', message: 'not mocked' } }, 404));

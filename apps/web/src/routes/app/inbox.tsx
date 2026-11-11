@@ -6,12 +6,19 @@ import { InboxPage } from '@/features/conversation/components/inbox-page';
 import type { PanelSlots } from '@/features/conversation/components/conversation-view';
 import { ProductShare } from '@/features/commerce/components/product-share';
 import { CommentsWorkspace } from '@/features/channel/components/comments/comments-workspace';
+import { DraftPrefill } from '@/features/brain/components/conversation-brain';
 import { loadNamespace } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { InboxSalesPanel, type InboxCustomerContext } from './-components/inbox-sales-panel';
 
-/** `?conversation=` opens one conversation (links from a customer profile, T-088). */
-const Search = z.object({ conversation: z.uuid().optional().catch(undefined) });
+/**
+ * `?conversation=` opens one conversation (links from a customer profile, T-088); `?draft=` puts a
+ * reply drafted on Today into its composer once (never sent by itself).
+ */
+const Search = z.object({
+  conversation: z.uuid().optional().catch(undefined),
+  draft: z.string().max(2000).optional().catch(undefined),
+});
 
 export const Route = createFileRoute('/app/inbox')({
   validateSearch: Search,
@@ -19,28 +26,44 @@ export const Route = createFileRoute('/app/inbox')({
   // panel lists the conversation's bookings. A failed load shows raw keys there instead of the
   // error page.
   loader: () =>
-    Promise.allSettled([loadNamespace('integration'), loadNamespace('lodging')]).then(
-      () => undefined,
-    ),
+    Promise.allSettled([
+      loadNamespace('integration'),
+      loadNamespace('lodging'),
+      loadNamespace('brain'),
+    ]).then(() => undefined),
   component: InboxRoute,
 });
 function InboxRoute() {
   const session = useSession();
-  const { conversation } = Route.useSearch();
+  const { conversation, draft } = Route.useSearch();
   return (
     <SalesInbox
       key={`${session?.user.id}:${session?.workspaceId}:${conversation ?? ''}`}
       conversationId={conversation}
+      draft={draft}
     />
   );
 }
-function SalesInbox({ conversationId }: { conversationId?: string | undefined }) {
+function SalesInbox({
+  conversationId,
+  draft,
+}: {
+  conversationId?: string | undefined;
+  draft?: string | undefined;
+}) {
   const [contexts, setContexts] = useState<Record<string, InboxCustomerContext>>({});
   return (
     <InboxPage
       renderComments={() => <CommentsWorkspace />}
       openConversationId={conversationId}
-      renderComposerTools={(_conversation, insertText) => <ProductShare onInsert={insertText} />}
+      renderComposerTools={(conversation, insertText) => (
+        <>
+          {conversation.id === conversationId ? (
+            <DraftPrefill draft={draft} insertText={insertText} />
+          ) : null}
+          <ProductShare onInsert={insertText} />
+        </>
+      )}
       renderSalesPanel={(conversation: InboxConversation, slots: PanelSlots) => (
         <InboxSalesPanel
           key={conversation.id}

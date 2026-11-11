@@ -1,0 +1,136 @@
+{
+  "today": {
+    "title": "Hôm nay",
+    "refresh": "Làm mới (còn {{count}} lượt)",
+    "refreshUnlimited": "Làm mới",
+    "refreshing": "Đang đánh giá…",
+    "refreshed": "Đã đánh giá {{count}} hội thoại",
+    "refreshedNone": "Không có tin nhắn mới cần đánh giá",
+    "capBanner": "Đã hết lượt đánh giá hôm nay — các mục chỉ dựa trên dữ liệu có sẵn",
+    "manualHint": "Đang ở chế độ “Chỉ khi tôi bấm”: hội thoại chỉ được đánh giá khi bạn bấm Làm mới hoặc Đánh giá lại.",
+    "loadError": "Không tải được danh sách hôm nay.",
+    "retry": "Thử lại",
+    "summary": "Tóm tắt các hàng",
+    "countLabel": "{{count}} mục",
+    "more": "Còn {{count}} mục khác"
+  },
+  "queues": {
+    "attention": {
+      "title": "Phàn nàn / cần người",
+      "empty": "Không có khách nào đang phàn nàn hay cần người hỗ trợ."
+    },
+    "unanswered": {
+      "title": "Chưa trả lời",
+      "empty": "Mọi khách đều đã được trả lời."
+    },
+    "ready": {
+      "title": "Sắp chốt",
+      "empty": "Chưa có khách nào sắp chốt."
+    },
+    "price_silent": {
+      "title": "Hỏi giá rồi im",
+      "empty": "Không có khách hỏi giá rồi im lặng."
+    },
+    "follow_up": {
+      "title": "Đến hạn chăm lại",
+      "empty": "Không có khách nào đến hạn chăm lại."
+    },
+    "tasks": {
+      "title": "Việc của tôi",
+      "empty": "Không có việc nào đến hạn hôm nay."
+    }
+  },
+  "item": {
+    "open": "Mở hội thoại",
+    "draft": "Soạn trả lời",
+    "drafting": "Đang soạn…",
+    "addTask": "Thêm việc",
+    "dismiss": "Bỏ qua",
+    "dismissed": "Đã ẩn đến khi khách nhắn lại",
+    "evaluate": "Đánh giá lại",
+    "more": "Thao tác khác cho {{name}}",
+    "unassigned": "Chưa giao",
+    "waiting": "Chờ từ {{time}}",
+    "noReason": "Chưa có ghi chú",
+    "waitingReply": "Khách đang chờ trả lời"
+  },
+  "stage": {
+    "label": "Giai đoạn",
+    "menu": "Đổi giai đoạn",
+    "locked": "Giai đoạn do bạn đặt, AI giữ nguyên",
+    "unlock": "Để AI tự xác định",
+    "changed": "Đã đổi giai đoạn",
+    "new": "Mới",
+    "exploring": "Đang tìm hiểu",
+    "price_asked": "Đã hỏi giá",
+    "ready": "Sắp chốt",
+    "won": "Đã chốt",
+    "after_sale": "Sau bán",
+    "lost": "Không mua",
+    "spam": "Spam"
+  },
+  "mood": {
+    "positive": "Vui vẻ",
+    "neutral": "Bình thường",
+    "negative": "Không vui",
+    "complaint": "Phàn nàn"
+  },
+  "evaluate": {
+    "ok": "Đã đánh giá lại",
+    "capped": "Đã hết lượt đánh giá hôm nay",
+    "nothing_new": "Không có tin nhắn mới để đánh giá",
+    "disabled": "Không thể đánh giá hội thoại này",
+    "failed": "Chưa đánh giá được, thử lại sau"
+  },
+  "draft": {
+    "capped": "Đã hết lượt đánh giá hôm nay, chưa soạn được câu trả lời",
+    "failed": "Chưa soạn được câu trả lời, thử lại sau",
+    "ready": "Đã soạn câu trả lời — kiểm tra rồi bấm gửi"
+  },
+  "task": {
+    "dialogTitle": "Thêm việc",
+    "dialogDescription": "Việc sẽ hiện trong “Việc của tôi” của người làm khi đến hạn.",
+    "title": "Việc cần làm",
+    "defaultTitle": "Liên hệ lại {{name}}",
+    "due": "Hạn",
+    "assignee": "Người làm",
+    "me": "Tôi",
+    "unassigned": "Chưa giao",
+    "note": "Ghi chú",
+    "save": "Thêm việc",
+    "cancel": "Hủy",
+    "created": "Đã thêm việc",
+    "completed": "Đã xong việc",
+    "complete": "Đánh dấu xong: {{title}}",
+    "overdue": "Quá hạn",
+    "dueAt": "Hạn {{time}}",
+    "error": "Chưa lưu được việc"
+  },
+  "panel": {
+    "title": "AI đánh giá",
+    "never": "Hội thoại này chưa được đánh giá.",
+    "needsHuman": "Cần người: {{reason}}",
+    "followUp": "Chăm lại {{time}}",
+    "evaluatedAt": "Đánh giá {{time}}",
+    "tasks": "Việc",
+    "noTasks": "Chưa có việc nào cho hội thoại này."
+  },
+  "settings": {
+    "title": "Đánh giá hội thoại bằng AI",
+    "description": "AI đọc hội thoại khi khách ngừng nhắn để xếp khách vào màn hình Hôm nay.",
+    "usage": "Đã dùng {{used}}/{{limit}} lượt đánh giá hôm nay",
+    "usageUnlimited": "Đã dùng {{used}} lượt đánh giá hôm nay (không giới hạn)",
+    "mode": "Khi nào đánh giá",
+    "auto": "Tự động khi hội thoại lắng",
+    "manual": "Chỉ khi tôi bấm",
+    "idle": "Chờ hội thoại lắng (phút)",
+    "idleHint": "Từ 30 đến 120 phút.",
+    "briefing": "Tóm tắt buổi sáng",
+    "briefingHint": "Chủ shop và quản trị nhận một thông báo đếm việc hôm nay.",
+    "briefingHour": "Giờ gửi",
+    "save": "Lưu",
+    "saved": "Đã lưu cài đặt",
+    "error": "Chưa lưu được cài đặt",
+    "readOnly": "Chỉ chủ shop và quản trị đổi được cài đặt này."
+  }
+}

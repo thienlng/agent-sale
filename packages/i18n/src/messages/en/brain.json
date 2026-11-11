@@ -1,0 +1,139 @@
+{
+  "today": {
+    "title": "Today",
+    "refresh": "Refresh ({{count}} left)",
+    "refreshUnlimited": "Refresh",
+    "refreshing": "Evaluating…",
+    "refreshedNone": "No new messages to evaluate",
+    "capBanner": "Today's evaluations are used up — items are based on the data already available",
+    "manualHint": "Mode “Only when I ask”: conversations are evaluated only when you press Refresh or Re-evaluate.",
+    "loadError": "Today's list could not be loaded.",
+    "retry": "Retry",
+    "summary": "Queue summary",
+    "more_one": "{{count}} more",
+    "more_other": "{{count}} more",
+    "countLabel_one": "{{count}} item",
+    "countLabel_other": "{{count}} items",
+    "refreshed_one": "Evaluated {{count}} conversation",
+    "refreshed_other": "Evaluated {{count}} conversations"
+  },
+  "queues": {
+    "attention": {
+      "title": "Complaints / need a person",
+      "empty": "No customer is complaining or needs a person."
+    },
+    "unanswered": {
+      "title": "Unanswered",
+      "empty": "Every customer has an answer."
+    },
+    "ready": {
+      "title": "Ready to buy",
+      "empty": "No customer is ready to buy yet."
+    },
+    "price_silent": {
+      "title": "Asked a price, then quiet",
+      "empty": "No customer went quiet after asking a price."
+    },
+    "follow_up": {
+      "title": "Follow up today",
+      "empty": "Nobody is due for a follow-up."
+    },
+    "tasks": {
+      "title": "My tasks",
+      "empty": "No task is due today."
+    }
+  },
+  "item": {
+    "open": "Open conversation",
+    "draft": "Draft a reply",
+    "drafting": "Drafting…",
+    "addTask": "Add task",
+    "dismiss": "Dismiss",
+    "dismissed": "Hidden until the customer writes again",
+    "evaluate": "Re-evaluate",
+    "more": "More actions for {{name}}",
+    "unassigned": "Unassigned",
+    "waiting": "Waiting since {{time}}",
+    "noReason": "No note yet",
+    "waitingReply": "Waiting for a reply"
+  },
+  "stage": {
+    "label": "Stage",
+    "menu": "Change stage",
+    "locked": "Stage set by you; the AI keeps it",
+    "unlock": "Let the AI decide",
+    "changed": "Stage changed",
+    "new": "New",
+    "exploring": "Exploring",
+    "price_asked": "Asked a price",
+    "ready": "Ready to buy",
+    "won": "Won",
+    "after_sale": "After sale",
+    "lost": "Lost",
+    "spam": "Spam"
+  },
+  "mood": {
+    "positive": "Positive",
+    "neutral": "Neutral",
+    "negative": "Unhappy",
+    "complaint": "Complaint"
+  },
+  "evaluate": {
+    "ok": "Re-evaluated",
+    "capped": "Today's evaluations are used up",
+    "nothing_new": "No new messages to evaluate",
+    "disabled": "This conversation cannot be evaluated",
+    "failed": "Could not evaluate, try again later"
+  },
+  "draft": {
+    "capped": "Today's evaluations are used up, no reply drafted",
+    "failed": "No reply could be drafted, try again later",
+    "ready": "Reply drafted — check it, then send"
+  },
+  "task": {
+    "dialogTitle": "Add task",
+    "dialogDescription": "The task shows in the assignee's “My tasks” when it is due.",
+    "title": "To do",
+    "defaultTitle": "Get back to {{name}}",
+    "due": "Due",
+    "assignee": "Assignee",
+    "me": "Me",
+    "unassigned": "Unassigned",
+    "note": "Note",
+    "save": "Add task",
+    "cancel": "Cancel",
+    "created": "Task added",
+    "completed": "Task done",
+    "complete": "Mark done: {{title}}",
+    "overdue": "Overdue",
+    "dueAt": "Due {{time}}",
+    "error": "The task could not be saved"
+  },
+  "panel": {
+    "title": "AI read",
+    "never": "This conversation was not evaluated yet.",
+    "needsHuman": "Needs a person: {{reason}}",
+    "followUp": "Follow up {{time}}",
+    "evaluatedAt": "Evaluated {{time}}",
+    "tasks": "Tasks",
+    "noTasks": "No task for this conversation yet."
+  },
+  "settings": {
+    "title": "AI conversation evaluation",
+    "description": "The AI reads a conversation once the customer stops writing, to sort customers on the Today screen.",
+    "usage": "{{used}}/{{limit}} evaluations used today",
+    "usageUnlimited": "{{used}} evaluations used today (unlimited)",
+    "mode": "When to evaluate",
+    "auto": "Automatically when a conversation goes quiet",
+    "manual": "Only when I ask",
+    "idle": "Quiet time before evaluating (minutes)",
+    "idleHint": "30 to 120 minutes.",
+    "briefing": "Morning briefing",
+    "briefingHint": "The owner and admins get one notification counting today's work.",
+    "briefingHour": "Send at",
+    "save": "Save",
+    "saved": "Settings saved",
+    "error": "The settings could not be saved",
+    "readOnly": "Only the owner and admins can change these settings."
+  }
+}

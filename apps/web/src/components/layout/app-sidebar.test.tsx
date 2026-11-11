@@ -106,6 +106,19 @@ describe('AppSidebar', () => {
     expect(within(item).getByText('3 giữ chỗ của bot chờ xử lý')).toHaveClass('sr-only');
   });
 
+  it('lists Hôm nay first, with the number of things to do today', async () => {
+    renderAt('/app/inbox', 'retail', {
+      '/app/today': { count: 7, label: '7 việc cần làm hôm nay' },
+    });
+    const nav = await screen.findByRole('navigation', { name: /./ });
+    const first = within(nav).getAllByRole('link')[0];
+    expect(first).toHaveAccessibleName('Hôm nay');
+    expect(first).toHaveAttribute('href', '/app/today');
+    const item = first?.closest('li') as HTMLElement;
+    expect(within(item).getByText('7')).toBeVisible();
+    expect(within(item).getByText('7 việc cần làm hôm nay')).toHaveClass('sr-only');
+  });
+
   it('hides a zero count', async () => {
     renderAt('/app/calendar', 'hotel', {
       '/app/bookings': { count: 0, label: '0 giữ chỗ của bot chờ xử lý' },
