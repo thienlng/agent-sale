@@ -226,4 +226,25 @@ describe('cardPrice', () => {
     });
     expect(cardPrice(course, 'vi')).toBe('Liên hệ để báo giá');
   });
+
+  it('puts a short note next to the price, never a long one', () => {
+    const withPrices = (p: ProductDto, prices: number[]): ProductDto =>
+      ({ ...p, variants: prices.map((price) => ({ price })) }) as unknown as ProductDto;
+    const plan = withPrices(
+      product('p', 'Sales Smart', [785_000, 1_310_000], [], {
+        kind: 'service',
+        priceNote: '/ tháng',
+      }),
+      [785_000, 1_050_000, 1_310_000],
+    );
+    expect(cardPrice(plan, 'vi')).toBe(`Từ ${formatVnd(785_000)} / tháng`);
+    const long = withPrices(
+      product('l', 'Liệu trình', [500_000, 500_000], [], {
+        kind: 'service',
+        priceNote: 'Giá tham khảo, tuỳ tình trạng da',
+      }),
+      [500_000],
+    );
+    expect(cardPrice(long, 'vi')).toBe(formatVnd(500_000));
+  });
 });

@@ -46,14 +46,22 @@ const SUGGEST_NEXT_DEFINITION: ToolDefinition = {
   input: SuggestNextInput,
 };
 
-/** The card's price line: one price, a range start, the offering's note, or nothing. */
+/** Longest price note shown next to a card's price. */
+const SHORT_NOTE = 24;
+
+/** The card's price line: one price or a range start (with a short note), the note, or nothing. */
 export function cardPrice(product: ProductDto, language: 'vi' | 'en'): string {
   const c = compactProduct(product);
+  const note = c.priceNote ?? '';
   if (c.fromVnd !== undefined && c.fromVnd > 0) {
-    if (c.toVnd === undefined || c.toVnd === c.fromVnd) return formatVnd(c.fromVnd);
-    return `${language === 'en' ? 'From' : 'Từ'} ${formatVnd(c.fromVnd)}`;
+    const price =
+      c.toVnd === undefined || c.toVnd === c.fromVnd
+        ? formatVnd(c.fromVnd)
+        : `${language === 'en' ? 'From' : 'Từ'} ${formatVnd(c.fromVnd)}`;
+    // A short note goes next to the price ("/ tháng"); a long one stays in the chat.
+    return note && note.length <= SHORT_NOTE ? `${price} ${note}` : price;
   }
-  return (c.priceNote ?? '').slice(0, 80);
+  return note.slice(0, 80);
 }
 
 export interface WebsiteToolContext {
