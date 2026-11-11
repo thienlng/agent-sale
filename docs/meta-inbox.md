@@ -4,6 +4,8 @@ Implements CHAT-01 for Facebook Pages and Instagram professional accounts. Other
 
 **Website chat (T-097..T-104).** The same inbox processor and conversation pipeline also serve the `website` channel ([docs/07](07-channel-integrations.md) section 5). What differs is driven by channel capabilities (`capabilitiesOf(kind)` in `packages/channels`), not by `if (facebook)` checks: Meta kinds have `replyWindowHours: 24`, `website` has `null`, so `withinReplyWindow` never closes the window for a website visitor and staff or the bot can answer at any time. Website delivery is local (the message is stored and the visitor's widget picks it up by polling), so there is no Graph send and no token. Queue event ids are namespaced per visitor (`<visitorId>:<clientMessageId>`).
 
+**Messaging window and `HUMAN_AGENT` (ADR-031).** Bot replies, care agent follow-ups and staff replies go out only within 24 hours of the customer's last message (`replyWindow` in `packages/channels`). With `META_HUMAN_AGENT_TAG=true` (off by default; the Meta app needs the Human Agent permission), a member's own manual reply on Messenger or Instagram between 24 hours and 7 days goes out with `messaging_type: MESSAGE_TAG`, `tag: HUMAN_AGENT` and is stored with `tag: 'HUMAN_AGENT'`; bots and the care agent never use a tag. Care agent messages are bot messages with `source: 'care'` ("Chăm sóc tự động" in the inbox).
+
 Post comments and comment-to-private-reply provenance: [Facebook comment automation](integrations/facebook-comments.md) (T-069). Comments use their own persistence and never open the Messenger reply window.
 
 ## Flow
