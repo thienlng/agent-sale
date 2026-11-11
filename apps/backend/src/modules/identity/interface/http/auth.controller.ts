@@ -20,7 +20,6 @@ import {
 import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
-import { ApiError } from '../../../../common/http/api-error.js';
 import { type AuthState, CurrentUser, Public } from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
 import {
@@ -32,17 +31,19 @@ import {
   SignupHandler,
 } from '../../application/commands/auth.handlers.js';
 import { MfaService } from '../../application/mfa.service.js';
-import { type ClientMeta, type IssuedSession, SessionService } from '../../application/sessions.js';
+import { type IssuedSession, SessionService } from '../../application/sessions.js';
 import { AUTH_HTTP_OPTIONS, type AuthHttpOptions } from './auth-http.options.js';
+import {
+  assertAllowedOrigin,
+  clientMeta as meta,
+  issueSession,
+  REFRESH_COOKIE,
+  REFRESH_COOKIE_PATH as COOKIE_PATH,
+} from './refresh-cookie.js';
 
-export const REFRESH_COOKIE = 'rapiz_rt';
-const COOKIE_PATH = '/api/v1/auth';
+export { REFRESH_COOKIE };
 
-/**
- * Web clients: refresh token only in an HttpOnly cookie scoped to /api/v1/auth;
- * access token in the body (kept in memory by the SPA). Native clients
- * (`client: native`) get/send the refresh token in the body (docs/09 §2).
- */
+/** Password sign-up and login, sessions and two-factor. Cookie handling: `refresh-cookie.ts`. */
 @Controller()
 export class AuthController {
   constructor(
@@ -126,7 +127,7 @@ export class AuthController {
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<AuthResponse> {
-    if (body.client === 'web') this.assertAllowedOrigin(req);
+    if (body.client === 'web') assertAllowedOrigin(req, this.options);
     const raw = body.client === 'native' ? body.refreshToken : req.cookies[REFRESH_COOKIE];
     try {
       return this.respond(await this.refreshHandler.execute(raw, meta(req)), body.client, reply);
@@ -209,32 +210,6 @@ export class AuthController {
     client: 'web' | 'native',
     reply: FastifyReply,
   ): AuthResponse {
-    const base = {
-      accessToken: issued.accessToken,
-      expiresIn: issued.expiresIn,
-      user: issued.user,
-    };
-    if (client === 'native') return { ...base, refreshToken: issued.refreshToken };
-    void reply.setCookie(REFRESH_COOKIE, issued.refreshToken, {
-      httpOnly: true,
-      secure: this.options.secureCookies,
-      sameSite: 'lax',
-      path: COOKIE_PATH,
-      expires: issued.refreshExpiresAt,
-    });
-    return base;
+    return issueSession(issued, client, reply, this.options);
   }
-
-  /** CSRF defence for the cookie-authenticated refresh endpoint. */
-  private assertAllowedOrigin(req: FastifyRequest): void {
-    const origin = req.headers.origin;
-    if (origin && !this.options.allowedOrigins.includes(origin)) {
-      throw new ApiError('FORBIDDEN', 'Origin not allowed');
-    }
-  }
-}
-
-function meta(req: FastifyRequest): ClientMeta {
-  const ua = req.headers['user-agent'];
-  return { userAgent: typeof ua === 'string' ? ua.slice(0, 300) : null, ip: req.ip ?? null };
 }

@@ -83,7 +83,16 @@
       "quote": "Could I get a bulk quote?",
       "booking": "Can I book an appointment?"
     },
-    "googleLogin": "Sign in with Google",
+    "googleLogin": "Continue with Google",
+    "orEmail": "or use email",
+    "googleErrors": {
+      "cancelled": "You cancelled signing in with Google.",
+      "expired": "The Google sign-in expired. Please try again.",
+      "unverified_email": "This Google address is not verified. Use another Google account or sign up with email.",
+      "unavailable": "Sign in with Google is not turned on.",
+      "too_many": "Too many attempts. Please wait a moment and try again.",
+      "failed": "Could not sign in with Google. Please try again."
+    },
     "googleSoon": "Coming soon",
     "showPassword": "Show password",
     "hidePassword": "Hide password",

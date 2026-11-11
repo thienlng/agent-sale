@@ -1,5 +1,6 @@
 import {
   type AccountMembershipDto,
+  AuthProvidersResponse,
   AuthResponse,
   BootstrapResponse,
   type LoginRequest,
@@ -123,6 +124,35 @@ export async function signup(input: Omit<SignupRequest, 'client'>): Promise<Sess
   const auth = await api('/auth/signup', AuthResponse, {
     method: 'POST',
     body: { ...input, client: 'web' },
+    workspaceScoped: false,
+  });
+  return load(auth);
+}
+
+/** Sign-in methods the server offers besides email + password (Google needs server config). */
+export function authProviders(): Promise<AuthProvidersResponse> {
+  return api('/auth/providers', AuthProvidersResponse, { workspaceScoped: false }).catch(() => ({
+    google: false,
+  }));
+}
+
+/** Where the browser goes to sign in with Google; it comes back to /login?google=… */
+export function googleSignInUrl(redirect?: string): string {
+  const query = redirect ? `?${new URLSearchParams({ redirect }).toString()}` : '';
+  return `/api/v1/auth/google/start${query}`;
+}
+
+/** After Google's redirect the refresh cookie is set: turn it into a session. */
+export async function completeGoogleSignIn(): Promise<Session | null> {
+  const auth = await refreshSession();
+  return auth ? load(auth) : null;
+}
+
+/** The second factor of a Google sign-in (the pending sign-in rides in an HttpOnly cookie). */
+export async function verifyGoogleSignIn(code: string): Promise<Session> {
+  const auth = await api('/auth/google/mfa', AuthResponse, {
+    method: 'POST',
+    body: { code },
     workspaceScoped: false,
   });
   return load(auth);

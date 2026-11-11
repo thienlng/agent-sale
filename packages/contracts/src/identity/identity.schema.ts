@@ -61,6 +61,25 @@ export const LoginRequest = z.object({
 });
 export type LoginRequest = z.infer<typeof LoginRequest>;
 
+/** Which sign-in methods besides email + password this server offers. */
+export const AuthProvidersResponse = z.object({ google: z.boolean() });
+export type AuthProvidersResponse = z.infer<typeof AuthProvidersResponse>;
+
+/** `redirect`: the same-app path to open after signing in. */
+export const GoogleStartQuery = z.object({ redirect: z.string().max(500).optional() });
+export type GoogleStartQuery = z.infer<typeof GoogleStartQuery>;
+
+export const GoogleCallbackQuery = z.object({
+  code: z.string().max(2048).optional(),
+  state: z.string().max(200).optional(),
+  error: z.string().max(200).optional(),
+});
+export type GoogleCallbackQuery = z.infer<typeof GoogleCallbackQuery>;
+
+/** The second factor after a Google sign-in; the pending sign-in rides in an HttpOnly cookie. */
+export const GoogleMfaRequest = z.object({ code: z.string().trim().min(6).max(32) });
+export type GoogleMfaRequest = z.infer<typeof GoogleMfaRequest>;
+
 /** Native clients send the refresh token in the body; web clients rely on the HttpOnly cookie. */
 export const RefreshRequest = z.object({
   refreshToken: z.string().min(20).max(200).optional(),

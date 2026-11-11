@@ -104,3 +104,23 @@ export class SignupBusinessDoneError extends DomainError {
     });
   }
 }
+
+export type GoogleSignInFailure =
+  /** Not configured on this server. */
+  | 'unavailable'
+  /** The user cancelled on Google's screen. */
+  | 'cancelled'
+  /** The sign-in took too long, or the browser lost the flow cookie (state mismatch). */
+  | 'expired'
+  /** Google does not vouch for the email address. */
+  | 'unverified_email'
+  /** Google answered with an error or a token that did not verify. */
+  | 'failed';
+
+/** A Google sign-in that cannot finish; the reason is shown on the login page. */
+export class GoogleSignInError extends DomainError {
+  readonly code = 'UNAUTHENTICATED';
+  constructor(readonly reason: GoogleSignInFailure) {
+    super('Google sign-in did not complete', { reason: `google_${reason}` });
+  }
+}

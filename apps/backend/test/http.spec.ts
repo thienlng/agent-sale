@@ -29,6 +29,10 @@ import {
   type LlmProviderFactory,
 } from '../src/modules/ai/application/ports/llm-provider-factory.js';
 import {
+  GOOGLE_OAUTH_CLIENT,
+  type GoogleOAuthClient,
+} from '../src/modules/identity/application/ports/google-oauth.js';
+import {
   USER_REPOSITORY,
   type UserRepository,
 } from '../src/modules/identity/domain/ports/user.repository.js';
@@ -228,6 +232,88 @@ describe('HTTP: auth and tenancy', () => {
       cookies: { rapiz_rt: cookie?.value ?? '' },
     });
     expect(evil.statusCode).toBe(403);
+  });
+
+  it('Google sign-in is offered as unavailable until it is configured', async () => {
+    const a = await app();
+    const providers = await inject(a, { method: 'GET', url: '/api/v1/auth/providers' });
+    expect(providers.json()).toEqual({ google: false });
+    const start = await inject(a, {
+      method: 'GET',
+      url: '/api/v1/auth/google/start?redirect=//evil',
+    });
+    expect(start.statusCode).toBe(302);
+    expect(start.headers.location).toBe(
+      '/login?google_error=unavailable&redirect=%2Fapp%2Fanalytics',
+    );
+  });
+
+  it('Google sign-in: start, callback, then the SPA refreshes with the cookie', async () => {
+    const a = await app({
+      GOOGLE_CLIENT_ID: 'client-123.apps.googleusercontent.com',
+      GOOGLE_CLIENT_SECRET: 'secret-xyz-123',
+    });
+    expect((await inject(a, { method: 'GET', url: '/api/v1/auth/providers' })).json()).toEqual({
+      google: true,
+    });
+    const start = await inject(a, {
+      method: 'GET',
+      url: '/api/v1/auth/google/start?redirect=%2Fapp%2Finbox',
+    });
+    expect(start.statusCode).toBe(302);
+    const google = new URL(String(start.headers.location));
+    expect(google.host).toBe('accounts.google.com');
+    expect(google.searchParams.get('redirect_uri')).toBe(
+      'http://localhost:5173/api/v1/auth/google/callback',
+    );
+    const flow = start.cookies.find((c) => c.name === 'rapiz_google');
+    expect(flow).toMatchObject({ httpOnly: true, path: '/api/v1/auth/google', sameSite: 'Lax' });
+
+    const client = a.get<GoogleOAuthClient>(GOOGLE_OAUTH_CLIENT);
+    vi.spyOn(client, 'exchange').mockResolvedValue({
+      subject: 'google-sub-9',
+      email: 'chu.shop@gmail.com',
+      emailVerified: true,
+      name: 'Chủ Shop',
+      nonce: google.searchParams.get('nonce'),
+    });
+    const callback = await inject(a, {
+      method: 'GET',
+      url: `/api/v1/auth/google/callback?code=abc&state=${google.searchParams.get('state')}`,
+      cookies: { rapiz_google: flow?.value ?? '' },
+    });
+    expect(callback.statusCode).toBe(302);
+    expect(callback.headers.location).toBe('/login?google=done&redirect=%2Fapp%2Finbox');
+    const refresh = callback.cookies.find((c) => c.name === 'rapiz_rt');
+    expect(refresh).toMatchObject({ httpOnly: true, path: '/api/v1/auth' });
+    expect(callback.cookies.find((c) => c.name === 'rapiz_google')?.value).toBe('');
+
+    const session = await inject(a, {
+      method: 'POST',
+      url: '/api/v1/auth/refresh',
+      payload: {},
+      headers: { origin: 'http://localhost:5173' },
+      cookies: { rapiz_rt: refresh?.value ?? '' },
+    });
+    expect(AuthResponse.parse(session.json()).user).toMatchObject({
+      email: 'chu.shop@gmail.com',
+      emailVerified: true,
+    });
+
+    // Replaying the callback (flow cookie gone) or cancelling on Google lands back on /login.
+    const replay = await inject(a, {
+      method: 'GET',
+      url: `/api/v1/auth/google/callback?code=abc&state=${google.searchParams.get('state')}`,
+    });
+    expect(replay.headers.location).toBe('/login?google_error=expired&redirect=%2Fapp%2Fanalytics');
+    const cancelled = await inject(a, {
+      method: 'GET',
+      url: '/api/v1/auth/google/callback?error=access_denied',
+      cookies: { rapiz_google: flow?.value ?? '' },
+    });
+    expect(cancelled.headers.location).toBe(
+      '/login?google_error=cancelled&redirect=%2Fapp%2Finbox',
+    );
   });
 
   it('native clients get and send the refresh token in the body', async () => {

@@ -7,35 +7,64 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ApiClientError } from '@/lib/api-client';
-import { login } from '@/lib/session';
+import { login, verifyGoogleSignIn } from '@/lib/session';
 
 import { FormError } from './form-error';
+import { GoogleButton } from './google-button';
 
-export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
+const GOOGLE_ERRORS = ['cancelled', 'expired', 'unverified_email', 'unavailable', 'too_many'];
+
+/** A Google sign-in that came back to /login: still waiting for the code, or failed with a reason. */
+export type GoogleReturn = { step: 'mfa' } | { step: 'error'; reason: string };
+
+export function LoginForm({
+  onSuccess,
+  redirect,
+  google,
+}: {
+  onSuccess: () => void;
+  /** Same-app path to open after signing in (passed through Google). */
+  redirect?: string | undefined;
+  google?: GoogleReturn | undefined;
+}) {
   const { t } = useTranslation();
   const [pending, setPending] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  // Set once the password was right but the account wants a second factor.
-  const [pending2fa, setPending2fa] = useState<{ email: string; password: string } | null>(null);
+  const [error, setError] = useState<string | null>(() =>
+    google?.step === 'error'
+      ? t(`auth.googleErrors.${GOOGLE_ERRORS.includes(google.reason) ? google.reason : 'failed'}`)
+      : null,
+  );
+  // Set once the password (or Google) was right but the account wants a second factor.
+  const [pending2fa, setPending2fa] = useState<
+    { via: 'password'; email: string; password: string } | { via: 'google' } | null
+  >(google?.step === 'mfa' ? { via: 'google' } : null);
   const [recovery, setRecovery] = useState(false);
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    const email = pending2fa?.email ?? String(form.get('email'));
-    const password = pending2fa?.password ?? String(form.get('password'));
+    const viaPassword = pending2fa?.via === 'password' ? pending2fa : null;
+    const email = viaPassword?.email ?? String(form.get('email'));
+    const password = viaPassword?.password ?? String(form.get('password'));
     const code = pending2fa ? String(form.get('code') ?? '').trim() : undefined;
     setPending(true);
     setError(null);
     try {
-      await login({ email, password, ...(code ? { code } : {}) });
+      if (pending2fa?.via === 'google') await verifyGoogleSignIn(code ?? '');
+      else await login({ email, password, ...(code ? { code } : {}) });
       onSuccess();
     } catch (err) {
       const reason = err instanceof ApiClientError ? err.details?.['reason'] : undefined;
       if (reason === 'mfa_required') {
         setPasswordVisible(false);
-        setPending2fa({ email, password });
+        setPending2fa({ via: 'password', email, password });
+        return;
+      }
+      if (reason === 'google_expired') {
+        setPending2fa(null);
+        setRecovery(false);
+        setError(t('auth.googleErrors.expired'));
         return;
       }
       const code = err instanceof ApiClientError ? err.code : '';
@@ -159,25 +188,7 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
         {pending ? t('auth.loggingIn') : t('auth.login')}
         <ArrowRight size={18} aria-hidden />
       </Button>
-      <button type="button" className="login-google" disabled>
-        <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true">
-          <path
-            fill="#4285F4"
-            d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.6c3.9-3.6 6.1-8.8 6.1-15Z"
-          />
-          <path
-            fill="#34A853"
-            d="M24 44c5.5 0 10.1-1.8 13.5-4.5l-6.6-5.1c-1.8 1.2-4.1 1.9-6.9 1.9-5.3 0-9.8-3.6-11.4-8.4H5.8v5.3A20.4 20.4 0 0 0 24 44Z"
-          />
-          <path fill="#FBBC05" d="M12.6 27.9a12.2 12.2 0 0 1 0-7.8v-5.3H5.8a20 20 0 0 0 0 18.4Z" />
-          <path
-            fill="#EA4335"
-            d="M24 11.7c3 0 5.7 1 7.8 3.1l5.8-5.8A19.4 19.4 0 0 0 24 4 20.4 20.4 0 0 0 5.8 14.8l6.8 5.3c1.6-4.8 6.1-8.4 11.4-8.4Z"
-          />
-        </svg>
-        {t('auth.googleLogin')}
-        <small>{t('auth.googleSoon')}</small>
-      </button>
+      <GoogleButton redirect={redirect} />
       <p className="text-center text-sm text-muted-foreground">
         {t('auth.noAccount')}{' '}
         <Link to="/signup" className="font-medium text-brand-text hover:underline">

@@ -4,7 +4,18 @@ import { startTestPostgres, type TestPostgres } from '@agent-sales/testing';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { userId } from '@agent-sales/shared';
+
 import { AppModule } from '../src/app.module.js';
+import {
+  EXTERNAL_IDENTITY_REPOSITORY,
+  type ExternalIdentityRepository,
+} from '../src/modules/identity/domain/ports/external-identity.repository.js';
+import {
+  USER_REPOSITORY,
+  type UserRepository,
+} from '../src/modules/identity/domain/ports/user.repository.js';
+import { User } from '../src/modules/identity/domain/user.js';
 import { createHttpApp } from '../src/bootstrap.js';
 import { lastEmailedCode, signupCode, signUpVerified } from './support/signup.js';
 
@@ -227,5 +238,55 @@ describe('identity on Postgres', () => {
       payload: { client: 'native', refreshToken: second },
     });
     expect(afterRevoke.statusCode).toBe(401);
+  });
+
+  it('stores Google-only users without a password and links Google accounts by subject', async () => {
+    const users = app.get<UserRepository>(USER_REPOSITORY);
+    const identities = app.get<ExternalIdentityRepository>(EXTERNAL_IDENTITY_REPOSITORY);
+    const lan = User.registerFromProvider({
+      email: 'lan.google@gmail.com',
+      name: 'Lan',
+      emailVerifiedAt: new Date(),
+    });
+    await users.insert(lan);
+    const stored = await users.findById(lan.id);
+    expect(stored?.hasPassword).toBe(false);
+    expect(stored?.emailVerified).toBe(true);
+
+    const at = new Date();
+    await identities.link(
+      { provider: 'google', subject: 'sub-lan', userId: lan.id, email: 'lan.google@gmail.com' },
+      at,
+    );
+    expect(await identities.findUserId('google', 'sub-lan')).toBe(lan.id);
+    // A later sign-in with a new address keeps the link; another user cannot take the subject.
+    await identities.link(
+      { provider: 'google', subject: 'sub-lan', userId: lan.id, email: 'lan.new@gmail.com' },
+      at,
+    );
+    const other = User.registerFromProvider({
+      email: 'other@gmail.com',
+      name: 'O',
+      emailVerifiedAt: at,
+    });
+    await users.insert(other);
+    await identities.link(
+      { provider: 'google', subject: 'sub-lan', userId: other.id, email: 'x@gmail.com' },
+      at,
+    );
+    expect(await identities.findUserId('google', 'sub-lan')).toBe(lan.id);
+    expect(await identities.findUserId('google', 'unknown')).toBeNull();
+
+    // An unverified account linked by email loses its password.
+    const squatter = User.register({
+      email: 'squat@gmail.com',
+      name: 'S',
+      passwordHash: 'not-a-real-hash',
+    });
+    await users.insert(squatter);
+    await users.confirmEmail(squatter.id, at, true);
+    const confirmed = await users.findById(userId(squatter.id));
+    expect(confirmed?.emailVerified).toBe(true);
+    expect(confirmed?.hasPassword).toBe(false);
   });
 });

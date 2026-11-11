@@ -26,7 +26,11 @@ function SignupPage() {
   const safe = target && /^\/(?![/\\])/.test(target) ? target : '/app/analytics';
   return (
     <AuthLayout>
-      <SignupForm defaultEmail={email} onSuccess={() => void navigate({ to: safe })} />
+      <SignupForm
+        defaultEmail={email}
+        redirect={target ? safe : undefined}
+        onSuccess={() => void navigate({ to: safe })}
+      />
     </AuthLayout>
   );
 }

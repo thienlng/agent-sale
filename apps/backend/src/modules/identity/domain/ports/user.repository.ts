@@ -16,6 +16,11 @@ export interface UserRepository {
   search(q: string, limit: number): Promise<User[]>;
   /** Replaces the password hash; the email counts as verified (the code proved it). */
   setPassword(id: UserId, passwordHash: string, at: Date): Promise<void>;
+  /**
+   * Marks the email verified by an identity provider. `dropPassword` clears a password set before
+   * the address was proven, so whoever registered someone else's address cannot keep access.
+   */
+  confirmEmail(id: UserId, at: Date, dropPassword: boolean): Promise<void>;
   /** Grants or revokes platform admin (CLI only). False when no user has that email. */
   setPlatformAdmin(email: string, value: boolean): Promise<boolean>;
 }

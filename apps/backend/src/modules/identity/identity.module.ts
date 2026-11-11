@@ -27,6 +27,8 @@ import {
   SignupHandler,
 } from './application/commands/auth.handlers.js';
 import { EmailCodeService } from './application/email-codes.js';
+import { GoogleSignInService } from './application/google-sign-in.js';
+import { GOOGLE_OAUTH_CLIENT, GOOGLE_SIGN_IN_OPTIONS } from './application/ports/google-oauth.js';
 import {
   API_KEY_STORE,
   API_PLAN_GATE,
@@ -38,17 +40,20 @@ import { DelegatedAccessService } from './application/delegated-access.js';
 import { MfaService } from './application/mfa.service.js';
 import { SessionService } from './application/sessions.js';
 import { EMAIL_CODE_REPOSITORY } from './domain/ports/email-code.repository.js';
+import { EXTERNAL_IDENTITY_REPOSITORY } from './domain/ports/external-identity.repository.js';
 import { MFA_REPOSITORY } from './domain/ports/mfa.repository.js';
 import { SESSION_REPOSITORY } from './domain/ports/session.repository.js';
 import { USER_REPOSITORY } from './domain/ports/user.repository.js';
 import {
   DrizzleEmailCodeRepository,
+  DrizzleExternalIdentityRepository,
   DrizzleMfaRepository,
   DrizzleSessionRepository,
   DrizzleUserRepository,
 } from './infrastructure/persistence/identity.drizzle-repositories.js';
 import {
   InMemoryEmailCodeRepository,
+  InMemoryExternalIdentityRepository,
   InMemoryMfaRepository,
   InMemorySessionRepository,
   InMemoryUserRepository,
@@ -65,10 +70,12 @@ import { Argon2PasswordHasher } from './infrastructure/security/argon2-password-
 import { InMemoryAttemptLimiter } from './infrastructure/security/in-memory-attempt-limiter.js';
 import { InMemoryApiRateLimiter } from './infrastructure/security/in-memory-rate-limiter.js';
 import { PostgresApiRateLimiter } from './infrastructure/security/postgres-rate-limiter.js';
+import { HttpGoogleOAuthClient } from './infrastructure/security/google-oauth.client.js';
 import { JoseAccessTokens } from './infrastructure/security/jose-access-tokens.js';
 import { AUTH_HTTP_OPTIONS } from './interface/http/auth-http.options.js';
 import { AuthController } from './interface/http/auth.controller.js';
 import { AuthGuard } from './interface/http/auth.guard.js';
+import { GoogleAuthController } from './interface/http/google-auth.controller.js';
 import { IdempotencyInterceptor } from './interface/http/idempotency.interceptor.js';
 
 /**
@@ -77,7 +84,7 @@ import { IdempotencyInterceptor } from './interface/http/idempotency.interceptor
  */
 @Module({
   imports: [WorkspaceModule, AccountModule, BillingModule],
-  controllers: [AuthController],
+  controllers: [AuthController, GoogleAuthController],
   providers: [
     SessionService,
     MfaService,
@@ -107,6 +114,35 @@ import { IdempotencyInterceptor } from './interface/http/idempotency.interceptor
       useFactory: (db: Database | null | undefined) =>
         db ? new DrizzleSessionRepository(db) : new InMemorySessionRepository(),
     },
+    {
+      provide: EXTERNAL_IDENTITY_REPOSITORY,
+      inject: [{ token: DB_SYSTEM, optional: true }],
+      useFactory: (db: Database | null | undefined) =>
+        db ? new DrizzleExternalIdentityRepository(db) : new InMemoryExternalIdentityRepository(),
+    },
+    {
+      provide: GOOGLE_OAUTH_CLIENT,
+      useFactory: () => {
+        const env = getEnv();
+        return env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+          ? new HttpGoogleOAuthClient({
+              clientId: env.GOOGLE_CLIENT_ID,
+              clientSecret: env.GOOGLE_CLIENT_SECRET,
+            })
+          : null;
+      },
+    },
+    {
+      provide: GOOGLE_SIGN_IN_OPTIONS,
+      useFactory: () => {
+        const env = getEnv();
+        const origin = env.APP_ORIGINS.split(',')[0]?.trim() || 'http://localhost:5173';
+        return {
+          redirectUri: env.GOOGLE_REDIRECT_URI ?? `${origin}/api/v1/auth/google/callback`,
+        };
+      },
+    },
+    GoogleSignInService,
     {
       provide: MFA_REPOSITORY,
       inject: [{ token: DB_SYSTEM, optional: true }],
