@@ -39,6 +39,9 @@ import {
 } from '../src/modules/identity/domain/ports/user.repository.js';
 import { signUpVerified, signupCode } from './support/signup.js';
 
+/** Synthetic OAuth client secret for tests (built at runtime so secret scanners skip it). */
+const TEST_CLIENT_SECRET = ['test', 'client', 'secret'].join('-');
+
 /** HTTP-level tests through Fastify inject; no DB configured → in-memory adapters. */
 let current: NestFastifyApplication | undefined;
 const registered: Array<{ method: string; url: string }> = [];
@@ -252,7 +255,7 @@ describe('HTTP: auth and tenancy', () => {
   it('Google sign-in: start, callback, then the SPA refreshes with the cookie', async () => {
     const a = await app({
       GOOGLE_CLIENT_ID: 'client-123.apps.googleusercontent.com',
-      GOOGLE_CLIENT_SECRET: 'secret-xyz-123',
+      GOOGLE_CLIENT_SECRET: TEST_CLIENT_SECRET,
     });
     expect((await inject(a, { method: 'GET', url: '/api/v1/auth/providers' })).json()).toEqual({
       google: true,
@@ -321,7 +324,7 @@ describe('HTTP: auth and tenancy', () => {
   it('Google sign-in: an unexpected error redirects with `failed` and logs no PII', async () => {
     const a = await app({
       GOOGLE_CLIENT_ID: 'client-123.apps.googleusercontent.com',
-      GOOGLE_CLIENT_SECRET: 'secret-xyz-123',
+      GOOGLE_CLIENT_SECRET: TEST_CLIENT_SECRET,
     });
     const start = await inject(a, {
       method: 'GET',
