@@ -117,7 +117,8 @@ A ZIP named `rapiz-<business slug>-<UTC date>.zip`:
 - `README.txt` in the requester's language: what the files are, how ids join them, UTC ISO 8601 times, VND integers, the formula prefix, what is never included, rows per file, media copied/skipped.
 - One **CSV per data kind** (UTF-8 with BOM, RFC 4180, CRLF), ids kept so files join. Each data-owning module declares its own files:
   - workspace: `business.csv`, `members.csv`; dataexport adds `people.csv` (member names and emails through the identity facade, since `users` is not tenant-readable)
-  - crm: `customers.csv`, `customer_notes.csv`, `customer_history.csv` (bot-recorded requests of saas/education/spa are history entries; draft: a separate `requests.csv`), `customer_tags.csv`
+  - crm: `customers.csv`, `customer_notes.csv`, `customer_history.csv` (bot-recorded requests of saas/education/spa are history entries; draft: a separate `requests.csv`), `customer_tags.csv`, `tasks.csv` (added with ADR-030)
+  - brain: `conversation_signals.csv` (added with ADR-030; the operational `signal_*` and `brain_settings` tables are not exported)
   - conversation: `conversations.csv`, `messages.csv`
   - commerce: `products.csv`, `product_variants.csv`, `orders.csv`, `order_items.csv`, `stay_requests.csv`
   - knowledge: `knowledge_items.csv`, `training_items.csv`
