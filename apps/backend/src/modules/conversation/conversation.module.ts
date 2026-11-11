@@ -14,7 +14,7 @@ import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { CONVERSATION_FACADE, CONVERSATION_RUNNER } from './api/conversation.facade.js';
 import { CONVERSATION_EXPORT } from './api/conversation-export.js';
 import { ConversationExportSource } from './infrastructure/export/conversation.export.js';
-import { ConversationFacadeImpl } from './application/conversation.facade.impl.js';
+import { ConversationFacadeImpl, HUMAN_AGENT_TAG } from './application/conversation.facade.impl.js';
 import { InboxAlerts } from './application/inbox-alerts.js';
 import { NOTIFICATION_FACADE, type NotificationFacade } from '../notification/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../workspace/api/index.js';
@@ -60,6 +60,7 @@ import { ConversationController } from './interface/http/conversation.controller
       useFactory: (n: NotificationFacade, w: WorkspaceFacade) => new InboxAlerts(n, w),
       inject: [NOTIFICATION_FACADE, WORKSPACE_FACADE],
     },
+    { provide: HUMAN_AGENT_TAG, useFactory: () => getEnv().META_HUMAN_AGENT_TAG === 'true' },
     ConversationFacadeImpl,
     { provide: CONVERSATION_FACADE, useExisting: ConversationFacadeImpl },
     {

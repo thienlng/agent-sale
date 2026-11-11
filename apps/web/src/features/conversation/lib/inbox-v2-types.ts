@@ -70,6 +70,8 @@ export type InboxListResponse = z.infer<typeof InboxListResponse>;
 export const InboxDetailResponse = z.object({
   conversation: InboxConversationDto,
   messages: z.array(InboxMessage),
+  /** A member may reply 24 h–7 days after the customer (Meta HUMAN_AGENT tag, ADR-031). */
+  humanAgentReply: z.boolean().optional(),
 });
 export type InboxDetailResponse = z.infer<typeof InboxDetailResponse>;
 

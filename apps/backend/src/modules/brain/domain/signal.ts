@@ -20,6 +20,8 @@ export interface ConversationSignal {
   evaluatedAt: Date | null;
   stageLocked: boolean;
   dismissedUntilMessageAfter: Date | null;
+  /** The customer asked not to be contacted (the model's answer): never followed up. */
+  optOut: boolean;
   version: number;
   updatedAt: Date;
 }
@@ -45,6 +47,7 @@ export function blankSignal(
     evaluatedAt: null,
     stageLocked: false,
     dismissedUntilMessageAfter: null,
+    optOut: false,
     version: 0,
     updatedAt: now,
   };
@@ -105,6 +108,7 @@ export function applyEvaluation(
     followUpAt: out.followUpAt ? new Date(out.followUpAt) : null,
     followUpReason: out.followUpAt ? (out.followUpReason ?? null) : null,
     note: out.note || null,
+    optOut: out.optOut,
     evaluatedUntil: evaluatedUntil(prev.evaluatedUntil, cover.lastMessageAt),
     evaluatedAt: now,
     dismissedUntilMessageAfter: keepDismissal ? dismissed : null,

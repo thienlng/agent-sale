@@ -3,9 +3,11 @@ import {
   asc,
   desc,
   eq,
+  gte,
   inArray,
   isNotNull,
   isNull,
+  lt,
   schema,
   sql,
   type TenantTx,
@@ -292,6 +294,43 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
           .groupBy(o.conversationId);
         return rows.flatMap((r) =>
           r.conversationId ? [{ conversationId: r.conversationId, at: new Date(r.at) }] : [],
+        );
+      },
+      async conversationOrders({ since, until, orderIds }) {
+        const rows = await tx
+          .select({
+            orderId: o.id,
+            conversationId: o.conversationId,
+            createdAt: o.createdAt,
+            total: o.total,
+            status: o.status,
+          })
+          .from(o)
+          .where(
+            and(
+              eq(o.workspaceId, ws),
+              isNotNull(o.conversationId),
+              isNull(o.deletedAt),
+              sql`${o.status} <> 'cancelled'`,
+              gte(o.createdAt, since),
+              lt(o.createdAt, until),
+              orderIds ? inArray(o.id, [...orderIds]) : undefined,
+            ),
+          )
+          .orderBy(asc(o.createdAt))
+          .limit(5000);
+        return rows.flatMap((r) =>
+          r.conversationId
+            ? [
+                {
+                  orderId: r.orderId,
+                  conversationId: r.conversationId,
+                  createdAt: new Date(r.createdAt),
+                  total: Number(r.total),
+                  status: String(r.status),
+                },
+              ]
+            : [],
         );
       },
       async placedSummary({ since, until, limit }) {

@@ -14,6 +14,8 @@ const unavailable = (): Promise<never> => Promise.reject(new BrainUnavailableErr
 /** Without a database every Brain route answers 503 and the worker has nothing to do. */
 export class UnavailableBrainStore implements BrainStore {
   getSettings = unavailable;
+  getAutonomy = unavailable;
+  putAutonomy = unavailable;
   putSettings = unavailable;
   getSignal = unavailable;
   signalsFor = unavailable;

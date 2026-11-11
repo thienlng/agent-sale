@@ -518,6 +518,17 @@ export interface CommerceTx {
       conversationIds: readonly string[],
     ): Promise<{ conversationId: string; at: Date }[]>;
     /**
+     * Orders with a conversation (not deleted, not cancelled) created in `[since, until)`, only
+     * `orderIds` when given; oldest first, at most 5 000 (the care agent, spec 2026-11-11).
+     */
+    conversationOrders(q: {
+      since: Date;
+      until: Date;
+      orderIds?: readonly string[] | undefined;
+    }): Promise<
+      { orderId: string; conversationId: string; createdAt: Date; total: number; status: string }[]
+    >;
+    /**
      * Orders placed in `[since, until)`, deleted and cancelled ones left out: how many, their
      * summed total, and the newest `limit` (owner reports, T-172).
      */

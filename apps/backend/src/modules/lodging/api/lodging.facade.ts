@@ -20,6 +20,25 @@ export interface LodgingFacade {
     workspaceId: WorkspaceId,
     conversationIds: readonly string[],
   ): Promise<{ conversationId: string; at: Date }[]>;
+  /**
+   * Stay bookings linked to a conversation (held, confirmed, checked in or out) created in
+   * `[since, until)`, or only those of `bookingIds` when given (≤ 1 000): id, conversation,
+   * creation time, sell total (integer VND, 0 when not priced) and status, oldest first, at most
+   * 5 000. For the care agent's stop rules and attribution; no guest data.
+   */
+  conversationBookings(
+    workspaceId: WorkspaceId,
+    q: { since: Date; until: Date; bookingIds?: readonly string[] | undefined },
+  ): Promise<ConversationBooking[]>;
+}
+
+/** A stay booking made in a conversation. */
+export interface ConversationBooking {
+  bookingId: string;
+  conversationId: string;
+  createdAt: Date;
+  total: number;
+  status: string;
 }
 
 export interface StayRevenue {

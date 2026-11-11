@@ -9,6 +9,7 @@ import type {
   SignalJob,
   SignalRunRecord,
 } from '../../domain/ports/brain.store.js';
+import type { AutonomyAction, AutonomyLevel } from '../../domain/autonomy.js';
 import { type BrainSettings, DEFAULT_BRAIN_SETTINGS, nextRunAfter } from '../../domain/schedule.js';
 import { blankSignal, type ConversationSignal, type StageChange } from '../../domain/signal.js';
 
@@ -26,7 +27,29 @@ export class MemoryBrainStore implements BrainStore {
   jobs = new Map<string, MemoryJob>();
   usage = new Map<string, number>();
   runs: (SignalRunRecord & { workspaceId: string })[] = [];
+  /** `brain.signals.updated.v1` written with each evaluation or stage change. */
+  updated: { workspaceId: string; conversationId: string; stage: string; optOut: boolean }[] = [];
+  #updated(ws: WorkspaceId, s: ConversationSignal) {
+    this.updated.push({
+      workspaceId: ws,
+      conversationId: s.conversationId,
+      stage: s.stage,
+      optOut: s.optOut,
+    });
+  }
 
+  autonomy = new Map<string, AutonomyLevel>();
+  getAutonomy(ws: WorkspaceId) {
+    return Promise.resolve(
+      [...this.autonomy]
+        .filter(([k]) => k.startsWith(`${ws}/`))
+        .map(([k, level]) => ({ action: k.slice(ws.length + 1) as AutonomyAction, level })),
+    );
+  }
+  putAutonomy(ws: WorkspaceId, rows: readonly { action: AutonomyAction; level: AutonomyLevel }[]) {
+    for (const r of rows) this.autonomy.set(key(ws, r.action), r.level);
+    return Promise.resolve();
+  }
   getSettings(ws: WorkspaceId) {
     return Promise.resolve(this.settings.get(ws) ?? null);
   }
@@ -56,6 +79,7 @@ export class MemoryBrainStore implements BrainStore {
     if (!stored) {
       const row = { ...s, stageLocked: false, dismissedUntilMessageAfter: null, version: 1 };
       this.signals.set(key(ws, s.conversationId), row);
+      this.#updated(ws, row);
       return Promise.resolve({ ...row });
     }
     const dismissed = stored.dismissedUntilMessageAfter;
@@ -73,6 +97,7 @@ export class MemoryBrainStore implements BrainStore {
       version: stored.version + 1,
     };
     this.signals.set(key(ws, s.conversationId), row);
+    this.#updated(ws, row);
     return Promise.resolve({ ...row });
   }
   saveStage(ws: WorkspaceId, id: string, contactId: string | null, change: StageChange, now: Date) {
@@ -86,6 +111,7 @@ export class MemoryBrainStore implements BrainStore {
       updatedAt: now,
     };
     this.signals.set(key(ws, id), row);
+    this.#updated(ws, row);
     return Promise.resolve({ ...row });
   }
   dismissSignal(ws: WorkspaceId, id: string, contactId: string | null, at: Date) {

@@ -18,7 +18,10 @@ import { conversations } from './conversation.js';
 import { contacts } from './crm.js';
 import { tenantPolicies, workspaces } from './workspace.js';
 
-/** Tables of the `brain` module (migration 0073, spec 2026-11-11 Business Brain v1). */
+/**
+ * Tables of the `brain` module (migration 0073, spec 2026-11-11 Business Brain v1; 0075 adds the
+ * opt-out signal and the autonomy registry).
+ */
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 const workspaceRef = () =>
   uuid('workspace_id')
@@ -65,6 +68,8 @@ export const conversationSignals = pgTable(
     stageLocked: boolean('stage_locked').notNull().default(false),
     dismissedUntilMessageAfter: ts('dismissed_until_message_after'),
     version: integer('version').notNull().default(1),
+    /** The customer asked not to be contacted (0075): the care agent never enrolls them. */
+    optOut: boolean('opt_out').notNull().default(false),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
   (t) => [
@@ -208,3 +213,26 @@ export const brainCheckpoints = pgTable('brain_checkpoints', {
   horizon: bigint('horizon', { mode: 'number' }).notNull().default(0),
   updatedAt: ts('updated_at').notNull().defaultNow(),
 });
+
+export const AUTONOMY_ACTIONS = ['care.send_message'] as const;
+export type AutonomyAction = (typeof AUTONOMY_ACTIONS)[number];
+export const AUTONOMY_LEVELS = ['suggest', 'act_and_report', 'auto'] as const;
+export type AutonomyLevel = (typeof AUTONOMY_LEVELS)[number];
+
+/** Autonomy level per business and action (0075, ADR-031); a missing row means the default. */
+export const autonomySettings = pgTable(
+  'autonomy_settings',
+  {
+    workspaceId: workspaceRef(),
+    action: text('action').$type<AutonomyAction>().notNull(),
+    level: text('level').$type<AutonomyLevel>().notNull(),
+    updatedBy: uuid('updated_by'),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.workspaceId, t.action] }),
+    check('autonomy_settings_action_check', sql`${t.action} in ('care.send_message')`),
+    check('autonomy_settings_level_check', sql`${t.level} in ('suggest','act_and_report','auto')`),
+    ...tenantPolicies('autonomy_settings'),
+  ],
+);

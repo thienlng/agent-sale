@@ -1,4 +1,4 @@
-import { type NormalizedEvent, withinReplyWindow } from '@agent-sales/channels';
+import { type NormalizedEvent, replyWindow } from '@agent-sales/channels';
 import {
   MessageUi,
   SendInboxMessageRequest,
@@ -31,6 +31,8 @@ import type {
   BotAttachment,
   BotQuickReplies,
   ConversationFacade,
+  AiTouch,
+  FollowUpFacts,
   SignalContext,
   TodayCandidatesQuery,
   TodayConversation,
@@ -51,6 +53,12 @@ import {
   type ConversationTx,
 } from './ports/conversation-store.js';
 const now = () => new Date().toISOString();
+/**
+ * Whether members may answer Messenger/Instagram customers between 24 hours and 7 days with the
+ * `HUMAN_AGENT` tag (env `META_HUMAN_AGENT_TAG`, off by default: the Meta app needs the Human
+ * Agent permission first). Bots and the care agent never use it (ADR-031).
+ */
+export const HUMAN_AGENT_TAG = Symbol('HUMAN_AGENT_TAG');
 /** A website visitor has no profile to look up: "Khách website" + the last 4 characters of the visitor id. */
 function named(provider: string, customerId: string, c: ConversationView): ConversationView {
   return provider === 'website'
@@ -76,6 +84,7 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
     @Inject(CRM_FACADE) private readonly crm: CrmFacade,
     @Inject(BOT_LIFECYCLE) @Optional() private readonly lifecycle?: BotLifecycle,
     @Inject(InboxAlerts) @Optional() private readonly alerts?: InboxAlerts,
+    @Inject(HUMAN_AGENT_TAG) @Optional() private readonly humanAgentTag?: boolean,
   ) {}
   /** `conversations.bot_id` is "the bot answering now" (ADR-012 §4): a deleted bot answers nothing. */
   onModuleInit(): void {
@@ -97,6 +106,66 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
       const c = await tx.find(id);
       return c ? buildSignalContext(c, await tx.messages(id), after) : null;
     });
+  }
+  followUpFacts(ws: WorkspaceId, id: string): Promise<FollowUpFacts | null> {
+    if (!isUuid(id)) return Promise.resolve(null);
+    return this.store.run(ws, async (tx) => {
+      const c = await tx.find(id);
+      if (!c) return null;
+      const lastHumanAt = await tx.lastHumanAt(id);
+      return {
+        id: c.id,
+        provider: c.provider,
+        status: c.status,
+        mode: c.mode,
+        assigneeId: c.assigneeId,
+        lastInboundAt: Date.parse(c.lastInboundAt) > 0 ? c.lastInboundAt : null,
+        lastMessageSender: c.lastMessageSender,
+        lastHumanAt,
+      };
+    });
+  }
+  async aiTouches(
+    ws: WorkspaceId,
+    points: readonly { conversationId: string; at: Date }[],
+    windowMs: number,
+  ): Promise<AiTouch[]> {
+    if (points.length > 1000)
+      throw new ConversationError('VALIDATION_FAILED', 'At most 1000 points per read');
+    // Points of a non-uuid id have no messages; they are answered without a read.
+    const valid = points.filter((p) => isUuid(p.conversationId));
+    const read = valid.length
+      ? await this.store.run(ws, (tx) => tx.aiTouches(valid, windowMs))
+      : [];
+    const none: AiTouch = { firstBotAt: null, staffAfter: false };
+    let i = 0;
+    return points.map((p) => (isUuid(p.conversationId) ? (read[i++] ?? none) : none));
+  }
+  async commitCareMessage(
+    ws: WorkspaceId,
+    id: string,
+    input: { text: string; idempotencyKey: string; anchorAt: Date },
+  ): Promise<InboxMessageDto> {
+    if (!input.text.trim() || input.text.length > 2000)
+      throw new ConversationError(
+        'VALIDATION_FAILED',
+        'Message must contain at most 2000 characters',
+      );
+    const sent = await this.reserveAndDeliver(
+      ws,
+      id,
+      {
+        text: input.text,
+        idempotencyKey: input.idempotencyKey,
+        source: 'care',
+        careAnchorAt: input.anchorAt,
+      },
+      null,
+      null,
+    );
+    if (!sent)
+      throw new ConversationError('CONFLICT', 'Conversation control changed', 'taken_over');
+    return sent;
   }
   async todayCandidates(ws: WorkspaceId, q: TodayCandidatesQuery): Promise<TodayConversation[]> {
     const ids = q.ids.filter(isUuid);
@@ -150,7 +219,13 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
   async get(ws: WorkspaceId, id: string) {
     const detail = await this.load(ws, id);
     const [conversation] = await attachTags(this.crm, ws, [detail.conversation]);
-    return { ...detail, conversation: conversation ?? detail.conversation };
+    const meta =
+      detail.conversation.provider === 'facebook' || detail.conversation.provider === 'instagram';
+    return {
+      ...detail,
+      conversation: conversation ?? detail.conversation,
+      humanAgentReply: meta && this.humanAgentTag === true,
+    };
   }
   private load(ws: WorkspaceId, id: string) {
     return this.store.run(ws, async (tx) => ({
@@ -754,7 +829,13 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
   private async reserveAndDeliver(
     ws: WorkspaceId,
     id: string,
-    input: OutboundInboxMessage & { idempotencyKey: string; ui?: MessageUi | undefined },
+    input: OutboundInboxMessage & {
+      idempotencyKey: string;
+      ui?: MessageUi | undefined;
+      source?: 'care' | undefined;
+      /** Care only: the customer message the follow-up was written for. */
+      careAnchorAt?: Date | undefined;
+    },
     actorId: string | null,
     expectedRevision: number | 'follow-up' | null,
   ): Promise<InboxMessageDto | null> {
@@ -787,11 +868,31 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
           revision: c.revision,
           customerId: c.customerId,
           awaitingBefore: c.awaitingSince,
+          tag: undefined,
         };
       }
-      // Staff reopen Done or Spam before replying, so nothing is sent from a folder by mistake.
-      if (actorId && c.status !== 'open')
-        throw new ConversationError('CONFLICT', 'Reopen the conversation before replying');
+      // Staff reopen Done or Spam before replying, so nothing is sent from a folder by mistake;
+      // the care agent never writes to a closed conversation.
+      if ((actorId || input.source === 'care') && c.status !== 'open')
+        throw new ConversationError(
+          'CONFLICT',
+          'Reopen the conversation before replying',
+          'conversation_closed',
+        );
+      // A follow-up goes out only while the bot holds the conversation and the customer has not
+      // written since the message it was written for (ADR-031): checked here, in the reserving
+      // transaction, so a customer message or a takeover during the model call wins.
+      if (input.source === 'care') {
+        if (c.mode !== 'bot')
+          throw new ConversationError('CONFLICT', 'A person holds the conversation', 'taken_over');
+        const anchor = input.careAnchorAt?.getTime() ?? Number.NEGATIVE_INFINITY;
+        if (c.lastMessageSender === 'customer' || Date.parse(c.lastInboundAt) > anchor)
+          throw new ConversationError(
+            'CONFLICT',
+            'The customer wrote after the follow-up was written',
+            'customer_replied',
+          );
+      }
       if (expectedRevision !== null && !bot?.isActive) return null;
       if (
         expectedRevision !== null &&
@@ -800,11 +901,18 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
           c.status !== 'open')
       )
         return null;
-      if (
-        !withinReplyWindow(c.provider, new Date(c.lastInboundAt)) ||
-        Date.parse(c.lastInboundAt) > Date.now() + 300000
-      )
-        throw new ConversationError('CONFLICT', 'The 24-hour messaging window is closed');
+      // Only a member's own reply (not a bot, not the care agent) may use HUMAN_AGENT (ADR-031).
+      const window = replyWindow(c.provider, new Date(c.lastInboundAt), new Date(), {
+        member: actorId !== null && expectedRevision === null && input.source !== 'care',
+        humanAgentTag: this.humanAgentTag === true,
+      });
+      if (window === 'closed' || Date.parse(c.lastInboundAt) > Date.now() + 300000)
+        throw new ConversationError(
+          'CONFLICT',
+          'The 24-hour messaging window is closed',
+          'window_closed',
+        );
+      const tag = window === 'human_agent' ? ('HUMAN_AGENT' as const) : undefined;
       const updated = {
         ...c,
         mode: actorId ? ('human' as const) : c.mode,
@@ -832,6 +940,8 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
         ...(input.ui && !actorId && c.provider === 'website'
           ? { ui: MessageUi.parse(input.ui) }
           : {}),
+        ...(input.source === 'care' && !actorId ? { source: 'care' as const } : {}),
+        ...(tag ? { tag } : {}),
       };
       await tx.save(updated);
       await tx.saveMessage(message, input.idempotencyKey);
@@ -847,6 +957,7 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
         revision: updated.revision,
         customerId: c.customerId,
         awaitingBefore: c.awaitingSince,
+        tag,
       };
     });
     if (!reservation || !reservation.deliver) return reservation?.message ?? null;
@@ -868,7 +979,12 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
       ws,
       channelId,
       reservation.customerId,
-      { text: input.text, attachments: input.attachments, quickReplies: input.quickReplies },
+      {
+        text: input.text,
+        attachments: input.attachments,
+        quickReplies: input.quickReplies,
+        ...(reservation.tag ? { tag: reservation.tag } : {}),
+      },
       input.idempotencyKey,
     );
     return this.store.run(ws, async (tx) => {
@@ -893,6 +1009,7 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
         channelId,
         ...(channel.botId ? { botId: channel.botId } : {}),
         sender: m.sender,
+        ...(m.source ? { source: m.source } : {}),
         occurredAt: now(),
       });
       return completed;

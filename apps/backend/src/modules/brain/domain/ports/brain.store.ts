@@ -1,5 +1,6 @@
 import type { WorkspaceId } from '@agent-sales/shared';
 
+import type { AutonomyAction, AutonomyLevel } from '../autonomy.js';
 import type { BrainSettings } from '../schedule.js';
 import type { ConversationSignal, StageChange, SignalTrigger } from '../signal.js';
 
@@ -29,6 +30,15 @@ export interface SignalRunRecord {
  */
 export interface BrainStore {
   getSettings(ws: WorkspaceId): Promise<BrainSettings | null>;
+  /** The stored autonomy levels of the business (actions without a row are absent). */
+  getAutonomy(ws: WorkspaceId): Promise<{ action: AutonomyAction; level: AutonomyLevel }[]>;
+  /** Upserts these levels and writes one audit row per action (`brain.autonomy.updated`). */
+  putAutonomy(
+    ws: WorkspaceId,
+    rows: readonly { action: AutonomyAction; level: AutonomyLevel }[],
+    actorId: string | null,
+    now: Date,
+  ): Promise<void>;
   putSettings(ws: WorkspaceId, s: BrainSettings): Promise<void>;
 
   getSignal(ws: WorkspaceId, conversationId: string): Promise<ConversationSignal | null>;

@@ -1,5 +1,6 @@
 import { defineRoutes } from '../common/routes.js';
 import {
+  AutonomySettingsResponse,
   BrainSettingsDto,
   BrainUsageDto,
   ConversationSignalResponse,
@@ -8,6 +9,7 @@ import {
   ReplyDraftResponse,
   TodayCountsResponse,
   TodayResponse,
+  UpdateAutonomySettingsRequest,
   UpdateBrainSettingsRequest,
   UpdateConversationSignalRequest,
 } from './brain.schema.js';
@@ -73,6 +75,30 @@ export const brainRoutes = defineRoutes([
     workspaceScoped: true,
     body: UpdateBrainSettingsRequest,
     responses: { 200: BrainSettingsDto },
+  },
+  {
+    method: 'get',
+    path: '/brain/autonomy',
+    assistant: {
+      use: 'read',
+      when: 'How much the AI may do on its own per kind of action (suggest, act and report, auto)',
+    },
+    summary: 'Autonomy level per AI action (default: suggest)',
+    tag: 'brain',
+    auth: true,
+    workspaceScoped: true,
+    responses: { 200: AutonomySettingsResponse },
+  },
+  {
+    method: 'put',
+    path: '/brain/autonomy',
+    assistant: { use: 'never' },
+    summary: 'Set the autonomy level of AI actions (owner and admin)',
+    tag: 'brain',
+    auth: true,
+    workspaceScoped: true,
+    body: UpdateAutonomySettingsRequest,
+    responses: { 200: AutonomySettingsResponse },
   },
   {
     method: 'get',

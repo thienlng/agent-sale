@@ -336,6 +336,58 @@ export class DrizzleConversationStore implements ConversationStore {
             ids: ids.map((r) => r.id),
           };
         },
+        async aiTouches(points, windowMs) {
+          if (!points.length) return [];
+          const at = (alias: string) => sql.raw(`(${alias}.data->>'createdAt')::timestamptz`);
+          const delivered = (alias: string, sender: 'bot' | 'human') =>
+            sql.raw(
+              `${alias}.workspace_id = p.ws and ${alias}.conversation_id = p.conv` +
+                ` and ${alias}.data->>'direction' = 'outbound' and ${alias}.data->>'status' = 'sent'` +
+                ` and ${alias}.data->>'sender' = '${sender}'`,
+            );
+          const convs = `{${points.map((p) => p.conversationId).join(',')}}`;
+          const ats = `{${points.map((p) => p.at.toISOString()).join(',')}}`;
+          // Per point: the first bot message in the window, then whether staff wrote after it.
+          const rows = await tx.execute<{
+            ord: string | number;
+            first_bot: string | Date | null;
+            staff: boolean;
+          }>(sql`
+            select p.ord, f.first_bot,
+                   f.first_bot is not null and exists (
+                     select 1 from ${m} h
+                      where ${delivered('h', 'human')}
+                        and ${at('h')} > f.first_bot and ${at('h')} < p.at) as staff
+              from (select ${ws}::uuid as ws, u.conv, u.at, u.ord
+                      from unnest(${convs}::uuid[], ${ats}::timestamptz[])
+                           with ordinality as u(conv, at, ord)) p
+              cross join lateral (
+                select min(${at('b')}) as first_bot from ${m} b
+                 where ${delivered('b', 'bot')}
+                   and ${at('b')} >= p.at - make_interval(secs => ${windowMs / 1000})
+                   and ${at('b')} < p.at) f
+             order by p.ord`);
+          return rows.map((r) => ({
+            firstBotAt: r.first_bot ? new Date(r.first_bot).toISOString() : null,
+            staffAfter: r.staff === true,
+          }));
+        },
+        async lastHumanAt(conversationId) {
+          const [r] = await tx
+            .select({
+              at: sql<string | Date | null>`max((${m.data}->>'createdAt')::timestamptz)`,
+            })
+            .from(m)
+            .where(
+              and(
+                eq(m.workspaceId, ws),
+                eq(m.conversationId, conversationId),
+                sql`${m.data}->>'sender' = 'human' and ${m.data}->>'direction' = 'outbound'`,
+                sql`${m.data}->>'status' <> 'failed'`,
+              ),
+            );
+          return r?.at ? new Date(r.at).toISOString() : null;
+        },
         async todayCandidates({
           ids,
           awaitingBefore,

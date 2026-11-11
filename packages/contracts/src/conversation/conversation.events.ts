@@ -19,6 +19,13 @@ export const MessageReceivedPayload = z.object({
 });
 export type MessageReceivedPayload = z.infer<typeof MessageReceivedPayload>;
 
+/** `conversation.control.updated.v1`: a person or the bot changed who holds it, or its status. */
+export const ControlUpdatedPayload = z.object({
+  mode: z.enum(['bot', 'human']).optional(),
+  status: z.string().optional(),
+});
+export type ControlUpdatedPayload = z.infer<typeof ControlUpdatedPayload>;
+
 export const ReplyCompletedPayload = z.object({
   messageId: z.string(),
   /** `sent` once the provider accepted it. */
@@ -27,6 +34,8 @@ export const ReplyCompletedPayload = z.object({
   /** Bot bound to the channel when the reply completed (ADR-012). */
   botId: z.uuid().optional(),
   sender: z.enum(['bot', 'human']).optional(),
+  /** `care`: a message of the care agent (ADR-031). */
+  source: z.literal('care').optional(),
   occurredAt: z.iso.datetime().optional(),
 });
 export type ReplyCompletedPayload = z.infer<typeof ReplyCompletedPayload>;

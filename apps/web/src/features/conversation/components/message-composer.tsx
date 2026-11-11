@@ -36,6 +36,8 @@ export function MessageComposer(props: {
   id: string;
   botId: string | null;
   windowClosed: boolean;
+  /** 24 hours to 7 days after the customer's message: the reply goes out as a person's (HUMAN_AGENT). */
+  humanAgentWindow?: boolean | undefined;
   /** Done or Spam: staff reopen before replying; the draft stays editable. */
   locked?: boolean | undefined;
   /** "Messenger" / "Instagram" for the placeholder. */
@@ -57,6 +59,7 @@ function ScopedComposer({
   id,
   botId,
   windowClosed: closedWindow,
+  humanAgentWindow = false,
   locked = false,
   channelLabel,
   scope,
@@ -65,6 +68,7 @@ function ScopedComposer({
   id: string;
   botId: string | null;
   windowClosed: boolean;
+  humanAgentWindow?: boolean | undefined;
   locked?: boolean | undefined;
   channelLabel?: string | undefined;
   channelId?: string | undefined;
@@ -271,6 +275,10 @@ function ScopedComposer({
         {closedWindow && !locked ? (
           <p role="status" className="mb-3 rounded-lg bg-muted p-3 text-xs text-muted-foreground">
             {tr('windowClosed')}
+          </p>
+        ) : humanAgentWindow && !locked ? (
+          <p role="status" className="mb-2 text-xs text-muted-foreground">
+            {tr('humanAgentHint')}
           </p>
         ) : null}
         {delivery === 'unknown' || delivery === 'pending' ? (

@@ -133,6 +133,10 @@ export const InboxMessageDto = z.object({
   createdAt: z.iso.datetime(),
   /** Website bot messages only: product cards and suggested next steps (ADR-029). */
   ui: MessageUi.optional(),
+  /** A bot message written by the care agent ("Chăm sóc tự động", ADR-031); absent otherwise. */
+  source: z.literal('care').optional(),
+  /** Sent with a Meta message tag (`HUMAN_AGENT`: a member's reply after 24 hours). */
+  tag: z.literal('HUMAN_AGENT').optional(),
 });
 export type InboxMessageDto = z.infer<typeof InboxMessageDto>;
 /** Uuid lists arrive in a query string as `a,b,c` (or as repeated parameters). */
@@ -213,6 +217,11 @@ export type ConversationListResponse = z.infer<typeof ConversationListResponse>;
 export const ConversationDetailDto = z.object({
   conversation: ConversationDto,
   messages: z.array(InboxMessageDto),
+  /**
+   * A member may still reply between 24 hours and 7 days after the customer's last message (Meta
+   * `HUMAN_AGENT` tag, env `META_HUMAN_AGENT_TAG`; Messenger and Instagram only, ADR-031).
+   */
+  humanAgentReply: z.boolean().optional(),
 });
 export type ConversationDetailDto = z.infer<typeof ConversationDetailDto>;
 export const SendInboxMessageRequest = z

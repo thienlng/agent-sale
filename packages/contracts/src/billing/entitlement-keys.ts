@@ -24,6 +24,8 @@ export const ENTITLEMENT_KEYS = {
   'api.requests_per_minute': 'limit',
   /** Business Brain conversation evaluations per business per day (Asia/Ho_Chi_Minh). */
   'brain.evaluations.daily': 'limit',
+  /** Care agent messages per business per day (Asia/Ho_Chi_Minh). */
+  'care.messages.daily': 'limit',
 } as const;
 export type EntitlementKey = keyof typeof ENTITLEMENT_KEYS;
 export type EntitlementKind = (typeof ENTITLEMENT_KEYS)[EntitlementKey];

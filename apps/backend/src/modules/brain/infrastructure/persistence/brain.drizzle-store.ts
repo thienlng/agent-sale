@@ -7,9 +7,13 @@ import {
   or,
   schema,
   sql,
+  type TenantTx,
   withSystem,
   withTenant,
+  writeAudit,
+  writeOutbox,
 } from '@agent-sales/db';
+import { BRAIN_SIGNALS_UPDATED, type BrainSignalsUpdatedPayload } from '@agent-sales/contracts';
 import { newId, workspaceId as asWorkspaceId, type WorkspaceId } from '@agent-sales/shared';
 
 import type {
@@ -19,6 +23,7 @@ import type {
   SignalRunRecord,
   TodaySignalRef,
 } from '../../domain/ports/brain.store.js';
+import type { AutonomyAction, AutonomyLevel } from '../../domain/autonomy.js';
 import type { BrainSettings } from '../../domain/schedule.js';
 import type { ConversationSignal, StageChange } from '../../domain/signal.js';
 
@@ -26,6 +31,7 @@ const cs = schema.conversationSignals;
 const jb = schema.signalJobs;
 const us = schema.signalUsage;
 const st = schema.brainSettings;
+const au = schema.autonomySettings;
 
 const toSignal = (r: typeof cs.$inferSelect): ConversationSignal => ({
   conversationId: r.conversationId,
@@ -42,6 +48,7 @@ const toSignal = (r: typeof cs.$inferSelect): ConversationSignal => ({
   evaluatedAt: r.evaluatedAt,
   stageLocked: r.stageLocked,
   dismissedUntilMessageAfter: r.dismissedUntilMessageAfter,
+  optOut: r.optOut,
   version: r.version,
   updatedAt: r.updatedAt,
 });
@@ -53,6 +60,32 @@ type RawJob = {
   run_after: string | Date;
   attempts: number;
 };
+
+/**
+ * `brain.signals.updated.v1` in the same transaction as the signal row (the care agent enrolls
+ * and stops from it, ADR-031).
+ */
+async function publishUpdated(
+  tx: TenantTx,
+  ws: WorkspaceId,
+  r: typeof cs.$inferSelect,
+  at: Date,
+): Promise<void> {
+  const payload: BrainSignalsUpdatedPayload = {
+    conversationId: r.conversationId,
+    stage: r.stage,
+    optOut: r.optOut,
+    version: r.version,
+    occurredAt: at.toISOString(),
+  };
+  await writeOutbox(tx, {
+    workspaceId: ws,
+    type: BRAIN_SIGNALS_UPDATED,
+    aggregateType: 'conversation',
+    aggregateId: r.conversationId,
+    payload,
+  });
+}
 
 /** A foreign-key violation: the conversation was deleted before its job was written. */
 const isMissingConversation = (e: unknown): boolean => {
@@ -99,6 +132,52 @@ export class DrizzleBrainStore implements BrainStore {
     });
   }
 
+  getAutonomy(ws: WorkspaceId): Promise<{ action: AutonomyAction; level: AutonomyLevel }[]> {
+    return withTenant(this.db, ws, (tx) =>
+      tx.select({ action: au.action, level: au.level }).from(au).where(eq(au.workspaceId, ws)),
+    );
+  }
+
+  putAutonomy(
+    ws: WorkspaceId,
+    rows: readonly { action: AutonomyAction; level: AutonomyLevel }[],
+    actorId: string | null,
+    now: Date,
+  ): Promise<void> {
+    return withTenant(this.db, ws, async (tx) => {
+      for (const r of rows) {
+        const [prev] = await tx
+          .select({ level: au.level })
+          .from(au)
+          .where(and(eq(au.workspaceId, ws), eq(au.action, r.action)));
+        await tx
+          .insert(au)
+          .values({
+            workspaceId: ws,
+            action: r.action,
+            level: r.level,
+            updatedBy: actorId,
+            updatedAt: now,
+          })
+          .onConflictDoUpdate({
+            target: [au.workspaceId, au.action],
+            set: { level: r.level, updatedBy: actorId, updatedAt: now },
+          });
+        if (prev?.level !== r.level) {
+          await writeAudit(tx, {
+            workspaceId: ws,
+            actorUserId: actorId,
+            actorName: null,
+            action: 'brain.autonomy.updated',
+            targetType: 'autonomy_setting',
+            targetId: r.action,
+            data: { from: prev?.level ?? null, to: r.level },
+          });
+        }
+      }
+    });
+  }
+
   getSignal(ws: WorkspaceId, conversationId: string): Promise<ConversationSignal | null> {
     return withTenant(this.db, ws, async (tx) => {
       const [r] = await tx
@@ -136,6 +215,7 @@ export class DrizzleBrainStore implements BrainStore {
         followUpAt: s.followUpAt,
         followUpReason: s.followUpReason,
         note: s.note,
+        optOut: s.optOut,
         evaluatedUntil: s.evaluatedUntil,
         evaluatedAt: s.evaluatedAt,
         updatedAt: s.updatedAt,
@@ -168,6 +248,7 @@ export class DrizzleBrainStore implements BrainStore {
         })
         .returning();
       if (!r) throw new Error('signal not written');
+      await publishUpdated(tx, ws, r, s.updatedAt);
       return toSignal(r);
     });
   }
@@ -202,6 +283,7 @@ export class DrizzleBrainStore implements BrainStore {
         })
         .returning();
       if (!r) throw new Error('signal not written');
+      await publishUpdated(tx, ws, r, now);
       return toSignal(r);
     });
   }

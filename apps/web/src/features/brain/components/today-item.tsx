@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils';
 
 import { StageBadge, StageMenu } from './stage-menu';
 
-const CHANNELS = new Set(['facebook', 'instagram', 'website']);
+export const CHANNELS = new Set(['facebook', 'instagram', 'website']);
 
 /** The customer's photo, or their initial. */
 export function CustomerInitial({ name, url }: { name: string; url: string | null }) {

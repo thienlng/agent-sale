@@ -16,6 +16,9 @@ import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { BRAIN_EXPORT } from './api/brain-export.js';
 import { BRAIN_FACADE } from './api/brain.facade.js';
 import { BRAIN_RUNNER } from './api/brain.runner.js';
+import { BRAIN_TODAY_REGISTRY } from './api/brain-today.js';
+import { AutonomyService } from './application/autonomy.service.js';
+import { TodayExtensions } from './application/today-extensions.js';
 import { BrainFacadeImpl } from './application/brain.facade.impl.js';
 import { Briefing } from './application/briefing.js';
 import { ComplaintAlert } from './application/complaint-alert.js';
@@ -75,6 +78,9 @@ import { ReplyDraftController, TodayController } from './interface/http/today.co
       useFactory: (db: Database | null | undefined) => new BrainExportSource(db ?? null),
     },
     SettingsService,
+    AutonomyService,
+    TodayExtensions,
+    { provide: BRAIN_TODAY_REGISTRY, useExisting: TodayExtensions },
     UsageService,
     ComplaintAlert,
     SignalEvaluator,
@@ -87,6 +93,6 @@ import { ReplyDraftController, TodayController } from './interface/http/today.co
     { provide: BRAIN_FACADE, useExisting: BrainFacadeImpl },
     { provide: BRAIN_RUNNER, useExisting: SignalRunner },
   ],
-  exports: [BRAIN_FACADE, BRAIN_RUNNER, BRAIN_EXPORT],
+  exports: [BRAIN_FACADE, BRAIN_RUNNER, BRAIN_EXPORT, BRAIN_TODAY_REGISTRY],
 })
 export class BrainModule {}

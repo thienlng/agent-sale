@@ -69,6 +69,7 @@
   "sending": "Đang gửi…",
   "sendHint": "Gửi tin nhắn sẽ tạm dừng bot. Enter để gửi, Shift+Enter để xuống dòng.",
   "windowClosed": "Đã hết thời hạn trả lời 24 giờ. Chờ khách hàng gửi tin nhắn mới.",
+  "humanAgentHint": "Gửi với tư cách nhân viên (trong 7 ngày): đã quá 24 giờ kể từ tin cuối của khách.",
   "received": "Đã nhận",
   "pending": "Đang chờ xác nhận gửi",
   "sent": "Đã gửi",
@@ -605,7 +606,8 @@
       "askWhyPrompt": "Vì sao bot trả lời tin nhắn lúc {{time}} như vậy?",
       "messageMenu": "Tuỳ chọn tin nhắn",
       "cards": "Thẻ sản phẩm khách thấy",
-      "suggestions": "Nút gợi ý khách thấy"
+      "suggestions": "Nút gợi ý khách thấy",
+      "care": "Chăm sóc tự động"
     },
     "tagBar": {
       "label": "Tag của hội thoại",

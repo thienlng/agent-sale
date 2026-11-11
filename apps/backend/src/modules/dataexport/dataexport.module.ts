@@ -7,6 +7,8 @@ import { DB_SYSTEM, DB_TENANT } from '../../common/db/db.module.js';
 import { BOT_EXPORT } from '../bot/api/index.js';
 import { BRAIN_EXPORT } from '../brain/api/index.js';
 import { BrainModule } from '../brain/brain.module.js';
+import { CARE_EXPORT } from '../care/api/index.js';
+import { CareModule } from '../care/care.module.js';
 import { BotModule } from '../bot/bot.module.js';
 import { COMMERCE_EXPORT } from '../commerce/api/index.js';
 import { CommerceModule } from '../commerce/commerce.module.js';
@@ -49,6 +51,7 @@ const SOURCE_TOKENS = [
   BOT_EXPORT,
   SAAS_EXPORT,
   BRAIN_EXPORT,
+  CARE_EXPORT,
 ];
 
 /** Whole-workspace data export (SET-10): requests and downloads in the api, builds in the worker. */
@@ -60,6 +63,7 @@ const SOURCE_TOKENS = [
     CrmModule,
     ConversationModule,
     BrainModule,
+    CareModule,
     CommerceModule,
     KnowledgeModule,
     LodgingModule,

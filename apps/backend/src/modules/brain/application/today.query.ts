@@ -3,6 +3,7 @@ import {
   TODAY_QUEUE_ITEMS_MAX,
   type RefreshTodayResponse,
   type TaskDto,
+  type TodayApprovalItem,
   type TodayConversationQueueKey,
   type TodayCounts,
   type TodayItem,
@@ -33,6 +34,7 @@ import {
   visibleTo,
 } from '../domain/today.js';
 import { SettingsService } from './settings.service.js';
+import { TodayExtensions } from './today-extensions.js';
 import { SignalEvaluator } from './signal-evaluator.js';
 import { UsageService } from './usage.service.js';
 
@@ -85,7 +87,37 @@ export class TodayQuery {
     @Inject(SignalEvaluator) private readonly evaluator: SignalEvaluator,
     @Inject(COMMERCE_FACADE) @Optional() private readonly commerce?: CommerceFacade,
     @Inject(LODGING_FACADE) @Optional() private readonly lodging?: LodgingFacade,
+    @Inject(TodayExtensions) @Optional() private readonly extensions?: TodayExtensions,
   ) {}
+
+  /** The care agent's drafts waiting for a person (none without the care module). */
+  async #approvals(
+    ws: WorkspaceId,
+    viewer: TodayViewer,
+    now: Date,
+    limit: number,
+  ): Promise<{ count: number; items: TodayApprovalItem[] }> {
+    const care = this.extensions?.care;
+    if (!care) return { count: 0, items: [] };
+    try {
+      return await care.approvals(ws, viewer, now, limit);
+    } catch (e) {
+      this.#log.warn(`care approvals of Today not read (${errorClass(e)})`);
+      return { count: 0, items: [] };
+    }
+  }
+
+  /** Conversations whose after-sales check-in is due today (none without the care module). */
+  async #afterSale(ws: WorkspaceId, now: Date): Promise<Set<string>> {
+    const care = this.extensions?.care;
+    if (!care) return new Set();
+    try {
+      return new Set(await care.afterSaleDue(ws, endOfHcmDay(now)));
+    } catch (e) {
+      this.#log.warn(`after-sale check-ins of Today not read (${errorClass(e)})`);
+      return new Set();
+    }
+  }
 
   /** The queues as the viewer sees them, with the facts and signals read for them. */
   async #queues(
@@ -93,16 +125,19 @@ export class TodayQuery {
     viewer: TodayViewer,
     now: Date,
   ): Promise<Omit<TodaySnapshot, 'taskCount' | 'tasks'>> {
-    const refs = await this.store.todaySignalRefs(ws, {
-      now,
-      readySince: new Date(now.getTime() - READY_WITHIN_MS),
-      priceSince: new Date(now.getTime() - PRICE_SILENT_UNTIL_MS),
-      limit: SIGNAL_REFS_MAX,
-    });
+    const [refs, afterSale] = await Promise.all([
+      this.store.todaySignalRefs(ws, {
+        now,
+        readySince: new Date(now.getTime() - READY_WITHIN_MS),
+        priceSince: new Date(now.getTime() - PRICE_SILENT_UNTIL_MS),
+        limit: SIGNAL_REFS_MAX,
+      }),
+      this.#afterSale(ws, now),
+    ]);
     // The viewer's filter runs in SQL before the cap, and the last staff reply is read only for
     // the conversations it decides (complaint or needs a person).
     const facts = await this.conversations.todayCandidates(ws, {
-      ids: refs.map((r) => r.conversationId),
+      ids: [...new Set([...refs.map((r) => r.conversationId), ...afterSale])],
       awaitingBefore: new Date(now.getTime() - UNANSWERED_AFTER_MS),
       followUpBefore: endOfHcmDay(now),
       limit: CANDIDATES_MAX,
@@ -116,7 +151,11 @@ export class TodayQuery {
       signals,
     );
     const ordered = await this.#ordered(ws, facts, signals);
-    return { queues: buildQueues(facts, signals, viewer, now, ordered), facts, signals };
+    return {
+      queues: buildQueues(facts, signals, viewer, now, ordered, afterSale),
+      facts,
+      signals,
+    };
   }
 
   /** The queues, counts included, as the viewer sees them, and the viewer's tasks due today. */
@@ -139,13 +178,14 @@ export class TodayQuery {
    * briefing). The queues only: no names, tasks list, usage or settings.
    */
   async counts(ws: WorkspaceId, viewer: TodayViewer, now: Date): Promise<TodayCounts> {
-    const [{ queues }, tasks] = await Promise.all([
+    const [{ queues }, tasks, approvals] = await Promise.all([
       this.#queues(ws, viewer, now),
       this.crm.countOpenTasks(ws, {
         userId: viewer.userId,
         viewAll: viewer.viewAll,
         dueBefore: endOfHcmDay(now),
       }),
+      this.#approvals(ws, viewer, now, 0),
     ]);
     return {
       attention: queues.attention.length,
@@ -153,15 +193,17 @@ export class TodayQuery {
       ready: queues.ready.length,
       price_silent: queues.price_silent.length,
       follow_up: queues.follow_up.length,
+      approval: approvals.count,
       tasks,
     };
   }
 
   async today(ws: WorkspaceId, viewer: TodayViewer, now = new Date()): Promise<TodayResponse> {
-    const [snap, usage, settings] = await Promise.all([
+    const [snap, usage, settings, approvals] = await Promise.all([
       this.snapshot(ws, viewer, now),
       this.usage.usage(ws, now),
       this.settings.get(ws),
+      this.#approvals(ws, viewer, now, TODAY_QUEUE_ITEMS_MAX),
     ]);
     const shown = TODAY_CONVERSATION_QUEUES.map((key) => ({
       key,
@@ -176,6 +218,11 @@ export class TodayQuery {
           count,
           items: entries.map((e) => toItem(e, names)),
         })),
+        {
+          key: 'approval' as const,
+          count: approvals.count,
+          items: approvals.items.slice(0, TODAY_QUEUE_ITEMS_MAX),
+        },
         { key: 'tasks' as const, count: snap.taskCount, items: snap.tasks },
       ],
       usage: { used: usage.used, limit: usage.limit },
@@ -373,5 +420,6 @@ function toItem(e: TodayEntry, names: ReadonlyMap<string, string | null>): Today
     assigneeId: f.assigneeId,
     assigneeName: f.assigneeId ? (names.get(f.assigneeId) ?? null) : null,
     stageLocked: e.signal?.stageLocked ?? false,
+    ...(e.careTemplate ? { careTemplate: e.careTemplate } : {}),
   };
 }

@@ -131,6 +131,22 @@ Spec: [Business Brain v1 and Today](superpowers/specs/2026-11-11-business-brain-
 | BRN-05 | **Hôm nay** (`/app/today`): queues in order Phàn nàn / cần người · Chưa trả lời · Sắp chốt · Hỏi giá rồi im · Đến hạn chăm lại · Việc của tôi; item actions Mở hội thoại, Soạn trả lời (one LLM call on click, opens the inbox composer with the draft, never sent automatically), Thêm việc, Bỏ qua, Đánh giá lại, change stage; remaining evaluations and a banner when the cap is used up | P1 | A conversation appears in the first matching queue only; dismissed items return only after a newer customer message; Chưa trả lời needs no signal (waiting > 15 min); sales/care see only their own and unassigned customers (`contacts.view_all` rule); desktop and phone layouts |
 | BRN-06 | **Morning briefing and complaint alert**: at 08:00 local by default (hour and on/off in settings) owner and admins get one notification "Hôm nay: 3 cần chú ý, 8 sắp chốt…" → `/app/today` (`today.briefing`, in-app + push); when an evaluation newly sets mood `complaint` the owner and the conversation's assignee are notified at once (`brain.complaint`) | P1 | The briefing has counts only (no LLM call), fires once per business per day and is skipped when every count is zero; the complaint alert is deduplicated per conversation per day |
 
+## 5c. Care agent, autonomy levels and "Rapiz đã mang lại" (`CARE`) [+]
+
+Spec: [Care agent, autonomy levels and attribution](superpowers/specs/2026-11-11-care-agent-autonomy-design.md); decisions: [ADR-031](adr/ADR-031-care-agent-autonomy-and-attribution.md). Module `care` (autonomy registry in `brain`).
+
+| ID | Feature | Priority | Acceptance criteria |
+|---|---|---|---|
+| CARE-01 | **Khách im lặng**: a conversation the Brain judges `exploring` or `price_asked`, whose last message was ours, gets a follow-up at +2 h and a "last chance" at +21 h after the customer's last message | P1 | Messenger/Instagram only, inside the 24-hour window (never a message tag), never 21:00–08:00 (moved to 08:00 if still inside the window), ≤ 2 agent messages per conversation per 24 h; outside the window nothing is sent and the customer stays on Today |
+| CARE-02 | **Sắp chốt**: stage `ready` and no order/booking yet → one message at +1 h (recap and how to order/book) | P1 | Same window, quiet-hours and limit rules; an order or booking stops it |
+| CARE-03 | **Sau mua**: a delivered order or checked-out stay puts the conversation in Today's "Đến hạn chăm lại" after N days (default 3, 1–30) | P1 | No message is sent (outside the window); a customer or member message ends it |
+| CARE-04 | **Stop rules** checked before every step and on every event: the customer replied, an order/booking, stage `won`/`lost`/`spam`/`after_sale`, a person wrote or took the conversation, the customer asked not to be contacted (Brain `optOut`), the conversation was closed, the template was turned off | P1 | An opted-out conversation is never enrolled; drafts of a stopped cycle expire |
+| CARE-05 | **Writing**: one `basic` call per message from the Brain note, the last 20 messages, the bot's persona and facts, the template goal and the owner's instruction; ≤ 600 characters or `skip`; separate daily cap `care.messages.daily` (default 100) | P1 | Sent as a bot message marked `source: care` ("Chăm sóc tự động"); every agent action is in the audit trail (actor `ai:care`) |
+| CARE-06 | **Autonomy levels** per business and action (`care.send_message`): đề xuất (default) · làm rồi báo · tự làm (`GET/PUT /brain/autonomy`, owner/admin) | P1 | Đề xuất: draft in Today's **Chờ duyệt** with Gửi / Sửa rồi gửi / Bỏ / Gửi tất cả, expiring when the window closes; làm rồi báo: sent and listed in **AI đã làm**; tự làm: sent, only reports mention it |
+| CARE-07 | **Settings → Chăm sóc tự động**: per template on/off and instruction, after-sales days, quiet hours (21:00–08:00), the cap and today's usage (`GET /care/settings`, `PUT /care/templates/{key}`) | P1 | Turning a template off stops its cycles and expires their drafts |
+| CARE-08 | **"Rapiz đã mang lại"** (`GET /brain/impact?range=today\|7d\|30d`): follow-ups sent, replies, orders and revenue attributed to the AI alone or AI + staff | P1 | An order/booking counts when created within 7 days after a bot reply or care message in the same conversation; "AI + nhân viên" when a member wrote in between; owner/admin/analyst only; Monday's morning briefing adds the 7-day line |
+| CARE-09 | **HUMAN_AGENT for members**: with `META_HUMAN_AGENT_TAG=true`, a member's manual Messenger/Instagram reply between 24 h and 7 days after the customer's last message goes out with the `HUMAN_AGENT` tag | P1 | Off by default (needs Meta's Human Agent permission); bots and the care agent never use it |
+
 ## 6. Orders, products, warehouses, shipping (`ORD`)
 
 | ID | Feature | Priority | Acceptance criteria |
@@ -168,7 +184,7 @@ Spec: [Business Brain v1 and Today](superpowers/specs/2026-11-11-business-brain-
 
 | ID | Feature | Priority | Acceptance criteria |
 |---|---|---|---|
-| WFL-01 | Industry workflow templates: **Silent customer follow-up**, **Soft Follow-up** (left a phone number but no order yet), **After Sales** (post-purchase care) | P1 | |
+| WFL-01 | Industry workflow templates: **Silent customer follow-up**, **Soft Follow-up** (left a phone number but no order yet), **After Sales** (post-purchase care) | P1 | **Partly done by the care agent (`CARE-01`…`CARE-03`)**: Khách im lặng, Sắp chốt and Sau mua as fixed templates with on/off and an instruction; no step editor (WFL-02) |
 | WFL-02 | Configuration: name, description, goal, trigger, step sequence (message + delay), stop conditions (red tag, silent tag, has any of the tags, **goal reached**, customer replied), applicable channels | P1 | Stops immediately when the customer places an order |
 | WFL-03 | Publish / pause / versions | P1 | |
 | WFL-04 | Respect each channel's messaging window; outside the window → use a template (Zalo) or skip | P1 | |

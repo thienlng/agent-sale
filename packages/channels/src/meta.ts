@@ -128,7 +128,11 @@ export class MetaAdapter implements ChannelAdapter {
           body: JSON.stringify({
             recipient: { id: to },
             message: outbound(message),
-            ...(this.kind === 'facebook' ? { messaging_type: 'RESPONSE' } : {}),
+            ...(message.tag
+              ? { messaging_type: 'MESSAGE_TAG', tag: message.tag }
+              : this.kind === 'facebook'
+                ? { messaging_type: 'RESPONSE' }
+                : {}),
           }),
           signal: AbortSignal.timeout(sendTimeoutMs(message)),
           redirect: 'error',

@@ -1,4 +1,6 @@
 import type {
+  AutonomyAction,
+  AutonomyLevel,
   BrainSettingsDto,
   BrainUsageDto,
   ConversationSignalDto,
@@ -26,6 +28,11 @@ export interface BrainFacade {
   /** Evaluations used today (Asia/Ho_Chi_Minh) and the limit (`null` = unlimited). */
   usage(ws: WorkspaceId): Promise<BrainUsageDto>;
   settings(ws: WorkspaceId): Promise<BrainSettingsDto>;
+  /**
+   * The autonomy level in force for an AI action (ADR-031): the business's choice, or the
+   * action's default (`suggest` for `care.send_message`).
+   */
+  levelFor(ws: WorkspaceId, action: AutonomyAction): Promise<AutonomyLevel>;
 }
 
 export const BRAIN_FACADE = Symbol('BRAIN_FACADE');

@@ -119,6 +119,7 @@ export function evalCommerce(
     ordersPlaced: () => Promise.reject(new Error('ordersPlaced is not part of the eval fake')),
     lowStock: () => Promise.reject(new Error('lowStock is not part of the eval fake')),
     latestOrderTimes: () => Promise.resolve([]),
+    conversationOrders: () => Promise.resolve([]),
     prepareBotOrder: async (_ws, input) => {
       const res = prepare(input, input.shippingFeeVnd, new Date());
       if (!res.ok) return res;

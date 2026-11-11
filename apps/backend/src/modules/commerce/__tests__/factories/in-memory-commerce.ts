@@ -227,6 +227,31 @@ export class InMemoryCommerce implements CommerceStore {
           }
           return [...latest].map(([conversationId, at]) => ({ conversationId, at }));
         },
+        conversationOrders: async (q: {
+          since: Date;
+          until: Date;
+          orderIds?: readonly string[] | undefined;
+        }) =>
+          this.orders
+            .filter((o) => {
+              const conv = (o as { conversationId?: string | null }).conversationId;
+              const at = new Date(o.createdAt).getTime();
+              return (
+                !!conv &&
+                !this.deletedOrderIds.has(o.id) &&
+                o.status !== 'cancelled' &&
+                at >= q.since.getTime() &&
+                at < q.until.getTime() &&
+                (!q.orderIds || q.orderIds.includes(o.id))
+              );
+            })
+            .map((o) => ({
+              orderId: o.id,
+              conversationId: (o as { conversationId?: string | null }).conversationId ?? '',
+              createdAt: new Date(o.createdAt),
+              total: o.total,
+              status: o.status,
+            })),
         placedSummary: async ({
           since,
           until,

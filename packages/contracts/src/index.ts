@@ -19,6 +19,7 @@ import { notificationRoutes } from './notification/notification.routes.js';
 import { developerRoutes } from './developer/developer.routes.js';
 import { dataExportRoutes } from './dataexport/dataexport.routes.js';
 import { brainRoutes } from './brain/brain.routes.js';
+import { careRoutes } from './care/care.routes.js';
 import { integrationRoutes } from './integration/integration.routes.js';
 import { healthRoutes } from './health/health.routes.js';
 import { identityRoutes } from './identity/identity.routes.js';
@@ -80,6 +81,8 @@ export * from './dataexport/dataexport.schema.js';
 export * from './dataexport/dataexport.routes.js';
 export * from './brain/brain.schema.js';
 export * from './brain/brain.routes.js';
+export * from './care/care.schema.js';
+export * from './care/care.routes.js';
 export * from './developer/public-events.js';
 export * from './integration/integration.schema.js';
 export * from './integration/integration.routes.js';
@@ -132,6 +135,7 @@ export const allRoutes = [
   ...developerRoutes,
   ...dataExportRoutes,
   ...brainRoutes,
+  ...careRoutes,
 ] as const;
 
 export * from './knowledge/media.schema.js';

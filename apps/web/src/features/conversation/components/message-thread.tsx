@@ -1,6 +1,14 @@
 import type { InboxConversation, InboxMessage } from '../lib/inbox-v2-types';
 import { CustomerAvatar } from './customer-avatar';
-import { ArrowDown, Bot, CircleAlert, Ellipsis, Loader2, Stethoscope } from 'lucide-react';
+import {
+  ArrowDown,
+  Bot,
+  CircleAlert,
+  Ellipsis,
+  HeartHandshake,
+  Loader2,
+  Stethoscope,
+} from 'lucide-react';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -76,6 +84,7 @@ export function MessageThread({
       b &&
       a.direction === b.direction &&
       a.sender === b.sender &&
+      (a.source ?? null) === (b.source ?? null) &&
       (a.senderName ?? null) === (b.senderName ?? null),
     );
   return (
@@ -139,8 +148,15 @@ export function MessageThread({
                 ) : null}
                 {m.sender === 'bot' && firstOfRun ? (
                   <span className="mb-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-ai">
-                    <Bot className="size-3" aria-hidden />
-                    {t('channelInbox.v2.thread.bot')}
+                    {m.source === 'care' ? (
+                      <HeartHandshake className="size-3" aria-hidden />
+                    ) : (
+                      <Bot className="size-3" aria-hidden />
+                    )}
+                    {/* A follow-up of the care agent (ADR-031), not an answer of the bot. */}
+                    {m.source === 'care'
+                      ? t('channelInbox.v2.thread.care')
+                      : t('channelInbox.v2.thread.bot')}
                   </span>
                 ) : null}
                 <div className="group/message flex max-w-full items-center gap-1">

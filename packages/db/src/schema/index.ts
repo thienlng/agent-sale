@@ -12,6 +12,7 @@ export * from './channel.js';
 export * from './conversation.js';
 export * from './crm.js';
 export * from './brain.js';
+export * from './care.js';
 export * from './saas.js';
 export * from './action.js';
 export * from './analytics.js';

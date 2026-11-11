@@ -140,8 +140,10 @@
       "ready": "{{count}} ready to buy",
       "price_silent": "{{count}} asked a price, then went quiet",
       "follow_up": "{{count}} to follow up",
+      "approval": "{{count}} awaiting approval",
       "tasks_one": "{{count}} task due",
-      "tasks_other": "{{count}} tasks due"
+      "tasks_other": "{{count}} tasks due",
+      "impact": "Last 7 days Rapiz brought {{orders}} orders · {{revenue}} ({{sent}} follow-ups)"
     }
   }
 }

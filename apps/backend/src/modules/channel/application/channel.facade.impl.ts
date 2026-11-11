@@ -308,9 +308,12 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
       const result = await meta.send(
         { externalId: c.externalId, token: this.box.open(c.tokenSealed) },
         recipient,
-        message.attachments?.length
-          ? { attachments: [...message.attachments] }
-          : { text: message.text, quickReplies: [...(message.quickReplies ?? [])] },
+        {
+          ...(message.attachments?.length
+            ? { attachments: [...message.attachments] }
+            : { text: message.text, quickReplies: [...(message.quickReplies ?? [])] }),
+          ...(message.tag ? { tag: message.tag } : {}),
+        },
         { idempotencyKey: key },
       );
       return { externalId: result.externalMessageId, status: 'sent' as const, failureCode: null };

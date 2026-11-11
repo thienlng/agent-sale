@@ -78,6 +78,11 @@
         "daily": "Lượt đánh giá hội thoại mỗi ngày"
       }
     },
+    "care": {
+      "messages": {
+        "daily": "Tin chăm sóc tự động mỗi ngày"
+      }
+    },
     "amount": "Số tin",
     "periodDays": "Chu kỳ (ngày)"
   },

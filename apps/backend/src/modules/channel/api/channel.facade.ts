@@ -29,6 +29,8 @@ export interface OutboundInboxMessage {
    * Website: accepted, not yet delivered to the widget.
    */
   quickReplies?: readonly { title: string; payload: string }[] | undefined;
+  /** Meta: a member's reply between 24 hours and 7 days (`replyWindow`); never for a bot. */
+  tag?: 'HUMAN_AGENT' | undefined;
 }
 /** What Meta knows about a customer; either part can be missing. */
 export interface CustomerProfile {

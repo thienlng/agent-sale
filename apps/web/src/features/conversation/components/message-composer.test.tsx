@@ -419,4 +419,18 @@ describe('MessageComposer', () => {
     );
     expect(screen.getByRole('textbox')).toHaveValue('Hello');
   });
+
+  it('lets a member reply between 24 hours and 7 days, saying it goes out as staff', async () => {
+    mocks.send.mockResolvedValue({ status: 'sent' });
+    render(<MessageComposer id="human-agent" botId="bot" windowClosed={false} humanAgentWindow />);
+    expect(screen.getByText('channelInbox.humanAgentHint')).toBeInTheDocument();
+    expect(screen.queryByText('channelInbox.windowClosed')).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toBeEnabled();
+  });
+
+  it('keeps the closed-window message when no HUMAN_AGENT reply is possible', () => {
+    render(<MessageComposer id="closed" botId="bot" windowClosed />);
+    expect(screen.getByText('channelInbox.windowClosed')).toBeInTheDocument();
+    expect(screen.queryByText('channelInbox.humanAgentHint')).not.toBeInTheDocument();
+  });
 });

@@ -219,6 +219,14 @@ export interface LodgingTx {
   latestBookingByConversation(
     conversationIds: readonly string[],
   ): Promise<{ conversationId: string; at: Date }[]>;
+  /** See `LodgingFacade.conversationBookings` (ids already filtered). */
+  conversationBookings(q: {
+    since: Date;
+    until: Date;
+    bookingIds?: readonly string[] | undefined;
+  }): Promise<
+    { bookingId: string; conversationId: string; createdAt: Date; total: number; status: string }[]
+  >;
   /** Inserts the booking and its `unitIds` rows (with their `unitPackages`). */
   insertBooking(b: BookingRecord): Promise<void>;
   /** Updates the booking and replaces its `unitIds` rows (with their `unitPackages`). */

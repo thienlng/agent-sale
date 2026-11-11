@@ -56,6 +56,46 @@ export class MemoryConversationStore implements ConversationStore {
             ids: waiting.slice(0, Math.max(0, Math.min(limit, 200))).map((c) => c.id),
           };
         },
+        aiTouches: async (points, windowMs) => {
+          const delivered = (conv: string, sender: 'bot' | 'human') =>
+            [...messages.entries()]
+              .filter(([key]) => key.startsWith(`${ws}/`))
+              .map(([, msg]) => msg)
+              .filter(
+                (msg) =>
+                  msg.conversationId === conv &&
+                  msg.direction === 'outbound' &&
+                  msg.status === 'sent' &&
+                  msg.sender === sender,
+              )
+              .map((msg) => Date.parse(msg.createdAt));
+          return points.map((p) => {
+            const to = p.at.getTime();
+            const bot = delivered(p.conversationId, 'bot').filter(
+              (t) => t >= to - windowMs && t < to,
+            );
+            if (!bot.length) return { firstBotAt: null, staffAfter: false };
+            const first = Math.min(...bot);
+            return {
+              firstBotAt: new Date(first).toISOString(),
+              staffAfter: delivered(p.conversationId, 'human').some((t) => t > first && t < to),
+            };
+          });
+        },
+        lastHumanAt: async (conversationId) => {
+          const times = [...messages.entries()]
+            .filter(([key]) => key.startsWith(`${ws}/`))
+            .map(([, msg]) => msg)
+            .filter(
+              (msg) =>
+                msg.conversationId === conversationId &&
+                msg.sender === 'human' &&
+                msg.direction === 'outbound' &&
+                msg.status !== 'failed',
+            )
+            .map((msg) => Date.parse(msg.createdAt));
+          return times.length ? new Date(Math.max(...times)).toISOString() : null;
+        },
         todayCandidates: async ({
           ids,
           awaitingBefore,

@@ -5,7 +5,7 @@ import { backofficeRoute } from './mock-backoffice';
 import { crmRoute } from './mock-crm';
 import { analyticsRoute } from './mock-analytics';
 import { settingsRoute } from './mock-settings';
-import { todayMock } from './mock-today';
+import { aiDoneMock, brainSettingsRoute, impactMock, todayMock } from './mock-today';
 
 /** Deliberately long Vietnamese content: layout must wrap or truncate, never overflow. */
 export const LONG =
@@ -166,6 +166,13 @@ export async function mockApi(page: Page) {
         }),
       );
     if (path === '/today') return route.fulfill(json(todayMock(LONG, user, now)));
+    if (path === '/today/ai-done') return route.fulfill(json(aiDoneMock(LONG, now)));
+    if (path === '/brain/impact')
+      return route.fulfill(
+        json(impactMock(new URL(route.request().url()).searchParams.get('range') ?? '30d', now)),
+      );
+    const brainSettings = brainSettingsRoute(path);
+    if (brainSettings !== undefined) return route.fulfill(json(brainSettings));
     if (path === '/today/counts') {
       const queues = todayMock(LONG, user, now).queues;
       const counts = Object.fromEntries(queues.map((q) => [q.key, q.count]));
