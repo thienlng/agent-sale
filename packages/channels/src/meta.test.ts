@@ -454,4 +454,36 @@ describe('MetaAdapter.fetchProfile', () => {
       code: 'profile_unavailable',
     });
   });
+  it('sends a HUMAN_AGENT message tag instead of RESPONSE when asked (Messenger and Instagram)', async () => {
+    for (const kind of ['facebook', 'instagram'] as const) {
+      const transport = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(Response.json({ message_id: 'm1' }));
+      const adapter = new MetaAdapter(kind, 'v24.0', transport);
+      await adapter.send(
+        { externalId: 'page', token: 't' },
+        'u',
+        { text: 'Hi', tag: 'HUMAN_AGENT' },
+        { idempotencyKey: 'k' },
+      );
+      const body = JSON.parse(String(transport.mock.calls[0]?.[1]?.body)) as Record<
+        string,
+        unknown
+      >;
+      expect(body).toMatchObject({ messaging_type: 'MESSAGE_TAG', tag: 'HUMAN_AGENT' });
+      expect(body.message).toEqual({ text: 'Hi' });
+    }
+  });
+  it('answers as RESPONSE without a tag on Messenger', async () => {
+    const transport = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ message_id: 'm1' }));
+    await new MetaAdapter('facebook', 'v24.0', transport).send(
+      { externalId: 'page', token: 't' },
+      'u',
+      { text: 'Hi' },
+      { idempotencyKey: 'k' },
+    );
+    const body = JSON.parse(String(transport.mock.calls[0]?.[1]?.body)) as Record<string, unknown>;
+    expect(body.messaging_type).toBe('RESPONSE');
+    expect(body).not.toHaveProperty('tag');
+  });
 });

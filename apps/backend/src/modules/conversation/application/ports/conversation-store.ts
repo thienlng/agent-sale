@@ -1,5 +1,6 @@
 import type { ConversationView, InboxMessageDto } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
+import type { TimelineEntry } from '../../api/conversation.facade.js';
 import type { ConversationFilter, ConversationPage } from '../../domain/conversation-filter.js';
 export interface ConversationTx {
   lockPeer(channelId: string, customerId: string): Promise<void>;
@@ -39,6 +40,12 @@ export interface ConversationTx {
     byChannel: { channel: string; count: number }[];
     ids: string[];
   }>;
+  /** See `ConversationFacade.outboundTimeline` (ids already filtered to uuids, ≤ 1 000). */
+  outboundTimeline(q: {
+    ids: readonly string[];
+    since: Date;
+    until: Date;
+  }): Promise<TimelineEntry[]>;
   /** See `ConversationFacade.todayCandidates`. */
   todayCandidates(q: {
     ids: readonly string[];

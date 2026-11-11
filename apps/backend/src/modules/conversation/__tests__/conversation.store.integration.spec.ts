@@ -189,6 +189,22 @@ describe('DrizzleConversationStore', () => {
     expect(mine.map((f) => f.id).sort()).toEqual([replied.id, other.id].sort());
   });
 
+  it('reads the delivered outbound timeline with the care marker, per tenant and range', async () => {
+    const c = await service.receive(a, channelId, event('timeline-1', 'customer-timeline'));
+    const since = new Date(Date.now() - 60_000);
+    await service.commitCareMessage(a, c.id, { text: 'Dạ còn ạ', idempotencyKey: 'care:t1' });
+    await service.send(a, c.id, { text: 'Em Lan đây', idempotencyKey: newId() }, newId());
+    const until = new Date(Date.now() + 60_000);
+    const rows = await service.outboundTimeline(a, [c.id], { since, until });
+    expect(rows.map((r) => [r.sender, r.source])).toEqual([
+      ['bot', 'care'],
+      ['human', null],
+    ]);
+    expect(await service.outboundTimeline(b, [c.id], { since, until })).toEqual([]);
+    expect(await service.outboundTimeline(a, [c.id], { since: until, until })).toEqual([]);
+    expect(await service.followUpFacts(a, c.id)).toMatchObject({ mode: 'human', status: 'open' });
+  });
+
   it('serves stored Rapiz attachments on the current public host, other links unchanged', async () => {
     const c = await service.receive(a, channelId, event('old-host', 'customer-media'));
     const key =

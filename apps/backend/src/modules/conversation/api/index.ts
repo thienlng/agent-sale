@@ -6,10 +6,12 @@ export {
   type BotQuickReplies,
   type ConversationFacade,
   type ConversationRunner,
+  type FollowUpFacts,
   type SignalContext,
   type SignalContextMessage,
   type TodayCandidatesQuery,
   type TodayConversation,
+  type TimelineEntry,
 } from './conversation.facade.js';
 export * from './conversation.events.js';
 export { CONVERSATION_EXPORT } from './conversation-export.js';

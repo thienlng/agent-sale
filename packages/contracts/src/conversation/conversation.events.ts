@@ -27,6 +27,8 @@ export const ReplyCompletedPayload = z.object({
   /** Bot bound to the channel when the reply completed (ADR-012). */
   botId: z.uuid().optional(),
   sender: z.enum(['bot', 'human']).optional(),
+  /** `care`: a message of the care agent (ADR-031). */
+  source: z.literal('care').optional(),
   occurredAt: z.iso.datetime().optional(),
 });
 export type ReplyCompletedPayload = z.infer<typeof ReplyCompletedPayload>;

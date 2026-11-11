@@ -56,6 +56,11 @@ export interface OutboundMessage {
   rich?: { kind: 'product_card' | 'album' | 'quick_replies'; data: unknown };
   /** Buttons under the text (at most 3, titles of 20 characters or fewer); see `capabilities`. */
   quickReplies?: { title: string; payload: string }[];
+  /**
+   * Meta message tag: `HUMAN_AGENT` lets a person answer up to 7 days after the customer's last
+   * message (a member's manual send only, never a bot; see `replyWindow`).
+   */
+  tag?: 'HUMAN_AGENT';
 }
 
 export interface SendResult {

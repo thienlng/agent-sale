@@ -48,6 +48,8 @@ const likePattern = (q: string): string => `%${q.replace(/[\\%_]/g, '\\$&')}%`;
 const waitingNow = sql`(${c.awaitingSince} is not null and ${c.status} = 'open')`;
 /** One array parameter instead of one per id (Postgres allows 65535 parameters per statement). */
 const uuidArray = (ids: readonly string[]) => sql`${`{${ids.join(',')}}`}::uuid[]`;
+/** Rows read by one `outboundTimeline` call at most. */
+const TIMELINE_MAX = 20_000;
 const date = (iso: string | null): Date | null => (iso ? new Date(iso) : null);
 /** Every condition except the tab; counts use exactly these. */
 function baseConditions(ws: WorkspaceId, f: ConversationFilter): SQL[] {
@@ -335,6 +337,36 @@ export class DrizzleConversationStore implements ConversationStore {
               .sort((a, b) => b.count - a.count || a.channel.localeCompare(b.channel)),
             ids: ids.map((r) => r.id),
           };
+        },
+        async outboundTimeline({ ids, since, until }) {
+          if (!ids.length) return [];
+          const at = sql`(${m.data}->>'createdAt')::timestamptz`;
+          const rows = await tx
+            .select({
+              conversationId: m.conversationId,
+              sender: sql<string>`${m.data}->>'sender'`,
+              source: sql<string | null>`${m.data}->>'source'`,
+              at: sql<string | Date>`${at}`,
+            })
+            .from(m)
+            .where(
+              and(
+                eq(m.workspaceId, ws),
+                sql`${m.conversationId} = any(${uuidArray(ids)})`,
+                sql`${m.data}->>'direction' = 'outbound' and ${m.data}->>'status' = 'sent'`,
+                sql`${m.data}->>'sender' in ('bot','human')`,
+                sql`${at} >= ${since.toISOString()}::timestamptz`,
+                sql`${at} < ${until.toISOString()}::timestamptz`,
+              ),
+            )
+            .orderBy(asc(m.conversationId), asc(at))
+            .limit(TIMELINE_MAX);
+          return rows.map((r) => ({
+            conversationId: r.conversationId,
+            sender: r.sender === 'human' ? ('human' as const) : ('bot' as const),
+            source: r.source === 'care' ? ('care' as const) : null,
+            at: new Date(r.at).toISOString(),
+          }));
         },
         async todayCandidates({
           ids,

@@ -138,6 +138,55 @@ export interface ConversationFacade {
    *   when absent.
    */
   todayCandidates(ws: WorkspaceId, q: TodayCandidatesQuery): Promise<TodayConversation[]>;
+  /**
+   * What the care agent checks before a follow-up (spec 2026-11-11 care §3): who holds the
+   * conversation, its status and channel, and when the customer, a person of the shop and the
+   * bot last wrote. Null when it does not exist in the workspace. No message text.
+   */
+  followUpFacts(ws: WorkspaceId, id: string): Promise<FollowUpFacts | null>;
+  /**
+   * Sends a care agent message (ADR-031) as a bot message marked `source: 'care'`: the
+   * conversation must be open and inside the channel's window (never a message tag); it does not
+   * take the conversation from the bot or from a person. Idempotent by `idempotencyKey`. Throws
+   * NOT_FOUND, CONFLICT (not open, window closed) or VALIDATION_FAILED (empty or > 2 000 chars). A
+   * failed delivery is stored as a failed message and returned, never thrown.
+   */
+  commitCareMessage(
+    ws: WorkspaceId,
+    id: string,
+    input: { text: string; idempotencyKey: string },
+  ): Promise<InboxMessageDto>;
+  /**
+   * The delivered outbound messages (bot and staff, with the care marker) of these conversations
+   * (≤ 1 000 ids) sent in `[since, until)`, oldest first per conversation; at most 20 000 rows. For
+   * the care agent's attribution ("Rapiz đã mang lại"). No message text.
+   */
+  outboundTimeline(
+    ws: WorkspaceId,
+    ids: readonly string[],
+    range: { since: Date; until: Date },
+  ): Promise<TimelineEntry[]>;
+}
+/** What `followUpFacts` returns (ISO times; null when it never happened). */
+export interface FollowUpFacts {
+  id: string;
+  provider: string;
+  status: 'open' | 'resolved' | 'spam';
+  mode: 'bot' | 'human';
+  assigneeId: string | null;
+  lastInboundAt: string | null;
+  lastMessageSender: 'customer' | 'human' | 'bot';
+  /** The last message a person of the shop sent that did not fail (inbox or Page echo). */
+  lastHumanAt: string | null;
+}
+/** One delivered outbound message of `outboundTimeline`. */
+export interface TimelineEntry {
+  conversationId: string;
+  sender: 'bot' | 'human';
+  /** `care`: written by the care agent. */
+  source: 'care' | null;
+  /** ISO time. */
+  at: string;
 }
 /** What `todayCandidates` reads. */
 export interface TodayCandidatesQuery {

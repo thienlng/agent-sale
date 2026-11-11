@@ -56,6 +56,26 @@ export class MemoryConversationStore implements ConversationStore {
             ids: waiting.slice(0, Math.max(0, Math.min(limit, 200))).map((c) => c.id),
           };
         },
+        outboundTimeline: async ({ ids, since, until }) =>
+          [...messages.entries()]
+            .filter(([key]) => key.startsWith(`${ws}/`))
+            .map(([, msg]) => msg)
+            .filter(
+              (msg) =>
+                ids.includes(msg.conversationId) &&
+                msg.direction === 'outbound' &&
+                msg.status === 'sent' &&
+                (msg.sender === 'bot' || msg.sender === 'human') &&
+                Date.parse(msg.createdAt) >= since.getTime() &&
+                Date.parse(msg.createdAt) < until.getTime(),
+            )
+            .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+            .map((msg) => ({
+              conversationId: msg.conversationId,
+              sender: msg.sender === 'human' ? ('human' as const) : ('bot' as const),
+              source: msg.source ?? null,
+              at: msg.createdAt,
+            })),
         todayCandidates: async ({
           ids,
           awaitingBefore,

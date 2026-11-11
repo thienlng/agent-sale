@@ -68,6 +68,12 @@ export const EnvSchema = z
      */
     BOT_IMAGE_VISION: z.enum(['true', 'false']).optional(),
     /**
+     * `true`: a member's manual reply on Messenger/Instagram between 24 hours and 7 days after the
+     * customer's last message goes out with the `HUMAN_AGENT` tag (needs Meta's Human Agent
+     * permission; ADR-031). Off by default; bots and the care agent never use the tag.
+     */
+    META_HUMAN_AGENT_TAG: z.enum(['true', 'false']).optional(),
+    /**
      * Comma-separated extra hosts the customer-image fetcher may reach (dev/test only, ignored in
      * production). They are exempt from the private-address block and may use plain http, so
      * tests can serve images from a loopback server.
