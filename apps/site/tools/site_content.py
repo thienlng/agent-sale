@@ -853,7 +853,7 @@ LEGAL_PAGES = [
         'title': 'Chính sách quyền riêng tư | Rapiz',
         'description': 'Rapiz thu thập dữ liệu gì, dùng để làm gì, chia sẻ với ai, lưu bao lâu và bạn có những quyền gì với dữ liệu của mình.',
         'h1': 'Chính sách<br><em>quyền riêng tư</em>',
-        'intro': 'Chính sách này giải thích cách Công ty TNHH Công nghệ Rapiz ("Rapiz", "chúng tôi") thu thập, sử dụng, chia sẻ và bảo vệ dữ liệu cá nhân khi bạn dùng website rapiz.io, ứng dụng Rapiz và khung chat Rapiz trên website của doanh nghiệp. Chính sách được xây dựng theo Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân.',
+        'intro': 'Chính sách này giải thích cách ' + COMPANY['name'] + ' ("Rapiz", "chúng tôi") thu thập, sử dụng, chia sẻ và bảo vệ dữ liệu cá nhân khi bạn dùng website rapiz.io, ứng dụng Rapiz và khung chat Rapiz trên website của doanh nghiệp. Chính sách được xây dựng theo Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân.',
         'sections': [
             ('Ai chịu trách nhiệm về dữ liệu', [
                 'Với dữ liệu tài khoản của bạn (người dùng Rapiz), Rapiz là bên kiểm soát dữ liệu.',
@@ -914,7 +914,7 @@ LEGAL_PAGES = [
                 'Khi chính sách thay đổi, chúng tôi cập nhật ngày ở đầu trang. Với thay đổi quan trọng, chúng tôi báo cho bạn qua email trước khi áp dụng.',
             ]),
             ('Liên hệ', [
-                'Công ty TNHH Công nghệ Rapiz. Email: <a href="mailto:support@rapiz.io">support@rapiz.io</a>.',
+                COMPANY['name'] + '. Email: <a href="mailto:support@rapiz.io">support@rapiz.io</a>.',
             ]),
         ],
     },
@@ -923,7 +923,7 @@ LEGAL_PAGES = [
         'title': 'Điều khoản sử dụng | Rapiz',
         'description': 'Điều khoản khi dùng Rapiz: tài khoản, trách nhiệm với dữ liệu khách hàng, câu trả lời của AI, hành vi bị cấm, phí, chấm dứt và giới hạn trách nhiệm.',
         'h1': 'Điều khoản<br><em>sử dụng</em>',
-        'intro': 'Điều khoản này là thoả thuận giữa bạn (cá nhân hoặc doanh nghiệp dùng Rapiz) và Công ty TNHH Công nghệ Rapiz ("Rapiz") khi bạn dùng website rapiz.io, ứng dụng Rapiz và các dịch vụ đi kèm. Khi tạo tài khoản hoặc dùng dịch vụ, bạn đồng ý với điều khoản này và <a href="/privacy/">Chính sách quyền riêng tư</a>.',
+        'intro': 'Điều khoản này là thoả thuận giữa bạn (cá nhân hoặc doanh nghiệp dùng Rapiz) và ' + COMPANY['name'] + ' ("Rapiz") khi bạn dùng website rapiz.io, ứng dụng Rapiz và các dịch vụ đi kèm. Khi tạo tài khoản hoặc dùng dịch vụ, bạn đồng ý với điều khoản này và <a href="/privacy/">Chính sách quyền riêng tư</a>.',
         'sections': [
             ('Tài khoản', [
                 ['Bạn cung cấp thông tin chính xác khi đăng ký và cập nhật khi thay đổi.',
@@ -965,7 +965,7 @@ LEGAL_PAGES = [
                 'Điều khoản này tuân theo pháp luật Việt Nam. Tranh chấp được ưu tiên giải quyết bằng thương lượng; nếu không thành, sẽ đưa ra toà án có thẩm quyền tại Việt Nam.',
             ]),
             ('Liên hệ', [
-                'Công ty TNHH Công nghệ Rapiz. Email: <a href="mailto:support@rapiz.io">support@rapiz.io</a>.',
+                COMPANY['name'] + '. Email: <a href="mailto:support@rapiz.io">support@rapiz.io</a>.',
             ]),
         ],
     },
