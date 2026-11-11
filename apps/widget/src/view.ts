@@ -48,6 +48,8 @@ const ICON_OUT =
   'M8 6a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v9a1 1 0 1 1-2 0V8.4L6.7 18.7a1 1 0 0 1-1.4-1.4L15.6 7H9a1 1 0 0 1-1-1z';
 const ICON_CHEVRON =
   'M9.3 5.3a1 1 0 0 1 1.4 0l6 6a1 1 0 0 1 0 1.4l-6 6a1 1 0 0 1-1.4-1.4l5.3-5.3-5.3-5.3a1 1 0 0 1 0-1.4z';
+const ICON_PHONE =
+  'M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z';
 const ICON_IMAGE =
   'M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2zM8.5 13.5l2.5 3 3.5-4.5 4.5 6H5l3.5-4.5z';
 
@@ -69,7 +71,8 @@ export function sameDocument(url: string, href: string = window.location.href): 
   try {
     const to = new URL(url, href);
     const here = new URL(href);
-    return to.origin === here.origin && to.pathname === here.pathname && to.hash.length > 1;
+    const path = (u: URL): string => u.pathname.replace(/\/index\.html?$/, '/');
+    return to.origin === here.origin && path(to) === path(here) && to.hash.length > 1;
   } catch {
     return false;
   }
@@ -150,9 +153,13 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
   notice.hidden = true;
   notice.setAttribute('role', 'alert');
 
-  const chip = el('button', 'chip', config.phoneChipText);
+  // Phone chip: a pill above the text field, the way into the phone form.
+  const chip = el('button', 'chip');
   chip.type = 'button';
   chip.hidden = true;
+  const chipIcon = el('span', 'ci');
+  chipIcon.appendChild(icon(ICON_PHONE));
+  chip.append(chipIcon, el('span', '', config.phoneChipText), icon(ICON_ARROW));
 
   // Text composer
   const composer = el('form', 'composer');
@@ -175,27 +182,38 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
   send.appendChild(icon(ICON_SEND));
   const field = el('div', 'field');
   field.append(attach, input, send);
-  composer.append(file, field);
+  composer.append(chip, file, field);
 
-  // Phone composer
+  // Phone composer: the prompt, then the number in the same field as a message.
   const phoneForm = el('form', 'phoneform');
   phoneForm.hidden = true;
+  const phoneHead = el('div', 'phead');
+  const phoneBadge = el('span', 'ci');
+  phoneBadge.appendChild(icon(ICON_PHONE));
   const hint = el('p', 'hint', config.phonePrompt);
+  const phoneCancel = el('button', 'hbtn');
+  phoneCancel.type = 'button';
+  phoneCancel.setAttribute('aria-label', strings.phoneCancel);
+  phoneCancel.appendChild(icon(ICON_CLOSE));
+  phoneHead.append(phoneBadge, hint, phoneCancel);
   const phoneInput = el('input');
   phoneInput.type = 'tel';
   phoneInput.autocomplete = 'tel';
+  phoneInput.inputMode = 'tel';
   phoneInput.placeholder = strings.phonePlaceholder;
   phoneInput.setAttribute('aria-label', strings.phonePlaceholder);
-  const phoneSend = el('button', 'send text', strings.phoneSend);
+  const phoneSend = el('button', 'send');
   phoneSend.type = 'submit';
-  const phoneCancel = el('button', 'link', strings.phoneCancel);
-  phoneCancel.type = 'button';
+  phoneSend.setAttribute('aria-label', strings.phoneSend);
+  phoneSend.appendChild(icon(ICON_ARROW));
+  const phoneField = el('div', 'field');
+  phoneField.append(phoneInput, phoneSend);
   const phoneErr = el('p', 'err');
   phoneErr.hidden = true;
   phoneErr.setAttribute('role', 'alert');
-  phoneForm.append(hint, phoneInput, phoneSend, phoneCancel, phoneErr);
+  phoneForm.append(phoneHead, phoneField, phoneErr);
 
-  panel.append(head, list, notice, chip, composer, phoneForm);
+  panel.append(head, list, notice, composer, phoneForm);
   wrap.append(bubble, panel);
   root.append(style, wrap);
 
@@ -375,6 +393,13 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
     window.visualViewport.addEventListener('scroll', fit);
   }
 
+  /** Runs a change that resizes the list (a notice, an error line) without losing the bottom. */
+  const keepBottom = (change: () => void): void => {
+    const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+    change();
+    if (atBottom) list.scrollTop = list.scrollHeight;
+  };
+
   const view: View = {
     host,
     update(s) {
@@ -426,7 +451,6 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
       }
       if (suggestion) place(suggestion.node);
       if (list.lastChild !== typing) list.appendChild(typing);
-      if (added && (nearBottom || s.messages.length < 3)) list.scrollTop = list.scrollHeight;
       typing.hidden = !s.botTyping;
 
       const phoneMode = s.inputMode === 'phone';
@@ -434,14 +458,20 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
       phoneForm.hidden = !phoneMode;
       phoneCancel.hidden = s.phoneRequired;
       chip.hidden = !showPhoneChip(s);
+      // Last, once the chip or the phone form has resized the list: a reader at the bottom stays there.
+      if (nearBottom || (added && s.messages.length < 3)) list.scrollTop = list.scrollHeight;
     },
     setNotice(text) {
-      notice.hidden = !text;
-      notice.textContent = text ?? '';
+      keepBottom(() => {
+        notice.hidden = !text;
+        notice.textContent = text ?? '';
+      });
     },
     setPhoneError(text) {
-      phoneErr.hidden = !text;
-      phoneErr.textContent = text ?? '';
+      keepBottom(() => {
+        phoneErr.hidden = !text;
+        phoneErr.textContent = text ?? '';
+      });
     },
     setBusy(busy) {
       send.disabled = busy;
