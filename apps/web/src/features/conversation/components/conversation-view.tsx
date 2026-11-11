@@ -172,7 +172,14 @@ export function ConversationView({
         </div>
       </div>
     );
-  const windowClosed = clock - Date.parse(c.lastInboundAt) >= 86400000;
+  // Past 24 hours a member may still reply for up to 7 days when the business sends with Meta's
+  // HUMAN_AGENT tag (`humanAgentReply`, ADR-031); the bot and the care agent never may.
+  const sinceCustomer = clock - Date.parse(c.lastInboundAt);
+  const humanAgentWindow =
+    detail.data.humanAgentReply === true &&
+    sinceCustomer >= 86400000 &&
+    sinceCustomer < 7 * 86400000;
+  const windowClosed = sinceCustomer >= 86400000 && !humanAgentWindow;
   const folder = c.status === 'open' ? null : c.status;
   const name = customerDisplayName(c, (provider, last4) => tr('v2.row.guest', { provider, last4 }));
   const slots: PanelSlots = {
@@ -306,6 +313,7 @@ export function ConversationView({
         id={id}
         botId={botId}
         windowClosed={windowClosed}
+        humanAgentWindow={humanAgentWindow}
         locked={folder !== null || !canEdit || channel?.removed === true}
         channelLabel={CHANNEL_LABEL[c.provider]}
         channelId={c.channelId}

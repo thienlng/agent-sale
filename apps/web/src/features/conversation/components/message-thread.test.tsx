@@ -187,4 +187,17 @@ describe('MessageThread', () => {
     expect(screen.getByTitle('https://shop.vn/#gia')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Gói Pro/ })).not.toBeInTheDocument();
   });
+
+  it('labels the care agent\'s messages "Chăm sóc tự động" instead of the bot', () => {
+    const out = (id: string, source?: 'care'): InboxMessageDto => ({
+      ...message(id),
+      direction: 'outbound',
+      sender: 'bot',
+      status: 'sent',
+      ...(source ? { source } : {}),
+    });
+    render(<MessageThread messages={[out('bot-reply'), out('care-follow-up', 'care')]} />);
+    expect(screen.getByText('channelInbox.v2.thread.bot')).toBeInTheDocument();
+    expect(screen.getByText('channelInbox.v2.thread.care')).toBeInTheDocument();
+  });
 });

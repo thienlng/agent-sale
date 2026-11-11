@@ -216,7 +216,8 @@ describe('TodayPage', () => {
     expect(within(attention).getByText('Không có khách nào đang phàn nàn hay cần người hỗ trợ.'));
     release(DISMISS);
 
-    await user.click(await screen.findByRole('button', { name: 'Hoàn tác' }));
+    // The toast follows the re-read of every brain query (Today, "AI đã làm"…): allow for load.
+    await user.click(await screen.findByRole('button', { name: 'Hoàn tác' }, { timeout: 4000 }));
     await waitFor(() => expect(calls.some((c) => c.key === UNDO)).toBe(true));
   });
 
@@ -286,6 +287,7 @@ describe('TodayPage', () => {
     const created = task({ id: '0190f5c2-0000-7000-8000-00000000f002', conversationId: CONV });
     const routes: Parameters<typeof stubFetch>[0] = {
       'GET /today': { status: 200, body: today() },
+      'GET /today/ai-done': { status: 200, body: { count: 0, items: [] } },
       'POST /tasks': { status: 201, body: created },
       [`POST /tasks/${TASK}/complete`]: { status: 200, body: task({ status: 'done' }) },
     };
@@ -306,6 +308,8 @@ describe('TodayPage', () => {
       source: 'today',
     });
 
+    // The dialog closes once the brain queries (Today, "AI đã làm"…) were re-read.
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     const tasks = screen.getByRole('region', { name: 'Việc của tôi' });
     // The server's next Today no longer lists the task.
     const done = today();

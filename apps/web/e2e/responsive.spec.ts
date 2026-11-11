@@ -45,6 +45,7 @@ const PAGES = [
   ['statistics', '/app/analytics', 'Khách hàng mới'],
   // A queue heading: "Hôm nay" alone also names the sidebar entry.
   ['today', '/app/today', 'Phàn nàn / cần người'],
+  ['ai settings', '/app/settings/brain', 'Chăm sóc tự động'],
   ['business profile', '/app/settings/profile', 'Thông tin business'],
   ['security', '/app/settings/security', 'Xác minh 2 bước'],
   ['audit trail', '/app/settings/audit', 'Nhật ký thay đổi'],

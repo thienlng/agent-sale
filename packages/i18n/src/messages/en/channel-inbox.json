@@ -69,6 +69,7 @@
   "sending": "Sending…",
   "sendHint": "Sending a reply pauses automatic replies. Enter to send, Shift+Enter for a new line.",
   "windowClosed": "The 24-hour reply window has closed. Wait for a new customer message.",
+  "humanAgentHint": "Sent as a staff member (within 7 days): more than 24 hours since the customer’s last message.",
   "received": "Received",
   "pending": "Pending delivery confirmation",
   "sent": "Sent",
@@ -605,7 +606,8 @@
       "askWhyPrompt": "Why did the bot answer the message at {{time}} like that?",
       "messageMenu": "Message options",
       "cards": "Product cards the visitor saw",
-      "suggestions": "Buttons the visitor saw"
+      "suggestions": "Buttons the visitor saw",
+      "care": "Automatic follow-up"
     },
     "tagBar": {
       "label": "Conversation tags",

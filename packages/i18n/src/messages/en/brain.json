@@ -40,6 +40,10 @@
       "title": "Follow up today",
       "empty": "Nobody is due for a follow-up."
     },
+    "approval": {
+      "title": "Awaiting approval",
+      "empty": "No follow-ups are waiting for approval."
+    },
     "tasks": {
       "title": "My tasks",
       "empty": "No task is due today."
@@ -147,5 +151,118 @@
     "instagram": "Instagram",
     "website": "Website",
     "other": "Other channel"
+  },
+  "approval": {
+    "subtitle": "Follow-ups the AI drafted, waiting for you to send",
+    "send": "Send",
+    "edit": "Edit and send",
+    "reject": "Drop",
+    "cancel": "Cancel",
+    "sendAll": "Send all",
+    "sendAllTitle_one": "Send {{count}} follow-up?",
+    "sendAllTitle_other": "Send {{count}} follow-ups?",
+    "sendAllDescription": "The messages go out exactly as the AI wrote them. Any whose 24 hours ran out, or whose customer just wrote, are not sent.",
+    "sendAllConfirm_one": "Send {{count}} message",
+    "sendAllConfirm_other": "Send {{count}} messages",
+    "sent": "Sent to {{name}}",
+    "sentAll_one": "Sent {{count}} message",
+    "sentAll_other": "Sent {{count}} messages",
+    "sentAllPartial": "Sent {{count}}, {{notSent}} not sent (24 hours ran out or the customer just wrote)",
+    "notSent": "Not sent (24 hours ran out or the customer just wrote)",
+    "rejected": "Follow-up dropped",
+    "gone": "This follow-up can no longer be sent — someone handled it or its 24 hours ran out",
+    "failed": "Could not send, try again later",
+    "leftHours_one": "{{count}} hour left",
+    "leftHours_other": "{{count}} hours left",
+    "leftMinutes_one": "{{count}} minute left",
+    "leftMinutes_other": "{{count}} minutes left",
+    "windowHint": "Messenger and Instagram let a page message a customer only within 24 hours of their last message",
+    "editLabel": "Edit the message to {{name}}",
+    "chars": "{{count}}/{{max}} characters"
+  },
+  "care": {
+    "template": {
+      "silent": "Gone quiet",
+      "ready": "About to buy",
+      "after_sale": "After purchase"
+    }
+  },
+  "aiDone": {
+    "title_one": "Done by AI today · {{count}} message",
+    "title_other": "Done by AI today · {{count}} messages",
+    "replied_one": "{{count}} customer replied",
+    "replied_other": "{{count}} customers replied",
+    "customerReplied": "The customer replied",
+    "noReply": "No reply yet"
+  },
+  "impact": {
+    "title": "Brought in by Rapiz",
+    "headline": {
+      "today_one": "Today Rapiz brought in {{count}} order · {{revenue}}",
+      "today_other": "Today Rapiz brought in {{count}} orders · {{revenue}}",
+      "7d_one": "In the last 7 days Rapiz brought in {{count}} order · {{revenue}}",
+      "7d_other": "In the last 7 days Rapiz brought in {{count}} orders · {{revenue}}",
+      "30d_one": "In the last 30 days Rapiz brought in {{count}} order · {{revenue}}",
+      "30d_other": "In the last 30 days Rapiz brought in {{count}} orders · {{revenue}}"
+    },
+    "money": "₫{{amount}}",
+    "split": "AI alone {{aiOrders}} · {{aiRevenue}} — AI + staff {{staffOrders}} · {{staffRevenue}}",
+    "followUps": "{{count}} follow-ups, {{replies}} customers replied",
+    "empty": "No orders from the AI yet. When a customer orders within 7 days of a bot or follow-up message, Rapiz counts it here.",
+    "range": "Period",
+    "ranges": {
+      "today": "Today",
+      "7d": "7 days",
+      "30d": "30 days"
+    }
+  },
+  "autonomy": {
+    "actions": {
+      "care": {
+        "send_message": "How far the AI may go with follow-ups"
+      }
+    },
+    "levels": {
+      "suggest": "Suggest",
+      "act_and_report": "Do and report",
+      "auto": "Do it"
+    },
+    "default": "(default)",
+    "hints": {
+      "suggest": "The AI drafts; you approve it under “Awaiting approval” on Today before it is sent.",
+      "act_and_report": "The AI sends on time, then lists it under “Done by AI” on Today.",
+      "auto": "The AI sends; only the morning briefing and the reports mention it."
+    }
+  },
+  "careSettings": {
+    "title": "Automatic follow-up",
+    "description": "The AI writes again to customers who went quiet or are about to buy, while Messenger still allows it.",
+    "usage": "The AI wrote {{used}}/{{limit}} follow-ups today",
+    "usageUnlimited": "The AI wrote {{used}} follow-ups today (no limit)",
+    "metaRule": "Messenger and Instagram let a page message a customer only within 24 hours of the customer's last message. The AI follows up only inside that window; after 24 hours the customer stays on Today for your team to decide.",
+    "loadError": "Could not load the follow-up settings.",
+    "nothingChanged": "Nothing changed",
+    "templates": "Follow-up templates",
+    "when": {
+      "silent": "Exploring or asked the price, then went quiet: a message after 2 hours, a last one after 21 hours.",
+      "ready": "About to buy but no order yet: after 1 hour, a recap of their choice and how to order.",
+      "after_sale": "No automatic message: the customer appears under “Follow up today” a few days after the order is completed."
+    },
+    "instruction": "Note to the AI (optional)",
+    "placeholder": {
+      "silent": "E.g. Call the customer “chị”. Mention free shipping over 500k.",
+      "ready": "E.g. Include the bank details and offer same-day delivery."
+    },
+    "afterSaleDays": "Remind after",
+    "afterSaleDaysHint": "days ({{min}}–{{max}})",
+    "quietHours": "Quiet hours",
+    "quietHoursValue": "No messages from {{from}} to {{to}} (Vietnam time)",
+    "perConversation": "Per customer",
+    "perConversationValue_one": "At most {{count}} message in 24 hours",
+    "perConversationValue_other": "At most {{count}} messages in 24 hours",
+    "dailyCap": "Daily limit",
+    "dailyCapValue_one": "{{count}} follow-up",
+    "dailyCapValue_other": "{{count}} follow-ups",
+    "dailyCapUnlimited": "No limit"
   }
 }

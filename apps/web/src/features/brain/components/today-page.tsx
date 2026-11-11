@@ -1,6 +1,6 @@
-import type { TodayItem } from '@agent-sales/contracts';
+import type { TodayItem, TodayResponse } from '@agent-sales/contracts';
 import { AlertTriangle, Info, Loader2, RefreshCw } from 'lucide-react';
-import { useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -10,7 +10,11 @@ import { useCan } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
 
 import { useRefreshToday, useToday } from '../api/brain';
+import { draftExpired } from '../api/care';
 import { useItemActions } from '../hooks/use-item-actions';
+import { AiDoneSection } from './ai-done-section';
+import { ApprovalQueue } from './approval-queue';
+import { ImpactStrip } from './impact-strip';
 import { TaskDialog, type TaskSubject } from './task-dialog';
 import { TodayQueue } from './today-queue';
 
@@ -24,6 +28,32 @@ function todayLabel(locale: string, now: Date): string {
   }).format(now);
 }
 
+/** The time, re-read every 30 seconds: drafts leave when their window closes. */
+function useNow(everyMs = 30_000): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), everyMs);
+    return () => clearInterval(timer);
+  }, [everyMs]);
+  return now;
+}
+
+/**
+ * The queues as shown: "Chờ duyệt" first (a person's decision is waiting, and the window runs
+ * out), the other queues in the server's order, and no draft whose window already closed.
+ */
+export function visibleQueues(today: TodayResponse, now: number): TodayResponse['queues'] {
+  const queues = today.queues.map((q) => {
+    if (q.key !== 'approval') return q;
+    const items = q.items.filter((i) => !draftExpired(i, now));
+    return { ...q, items, count: Math.max(0, q.count - (q.items.length - items.length)) };
+  });
+  return [
+    ...queues.filter((q) => q.key === 'approval'),
+    ...queues.filter((q) => q.key !== 'approval'),
+  ];
+}
+
 /**
  * Hôm nay (spec 2026-11-11 §5): what needs doing today, queue by queue, with the actions on each
  * customer. "Làm mới" evaluates the conversations with new customer messages within the day's
@@ -35,9 +65,14 @@ export function TodayPage() {
   const refresh = useRefreshToday();
   const actions = useItemActions();
   const canAct = useCan('contacts.edit');
+  // "Rapiz đã mang lại" covers the whole business (`GET /brain/impact`).
+  const canViewAnalytics = useCan('analytics.view');
+  const canViewAll = useCan('contacts.view_all');
+  const canSeeImpact = canViewAnalytics && canViewAll;
   const [task, setTask] = useState<TaskSubject | null>(null);
-  const now = Date.now();
+  const now = useNow();
   const data = today.data;
+  const queues = useMemo(() => (data ? visibleQueues(data, now) : []), [data, now]);
   const usage = data?.usage;
   const left = usage && usage.limit !== null ? Math.max(0, usage.limit - usage.used) : null;
   const capped = left === 0;
@@ -116,10 +151,12 @@ export function TodayPage() {
         </p>
       ) : null}
 
+      {canSeeImpact ? <ImpactStrip /> : null}
+
       {data ? (
         <>
           <nav aria-label={t('today.summary')} className="-mx-1 flex gap-2 overflow-x-auto px-1">
-            {data.queues.map((q) => (
+            {queues.map((q) => (
               <a
                 key={q.key}
                 href={`#queue-${q.key}`}
@@ -134,9 +171,17 @@ export function TodayPage() {
             ))}
           </nav>
           <div className="grid gap-4 lg:grid-cols-2">
-            {data.queues.map((q) => (
-              <TodayQueue key={q.key} queue={q} handlers={handlers} now={now} />
-            ))}
+            {queues.map((q) =>
+              q.key === 'approval' ? (
+                <Fragment key={q.key}>
+                  <ApprovalQueue queue={q} now={now} canAct={canAct} />
+                  {/* What the AI already sent today, right under what waits for a person. */}
+                  <AiDoneSection />
+                </Fragment>
+              ) : (
+                <TodayQueue key={q.key} queue={q} handlers={handlers} now={now} />
+              ),
+            )}
           </div>
         </>
       ) : today.isError ? (
