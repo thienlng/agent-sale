@@ -21,6 +21,7 @@ const entitlements = {
   'feature.public_api': false,
   'api.requests_per_minute': 0,
   'brain.evaluations.daily': 200,
+  'care.messages.daily': 100,
 };
 
 const plan = (

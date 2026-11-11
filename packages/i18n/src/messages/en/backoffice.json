@@ -78,6 +78,11 @@
         "daily": "Conversation evaluations per day"
       }
     },
+    "care": {
+      "messages": {
+        "daily": "Care agent messages per day"
+      }
+    },
     "amount": "Replies",
     "periodDays": "Cycle (days)"
   },

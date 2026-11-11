@@ -176,3 +176,11 @@ CREATE POLICY care_usage_system ON care_usage FOR ALL TO app_system
 GRANT SELECT, INSERT, UPDATE, DELETE
   ON autonomy_settings, care_templates, care_enrollments, care_messages, care_usage
   TO app_tenant, app_system;
+
+-- The care agent's daily message cap `care.messages.daily` is a plan entitlement (like 0074 for
+-- `brain.evaluations.daily`). Every stored plan version gets the default of 100 messages per
+-- business per day, so the plan catalog stays a complete entitlement set (admins republish plans
+-- from it). Unlimited (`null`) is set per account through an entitlement override.
+update plans
+set entitlements = entitlements || jsonb_build_object('care.messages.daily', 100)
+where not (entitlements ? 'care.messages.daily');
