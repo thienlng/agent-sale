@@ -278,3 +278,59 @@ export const crmAssignmentPolicies = pgTable(
     ...tenantPolicies('crm_assignment_policies'),
   ],
 );
+
+/**
+ * CRM tasks (migration 0072, CRM-04, spec 2026-11-11 §4). Links are opaque ids; only the customer
+ * link is a same-workspace key, and a deleted customer deletes its tasks.
+ */
+export const tasks = pgTable(
+  'tasks',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: workspaceRef(),
+    title: text('title').notNull(),
+    note: text('note'),
+    dueAt: ts('due_at'),
+    /** `ai` is reserved for phase 2 (autonomy); v1 writes `member` only. */
+    assigneeKind: text('assignee_kind').$type<'member' | 'ai'>().notNull().default('member'),
+    assigneeUserId: uuid('assignee_user_id'),
+    status: text('status').$type<'open' | 'done' | 'cancelled'>().notNull().default('open'),
+    doneAt: ts('done_at'),
+    doneBy: uuid('done_by'),
+    contactId: uuid('contact_id'),
+    conversationId: uuid('conversation_id'),
+    subjectType: text('subject_type'),
+    subjectId: uuid('subject_id'),
+    source: text('source').$type<'manual' | 'today' | 'assistant'>().notNull().default('manual'),
+    createdBy: uuid('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+    version: integer('version').notNull().default(1),
+    remindedAt: ts('reminded_at'),
+  },
+  (t) => [
+    foreignKey({
+      name: 'tasks_contact_fk',
+      columns: [t.workspaceId, t.contactId],
+      foreignColumns: [contacts.workspaceId, contacts.id],
+    }).onDelete('cascade'),
+    check(
+      'tasks_title_length',
+      sql`char_length(btrim(${t.title})) >= 1 and char_length(${t.title}) <= 200`,
+    ),
+    check('tasks_note_length', sql`char_length(${t.note}) <= 2000`),
+    check('tasks_assignee_kind_check', sql`${t.assigneeKind} in ('member','ai')`),
+    check('tasks_status_check', sql`${t.status} in ('open','done','cancelled')`),
+    check('tasks_source_check', sql`${t.source} in ('manual','today','assistant')`),
+    check('tasks_subject_type_length', sql`char_length(${t.subjectType}) <= 40`),
+    check('tasks_subject_check', sql`(${t.subjectType} is null) = (${t.subjectId} is null)`),
+    index('tasks_status_due_idx').on(t.workspaceId, t.status, t.dueAt),
+    index('tasks_open_assignee_idx')
+      .on(t.workspaceId, t.assigneeUserId)
+      .where(sql`${t.status} = 'open'`),
+    index('tasks_contact_idx')
+      .on(t.workspaceId, t.contactId)
+      .where(sql`${t.contactId} is not null`),
+    ...tenantPolicies('tasks'),
+  ],
+);
