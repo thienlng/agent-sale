@@ -11,6 +11,7 @@ export {
   type LodgingBotScope,
   type LodgingCatalogFacade,
   type LodgingFacade,
+  type ConversationBooking,
   type PrepareBotHoldInput,
   type PrepareBotHoldResult,
   type StayRevenue,

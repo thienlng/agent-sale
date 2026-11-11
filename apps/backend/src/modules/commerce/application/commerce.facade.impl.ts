@@ -4,6 +4,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import type {
   CommerceFacade,
+  ConversationOrder,
   ConversationTime,
   LowStock,
   OrdersPlaced,
@@ -68,5 +69,12 @@ export class CommerceFacadeImpl implements CommerceFacade {
     conversationIds: readonly string[],
   ): Promise<ConversationTime[]> {
     return this.orders.latestByConversation(ws, conversationIds);
+  }
+
+  conversationOrders(
+    ws: WorkspaceId,
+    q: { since: Date; until: Date; orderIds?: readonly string[] | undefined },
+  ): Promise<ConversationOrder[]> {
+    return this.orders.conversationOrders(ws, q);
   }
 }

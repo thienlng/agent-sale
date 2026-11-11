@@ -291,6 +291,7 @@ export function buildService(c: EvalCase, llm: LlmRuntime, opts: RunOptions = {}
       listBotPropertyIds: async () => products.filter((p) => p.accommodation).map((p) => p.id),
       stayRevenue: () => Promise.reject(new Error('not used by the bot evals')),
       latestBookingTimes: () => Promise.resolve([]),
+      conversationBookings: () => Promise.resolve([]),
     } as LodgingFacade,
     undefined,
     requests as unknown as CrmFacade,

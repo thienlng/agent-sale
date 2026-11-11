@@ -373,6 +373,22 @@ export class OrderService {
     return this.store.run(ws, (tx) => tx.orders.latestByConversation(ids));
   }
 
+  /** Orders made in conversations (care agent stop rules and attribution); non-uuid ids skipped. */
+  conversationOrders(
+    ws: WorkspaceId,
+    q: { since: Date; until: Date; orderIds?: readonly string[] | undefined },
+  ): Promise<
+    { orderId: string; conversationId: string; createdAt: Date; total: number; status: string }[]
+  > {
+    const orderIds = q.orderIds
+      ? [...new Set(q.orderIds.filter(isUuid))].slice(0, 1000)
+      : undefined;
+    if (orderIds && !orderIds.length) return Promise.resolve([]);
+    return this.store.run(ws, (tx) =>
+      tx.orders.conversationOrders({ since: q.since, until: q.until, orderIds }),
+    );
+  }
+
   /** Low-stock variants for owner reports and alerts (T-172). */
   lowStock(ws: WorkspaceId, q: { threshold: number; limit: number }): Promise<LowStock> {
     return this.store.run(ws, (tx) =>

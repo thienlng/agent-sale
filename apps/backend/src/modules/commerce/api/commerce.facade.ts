@@ -96,6 +96,24 @@ export interface CommerceFacade {
     ws: WorkspaceId,
     conversationIds: readonly string[],
   ): Promise<ConversationTime[]>;
+  /**
+   * Orders linked to a conversation (not deleted or cancelled) created in `[since, until)`, or
+   * only those of `orderIds` when given (≤ 1 000): id, conversation, creation time and total
+   * (integer VND), oldest first, at most 5 000. For the care agent's stop rules and attribution.
+   */
+  conversationOrders(
+    ws: WorkspaceId,
+    q: { since: Date; until: Date; orderIds?: readonly string[] | undefined },
+  ): Promise<ConversationOrder[]>;
+}
+
+/** An order made in a conversation. */
+export interface ConversationOrder {
+  orderId: string;
+  conversationId: string;
+  createdAt: Date;
+  total: number;
+  status: string;
 }
 
 /** A conversation and a time. */

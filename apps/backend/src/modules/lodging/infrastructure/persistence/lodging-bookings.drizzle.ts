@@ -60,6 +60,7 @@ export type BookingPort = Pick<
   | 'bookingsInRange'
   | 'stayTotals'
   | 'latestBookingByConversation'
+  | 'conversationBookings'
   | 'insertBooking'
   | 'updateBooking'
   | 'takeNights'
@@ -250,6 +251,44 @@ export function bookingPort(tx: TenantTx, ws: WorkspaceId): BookingPort {
         .groupBy(B.conversationId);
       return rows.flatMap((r) =>
         r.conversationId ? [{ conversationId: r.conversationId, at: new Date(r.at) }] : [],
+      );
+    },
+
+    async conversationBookings({ since, until, bookingIds }) {
+      const rows = await tx
+        .select({
+          bookingId: B.id,
+          conversationId: B.conversationId,
+          createdAt: B.createdAt,
+          total: B.totalSell,
+          status: B.status,
+        })
+        .from(B)
+        .where(
+          and(
+            eq(B.workspaceId, ws),
+            eq(B.kind, 'stay'),
+            sql`${B.conversationId} is not null`,
+            inArray(B.status, BOOKED_STATUSES),
+            gte(B.createdAt, since),
+            lt(B.createdAt, until),
+            bookingIds ? inArray(B.id, [...bookingIds]) : undefined,
+          ),
+        )
+        .orderBy(asc(B.createdAt))
+        .limit(5000);
+      return rows.flatMap((r) =>
+        r.conversationId
+          ? [
+              {
+                bookingId: r.bookingId,
+                conversationId: r.conversationId,
+                createdAt: new Date(r.createdAt),
+                total: Number(r.total ?? 0),
+                status: String(r.status),
+              },
+            ]
+          : [],
       );
     },
 

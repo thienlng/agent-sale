@@ -21,6 +21,8 @@ import { CRM_TASK_RUNNER, type CrmTaskRunner } from '../modules/crm/api/index.js
 import { CrmModule } from '../modules/crm/crm.module.js';
 import { BRAIN_RUNNER, type BrainRunner } from '../modules/brain/api/index.js';
 import { BrainModule } from '../modules/brain/brain.module.js';
+import { CARE_RUNNER, type CareRunner } from '../modules/care/api/index.js';
+import { CareModule } from '../modules/care/care.module.js';
 import { DEVELOPER_RUNNER, type DeveloperRunner } from '../modules/developer/api/index.js';
 import { DeveloperModule } from '../modules/developer/developer.module.js';
 import { DATAEXPORT_RUNNER, type DataExportRunner } from '../modules/dataexport/api/index.js';
@@ -51,6 +53,7 @@ import { SaasModule } from '../modules/saas/saas.module.js';
     DataexportModule,
     CrmModule,
     BrainModule,
+    CareModule,
   ],
 })
 class WorkerModule {}
@@ -208,6 +211,19 @@ const brainTimer = setInterval(() => {
       brainBusy = false;
     });
 }, 15_000);
+// Care agent (ADR-031): cycles from the outbox, draft expiry, then the due follow-up steps.
+const care = ctx.get<CareRunner>(CARE_RUNNER);
+let careBusy = false;
+const careTimer = setInterval(() => {
+  if (careBusy) return;
+  careBusy = true;
+  void care
+    .tick()
+    .catch(() => logger.error('Care tick failed'))
+    .finally(() => {
+      careBusy = false;
+    });
+}, 15_000);
 let dailyRunning = false;
 const runDaily = () => {
   if (dailyRunning) return;
@@ -236,8 +252,9 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const)
     clearInterval(exportTimer);
     clearInterval(taskTimer);
     clearInterval(brainTimer);
+    clearInterval(careTimer);
   });
 logger.info(
   { queues },
-  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks, notifications, assistant jobs, assistant schedules, task reminders, brain signals; no queue processors registered yet)',
+  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks, notifications, assistant jobs, assistant schedules, task reminders, brain signals, care agent; no queue processors registered yet)',
 );
