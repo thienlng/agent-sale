@@ -9,6 +9,7 @@ import { ApiClientError } from '@/lib/api-client';
 import { requestSignupCode, signup } from '@/lib/session';
 
 import { FormError } from './form-error';
+import { GoogleButton } from './google-button';
 
 /** The server lets a new code go out once a minute. */
 const RESEND_SECONDS = 60;
@@ -22,9 +23,12 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function SignupForm({
   onSuccess,
   defaultEmail,
+  redirect,
 }: {
   onSuccess: () => void;
   defaultEmail?: string | undefined;
+  /** Same-app path to open after signing up (passed through Google). */
+  redirect?: string | undefined;
 }) {
   const { t } = useTranslation();
   const formRef = useRef<HTMLFormElement>(null);
@@ -120,6 +124,12 @@ export function SignupForm({
         <p className="mt-1.5 text-muted-foreground">{t('auth.signupSubtitle')}</p>
       </div>
       {error ? <FormError>{error}</FormError> : null}
+      <GoogleButton variant="plain" redirect={redirect} />
+      <div className="flex items-center gap-3 text-xs text-muted-foreground" aria-hidden>
+        <span className="h-px flex-1 bg-border" />
+        {t('auth.orEmail')}
+        <span className="h-px flex-1 bg-border" />
+      </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="name">{t('auth.name')}</Label>
         <Input id="name" name="name" autoComplete="name" required />

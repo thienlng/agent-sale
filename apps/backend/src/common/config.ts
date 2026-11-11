@@ -127,6 +127,18 @@ export const EnvSchema = z
       .default('mailto:support@rapiz.io'),
     /** Public HTTPS origin of the dashboard, for links in emails; unset leaves links out. */
     APP_PUBLIC_URL: z.url({ protocol: /^https$/ }).optional(),
+    /**
+     * Sign in with Google (OAuth web client from Google Cloud). Both unset: the login page shows
+     * the Google button as coming soon. The redirect URI must be registered on the client exactly;
+     * unset, it is the first `APP_ORIGINS` entry + `/api/v1/auth/google/callback`.
+     */
+    GOOGLE_CLIENT_ID: z.string().min(10).optional(),
+    GOOGLE_CLIENT_SECRET: z.string().min(10).optional(),
+    GOOGLE_REDIRECT_URI: z.url().optional(),
+  })
+  .refine((env) => !env.GOOGLE_CLIENT_ID === !env.GOOGLE_CLIENT_SECRET, {
+    message: 'Set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, or neither',
+    path: ['GOOGLE_CLIENT_SECRET'],
   })
   .refine((env) => env.NODE_ENV !== 'production' || !!env.SECRETS_ENCRYPTION_KEY, {
     message: 'SECRETS_ENCRYPTION_KEY is required in production',

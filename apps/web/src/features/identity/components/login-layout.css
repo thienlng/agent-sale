@@ -350,6 +350,14 @@
   color: var(--login-muted);
   cursor: not-allowed;
 }
+.login-google[data-enabled] {
+  color: var(--login-ink);
+  cursor: pointer;
+  text-decoration: none;
+}
+.login-google[data-enabled]:hover {
+  background: #f7f7f8;
+}
 .login-google svg {
   width: 16px;
   height: 16px;

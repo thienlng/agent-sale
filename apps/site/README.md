@@ -19,6 +19,7 @@ pnpm --filter @agent-sales/site test:e2e   # Playwright against `astro preview` 
 | `/tinh-nang/*/` | Feature pages: sales bot, Facebook comments, inbox, AI training, assistant, customers and analytics |
 | `/tich-hop/`, `/bao-mat/`, `/bang-gia/`, `/dat-lich-demo/` | Integrations, security, pricing, demo request |
 | `/ve-rapiz/` | About Rapiz |
+| `/privacy/`, `/terms/` | Privacy policy and terms of use (`LEGAL_PAGES` in `tools/site_content.py`). Google links them from its sign-in screen, so they stay public behind the beta gate (`infra/deploy/beta-gate.sh`). Write only what the product does; update `LEGAL_UPDATED` on every change. |
 
 Static files live in `public/static/` (CSS and JS), `public/images/` and `public/fonts/`. The
 production routes for these paths are in `infra/deploy/Caddyfile` and, for the dev tunnel, in

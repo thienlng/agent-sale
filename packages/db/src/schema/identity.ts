@@ -77,3 +77,25 @@ export const emailCodes = pgTable(
   },
   (t) => [primaryKey({ columns: [t.email, t.purpose] })],
 );
+
+/**
+ * GLOBAL: accounts at an external identity provider linked to a user (migration 0072). The
+ * provider's subject id is the key, not the email. app_system only.
+ */
+export const userIdentities = pgTable(
+  'user_identities',
+  {
+    provider: text('provider').$type<'google'>().notNull(),
+    subject: text('subject').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    lastLoginAt: timestamp('last_login_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.provider, t.subject] }),
+    index('user_identities_user_idx').on(t.userId),
+  ],
+);

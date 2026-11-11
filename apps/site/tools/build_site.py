@@ -152,6 +152,7 @@ def footer(root: str, page: dict | None = None) -> str:
     </div>
     <div class="rf-base">
       <span>© 2026 {C.COMPANY['short']}</span>
+      <nav class="rf-legal" aria-label="Pháp lý"><a href="{href(root, 'privacy')}">Quyền riêng tư</a><a href="{href(root, 'terms')}">Điều khoản</a></nav>
       <a class="rf-up" href="#top" aria-label="Về đầu trang"><span aria-hidden="true">↑</span></a>
     </div>
   </div>
@@ -912,6 +913,42 @@ def render_page(p: dict) -> str:
 '''
 
 
+def legal_block(item) -> str:
+    if isinstance(item, list):
+        return '<ul>' + ''.join(f'<li>{li}</li>' for li in item) + '</ul>'
+    return f'<p>{item}</p>'
+
+
+def render_legal(p: dict) -> str:
+    """A policy page: plain reading layout, a table of contents, numbered sections."""
+    root = rel(1)
+    toc = ''.join(f'<li><a href="#s{n}">{title}</a></li>' for n, (title, _) in enumerate(p['sections'], start=1))
+    sections = '\n'.join(
+        mark(f'<section id="s{n}" aria-labelledby="s{n}-title"><h2 id="s{n}-title"><span class="legal-num">{n:02d}</span> {title}</h2>'
+             + ''.join(legal_block(item) for item in items) + '</section>', f'{p["slug"]}-{n:02d}')
+        for n, (title, items) in enumerate(p['sections'], start=1)
+    )
+    return f'''{head(root, p["title"], p["description"], p["slug"] + "/")}
+{header(root, p["slug"])}
+<main id="main" class="legal">
+  <div class="container legal-layout">
+    <header class="legal-head" data-rapiz-section="{p["slug"]}-intro">
+      {kicker("PHÁP LÝ")}
+      <h1 id="page-title">{p["h1"]}</h1>
+      <p class="legal-updated">Cập nhật lần cuối: {C.LEGAL_UPDATED}</p>
+      <p class="legal-intro">{p["intro"]}</p>
+    </header>
+    <nav class="legal-toc" aria-label="Mục lục"><p>Mục lục</p><ol>{toc}</ol></nav>
+    <article class="legal-body">
+{sections}
+    </article>
+  </div>
+</main>
+{footer(root, p)}
+</body></html>
+'''
+
+
 def replace_block(text: str, name: str, html: str) -> str:
     pattern = re.compile(rf'<!--#{name}-->.*?<!--/{name}-->', re.S)
     if not pattern.search(text):
@@ -936,6 +973,11 @@ def main() -> None:
         out = ROOT / p['slug'] / 'index.html'
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(render_page(p), encoding='utf-8')
+        print('wrote', out.relative_to(ROOT))
+    for p in C.LEGAL_PAGES:
+        out = ROOT / p['slug'] / 'index.html'
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(render_legal(p), encoding='utf-8')
         print('wrote', out.relative_to(ROOT))
     if os.environ.get('SKIP_INDEX'):
         print('skipped index.html (SKIP_INDEX)')
