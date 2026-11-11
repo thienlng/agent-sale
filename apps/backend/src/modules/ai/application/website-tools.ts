@@ -35,7 +35,7 @@ const SuggestNextInput = z
 const SHOW_PRODUCTS_DEFINITION: ToolDefinition = {
   name: SHOW_PRODUCTS_TOOL,
   description:
-    'Website chat only. Sends one message with a short intro text and a row of product cards (picture, name, price, a "learn more" button) built from the catalog: use it when the visitor wants to see or compare several products, plans or packages (2 to 6 ids of products a catalog tool returned or from <focus_products>). Do not repeat the cards in your answer.',
+    'Website chat only. Sends one message with a short intro text and a row of product cards (picture, name, price, a "learn more" button) built from the catalog: use it when the visitor wants to see or compare several products, plans or packages (2 to 6 ids, copied exactly, of products a catalog tool returned or from <focus_products>). Do not repeat the cards in your answer.',
   input: ShowProductsInput,
 };
 
@@ -64,8 +64,28 @@ export function cardPrice(product: ProductDto, language: 'vi' | 'en'): string {
   return note.slice(0, 80);
 }
 
+const KNOWN_LIMIT = 12;
+
+/**
+ * A product the model may show, by id; a model that garbled a near-identical id (UUIDv7s of
+ * products created together share their first characters) may also name it by its code or name.
+ */
+function shownProduct(
+  products: ReadonlyMap<string, ProductDto>,
+  ref: string,
+): ProductDto | undefined {
+  const exact = products.get(ref);
+  if (exact) return exact;
+  const key = ref.toLowerCase();
+  const matches = [...products.values()].filter(
+    (p) =>
+      p.id.toLowerCase() === key || p.code.toLowerCase() === key || p.name.toLowerCase() === key,
+  );
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
 export interface WebsiteToolContext {
-  /** Products the model may show: focus products and every product a catalog tool returned. */
+  /** Products the model may show: focus products and every product a catalog tool listed. */
   products: ReadonlyMap<string, ProductDto>;
   navigation: readonly NavTarget[];
   language: 'vi' | 'en';
@@ -93,19 +113,21 @@ export function websiteTools(ctx: WebsiteToolContext): {
       const args = input as z.infer<typeof ShowProductsInput>;
       const cards: MessageCard[] = [];
       const unknown: string[] = [];
+      const shown = new Set<string>();
       for (const id of [...new Set(args.productIds.map((x) => x.trim()))]) {
-        const product = ctx.products.get(id);
+        const product = shownProduct(ctx.products, id);
         if (!product) {
           unknown.push(id.slice(0, 64));
           continue;
         }
+        if (shown.has(product.id)) continue;
+        shown.add(product.id);
         const first = productImages([product])[0];
-        const image = first ? ctx.allowlist.resolve([first.id]).images[0] : undefined;
         cards.push({
           productId: product.id,
           title: product.name.slice(0, 120),
           price: cardPrice(product, ctx.language),
-          imageUrl: image?.url ?? null,
+          imageUrl: first ? ctx.allowlist.publicUrl(first.url) : null,
         });
       }
       const extra = unknown.length ? { unknownProductIds: unknown } : {};
@@ -113,8 +135,11 @@ export function websiteTools(ctx: WebsiteToolContext): {
         return {
           content: safeJson({
             error: 'unknown_products',
-            hint: 'search the catalog first',
+            hint: 'use the ids listed here, or search the catalog first',
             ...extra,
+            known: [...ctx.products.values()]
+              .slice(0, KNOWN_LIMIT)
+              .map((p) => ({ id: p.id, name: p.name })),
           }),
           ok: false,
         };

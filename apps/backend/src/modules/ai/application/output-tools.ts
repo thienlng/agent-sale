@@ -118,6 +118,15 @@ export class ImageAllowlist {
     }
   }
 
+  /**
+   * The public https URL of a stored picture without allowing it to be sent: a product card's
+   * picture comes from the catalog, not from an id the model chose.
+   */
+  publicUrl(url: string): string | null {
+    const absolute = absoluteMediaUrl(url, this.mediaBase);
+    return absolute.startsWith('https://') ? absolute : null;
+  }
+
   album(id: string): AllowedAlbum | undefined {
     return this.#albums.get(id.trim());
   }
