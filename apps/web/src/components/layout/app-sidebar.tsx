@@ -14,6 +14,7 @@ import {
   Sparkles,
   House,
   CalendarDays,
+  ListChecks,
   Users,
   UsersRound,
 } from 'lucide-react';
@@ -56,6 +57,8 @@ interface NavItem {
 
 /** P0 items of docs/03 §2; the ones not built yet say so instead of pretending. */
 const HOME: readonly NavItem[] = [
+  /** What needs doing today (Business Brain, BRN-05): first, with its count. */
+  { to: '/app/today', key: 'nav.today', icon: ListChecks, ready: true },
   { to: '/app/analytics', key: 'nav.analytics', icon: BarChart3, ready: true },
 ];
 /** The owner assistant on its own page (ADR-024): account owners only, like its launcher. */
@@ -172,10 +175,12 @@ function SectionNav({
 function NavGroup({
   label,
   items,
+  counts,
   children,
 }: {
   label: string;
   items: readonly NavItem[];
+  counts?: NavCounts | undefined;
   children?: ReactNode;
 }) {
   return (
@@ -185,7 +190,7 @@ function NavGroup({
         {label}
       </SidebarGroupLabel>
       <SidebarMenu>
-        <NavItems items={items} />
+        <NavItems items={items} counts={counts} />
         {children}
       </SidebarMenu>
     </SidebarGroup>
@@ -279,7 +284,7 @@ export function AppSidebar({
       <SidebarContent>
         {/* `contents` keeps the sidebar's own layout while exposing a navigation landmark. */}
         <nav aria-label={t('nav.mainLabel')} className="contents">
-          <NavGroup label={t('nav.groupWork')} items={HOME}>
+          <NavGroup label={t('nav.groupWork')} items={HOME} counts={navCounts}>
             {isOwner ? <NavItems items={ASSISTANT} /> : null}
             <NavItems items={BOTS} />
             <NavItems items={INBOX} />

@@ -56,6 +56,7 @@ const lazyNamespaces = {
   backoffice: () => import('@agent-sales/i18n/backoffice').then((m) => m.backoffice),
   developer: () => import('@agent-sales/i18n/developer').then((m) => m.developer),
   lodging: () => import('@agent-sales/i18n/lodging').then((m) => m.lodging),
+  brain: () => import('@agent-sales/i18n/brain').then((m) => m.brain),
 } satisfies Record<string, () => Promise<Record<Locale, unknown>>>;
 
 /** Adds a lazy namespace in every locale, so a later language switch needs no extra fetch. */

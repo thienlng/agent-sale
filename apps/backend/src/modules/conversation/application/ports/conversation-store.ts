@@ -39,6 +39,20 @@ export interface ConversationTx {
     byChannel: { channel: string; count: number }[];
     ids: string[];
   }>;
+  /** See `ConversationFacade.todayCandidates`. */
+  todayCandidates(q: {
+    ids: readonly string[];
+    awaitingBefore: Date;
+    followUpBefore: Date;
+    limit: number;
+    visibleTo?: string | undefined;
+    lastHumanFor?: readonly string[] | undefined;
+  }): Promise<TodayCandidateRow[]>;
+}
+/** A Today candidate: the conversation and the time of its last delivered staff message. */
+export interface TodayCandidateRow {
+  conversation: ConversationView;
+  lastHumanReplyAt: string | null;
 }
 export interface ConversationStore {
   run<T>(ws: WorkspaceId, fn: (tx: ConversationTx) => Promise<T>): Promise<T>;

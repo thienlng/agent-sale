@@ -41,7 +41,7 @@ export function MessageComposer(props: {
   /** "Messenger" / "Instagram" for the placeholder. */
   channelLabel?: string | undefined;
   channelId?: string | undefined;
-  renderTools?: ((insertText: (text: string) => void) => ReactNode) | undefined;
+  renderTools?: ((insertText: (text: string) => boolean) => ReactNode) | undefined;
 }) {
   const session = useSession();
   const scope = draftKey(
@@ -69,7 +69,7 @@ function ScopedComposer({
   channelLabel?: string | undefined;
   channelId?: string | undefined;
   scope: string;
-  renderTools?: ((insertText: (text: string) => void) => ReactNode) | undefined;
+  renderTools?: ((insertText: (text: string) => boolean) => ReactNode) | undefined;
 }) {
   const userId = useSession()?.user.id ?? '';
   const enterToSend = useEnterToSend(userId);
@@ -119,10 +119,11 @@ function ScopedComposer({
       textarea.current?.setSelectionRange(inserted.cursor, inserted.cursor),
     );
   }
-  function insertText(content: string) {
+  /** Inserts at the cursor; false (with a toast) when the composer cannot take it now. */
+  function insertText(content: string): boolean {
     if (sender.isPending) {
       toast.info(tr('sending'));
-      return;
+      return false;
     }
     const current = readDraft(scope).text;
     const inserted = insertQuickReply(
@@ -133,7 +134,7 @@ function ScopedComposer({
     );
     if (!inserted) {
       toast.error(tr('sales.replyTooLong'));
-      return;
+      return false;
     }
     setDraft(inserted.text);
     selection.current = { start: inserted.cursor, end: inserted.cursor };
@@ -141,6 +142,8 @@ function ScopedComposer({
       textarea.current?.focus();
       textarea.current?.setSelectionRange(inserted.cursor, inserted.cursor);
     });
+    // Held only when the draft store took it (a session cleared meanwhile drops the write).
+    return readDraft(scope).text === inserted.text;
   }
 
   function report(status: string) {

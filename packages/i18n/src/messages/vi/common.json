@@ -56,7 +56,9 @@
     "accountOverview": "Tổng quan các business",
     "newBusiness": "Tạo business mới",
     "services": "Dịch vụ",
-    "assistant": "Trợ lý"
+    "assistant": "Trợ lý",
+    "today": "Hôm nay",
+    "todayWaiting_other": "{{count}} việc cần làm hôm nay"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -1475,7 +1477,8 @@
       "security": "Bảo mật",
       "audit": "Nhật ký",
       "developers": "Nhà phát triển",
-      "data": "Dữ liệu"
+      "data": "Dữ liệu",
+      "brain": "Đánh giá AI"
     },
     "profile": {
       "title": "Thông tin business",

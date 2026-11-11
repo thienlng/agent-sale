@@ -73,6 +73,11 @@
     "api": {
       "requests_per_minute": "Số request mỗi phút mỗi khóa"
     },
+    "brain": {
+      "evaluations": {
+        "daily": "Lượt đánh giá hội thoại mỗi ngày"
+      }
+    },
     "amount": "Số tin",
     "periodDays": "Chu kỳ (ngày)"
   },

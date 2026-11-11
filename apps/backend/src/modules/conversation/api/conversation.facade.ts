@@ -121,6 +121,71 @@ export interface ConversationFacade {
    * and up to `limit` (≤ 200) ids, oldest first, for an alert fingerprint. No customer data.
    */
   awaitingReply(ws: WorkspaceId, q: { olderThan: Date; limit: number }): Promise<AwaitingReply>;
+  /**
+   * What the Business Brain evaluates (spec 2026-11-11 §3.3): the text messages after `after`
+   * (exclusive; all when null), at most the last 40 and 8 000 characters, oldest first, and the
+   * conversation's facts. Null when the conversation does not exist in the workspace.
+   */
+  signalContext(ws: WorkspaceId, id: string, after: Date | null): Promise<SignalContext | null>;
+  /**
+   * What the Today screen may show (spec 2026-11-11 §5): the conversations with these ids, plus
+   * the open ones waiting since `awaitingBefore` or earlier and the ones with a follow-up reminder
+   * due by `followUpBefore` (spam left out), at most `limit` (≤ 1 000), most recently updated
+   * first. No message text.
+   * - `visibleTo`: only the conversations assigned to that member or to nobody (sales and care),
+   *   applied before the limit.
+   * - `lastHumanFor`: `lastHumanReplyAt` is read for these ids only (null for the others); all
+   *   when absent.
+   */
+  todayCandidates(ws: WorkspaceId, q: TodayCandidatesQuery): Promise<TodayConversation[]>;
+}
+/** What `todayCandidates` reads. */
+export interface TodayCandidatesQuery {
+  ids: readonly string[];
+  awaitingBefore: Date;
+  followUpBefore: Date;
+  limit: number;
+  visibleTo?: string | undefined;
+  lastHumanFor?: readonly string[] | undefined;
+}
+/** One conversation as the Today screen reads it. */
+export interface TodayConversation {
+  id: string;
+  provider: string;
+  status: 'open' | 'resolved' | 'spam';
+  contactId: string | null;
+  customerName: string;
+  customerAvatarUrl: string | null;
+  assigneeId: string | null;
+  /** ISO times. */
+  awaitingSince: string | null;
+  lastInboundAt: string | null;
+  followUpAt: string | null;
+  followUpNote: string;
+  /** Time of the last message a person of the shop sent (not failed); null when none. */
+  lastHumanReplyAt: string | null;
+}
+/** One message as the Business Brain reads it. */
+export interface SignalContextMessage {
+  sender: 'customer' | 'human' | 'bot';
+  text: string;
+  /** ISO time. */
+  at: string;
+}
+/** What `signalContext` returns. */
+export interface SignalContext {
+  messages: SignalContextMessage[];
+  facts: {
+    status: 'open' | 'resolved' | 'spam';
+    contactId: string | null;
+    assigneeId: string | null;
+    customerName: string;
+    awaitingSince: string | null;
+    lastInboundAt: string | null;
+    lastMessageSender: 'customer' | 'human' | 'bot';
+    /** Test or playground conversation: never evaluated. Inbox conversations are never tests. */
+    isTest: boolean;
+  };
 }
 /** What `awaitingReply` returns: counts and ids only (S3-R9). */
 export interface AwaitingReply {

@@ -6,6 +6,7 @@ import { contactSyncTx } from './contact-sync.drizzle.js';
 import { contactsTx } from './contacts.drizzle.js';
 import { crmSettingsTx } from './crm-settings.drizzle.js';
 import { policiesTx } from './policies.drizzle.js';
+import { tasksTx } from './tasks.drizzle.js';
 
 /** One withTenant transaction per use case; RLS scopes every statement to the workspace. */
 export class DrizzleCrmStore implements CrmStore {
@@ -18,6 +19,7 @@ export class DrizzleCrmStore implements CrmStore {
         ...contactSyncTx(tx),
         ...crmSettingsTx(workspaceId, tx),
         ...policiesTx(workspaceId, tx),
+        ...tasksTx(tx),
         async lock(key: string) {
           await tx.execute(
             sql`select pg_advisory_xact_lock(hashtextextended(${`crm/${workspaceId}/${key}`},0))`,

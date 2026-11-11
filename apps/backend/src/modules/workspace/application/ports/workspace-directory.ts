@@ -15,6 +15,8 @@ export interface WorkspaceDirectory {
   findMembership(workspaceId: WorkspaceId, userId: UserId): Promise<WorkspaceMembership | null>;
   listMemberships(userId: UserId): Promise<WorkspaceMembership[]>;
   listMembers(workspaceId: WorkspaceId, includeRemoved: boolean): Promise<WorkspaceMember[]>;
+  /** Active, not deleted businesses by id, after `afterId` (worker scans). */
+  listActiveIds(afterId: WorkspaceId | null, limit: number): Promise<WorkspaceId[]>;
   /** Businesses of these accounts with their active member count (platform admin). */
   listByAccounts(accountIds: readonly string[]): Promise<AccountBusiness[]>;
 }

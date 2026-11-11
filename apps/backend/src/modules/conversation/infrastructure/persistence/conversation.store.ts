@@ -336,6 +336,46 @@ export class DrizzleConversationStore implements ConversationStore {
             ids: ids.map((r) => r.id),
           };
         },
+        async todayCandidates({
+          ids,
+          awaitingBefore,
+          followUpBefore,
+          limit,
+          visibleTo,
+          lastHumanFor,
+        }) {
+          const wanted: SQL[] = [
+            sql`(${waitingNow} and ${c.awaitingSince} <= ${awaitingBefore.toISOString()}::timestamptz)`,
+            sql`(${c.status} <> 'spam' and ${c.data}->>'followUpAt' is not null
+              and (${c.data}->>'followUpAt')::timestamptz <= ${followUpBefore.toISOString()}::timestamptz)`,
+          ];
+          if (ids.length) wanted.push(sql`${c.id} = any(${uuidArray(ids)})`);
+          const lastHuman = sql`(select max((mm.data->>'createdAt')::timestamptz)
+                from ${m} mm
+                where mm.workspace_id = ${c.workspaceId} and mm.conversation_id = ${c.id}
+                  and mm.data->>'sender' = 'human' and mm.data->>'status' <> 'failed')`;
+          const scope = visibleTo
+            ? sql` and (${c.assigneeId} is null or ${c.assigneeId} = ${visibleTo}::uuid)`
+            : sql``;
+          const rows = await tx
+            .select({
+              row: c,
+              // The correlated read runs only for the rows that need it (a CASE evaluates its
+              // subplan lazily): attention candidates.
+              lastHuman: lastHumanFor
+                ? sql<string | Date | null>`case when ${c.id} = any(${uuidArray(lastHumanFor)})
+                    then ${lastHuman} end`
+                : sql<string | Date | null>`${lastHuman}`,
+            })
+            .from(c)
+            .where(and(eq(c.workspaceId, ws), sql`(${sql.join(wanted, sql` or `)})${scope}`))
+            .orderBy(desc(c.updatedAt))
+            .limit(Math.max(0, Math.min(limit, 1000)));
+          return rows.map((r) => ({
+            conversation: toView(r.row),
+            lastHumanReplyAt: r.lastHuman ? new Date(r.lastHuman).toISOString() : null,
+          }));
+        },
       }),
     );
   }

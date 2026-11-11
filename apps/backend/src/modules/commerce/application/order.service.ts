@@ -363,6 +363,16 @@ export class OrderService {
     };
   }
 
+  /** The newest live order of each conversation (Business Brain Today); non-uuid ids skipped. */
+  latestByConversation(
+    ws: WorkspaceId,
+    conversationIds: readonly string[],
+  ): Promise<{ conversationId: string; at: Date }[]> {
+    const ids = [...new Set(conversationIds.filter(isUuid))].slice(0, 1000);
+    if (!ids.length) return Promise.resolve([]);
+    return this.store.run(ws, (tx) => tx.orders.latestByConversation(ids));
+  }
+
   /** Low-stock variants for owner reports and alerts (T-172). */
   lowStock(ws: WorkspaceId, q: { threshold: number; limit: number }): Promise<LowStock> {
     return this.store.run(ws, (tx) =>

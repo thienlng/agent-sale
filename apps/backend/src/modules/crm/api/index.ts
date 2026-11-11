@@ -21,3 +21,4 @@ export {
   type UpsertExternalContactResult,
 } from './contact-sync.facade.js';
 export { CRM_EXPORT } from './crm-export.js';
+export { CRM_TASK_RUNNER, type CrmTaskRunner } from './crm-task.runner.js';

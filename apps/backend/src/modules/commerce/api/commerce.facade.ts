@@ -87,6 +87,21 @@ export interface CommerceFacade {
    * counted, so a business that keeps no inventory has none.
    */
   lowStock(ws: WorkspaceId, q: { threshold: number; limit: number }): Promise<LowStock>;
+  /**
+   * When the newest order (not deleted or cancelled) of each of these conversations was created
+   * (orders linked to a conversation: the bot's); conversations without one are absent. At most
+   * 1 000 ids. For the Business Brain's Today ("ready" ends once an order exists).
+   */
+  latestOrderTimes(
+    ws: WorkspaceId,
+    conversationIds: readonly string[],
+  ): Promise<ConversationTime[]>;
+}
+
+/** A conversation and a time. */
+export interface ConversationTime {
+  conversationId: string;
+  at: Date;
 }
 
 export interface OrdersPlaced {

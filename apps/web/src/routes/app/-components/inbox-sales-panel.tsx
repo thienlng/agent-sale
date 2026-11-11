@@ -16,6 +16,10 @@ import {
 import type { InboxOrderContext } from '@/features/commerce/hooks/inbox-order-draft';
 import { OrderForm } from '@/features/commerce/components/order-form';
 import { OrderStatusBadge } from '@/features/commerce/components/order-status-badge';
+import {
+  ConversationSignalSummary,
+  ConversationTasks,
+} from '@/features/brain/components/conversation-brain';
 import { CustomerSummary, FollowUpBlock } from '@/features/conversation/components/customer-panel';
 import { NotesBlock } from '@/features/conversation/components/notes-block';
 import { PanelBlock } from '@/features/conversation/components/panel-block';
@@ -191,6 +195,9 @@ export function InboxSalesPanel({
           )}
         </div>
       </PanelBlock>
+      <PanelBlock title={t('panel.title', { ns: 'brain' })}>
+        <ConversationSignalSummary conversationId={c.id} />
+      </PanelBlock>
       {slots.tags}
       <NotesBlock conversation={c} />
       {industry === 'hotel' ? (
@@ -299,6 +306,11 @@ export function InboxSalesPanel({
         </PanelBlock>
       )}
       <FollowUpBlock conversation={c} />
+      <PanelBlock title={t('panel.tasks', { ns: 'brain' })}>
+        <ConversationTasks
+          subject={{ conversationId: c.id, contactId: c.contactId, customerName: c.customerName }}
+        />
+      </PanelBlock>
       {slots.media}
       <ContactSheet
         contactId={profile}

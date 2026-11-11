@@ -62,3 +62,55 @@ describe('awaitingReply (memory store)', () => {
     expect(none).toEqual({ count: 0, oldestSince: null, byChannel: [], ids: [] });
   });
 });
+
+describe('todayCandidates (memory store)', () => {
+  it('returns asked ids, open conversations waiting long enough and reminders due, never spam', async () => {
+    const store = new MemoryConversationStore();
+    const asked = conv('facebook', null);
+    const waiting = conv('facebook', '2026-11-02T00:00:00.000Z');
+    const fresh = conv('facebook', '2026-11-02T05:00:00.000Z');
+    const reminder = conv('website', null, { followUpAt: '2026-11-02T10:00:00.000Z' });
+    const spam = conv('facebook', null, {
+      status: 'spam',
+      followUpAt: '2026-11-02T01:00:00.000Z',
+    });
+    await store.run(ws, async (tx) => {
+      for (const c of [asked, waiting, fresh, reminder, spam]) await tx.save(c);
+    });
+    const rows = await store.run(ws, (tx) =>
+      tx.todayCandidates({
+        ids: [asked.id],
+        awaitingBefore: new Date('2026-11-02T01:00:00Z'),
+        followUpBefore: new Date('2026-11-02T17:00:00Z'),
+        limit: 100,
+      }),
+    );
+    expect(rows.map((r) => r.conversation.id).sort()).toEqual(
+      [asked.id, waiting.id, reminder.id].sort(),
+    );
+    expect(rows.every((r) => r.lastHumanReplyAt === null)).toBe(true);
+  });
+
+  it('keeps a member to their own and unassigned conversations before the limit', async () => {
+    const store = new MemoryConversationStore();
+    const me = '0190f5c2-0000-7000-8000-0000000000b2';
+    const other = '0190f5c2-0000-7000-8000-0000000000b9';
+    const mine = conv('facebook', '2026-11-02T00:00:00.000Z', { assigneeId: me });
+    const free = conv('facebook', '2026-11-02T00:00:00.000Z');
+    const theirs = conv('facebook', '2026-11-02T00:00:00.000Z', { assigneeId: other });
+    await store.run(ws, async (tx) => {
+      for (const c of [mine, free, theirs]) await tx.save(c);
+    });
+    const rows = await store.run(ws, (tx) =>
+      tx.todayCandidates({
+        ids: [theirs.id],
+        awaitingBefore: new Date('2026-11-02T01:00:00Z'),
+        followUpBefore: new Date('2026-11-02T17:00:00Z'),
+        limit: 100,
+        visibleTo: me,
+        lastHumanFor: [],
+      }),
+    );
+    expect(rows.map((r) => r.conversation.id).sort()).toEqual([mine.id, free.id].sort());
+  });
+});

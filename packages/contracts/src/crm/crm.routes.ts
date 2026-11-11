@@ -39,6 +39,13 @@ import {
   UpdateTagRequest,
 } from './crm-settings.schema.js';
 import { CustomerRequestList, RequestSummaryDto } from './customer-request.js';
+import {
+  CreateTaskRequest,
+  TaskDto,
+  TaskList,
+  TaskListQuery,
+  UpdateTaskRequest,
+} from './task.schema.js';
 
 const route = <T extends Omit<RouteContract, 'auth' | 'workspaceScoped' | 'tag'>>(r: T) =>
   ({
@@ -289,6 +296,55 @@ export const crmRoutes = defineRoutes([
     apiKey: true,
     summary: 'Members who can be Sales or CSKH',
     responses: { 200: CrmAssigneeList },
+  }),
+
+  route({
+    method: 'get',
+    path: '/tasks',
+    assistant: {
+      use: 'read',
+      when: 'Follow-up tasks (to-dos) of the team: open, overdue or done; mine or the whole team.',
+    },
+    summary:
+      'Tasks: mine (assigned to me or unassigned) or all (needs contacts.view_all); open first by due time',
+    query: TaskListQuery,
+    responses: { 200: TaskList },
+  }),
+  route({
+    method: 'post',
+    path: '/tasks',
+    assistant: {
+      use: 'write',
+      when: 'The owner asks to add a task or reminder, e.g. call a customer back at a given time.',
+    },
+    summary: 'Create a task (any member)',
+    body: CreateTaskRequest,
+    responses: { 201: TaskDto },
+  }),
+  route({
+    method: 'patch',
+    path: '/tasks/{taskId}',
+    assistant: {
+      use: 'write',
+      when: "The owner asks to change a task's title, note, due time or assignee.",
+    },
+    summary: 'Edit a task (version-checked)',
+    body: UpdateTaskRequest,
+    responses: { 200: TaskDto },
+  }),
+  route({
+    method: 'post',
+    path: '/tasks/{taskId}/complete',
+    assistant: { use: 'write', when: 'The owner says a task is done.' },
+    summary: 'Mark a task done (idempotent)',
+    responses: { 200: TaskDto },
+  }),
+  route({
+    method: 'post',
+    path: '/tasks/{taskId}/cancel',
+    assistant: { use: 'write', when: 'The owner asks to drop a task that is no longer needed.' },
+    summary: 'Cancel a task (idempotent)',
+    responses: { 200: TaskDto },
   }),
 
   route({

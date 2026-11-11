@@ -13,6 +13,7 @@ import { ACCOUNT_PATHS } from '@/lib/account-paths';
 import { ensureSession, selectWorkspace } from '@/lib/session';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
 import { useBookingReviewCount } from '@/features/lodging/api/bookings';
+import { useTodayCount } from '@/features/brain/api/brain';
 import { useCan } from '@/lib/permissions';
 import { useTranslation } from 'react-i18next';
 
@@ -49,6 +50,8 @@ export const Route = createFileRoute('/app')({
       useBookingReviewCount({
         enabled: workspace.data?.industry === 'hotel' && canViewBookings,
       }).data?.pending ?? 0;
+    // Today's badge: the counts only (`GET /today/counts`, every 3 minutes and on focus).
+    const todayCount = useTodayCount({ enabled: Boolean(workspace.data) });
     return (
       <AppShell
         planDialog={(props) => <PlanDialog {...props} />}
@@ -64,6 +67,7 @@ export const Route = createFileRoute('/app')({
         // instead of flashing retail ones; without a business (or on error) it falls back to retail.
         industry={workspace.data?.industry ?? (workspace.isLoading ? undefined : '')}
         navCounts={{
+          '/app/today': { count: todayCount, label: t('nav.todayWaiting', { count: todayCount }) },
           '/app/bookings': {
             count: pendingHolds,
             label: t('nav.pendingBotHolds', { count: pendingHolds }),

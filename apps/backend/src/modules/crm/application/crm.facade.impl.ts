@@ -1,4 +1,4 @@
-import type { ContactDto, CustomerRequestKind } from '@agent-sales/contracts';
+import type { ContactDto, CustomerRequestKind, TaskDto } from '@agent-sales/contracts';
 import { Inject, Injectable } from '@nestjs/common';
 import type { WorkspaceId } from '@agent-sales/shared';
 
@@ -12,6 +12,7 @@ import { ConversationTagsService } from './conversation-tags.service.js';
 import { ContactService } from './contact.service.js';
 import { CustomerRequestService } from './customer-request.service.js';
 import { OwnershipService } from './ownership.service.js';
+import { TaskService } from './task.service.js';
 
 /** Delegates to the use-case services; no logic of its own. */
 @Injectable()
@@ -22,6 +23,7 @@ export class CrmFacadeImpl implements CrmFacade {
     @Inject(ConversationTagsService)
     private readonly conversationTagsService: ConversationTagsService,
     @Inject(CustomerRequestService) private readonly requests: CustomerRequestService,
+    @Inject(TaskService) private readonly tasks: TaskService,
   ) {}
 
   getContact(ws: WorkspaceId, id: string): Promise<ContactDto> {
@@ -102,5 +104,19 @@ export class CrmFacadeImpl implements CrmFacade {
     q: { since: Date; until: Date; kinds?: readonly CustomerRequestKind[] },
   ): Promise<RequestsRecorded> {
     return this.requests.recorded(ws, q);
+  }
+
+  countOpenTasks(
+    ws: WorkspaceId,
+    q: { userId?: string; viewAll?: boolean; dueBefore: Date },
+  ): Promise<number> {
+    return this.tasks.countOpen(ws, q);
+  }
+
+  listOpenTasks(
+    ws: WorkspaceId,
+    q: { userId?: string; viewAll?: boolean; limit: number },
+  ): Promise<TaskDto[]> {
+    return this.tasks.listOpen(ws, q);
   }
 }

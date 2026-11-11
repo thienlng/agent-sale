@@ -5,6 +5,7 @@ import {
   migrate,
   eq,
   schema,
+  sql,
   withCredentials,
   withSystem,
   withTenant,
@@ -152,6 +153,40 @@ describe('DrizzleConversationStore', () => {
     expect(channels.deliver).toHaveBeenCalledTimes(1);
     const outbound = (await service.get(a, c.id)).messages.filter((m) => m.direction !== 'inbound');
     expect(outbound).toHaveLength(1);
+  });
+
+  it('reads Today candidates for one member and the last staff reply only where asked', async () => {
+    const staff = newId();
+    const replied = await service.receive(a, channelId, event('today-1', 'customer-today-1'));
+    const other = await service.receive(a, channelId, event('today-2', 'customer-today-2'));
+    await service.send(a, replied.id, { text: 'Dạ', idempotencyKey: newId() }, staff);
+    await service.send(a, other.id, { text: 'Dạ', idempotencyKey: newId() }, staff);
+    // A reply assigns the conversation to its sender; the first goes back to nobody (the
+    // assignee column, what the filter reads).
+    await withTenant(tenantDb, a, (tx) =>
+      tx
+        .update(schema.conversations)
+        .set({
+          assigneeId: null,
+          data: sql`jsonb_set(${schema.conversations.data}, '{assigneeId}', 'null'::jsonb)`,
+        })
+        .where(eq(schema.conversations.id, replied.id)),
+    );
+    const q = {
+      ids: [replied.id, other.id],
+      awaitingBefore: new Date(0),
+      followUpBefore: new Date(0),
+      limit: 10,
+    };
+    const all = await service.todayCandidates(a, { ...q, lastHumanFor: [replied.id] });
+    const byId = new Map(all.map((f) => [f.id, f]));
+    expect(byId.get(replied.id)?.lastHumanReplyAt).not.toBeNull();
+    expect(byId.get(other.id)?.lastHumanReplyAt).toBeNull();
+    expect((await service.todayCandidates(a, q)).every((f) => f.lastHumanReplyAt)).toBe(true);
+    const someoneElse = await service.todayCandidates(a, { ...q, visibleTo: newId() });
+    expect(someoneElse.map((f) => f.id)).toEqual([replied.id]);
+    const mine = await service.todayCandidates(a, { ...q, visibleTo: staff });
+    expect(mine.map((f) => f.id).sort()).toEqual([replied.id, other.id].sort());
   });
 
   it('serves stored Rapiz attachments on the current public host, other links unchanged', async () => {

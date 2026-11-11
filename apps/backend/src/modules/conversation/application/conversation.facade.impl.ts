@@ -31,6 +31,9 @@ import type {
   BotAttachment,
   BotQuickReplies,
   ConversationFacade,
+  SignalContext,
+  TodayCandidatesQuery,
+  TodayConversation,
 } from '../api/conversation.facade.js';
 import { ConversationError } from '../domain/conversation.errors.js';
 import { nextMessageId } from '../domain/message-id.js';
@@ -41,6 +44,7 @@ import { attachTags, tagConditions } from './conversation-tags.js';
 import { refreshCustomerProfile } from './customer-profile.js';
 import { addNote, assertAssignable, markRead, markUnread, setStarred } from './inbox-state.js';
 import { InboxAlerts } from './inbox-alerts.js';
+import { buildSignalContext } from './signal-context.js';
 import {
   CONVERSATION_STORE,
   type ConversationStore,
@@ -86,6 +90,38 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
   }
   awaitingReply(ws: WorkspaceId, q: { olderThan: Date; limit: number }): Promise<AwaitingReply> {
     return this.store.run(ws, (tx) => tx.awaitingReply(q));
+  }
+  signalContext(ws: WorkspaceId, id: string, after: Date | null): Promise<SignalContext | null> {
+    if (!isUuid(id)) return Promise.resolve(null);
+    return this.store.run(ws, async (tx) => {
+      const c = await tx.find(id);
+      return c ? buildSignalContext(c, await tx.messages(id), after) : null;
+    });
+  }
+  async todayCandidates(ws: WorkspaceId, q: TodayCandidatesQuery): Promise<TodayConversation[]> {
+    const ids = q.ids.filter(isUuid);
+    const limit = Math.max(0, Math.min(q.limit, 1000));
+    const lastHumanFor = q.lastHumanFor?.filter(isUuid);
+    const rows = await this.store.run(ws, (tx) =>
+      tx.todayCandidates({ ...q, ids, limit, lastHumanFor }),
+    );
+    return rows.map(({ conversation, lastHumanReplyAt }) => {
+      const c = named(conversation.provider, conversation.customerId, conversation);
+      return {
+        id: c.id,
+        provider: c.provider,
+        status: c.status,
+        contactId: c.contactId,
+        customerName: c.customerName,
+        customerAvatarUrl: c.customerAvatarUrl,
+        assigneeId: c.assigneeId,
+        awaitingSince: c.awaitingSince,
+        lastInboundAt: Date.parse(c.lastInboundAt) > 0 ? c.lastInboundAt : null,
+        followUpAt: c.followUpAt ?? null,
+        followUpNote: c.followUpNote ?? '',
+        lastHumanReplyAt,
+      };
+    });
   }
   async list(ws: WorkspaceId, q: ConversationListQuery, viewerId?: string) {
     const filter = {

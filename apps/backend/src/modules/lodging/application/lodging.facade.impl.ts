@@ -1,4 +1,4 @@
-import type { WorkspaceId } from '@agent-sales/shared';
+import { isUuid, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { LodgingFacade, StayRevenue } from '../api/lodging.facade.js';
@@ -14,6 +14,15 @@ export class LodgingFacadeImpl implements LodgingFacade {
       const ids = await tx.botPropertyIds(botId);
       return ids ?? (await tx.properties({ activeOnly: true })).map((p) => p.id);
     });
+  }
+
+  latestBookingTimes(
+    ws: WorkspaceId,
+    conversationIds: readonly string[],
+  ): Promise<{ conversationId: string; at: Date }[]> {
+    const ids = [...new Set(conversationIds.filter(isUuid))].slice(0, 1000);
+    if (!ids.length) return Promise.resolve([]);
+    return this.store.run(ws, (tx) => tx.latestBookingByConversation(ids));
   }
 
   stayRevenue(ws: WorkspaceId, range: { from: string; to: string }): Promise<StayRevenue> {

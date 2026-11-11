@@ -57,7 +57,10 @@
     "accountOverview": "All businesses",
     "newBusiness": "New business",
     "services": "Services",
-    "assistant": "Assistant"
+    "assistant": "Assistant",
+    "today": "Today",
+    "todayWaiting_one": "{{count}} thing to do today",
+    "todayWaiting_other": "{{count}} things to do today"
   },
   "auth": {
     "login": "Log in",
@@ -1480,7 +1483,8 @@
       "security": "Security",
       "audit": "Change log",
       "developers": "Developers",
-      "data": "Data"
+      "data": "Data",
+      "brain": "AI evaluation"
     },
     "profile": {
       "title": "Business information",

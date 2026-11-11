@@ -28,8 +28,9 @@ function columnSql(c: ExportColumn): string {
 /**
  * A workspace export file read from one table (SET-10). Only the owning module declares one,
  * for its own table; `table`, `columns[].sql` and `where` are constants written in code, never
- * input. Rows come in pages ordered by the uuid `id`, each page in its own short tenant
- * transaction (RLS) and also filtered on `t.workspace_id`.
+ * input. Rows come in pages ordered by a uuid key column (`id`, or `key` for a table keyed by
+ * `(workspace_id, <key>)`), each page in its own short tenant transaction (RLS) and also filtered
+ * on `t.workspace_id`.
  */
 export interface ExportTableSpec {
   file: string;
@@ -38,6 +39,11 @@ export interface ExportTableSpec {
   /** Extra condition over `t` (e.g. `t.deleted_at is null`). */
   where?: string;
   mediaColumns?: readonly string[];
+  /**
+   * The uuid column rows are paged by, unique within the workspace (default `id`). Tables whose
+   * primary key is `(workspace_id, conversation_id)` page by `conversation_id`.
+   */
+  key?: string;
 }
 
 const IDENT = /^[a-z_][a-z0-9_]*$/;
@@ -49,6 +55,8 @@ export function exportTable(
   pageSize = 500,
 ): ExportTable {
   if (!IDENT.test(spec.table)) throw new Error(`exportTable: bad table name ${spec.table}`);
+  const key = spec.key ?? 'id';
+  if (!IDENT.test(key)) throw new Error(`exportTable: bad key column ${key}`);
   const select = spec.columns.map((c, i) => `${columnSql(c)} as c${i}`).join(', ');
   const extra = spec.where ? ` and (${spec.where})` : '';
   const width = spec.columns.length;
@@ -65,10 +73,10 @@ export function exportTable(
           workspaceId,
           async (tx): Promise<readonly Record<string, unknown>[]> =>
             await tx.execute<Record<string, unknown>>(
-              sql`select ${sql.raw(select)}, t.id::text as k from ${sql.raw(spec.table)} t
+              sql`select ${sql.raw(select)}, t.${sql.raw(key)}::text as k from ${sql.raw(spec.table)} t
                 where t.workspace_id = ${workspaceId}
-                  and (${last}::uuid is null or t.id > ${last}::uuid)${sql.raw(extra)}
-                order by t.id limit ${pageSize}`,
+                  and (${last}::uuid is null or t.${sql.raw(key)} > ${last}::uuid)${sql.raw(extra)}
+                order by t.${sql.raw(key)} limit ${pageSize}`,
             ),
         );
         if (page.length === 0) return;

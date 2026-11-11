@@ -115,5 +115,31 @@
       "title": "Tin nhắn mới từ {{customer}}",
       "body": "{{business}} · {{excerpt}}"
     }
+  },
+  "task": {
+    "due": {
+      "title": "Đến hạn: {{title}}",
+      "body": "{{business}}",
+      "body_customer": "{{business}} · Khách {{customer}}"
+    }
+  },
+  "brain": {
+    "complaint": {
+      "title": "{{customer}} đang phàn nàn",
+      "body": "{{business}} · {{reason}}"
+    }
+  },
+  "today": {
+    "briefing": {
+      "title": "Hôm nay: {{parts}}",
+      "body": "{{business}} · Mở màn hình Hôm nay để xử lý",
+      "separator": ", ",
+      "attention": "{{count}} cần chú ý",
+      "unanswered": "{{count}} chưa trả lời",
+      "ready": "{{count}} sắp chốt",
+      "price_silent": "{{count}} hỏi giá rồi im",
+      "follow_up": "{{count}} cần chăm lại",
+      "tasks": "{{count}} việc đến hạn"
+    }
   }
 }

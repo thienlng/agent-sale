@@ -36,6 +36,7 @@ import { Route as AppOrderSettingsRouteImport } from './routes/app/order-setting
 import { Route as AppOverviewRouteImport } from './routes/app/overview'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppStaysRouteImport } from './routes/app/stays'
+import { Route as AppTodayRouteImport } from './routes/app/today'
 import { Route as AdminAccountsIndexRouteImport } from './routes/admin/accounts/index'
 import { Route as AdminAccountsAccountIdRouteImport } from './routes/admin/accounts/$accountId'
 import { Route as AppBotsIndexRouteImport } from './routes/app/bots/index'
@@ -66,6 +67,7 @@ import { Route as AppPropertiesIndexRouteImport } from './routes/app/properties/
 import { Route as AppPropertiesPropertyIdRouteImport } from './routes/app/properties/$propertyId'
 import { Route as AppSettingsIndexRouteImport } from './routes/app/settings/index'
 import { Route as AppSettingsAuditRouteImport } from './routes/app/settings/audit'
+import { Route as AppSettingsBrainRouteImport } from './routes/app/settings/brain'
 import { Route as AppSettingsDataRouteImport } from './routes/app/settings/data'
 import { Route as AppSettingsDevelopersRouteImport } from './routes/app/settings/developers'
 import { Route as AppSettingsProfileRouteImport } from './routes/app/settings/profile'
@@ -218,6 +220,11 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
 const AppStaysRoute = AppStaysRouteImport.update({
   id: '/stays',
   path: '/stays',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTodayRoute = AppTodayRouteImport.update({
+  id: '/today',
+  path: '/today',
   getParentRoute: () => AppRoute,
 } as any)
 const AdminAccountsIndexRoute = AdminAccountsIndexRouteImport.update({
@@ -373,6 +380,11 @@ const AppSettingsAuditRoute = AppSettingsAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => AppSettingsRoute,
 } as any)
+const AppSettingsBrainRoute = AppSettingsBrainRouteImport.update({
+  id: '/brain',
+  path: '/brain',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
 const AppSettingsDataRoute = AppSettingsDataRouteImport.update({
   id: '/data',
   path: '/data',
@@ -496,6 +508,7 @@ export interface FileRoutesByFullPath {
   '/app/overview': typeof AppOverviewRoute
   '/app/settings': typeof AppSettingsRouteWithChildren
   '/app/stays': typeof AppStaysRoute
+  '/app/today': typeof AppTodayRoute
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
   '/admin/accounts/$accountId': typeof AdminAccountsAccountIdRoute
@@ -518,6 +531,7 @@ export interface FileRoutesByFullPath {
   '/app/products/new': typeof AppProductsNewRoute
   '/app/properties/$propertyId': typeof AppPropertiesPropertyIdRoute
   '/app/settings/audit': typeof AppSettingsAuditRoute
+  '/app/settings/brain': typeof AppSettingsBrainRoute
   '/app/settings/data': typeof AppSettingsDataRoute
   '/app/settings/developers': typeof AppSettingsDevelopersRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
@@ -568,6 +582,7 @@ export interface FileRoutesByTo {
   '/app/members': typeof AppMembersRoute
   '/app/overview': typeof AppOverviewRoute
   '/app/stays': typeof AppStaysRoute
+  '/app/today': typeof AppTodayRoute
   '/admin': typeof AdminIndexRoute
   '/app': typeof AppIndexRoute
   '/admin/accounts/$accountId': typeof AdminAccountsAccountIdRoute
@@ -589,6 +604,7 @@ export interface FileRoutesByTo {
   '/app/products/new': typeof AppProductsNewRoute
   '/app/properties/$propertyId': typeof AppPropertiesPropertyIdRoute
   '/app/settings/audit': typeof AppSettingsAuditRoute
+  '/app/settings/brain': typeof AppSettingsBrainRoute
   '/app/settings/data': typeof AppSettingsDataRoute
   '/app/settings/developers': typeof AppSettingsDevelopersRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
@@ -645,6 +661,7 @@ export interface FileRoutesById {
   '/app/overview': typeof AppOverviewRoute
   '/app/settings': typeof AppSettingsRouteWithChildren
   '/app/stays': typeof AppStaysRoute
+  '/app/today': typeof AppTodayRoute
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
   '/admin/accounts/$accountId': typeof AdminAccountsAccountIdRoute
@@ -667,6 +684,7 @@ export interface FileRoutesById {
   '/app/products/new': typeof AppProductsNewRoute
   '/app/properties/$propertyId': typeof AppPropertiesPropertyIdRoute
   '/app/settings/audit': typeof AppSettingsAuditRoute
+  '/app/settings/brain': typeof AppSettingsBrainRoute
   '/app/settings/data': typeof AppSettingsDataRoute
   '/app/settings/developers': typeof AppSettingsDevelopersRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
@@ -724,6 +742,7 @@ export interface FileRouteTypes {
     | '/app/overview'
     | '/app/settings'
     | '/app/stays'
+    | '/app/today'
     | '/admin/'
     | '/app/'
     | '/admin/accounts/$accountId'
@@ -746,6 +765,7 @@ export interface FileRouteTypes {
     | '/app/products/new'
     | '/app/properties/$propertyId'
     | '/app/settings/audit'
+    | '/app/settings/brain'
     | '/app/settings/data'
     | '/app/settings/developers'
     | '/app/settings/profile'
@@ -796,6 +816,7 @@ export interface FileRouteTypes {
     | '/app/members'
     | '/app/overview'
     | '/app/stays'
+    | '/app/today'
     | '/admin'
     | '/app'
     | '/admin/accounts/$accountId'
@@ -817,6 +838,7 @@ export interface FileRouteTypes {
     | '/app/products/new'
     | '/app/properties/$propertyId'
     | '/app/settings/audit'
+    | '/app/settings/brain'
     | '/app/settings/data'
     | '/app/settings/developers'
     | '/app/settings/profile'
@@ -872,6 +894,7 @@ export interface FileRouteTypes {
     | '/app/overview'
     | '/app/settings'
     | '/app/stays'
+    | '/app/today'
     | '/admin/'
     | '/app/'
     | '/admin/accounts/$accountId'
@@ -894,6 +917,7 @@ export interface FileRouteTypes {
     | '/app/products/new'
     | '/app/properties/$propertyId'
     | '/app/settings/audit'
+    | '/app/settings/brain'
     | '/app/settings/data'
     | '/app/settings/developers'
     | '/app/settings/profile'
@@ -1125,6 +1149,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppStaysRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/today': {
+      id: '/app/today'
+      path: '/today'
+      fullPath: '/app/today'
+      preLoaderRoute: typeof AppTodayRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/admin/accounts/': {
       id: '/admin/accounts/'
       path: '/accounts'
@@ -1335,6 +1366,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsAuditRouteImport
       parentRoute: typeof AppSettingsRoute
     }
+    '/app/settings/brain': {
+      id: '/app/settings/brain'
+      path: '/brain'
+      fullPath: '/app/settings/brain'
+      preLoaderRoute: typeof AppSettingsBrainRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
     '/app/settings/data': {
       id: '/app/settings/data'
       path: '/data'
@@ -1527,6 +1565,7 @@ const AppOrderSettingsRouteWithChildren =
 
 interface AppSettingsRouteChildren {
   AppSettingsAuditRoute: typeof AppSettingsAuditRoute
+  AppSettingsBrainRoute: typeof AppSettingsBrainRoute
   AppSettingsDataRoute: typeof AppSettingsDataRoute
   AppSettingsDevelopersRoute: typeof AppSettingsDevelopersRoute
   AppSettingsProfileRoute: typeof AppSettingsProfileRoute
@@ -1536,6 +1575,7 @@ interface AppSettingsRouteChildren {
 
 const AppSettingsRouteChildren: AppSettingsRouteChildren = {
   AppSettingsAuditRoute: AppSettingsAuditRoute,
+  AppSettingsBrainRoute: AppSettingsBrainRoute,
   AppSettingsDataRoute: AppSettingsDataRoute,
   AppSettingsDevelopersRoute: AppSettingsDevelopersRoute,
   AppSettingsProfileRoute: AppSettingsProfileRoute,
@@ -1598,6 +1638,7 @@ interface AppRouteChildren {
   AppOverviewRoute: typeof AppOverviewRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppStaysRoute: typeof AppStaysRoute
+  AppTodayRoute: typeof AppTodayRoute
   AppIndexRoute: typeof AppIndexRoute
   AppBotsBotIdRoute: typeof AppBotsBotIdRouteWithChildren
   AppBusinessesNewRoute: typeof AppBusinessesNewRoute
@@ -1633,6 +1674,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppOverviewRoute: AppOverviewRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
   AppStaysRoute: AppStaysRoute,
+  AppTodayRoute: AppTodayRoute,
   AppIndexRoute: AppIndexRoute,
   AppBotsBotIdRoute: AppBotsBotIdRouteWithChildren,
   AppBusinessesNewRoute: AppBusinessesNewRoute,

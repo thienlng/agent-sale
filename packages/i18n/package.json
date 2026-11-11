@@ -46,6 +46,10 @@
     "./lodging": {
       "types": "./dist/lodging.d.ts",
       "import": "./dist/lodging.js"
+    },
+    "./brain": {
+      "types": "./dist/brain.d.ts",
+      "import": "./dist/brain.js"
     }
   },
   "files": [

@@ -18,6 +18,7 @@ import { assistantRoutes } from './assistant/assistant.routes.js';
 import { notificationRoutes } from './notification/notification.routes.js';
 import { developerRoutes } from './developer/developer.routes.js';
 import { dataExportRoutes } from './dataexport/dataexport.routes.js';
+import { brainRoutes } from './brain/brain.routes.js';
 import { integrationRoutes } from './integration/integration.routes.js';
 import { healthRoutes } from './health/health.routes.js';
 import { identityRoutes } from './identity/identity.routes.js';
@@ -64,6 +65,7 @@ export * from './crm/crm-settings.schema.js';
 export * from './crm/crm.events.js';
 export * from './crm/crm.routes.js';
 export * from './crm/customer-request.js';
+export * from './crm/task.schema.js';
 export * from './saas/saas.schema.js';
 export * from './saas/saas.routes.js';
 export * from './assistant/assistant.schema.js';
@@ -76,6 +78,8 @@ export * from './developer/developer.schema.js';
 export * from './developer/developer.routes.js';
 export * from './dataexport/dataexport.schema.js';
 export * from './dataexport/dataexport.routes.js';
+export * from './brain/brain.schema.js';
+export * from './brain/brain.routes.js';
 export * from './developer/public-events.js';
 export * from './integration/integration.schema.js';
 export * from './integration/integration.routes.js';
@@ -127,6 +131,7 @@ export const allRoutes = [
   ...notificationRoutes,
   ...developerRoutes,
   ...dataExportRoutes,
+  ...brainRoutes,
 ] as const;
 
 export * from './knowledge/media.schema.js';

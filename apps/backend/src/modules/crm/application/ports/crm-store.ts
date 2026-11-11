@@ -1,6 +1,7 @@
 import type { ContactFilter, ContactSort } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 
+import type { Task } from '../../domain/task.js';
 import type { TagField } from '../../domain/tag-values.js';
 
 /** Plain records the CRM use cases work with (one per table row). */
@@ -161,6 +162,23 @@ export interface PolicyRecord {
   version: number;
 }
 
+/** Which tasks a list or count covers (CRM-04). */
+export interface TaskFilter {
+  /** Only tasks assigned to this user or unassigned; null = every task. */
+  assigneeScope: string | null;
+  /**
+   * Without `contacts.view_all`: an unassigned task linked to a customer counts only when this
+   * user may see the customer (crm-rules `canSee`: their Sales/CSKH, or nobody's). null = no limit.
+   */
+  customerScope?: string | null | undefined;
+  /** `overdue`: open with `due_at` before `now`. Absent: every status. */
+  status?: 'open' | 'done' | 'overdue' | undefined;
+  contactId?: string | undefined;
+  conversationId?: string | undefined;
+  /** For `overdue`. */
+  now: Date;
+}
+
 /** An integration event for the outbox (written in the same transaction as the change). */
 export interface CrmOutboxEvent {
   type: string;
@@ -251,6 +269,22 @@ export interface CrmTx {
     stalePending(since: Date, olderThan: Date, limit: number): Promise<string[]>;
     countLinked(source: string): Promise<number>;
     externalIdOf(source: string, contactId: string): Promise<string | null>;
+  };
+  tasks: {
+    insert(workspaceId: WorkspaceId, t: Task): Promise<void>;
+    find(id: string, opts?: { forUpdate?: boolean }): Promise<Task | null>;
+    /** Writes when the stored version is `expectedVersion`; false when it moved on. */
+    update(t: Task, expectedVersion: number): Promise<boolean>;
+    /**
+     * Open (and overdue, and unfiltered) lists come by due time, undated last, then oldest
+     * first; done lists newest done first.
+     */
+    list(f: TaskFilter, page: { offset: number; limit: number }): Promise<Task[]>;
+    /** Open tasks in the scope with `due_at` before `dueBefore`. */
+    countOpenDueBefore(
+      scope: Pick<TaskFilter, 'assigneeScope' | 'customerScope'>,
+      dueBefore: Date,
+    ): Promise<number>;
   };
   history: {
     add(h: HistoryRecord): Promise<void>;

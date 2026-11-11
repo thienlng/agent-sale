@@ -6,7 +6,10 @@ export type NotificationType =
   | 'inbox.handoff'
   | 'inbox.message'
   | 'dataexport.ready'
-  | 'dataexport.failed';
+  | 'dataexport.failed'
+  | 'task.due'
+  | 'brain.complaint'
+  | 'today.briefing';
 export type NotificationChannelKind = 'email' | 'push';
 export type DeliveryStatus = 'queued' | 'sending' | 'sent' | 'failed' | 'skipped';
 export type NotificationTarget =

@@ -511,6 +511,13 @@ export interface CommerceTx {
       timezone: string;
     }): Promise<OverviewAggregates>;
     /**
+     * The newest order (not deleted, not cancelled) of each of these conversations, by creation
+     * time; conversations without one are absent (the Business Brain's Today, spec 2026-11-11).
+     */
+    latestByConversation(
+      conversationIds: readonly string[],
+    ): Promise<{ conversationId: string; at: Date }[]>;
+    /**
      * Orders placed in `[since, until)`, deleted and cancelled ones left out: how many, their
      * summed total, and the newest `limit` (owner reports, T-172).
      */

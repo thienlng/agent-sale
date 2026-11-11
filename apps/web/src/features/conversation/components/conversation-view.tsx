@@ -58,7 +58,7 @@ export function ConversationView({
   renderSalesPanel?:
     ((conversation: InboxConversation, slots: PanelSlots) => ReactNode) | undefined;
   renderComposerTools?:
-    | ((conversation: InboxConversation, insertText: (text: string) => void) => ReactNode)
+    | ((conversation: InboxConversation, insertText: (text: string) => boolean) => ReactNode)
     | undefined;
   /** The page's customer-panel region; the panel is rendered there, beside the list card. */
   panelContainer: HTMLElement | null;

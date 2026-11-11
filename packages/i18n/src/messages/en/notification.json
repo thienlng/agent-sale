@@ -115,5 +115,33 @@
       "title": "New message from {{customer}}",
       "body": "{{business}} · {{excerpt}}"
     }
+  },
+  "task": {
+    "due": {
+      "title": "Due now: {{title}}",
+      "body": "{{business}}",
+      "body_customer": "{{business}} · Customer {{customer}}"
+    }
+  },
+  "brain": {
+    "complaint": {
+      "title": "{{customer}} is complaining",
+      "body": "{{business}} · {{reason}}"
+    }
+  },
+  "today": {
+    "briefing": {
+      "title": "Today: {{parts}}",
+      "body": "{{business}} · Open Today to work through them",
+      "separator": ", ",
+      "attention_one": "{{count}} needs attention",
+      "attention_other": "{{count}} need attention",
+      "unanswered": "{{count}} unanswered",
+      "ready": "{{count}} ready to buy",
+      "price_silent": "{{count}} asked a price, then went quiet",
+      "follow_up": "{{count}} to follow up",
+      "tasks_one": "{{count}} task due",
+      "tasks_other": "{{count}} tasks due"
+    }
   }
 }

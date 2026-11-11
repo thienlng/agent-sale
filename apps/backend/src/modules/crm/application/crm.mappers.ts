@@ -6,6 +6,7 @@ import type {
   SavedViewDto,
   TagAssignmentDto,
   TagDto,
+  TaskDto,
 } from '@agent-sales/contracts';
 import { foldVietnamese } from '@agent-sales/shared';
 
@@ -18,6 +19,7 @@ import type {
   TagRecord,
   ViewRecord,
 } from './ports/crm-store.js';
+import type { Task } from '../domain/task.js';
 
 const iso = (d: Date | null) => d?.toISOString() ?? null;
 
@@ -135,4 +137,23 @@ export const toViewDto = (v: ViewRecord, userId: string): SavedViewDto => ({
   columns: v.columns,
   version: v.version,
   updatedAt: v.updatedAt.toISOString(),
+});
+
+/** `assigneeName`: the assignee's display name, null when unassigned or no longer a member. */
+export const toTaskDto = (t: Task, assigneeName: string | null): TaskDto => ({
+  id: t.id,
+  title: t.title,
+  note: t.note,
+  dueAt: iso(t.dueAt),
+  assigneeUserId: t.assigneeUserId,
+  assigneeName,
+  status: t.status,
+  contactId: t.contactId,
+  conversationId: t.conversationId,
+  subjectType: t.subjectType,
+  subjectId: t.subjectId,
+  source: t.source,
+  createdAt: t.createdAt.toISOString(),
+  doneAt: iso(t.doneAt),
+  version: t.version,
 });

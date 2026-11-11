@@ -44,6 +44,10 @@ export class WorkspaceFacadeImpl implements WorkspaceFacade {
     return this.create.execute(input);
   }
 
+  listActiveIds(q: { afterId: WorkspaceId | null; limit: number }): Promise<WorkspaceId[]> {
+    return this.directory.listActiveIds(q.afterId, Math.max(1, Math.min(q.limit, 1000)));
+  }
+
   listByAccounts(accountIds: readonly string[]): Promise<AccountBusiness[]> {
     return accountIds.length
       ? this.directory.listByAccounts([...new Set(accountIds)])

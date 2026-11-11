@@ -35,7 +35,25 @@ beforeAll(async () => {
     alter table export_probe force row level security;
     create policy export_probe_tenant on export_probe for all to app_tenant
       using (workspace_id = (select nullif(current_setting('app.workspace_id', true), '')::uuid));
-    grant select on export_probe to app_tenant;`);
+    grant select on export_probe to app_tenant;
+    create table export_keyed_probe (workspace_id uuid not null, conversation_id uuid not null,
+      stage text, primary key (workspace_id, conversation_id));
+    alter table export_keyed_probe enable row level security;
+    alter table export_keyed_probe force row level security;
+    create policy export_keyed_probe_tenant on export_keyed_probe for all to app_tenant
+      using (workspace_id = (select nullif(current_setting('app.workspace_id', true), '')::uuid));
+    grant select on export_keyed_probe to app_tenant;`);
+  for (const [ws, n] of [
+    [a, 5],
+    [b, 2],
+  ] as const) {
+    for (let i = 0; i < n; i++) {
+      await ownerDb.db.execute(
+        sql`insert into export_keyed_probe (workspace_id, conversation_id, stage)
+            values (${ws}, ${newId()}, ${`stage ${i}`})`,
+      );
+    }
+  }
   for (const [ws, n] of [
     [a, 7],
     [b, 3],
@@ -88,7 +106,25 @@ describe('exportTable', () => {
     expect(rows).toHaveLength(6);
   });
 
+  it('pages a table without an id by its key column', async () => {
+    const keyed = {
+      file: 'keyed.csv',
+      table: 'export_keyed_probe',
+      key: 'conversation_id',
+      columns: [
+        { header: 'conversation_id', sql: 't.conversation_id' },
+        { header: 'stage', sql: 't.stage' },
+      ],
+    };
+    const rows = await collect(exportTable(tenantDb.db, a, keyed, 2).rows());
+    expect(rows).toHaveLength(5);
+    expect(new Set(rows.map((r) => r[0])).size).toBe(5);
+    expect(rows.map((r) => r[1]).sort()).toEqual([0, 1, 2, 3, 4].map((i) => `stage ${i}`));
+    expect(await collect(exportTable(tenantDb.db, b, keyed, 1).rows())).toHaveLength(2);
+  });
+
   it('rejects a table name that is not a plain identifier', () => {
     expect(() => exportTable(tenantDb.db, a, { ...spec, table: 'x; drop table y' })).toThrow();
+    expect(() => exportTable(tenantDb.db, a, { ...spec, key: 'id; drop table y' })).toThrow();
   });
 });
