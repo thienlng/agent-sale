@@ -1,4 +1,8 @@
-import { CreateWebsiteRequest } from '@agent-sales/contracts';
+import {
+  CreateWebsiteRequest,
+  type ProductDto,
+  type UpsertProductRequest,
+} from '@agent-sales/contracts';
 import { type UserId, type WorkspaceId, workspaceId } from '@agent-sales/shared';
 
 import type { BotSetupFacade } from '../../modules/bot/api/index.js';
@@ -10,6 +14,9 @@ import {
   SITE_FAQS,
   SITE_GREETING,
   SITE_MISSION,
+  SITE_PLAN_BOT_NOTES,
+  SITE_PLANS,
+  type SitePlan,
   SITE_PROFILE_FIELDS,
   SITE_PROFILE_NOTES,
   SITE_WIDGET,
@@ -26,6 +33,14 @@ export interface SiteBotDeps {
   channels: Pick<ChannelFacade, 'createWebsite' | 'updateWebsite'>;
   /** Id of a live website connection bound to the bot, or null (the channel facade lists none). */
   findWebsite(ws: WorkspaceId, botId: string): Promise<string | null>;
+  plans: {
+    /** The live product with this code, or null. */
+    find(ws: WorkspaceId, code: string): Promise<ProductDto | null>;
+    create(ws: WorkspaceId, body: UpsertProductRequest): Promise<ProductDto>;
+    update(ws: WorkspaceId, id: string, body: UpsertProductRequest): Promise<ProductDto>;
+    /** Copies a site picture (`/images/…`) into the business's product pictures; null on failure. */
+    picture(ws: WorkspaceId, sitePath: string): Promise<string | null>;
+  };
 }
 
 export interface SiteBotResult {
@@ -35,6 +50,7 @@ export interface SiteBotResult {
   siteKey: string;
   created: { workspace: boolean; bot: boolean; website: boolean };
   faqs: { created: number; updated: number; unchanged: number };
+  plans: { created: number; updated: number; withoutPicture: string[] };
 }
 
 const sameQuestion = (a: string, b: string) =>
@@ -98,6 +114,8 @@ export async function seedRapizSiteBot(
     } else faqs.unchanged++;
   }
 
+  const plans = await seedPlans(deps, ws, botId);
+
   const existingSite = await deps.findWebsite(ws, botId);
   const connectionId =
     existingSite ??
@@ -115,5 +133,59 @@ export async function seedRapizSiteBot(
     siteKey: site.externalId,
     created: { workspace: !existingWs, bot: !existingBot, website: !existingSite },
     faqs,
+    plans,
+  };
+}
+
+/**
+ * The plans as products of the bot, matched by code. Variants keep their ids by SKU, so a re-seed
+ * changes prices in place; a product's pictures are only copied while it has none.
+ */
+async function seedPlans(
+  deps: SiteBotDeps,
+  ws: WorkspaceId,
+  botId: string,
+): Promise<SiteBotResult['plans']> {
+  const result: SiteBotResult['plans'] = { created: 0, updated: 0, withoutPicture: [] };
+  for (const plan of SITE_PLANS) {
+    const found = await deps.plans.find(ws, plan.code);
+    let imageUrls = found?.imageUrls ?? [];
+    if (!imageUrls.length) {
+      const url = await deps.plans.picture(ws, plan.image);
+      if (url) imageUrls = [url];
+      else result.withoutPicture.push(plan.name);
+    }
+    const body = planBody(plan, imageUrls, found);
+    if (found) {
+      await deps.plans.update(ws, found.id, body);
+      result.updated++;
+    } else {
+      await deps.plans.create(ws, { ...body, botId });
+      result.created++;
+    }
+  }
+  return result;
+}
+
+function planBody(
+  plan: SitePlan,
+  imageUrls: string[],
+  found: ProductDto | null,
+): UpsertProductRequest {
+  const idOf = (sku: string) => found?.variants.find((v) => v.sku === sku)?.id;
+  return {
+    code: plan.code,
+    name: plan.name,
+    description: plan.description,
+    category: 'Gói Rapiz',
+    visibleToBot: true,
+    botInstructions: SITE_PLAN_BOT_NOTES,
+    imageUrls,
+    offering: { kind: 'service', priceNote: plan.priceNote },
+    status: 'active',
+    variants: plan.variants.map((v) => {
+      const id = idOf(v.sku);
+      return { ...(id ? { id } : {}), sku: v.sku, name: v.name, price: v.price };
+    }),
   };
 }

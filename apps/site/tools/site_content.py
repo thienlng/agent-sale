@@ -840,3 +840,133 @@ PAGES.append({
         ]},
     ],
 })
+
+
+# ---------- legal pages (/privacy, /terms) ----------
+# Plain policy pages, public even behind the beta gate (infra/deploy/beta-gate.sh): Google shows
+# them on its sign-in screen. Write only what the product does today; update `updated` on change.
+LEGAL_UPDATED = '11/11/2026'
+
+LEGAL_PAGES = [
+    {
+        'slug': 'privacy',
+        'title': 'Chính sách quyền riêng tư | Rapiz',
+        'description': 'Rapiz thu thập dữ liệu gì, dùng để làm gì, chia sẻ với ai, lưu bao lâu và bạn có những quyền gì với dữ liệu của mình.',
+        'h1': 'Chính sách<br><em>quyền riêng tư</em>',
+        'intro': 'Chính sách này giải thích cách ' + COMPANY['name'] + ' ("Rapiz", "chúng tôi") thu thập, sử dụng, chia sẻ và bảo vệ dữ liệu cá nhân khi bạn dùng website rapiz.io, ứng dụng Rapiz và khung chat Rapiz trên website của doanh nghiệp. Chính sách được xây dựng theo Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân.',
+        'sections': [
+            ('Ai chịu trách nhiệm về dữ liệu', [
+                'Với dữ liệu tài khoản của bạn (người dùng Rapiz), Rapiz là bên kiểm soát dữ liệu.',
+                'Với dữ liệu khách hàng của doanh nghiệp (tin nhắn, bình luận, số điện thoại, đơn hàng của người nhắn tin cho doanh nghiệp), doanh nghiệp dùng Rapiz là bên kiểm soát dữ liệu. Rapiz xử lý dữ liệu đó thay mặt và theo cấu hình của doanh nghiệp. Nếu bạn là khách hàng của một doanh nghiệp dùng Rapiz, hãy liên hệ doanh nghiệp đó trước; chúng tôi sẽ hỗ trợ doanh nghiệp đáp ứng yêu cầu của bạn.',
+            ]),
+            ('Dữ liệu chúng tôi thu thập', [
+                ['<b>Thông tin tài khoản:</b> họ tên, email, số điện thoại nếu bạn nhập, mật khẩu (chỉ lưu dạng băm Argon2id, không lưu mật khẩu gốc), ngôn ngữ và múi giờ.',
+                 '<b>Khi đăng nhập với Google:</b> chúng tôi chỉ nhận tên, địa chỉ email, trạng thái xác minh email và mã định danh tài khoản Google của bạn. Rapiz không đọc Gmail, danh bạ, Google Drive hay bất kỳ dữ liệu Google nào khác, và không lưu mã truy cập của Google.',
+                 '<b>Dữ liệu doanh nghiệp:</b> thông tin cửa hàng, sản phẩm, giá, tồn kho, lịch phòng, đơn hàng, khách hàng, tài liệu và quy tắc bạn dùng để đào tạo bot.',
+                 '<b>Dữ liệu từ các kênh bạn kết nối:</b> tin nhắn, bình luận, tên hiển thị, ảnh khách gửi, số điện thoại hoặc email khách tự cung cấp trong hội thoại, qua Facebook Messenger, bình luận Facebook, Instagram và khung chat website.',
+                 '<b>Dữ liệu kỹ thuật:</b> địa chỉ IP và thông tin trình duyệt khi đăng nhập, nhật ký hệ thống để vận hành và bảo mật.'],
+            ]),
+            ('Cookie và lưu trữ trong trình duyệt', [
+                'Rapiz dùng cookie cần thiết để giữ phiên đăng nhập (HttpOnly, chỉ gửi tới máy chủ Rapiz), một cookie tạm thời trong lúc đăng nhập với Google (hết hạn sau 10 phút) và bộ nhớ trình duyệt để ghi nhớ tuỳ chọn giao diện. Rapiz không dùng cookie quảng cáo và không gắn công cụ theo dõi của bên thứ ba.',
+            ]),
+            ('Chúng tôi dùng dữ liệu để làm gì', [
+                ['Cung cấp dịch vụ: đăng nhập, để bot trả lời khách thay bạn, hộp thư cho đội sale, đơn hàng, lịch hẹn, thống kê.',
+                 'Gửi email giao dịch từ noreply@rapiz.io: mã xác thực đăng ký, mã đặt lại mật khẩu và các thông báo, báo cáo bạn tự bật.',
+                 'Bảo mật và chống lạm dụng: giới hạn số lần thử, phát hiện đăng nhập bất thường, nhật ký thao tác.',
+                 'Hỗ trợ khách hàng khi bạn liên hệ, và tính phí theo gói dịch vụ bạn dùng.'],
+                'Rapiz không bán dữ liệu cá nhân, không dùng dữ liệu của bạn cho quảng cáo, và không dùng dữ liệu của doanh nghiệp này để trả lời khách của doanh nghiệp khác.',
+            ]),
+            ('Trí tuệ nhân tạo (AI)', [
+                'Để tạo câu trả lời, nội dung hội thoại và phần dữ liệu cửa hàng liên quan được gửi tới nhà cung cấp mô hình AI mà Rapiz sử dụng. Chỉ phần cần thiết cho câu trả lời được gửi đi. Bản ghi dùng để gỡ lỗi câu trả lời của bot được che số điện thoại và email trước khi lưu, và tự xoá sau 30 ngày.',
+            ]),
+            ('Chúng tôi chia sẻ dữ liệu với ai', [
+                'Rapiz chỉ chia sẻ dữ liệu với các bên giúp vận hành dịch vụ, trong phạm vi cần thiết:',
+                ['Nhà cung cấp hạ tầng máy chủ, lưu trữ tệp và sao lưu (bản sao lưu được mã hoá).',
+                 'Resend, để gửi email giao dịch.',
+                 'Nhà cung cấp mô hình AI, để tạo câu trả lời của bot và của Trợ lý Rapiz.',
+                 'Meta (Facebook, Instagram), khi bạn kết nối trang để nhận và trả lời tin nhắn.',
+                 'Google, khi bạn chọn đăng nhập với Google.',
+                 'KiotViet hoặc hệ thống khác, chỉ khi bạn tự kết nối.',
+                 'Cơ quan nhà nước có thẩm quyền, khi pháp luật yêu cầu.'],
+                'Một số nhà cung cấp đặt máy chủ ở ngoài Việt Nam, nên dữ liệu có thể được chuyển ra nước ngoài. Việc chuyển dữ liệu này thực hiện theo quy định của Nghị định 13/2023/NĐ-CP.',
+            ]),
+            ('Bảo vệ dữ liệu', [
+                ['Dữ liệu mỗi doanh nghiệp được tách riêng ở tầng cơ sở dữ liệu.',
+                 'Dữ liệu được mã hoá khi truyền (HTTPS). Khoá kết nối kênh và khoá API được mã hoá trước khi lưu.',
+                 'Thành viên có vai trò và quyền riêng; tài khoản bật được xác thực hai lớp; thao tác quan trọng được ghi nhật ký.'],
+            ]),
+            ('Thời gian lưu trữ', [
+                ['Dữ liệu tài khoản và dữ liệu doanh nghiệp được lưu trong thời gian bạn dùng dịch vụ.',
+                 'Khi bạn yêu cầu xoá, chúng tôi xoá dữ liệu trong vòng 30 ngày, trừ phần pháp luật yêu cầu lưu lâu hơn (ví dụ chứng từ thanh toán).',
+                 'Tệp xuất dữ liệu được giữ 7 ngày. Bản sao của dữ liệu đã xoá có thể còn trong bản sao lưu mã hoá tối đa 30 ngày.'],
+            ]),
+            ('Quyền của bạn', [
+                'Theo Nghị định 13/2023/NĐ-CP, bạn có quyền được biết, đồng ý hoặc rút lại sự đồng ý, truy cập, chỉnh sửa, yêu cầu xoá, hạn chế hoặc phản đối việc xử lý dữ liệu, yêu cầu cung cấp dữ liệu và khiếu nại. Bạn tự sửa phần lớn thông tin trong ứng dụng, và chủ doanh nghiệp tự xuất toàn bộ dữ liệu ra tệp ZIP.',
+                'Với các yêu cầu khác, kể cả xoá tài khoản, hãy gửi email tới <a href="mailto:support@rapiz.io">support@rapiz.io</a> từ địa chỉ email của tài khoản. Chúng tôi phản hồi trong vòng 72 giờ.',
+            ]),
+            ('Dữ liệu nhận từ Google', [
+                'Việc Rapiz sử dụng và chuyển giao thông tin nhận từ API của Google tuân thủ <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener">Google API Services User Data Policy</a>, bao gồm các yêu cầu Limited Use. Thông tin này chỉ dùng để tạo và đăng nhập tài khoản Rapiz của bạn.',
+            ]),
+            ('Trẻ em', [
+                'Rapiz là công cụ cho doanh nghiệp, không dành cho người dưới 16 tuổi.',
+            ]),
+            ('Thay đổi chính sách', [
+                'Khi chính sách thay đổi, chúng tôi cập nhật ngày ở đầu trang. Với thay đổi quan trọng, chúng tôi báo cho bạn qua email trước khi áp dụng.',
+            ]),
+            ('Liên hệ', [
+                COMPANY['name'] + '. Email: <a href="mailto:support@rapiz.io">support@rapiz.io</a>.',
+            ]),
+        ],
+    },
+    {
+        'slug': 'terms',
+        'title': 'Điều khoản sử dụng | Rapiz',
+        'description': 'Điều khoản khi dùng Rapiz: tài khoản, trách nhiệm với dữ liệu khách hàng, câu trả lời của AI, hành vi bị cấm, phí, chấm dứt và giới hạn trách nhiệm.',
+        'h1': 'Điều khoản<br><em>sử dụng</em>',
+        'intro': 'Điều khoản này là thoả thuận giữa bạn (cá nhân hoặc doanh nghiệp dùng Rapiz) và ' + COMPANY['name'] + ' ("Rapiz") khi bạn dùng website rapiz.io, ứng dụng Rapiz và các dịch vụ đi kèm. Khi tạo tài khoản hoặc dùng dịch vụ, bạn đồng ý với điều khoản này và <a href="/privacy/">Chính sách quyền riêng tư</a>.',
+        'sections': [
+            ('Tài khoản', [
+                ['Bạn cung cấp thông tin chính xác khi đăng ký và cập nhật khi thay đổi.',
+                 'Bạn giữ bí mật mật khẩu và chịu trách nhiệm về hoạt động trong tài khoản, kể cả của thành viên bạn mời vào doanh nghiệp.',
+                 'Bạn từ đủ 18 tuổi, hoặc là người được doanh nghiệp giao quyền dùng Rapiz thay mặt doanh nghiệp.'],
+            ]),
+            ('Dịch vụ', [
+                'Rapiz cung cấp nhân viên sale AI trả lời khách trên các kênh bạn kết nối, hộp thư cho đội sale, quản lý khách hàng, đơn hàng, lịch hẹn và các công cụ liên quan. Rapiz đang trong giai đoạn thử nghiệm mở rộng: tính năng có thể được thêm, đổi hoặc ngừng. Tính năng gắn nhãn Beta hoặc Sắp ra mắt có thể chưa ổn định.',
+            ]),
+            ('Dữ liệu khách hàng của bạn', [
+                'Với dữ liệu của khách hàng nhắn tin cho doanh nghiệp, bạn là bên kiểm soát dữ liệu. Bạn chịu trách nhiệm có cơ sở pháp lý để thu thập và xử lý dữ liệu đó (thông báo, xin đồng ý khi cần), và tuân thủ chính sách của các nền tảng bạn kết nối như Meta. Rapiz xử lý dữ liệu này để cung cấp dịch vụ cho bạn, theo <a href="/privacy/">Chính sách quyền riêng tư</a>.',
+            ]),
+            ('Câu trả lời của AI', [
+                'Bot trả lời dựa trên dữ liệu và quy tắc bạn cung cấp, nhưng AI vẫn có thể trả lời sai hoặc chưa đầy đủ. Bạn chịu trách nhiệm kiểm tra cấu hình, nội dung đào tạo và các đơn hàng, lịch hẹn, giữ chỗ do bot tạo trước khi thực hiện. Rapiz không bảo đảm một mức doanh thu hay kết quả kinh doanh cụ thể.',
+            ]),
+            ('Hành vi bị cấm', [
+                ['Gửi tin nhắn rác, lừa đảo, hoặc nội dung vi phạm pháp luật Việt Nam.',
+                 'Bán hoặc quảng bá hàng hoá, dịch vụ bị cấm kinh doanh.',
+                 'Truy cập trái phép, dò quét, làm quá tải hoặc tìm cách vượt qua các lớp bảo vệ của Rapiz.',
+                 'Sao chép, dịch ngược phần mềm, hoặc bán lại dịch vụ khi chưa có thoả thuận với Rapiz.',
+                 'Dùng Rapiz để thu thập dữ liệu cá nhân trái phép.'],
+            ]),
+            ('Phí và thanh toán', [
+                'Phí dịch vụ theo gói bạn chọn, công bố tại <a href="/bang-gia/">Bảng giá</a>. Gói dùng thử và hạn mức lượt trả lời AI áp dụng theo gói. Phí đã thanh toán được xử lý theo thoả thuận khi mua gói và theo quy định pháp luật.',
+            ]),
+            ('Quyền sở hữu', [
+                'Dữ liệu bạn đưa vào Rapiz thuộc về bạn. Bạn cho phép Rapiz lưu trữ và xử lý dữ liệu đó trong phạm vi cần thiết để cung cấp dịch vụ. Phần mềm, giao diện, thương hiệu và nội dung của Rapiz thuộc về Rapiz.',
+            ]),
+            ('Tạm ngưng và chấm dứt', [
+                'Bạn có thể ngừng dùng Rapiz bất cứ lúc nào và yêu cầu xoá tài khoản qua <a href="mailto:support@rapiz.io">support@rapiz.io</a>. Hãy xuất dữ liệu trước nếu bạn cần giữ lại. Rapiz có thể tạm ngưng hoặc chấm dứt tài khoản vi phạm điều khoản này hoặc quá hạn thanh toán, và sẽ báo trước khi có thể.',
+            ]),
+            ('Giới hạn trách nhiệm', [
+                'Trong phạm vi pháp luật cho phép, Rapiz không chịu trách nhiệm về thiệt hại gián tiếp như mất lợi nhuận hoặc mất cơ hội kinh doanh. Tổng trách nhiệm của Rapiz với bạn không vượt quá số phí bạn đã trả cho Rapiz trong 12 tháng trước sự việc.',
+            ]),
+            ('Thay đổi điều khoản', [
+                'Khi điều khoản thay đổi, chúng tôi cập nhật ngày ở đầu trang và báo qua email với thay đổi quan trọng. Tiếp tục dùng dịch vụ sau ngày áp dụng nghĩa là bạn đồng ý với điều khoản mới.',
+            ]),
+            ('Luật áp dụng', [
+                'Điều khoản này tuân theo pháp luật Việt Nam. Tranh chấp được ưu tiên giải quyết bằng thương lượng; nếu không thành, sẽ đưa ra toà án có thẩm quyền tại Việt Nam.',
+            ]),
+            ('Liên hệ', [
+                COMPANY['name'] + '. Email: <a href="mailto:support@rapiz.io">support@rapiz.io</a>.',
+            ]),
+        ],
+    },
+]

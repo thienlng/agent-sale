@@ -113,6 +113,8 @@ test('development tunnel preserves HTTP routing and dispatches WebSocket upgrade
       '/nganh/ban-le/',
       '/bang-gia',
       '/bang-gia/',
+      '/privacy/',
+      '/terms',
     ]) {
       const response = await read(proxyPort, path);
       assert.equal(response.name, 'site');

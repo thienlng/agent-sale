@@ -6,6 +6,11 @@ import type {
   EmailCodeRecord,
   EmailCodeRepository,
 } from '../../domain/ports/email-code.repository.js';
+import type {
+  ExternalIdentity,
+  ExternalIdentityRepository,
+  IdentityProvider,
+} from '../../domain/ports/external-identity.repository.js';
 import type { MfaRecord, MfaRepository } from '../../domain/ports/mfa.repository.js';
 import type { SessionRecord, SessionRepository } from '../../domain/ports/session.repository.js';
 import type { UserRepository } from '../../domain/ports/user.repository.js';
@@ -41,6 +46,20 @@ export class InMemoryUserRepository implements UserRepository {
   async insert(user: User): Promise<void> {
     if (await this.findByEmail(user.snapshot().email)) throw new EmailTakenError();
     this.#byId.set(user.id, user);
+  }
+
+  async confirmEmail(id: UserId, at: Date, dropPassword: boolean): Promise<void> {
+    const user = this.#byId.get(id);
+    if (!user) return;
+    const s = user.snapshot();
+    this.#byId.set(
+      id,
+      User.rehydrate({
+        ...s,
+        emailVerifiedAt: s.emailVerifiedAt ?? at,
+        passwordHash: dropPassword ? '' : s.passwordHash,
+      }),
+    );
   }
 
   async setPassword(id: UserId, passwordHash: string, at: Date): Promise<void> {
@@ -165,5 +184,20 @@ export class InMemoryEmailCodeRepository implements EmailCodeRepository {
 
   async delete(email: string, purpose: EmailCodePurpose): Promise<void> {
     this.rows.delete(`${email}:${purpose}`);
+  }
+}
+
+export class InMemoryExternalIdentityRepository implements ExternalIdentityRepository {
+  readonly rows = new Map<string, ExternalIdentity & { lastLoginAt: Date }>();
+
+  async findUserId(provider: IdentityProvider, subject: string): Promise<UserId | null> {
+    return this.rows.get(`${provider}:${subject}`)?.userId ?? null;
+  }
+
+  async link(identity: ExternalIdentity, at: Date): Promise<void> {
+    const key = `${identity.provider}:${identity.subject}`;
+    const existing = this.rows.get(key);
+    if (existing && existing.userId !== identity.userId) return;
+    this.rows.set(key, { ...identity, lastLoginAt: at });
   }
 }

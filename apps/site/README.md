@@ -19,6 +19,7 @@ pnpm --filter @agent-sales/site test:e2e   # Playwright against `astro preview` 
 | `/tinh-nang/*/` | Feature pages: sales bot, Facebook comments, inbox, AI training, assistant, customers and analytics |
 | `/tich-hop/`, `/bao-mat/`, `/bang-gia/`, `/dat-lich-demo/` | Integrations, security, pricing, demo request |
 | `/ve-rapiz/` | About Rapiz |
+| `/privacy/`, `/terms/` | Privacy policy and terms of use (`LEGAL_PAGES` in `tools/site_content.py`). Google links them from its sign-in screen, so they stay public behind the beta gate (`infra/deploy/beta-gate.sh`). Write only what the product does; update `LEGAL_UPDATED` on every change. |
 
 Static files live in `public/static/` (CSS and JS), `public/images/` and `public/fonts/`. The
 production routes for these paths are in `infra/deploy/Caddyfile` and, for the dev tunnel, in
@@ -67,6 +68,11 @@ the pages make no extra request.
   website connection, and prints the key (`wk_…`). The bot's content is
   `apps/backend/src/cli/rapiz-site-bot/content.ts`; it may only state what these pages and
   `FEATURES.vi.md` say, so update it with the copy (prices included).
+- **The plans.** The seed also puts the four plans (`SITE_PLANS`) in the bot's catalog as service
+  products, one variant per prepaid term, so the bot answers price questions with plan cards. Their
+  pictures are `public/images/plans/*.png`, rendered by `node apps/site/tools/plan_images.mjs`
+  (re-run it after changing the plans). The seed copies each picture into the catalog from `--site`
+  (default `https://<first domain>`) when the product has none, so deploy the site first.
 
 The bot reads the page the visitor writes from. Every page names its parts with
 `data-rapiz-section` (lowercase, `hero`, `pricing`, `plan-sales_smart`, …) and, where a short

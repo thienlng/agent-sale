@@ -1,5 +1,6 @@
 import { defineRoutes } from '../common/routes.js';
 import {
+  AuthProvidersResponse,
   AuthResponse,
   BootstrapResponse,
   LoginRequest,
@@ -10,6 +11,9 @@ import {
   MfaStatus,
   RecoveryCodes,
   ForgotPasswordRequest,
+  GoogleCallbackQuery,
+  GoogleMfaRequest,
+  GoogleStartQuery,
   RefreshRequest,
   ResetPasswordRequest,
   SignupBusinessRequest,
@@ -78,6 +82,43 @@ export const identityRoutes = defineRoutes([
     body: LoginRequest,
     responses: { 200: AuthResponse },
     // 401 with details.reason = mfa_required | mfa_invalid when the account has two-factor on.
+  },
+  {
+    method: 'get',
+    path: '/auth/providers',
+    summary: 'Sign-in methods offered besides email + password',
+    tag: 'auth',
+    auth: false,
+    responses: { 200: AuthProvidersResponse },
+  },
+  {
+    method: 'get',
+    path: '/auth/google/start',
+    summary: 'Redirect the browser to Google (sets a short-lived flow cookie)',
+    tag: 'auth',
+    auth: false,
+    query: GoogleStartQuery,
+    responses: { 302: null },
+  },
+  {
+    method: 'get',
+    path: '/auth/google/callback',
+    summary: "Google's redirect: sign in, then redirect to /login with the outcome",
+    tag: 'auth',
+    auth: false,
+    query: GoogleCallbackQuery,
+    responses: { 302: null },
+    // Success sets the refresh cookie (or, with two-factor on, a pending cookie for /auth/google/mfa).
+  },
+  {
+    method: 'post',
+    path: '/auth/google/mfa',
+    summary: 'Second factor after a Google sign-in; sets the refresh cookie',
+    tag: 'auth',
+    auth: false,
+    body: GoogleMfaRequest,
+    responses: { 200: AuthResponse },
+    // 401 with details.reason = mfa_invalid, or google_expired without a live pending sign-in.
   },
   {
     method: 'post',

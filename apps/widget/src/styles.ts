@@ -77,9 +77,15 @@ button:focus-visible{outline:2px solid #b54708;outline-offset:2px}
 .typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
 .notice{padding:8px 16px;font-size:12px;color:#d92d20;background:#fef3f2;border-top:1px solid #fecdca}
 .notice[hidden]{display:none}
-.chip{margin:0 16px 8px;align-self:flex-start;padding:6px 12px;border-radius:4px;border:1px solid #d0d5dd;background:#fff;font-size:13px;font-weight:500;transition:border-color .12s ease-out}
-.chip:hover{border-color:var(--c)}
+.chip{position:relative;display:inline-flex;align-items:center;gap:8px;max-width:100%;margin:0 0 8px;padding:4px 12px 4px 4px;border-radius:999px;font-size:13px;font-weight:500;line-height:18px;color:#1f1f1f;isolation:isolate;animation:rise .16s ease-out both}
+.chip:before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;background:var(--c);opacity:.1;transition:opacity .12s ease-out}
+.chip:hover:before{opacity:.16}
+.chip span:not(.ci){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip>svg{width:14px;height:14px;color:#5d6470;transition:transform .12s ease-out}
+.chip:hover>svg{transform:translateX(2px);color:#1f1f1f}
 .chip[hidden]{display:none}
+.ci{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;background:var(--c);color:var(--on-c)}
+.ci svg{width:14px;height:14px}
 form{padding:12px;background:#fff;border-top:1px solid #f3f4f6}
 form[hidden]{display:none}
 .field{display:flex;align-items:flex-end;gap:4px;padding:4px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;transition:border-color .12s ease-out}
@@ -91,15 +97,16 @@ textarea:focus,input[type=tel]:focus{outline:none}
 .ibtn:hover{background:#f3f4f6;color:#1f1f1f}
 .send{width:32px;height:32px;border-radius:4px;display:flex;align-items:center;justify-content:center;flex:none;background:var(--c);color:var(--on-c);font-weight:600;transition:opacity .12s ease-out}
 .send:disabled{opacity:.4;cursor:default}
-.send.text{width:auto;height:40px;padding:0 16px}
-.phoneform{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.phoneform .hint{flex-basis:100%;font-size:13px;color:#5d6470;margin:0}
-.phoneform input[type=tel]{height:40px;padding:8px 12px;border:1px solid #d0d5dd;border-radius:4px}
-.phoneform input[type=tel]:focus{border-color:#5d6470}
-.phoneform .err{flex-basis:100%;font-size:12px;color:#d92d20;margin:0}
+.phoneform{display:flex;flex-direction:column;gap:8px;animation:rise .16s ease-out both}
+.phead{display:flex;align-items:center;gap:10px}
+.phead .hint{flex:1;min-width:0;margin:0;font-size:13px;line-height:18px;color:#1f1f1f}
+.phead .hbtn{width:28px;height:28px}
+.phead .hbtn svg{width:16px;height:16px}
+.phead .hbtn[hidden]{display:none}
+.phoneform .field{align-items:center}
+.phoneform input[type=tel]{height:32px;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.phoneform .err{font-size:12px;line-height:16px;color:#d92d20;margin:0}
 .phoneform .err[hidden]{display:none}
-.link{color:#5d6470;font-size:13px;padding:8px;border-radius:4px}
-.link:hover{color:#1f1f1f}
 @keyframes pop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @keyframes blink{0%,80%,100%{opacity:.3}40%{opacity:1}}
@@ -107,9 +114,9 @@ textarea:focus,input[type=tel]:focus{outline:none}
  .panel{left:0!important;right:0!important;top:0;bottom:0;width:100%;height:100%;border-radius:0;border:0;animation:none}
  .root.open .bubble{display:none}
 }
-@media (pointer:coarse){.hbtn,.ibtn,.send{width:44px;height:44px}.send.text{height:44px}.sg{min-height:44px}.cnav{display:none}}
+@media (pointer:coarse){.hbtn,.ibtn,.send{width:44px;height:44px}.chip{min-height:36px}.sg{min-height:44px}.cnav{display:none}}
 @media (prefers-reduced-motion:reduce){
  .panel{animation:none}.bubble,.bubble:hover{transition:none;transform:none}.typing i{animation:none;opacity:.6}
- .card,.sg{animation:none;transition:none}.card:hover,.card:hover .go,.card:hover .pic.ok img{transform:none}.pic img{transition:none}
+ .card,.sg,.chip,.phoneform{animation:none;transition:none}.card:hover,.card:hover .go,.card:hover .pic.ok img{transform:none}.pic img{transition:none}
 }
 `;

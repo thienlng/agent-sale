@@ -3,6 +3,11 @@ import { type UserId, userId } from '@agent-sales/shared';
 
 import { EmailTakenError } from '../../domain/identity.errors.js';
 import type {
+  ExternalIdentity,
+  ExternalIdentityRepository,
+  IdentityProvider,
+} from '../../domain/ports/external-identity.repository.js';
+import type {
   EmailCodePurpose,
   EmailCodeRecord,
   EmailCodeRepository,
@@ -89,7 +94,7 @@ export class DrizzleUserRepository implements UserRepository {
           email: s.email,
           name: s.name,
           phone: s.phone,
-          passwordHash: s.passwordHash,
+          passwordHash: s.passwordHash || null,
           locale: s.locale,
           timezone: s.timezone,
           emailVerifiedAt: s.emailVerifiedAt,
@@ -118,6 +123,19 @@ export class DrizzleUserRepository implements UserRepository {
     );
   }
 
+  async confirmEmail(id: UserId, at: Date, dropPassword: boolean): Promise<void> {
+    await withSystem(this.systemDb, (tx) =>
+      tx
+        .update(schema.users)
+        .set({
+          emailVerifiedAt: sql`coalesce(${schema.users.emailVerifiedAt}, ${at.toISOString()}::timestamptz)`,
+          ...(dropPassword ? { passwordHash: null } : {}),
+          updatedAt: at,
+        })
+        .where(eq(schema.users.id, id)),
+    );
+  }
+
   setPlatformAdmin(email: string, value: boolean): Promise<boolean> {
     return withSystem(this.systemDb, async (tx) => {
       const rows = await tx
@@ -127,6 +145,36 @@ export class DrizzleUserRepository implements UserRepository {
         .returning({ id: schema.users.id });
       return rows.length === 1;
     });
+  }
+}
+
+export class DrizzleExternalIdentityRepository implements ExternalIdentityRepository {
+  constructor(private readonly systemDb: Database) {}
+
+  findUserId(provider: IdentityProvider, subject: string): Promise<UserId | null> {
+    const t = schema.userIdentities;
+    return withSystem(this.systemDb, async (tx) => {
+      const [row] = await tx
+        .select({ userId: t.userId })
+        .from(t)
+        .where(and(eq(t.provider, provider), eq(t.subject, subject)))
+        .limit(1);
+      return row ? userId(row.userId) : null;
+    });
+  }
+
+  async link(identity: ExternalIdentity, at: Date): Promise<void> {
+    const t = schema.userIdentities;
+    await withSystem(this.systemDb, (tx) =>
+      tx
+        .insert(t)
+        .values({ ...identity, createdAt: at, lastLoginAt: at })
+        .onConflictDoUpdate({
+          target: [t.provider, t.subject],
+          set: { email: identity.email, lastLoginAt: at },
+          setWhere: eq(t.userId, identity.userId),
+        }),
+    );
   }
 }
 

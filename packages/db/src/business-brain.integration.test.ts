@@ -16,7 +16,7 @@ import {
 import { withTenant } from './tenant.js';
 
 /**
- * Business Brain v1 (0072): workspace RLS on the five brain tables and crm `tasks`, their CHECK
+ * Business Brain v1 (0073): workspace RLS on the five brain tables and crm `tasks`, their CHECK
  * constraints and what happens when a conversation or customer is deleted. One connection per
  * client (`max: 1`) mimics PgBouncer.
  */
@@ -80,7 +80,7 @@ const taskRow = (s: Shop, over: Partial<typeof tasks.$inferInsert> = {}) => ({
   ...over,
 });
 
-describe('business brain tables (0072)', () => {
+describe('business brain tables (0073)', () => {
   it('isolates all six tables per workspace and hides them without tenant context', async () => {
     for (const s of pair()) {
       await asTenant(s, async (tx) => {
@@ -164,6 +164,14 @@ describe('business brain tables (0072)', () => {
       source: 'manual',
       version: 1,
     });
+  });
+
+  it('gives every stored plan version the daily evaluation cap (0074)', async () => {
+    const rows = (await exec(
+      sql`select code, entitlements -> 'brain.evaluations.daily' as cap from plans`,
+    )) as unknown as { code: string; cap: unknown }[];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) expect(row).toMatchObject({ cap: 200 });
   });
 
   it('checks enums and length limits', async () => {

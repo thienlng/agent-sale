@@ -175,6 +175,57 @@ describe('website rich messages', () => {
     expect(toolResult(fake.calls[1])).toContain('unknown_products');
   });
 
+  it('shows any product a search listed, with its picture, not only the detailed top rows', async () => {
+    const plans = ['a', 'b', 'c', 'd'].map((id) =>
+      product(
+        id,
+        `Gói ${id.toUpperCase()}`,
+        [100_000, 100_000],
+        [`https://img.example.com/${id}.jpg`],
+      ),
+    );
+    const { ask } = build(
+      [
+        search,
+        call('show_products', { text: 'Dạ đây ạ', productIds: ['d', 'a'] }),
+        { text: 'Dạ ạ.' },
+      ],
+      plans,
+    );
+    const res = await ask('có những gói nào');
+    expect(res.messages?.[0]?.ui?.cards?.map((c) => [c.productId, c.imageUrl])).toEqual([
+      ['d', 'https://img.example.com/d.jpg'],
+      ['a', 'https://img.example.com/a.jpg'],
+    ]);
+  });
+
+  it('takes a product by its code or name when the model garbled the id', async () => {
+    const { fake, ask } = build([
+      search,
+      call('show_products', { text: 'Dạ đây ạ', productIds: ['gói pro', 'BASIC', 'basic-x'] }),
+      { text: 'Dạ ạ.' },
+    ]);
+    const res = await ask('có những gói nào');
+    expect(res.messages?.[0]?.ui?.cards?.map((c) => c.productId)).toEqual(['pro', 'basic']);
+    expect(JSON.parse(toolResult(fake.calls[2])).unknownProductIds).toEqual(['basic-x']);
+  });
+
+  it('lists the ids it knows when no card can be built, so the model can retry', async () => {
+    const { fake, ask } = build([
+      search,
+      call('show_products', { text: 'Dạ đây ạ', productIds: ['01a1c8b8-5a98-0000'] }),
+      { text: 'Dạ ạ.' },
+    ]);
+    await ask('có những gói nào');
+    expect(JSON.parse(toolResult(fake.calls[2]))).toMatchObject({
+      error: 'unknown_products',
+      known: [
+        { id: 'basic', name: 'Gói Basic' },
+        { id: 'pro', name: 'Gói Pro' },
+      ],
+    });
+  });
+
   it('puts the suggested next steps under the final answer, links from the page only', async () => {
     const { fake, ask } = build([
       call('suggest_next', {
@@ -225,5 +276,26 @@ describe('cardPrice', () => {
       priceNote: 'Liên hệ để báo giá',
     });
     expect(cardPrice(course, 'vi')).toBe('Liên hệ để báo giá');
+  });
+
+  it('puts a short note next to the price, never a long one', () => {
+    const withPrices = (p: ProductDto, prices: number[]): ProductDto =>
+      ({ ...p, variants: prices.map((price) => ({ price })) }) as unknown as ProductDto;
+    const plan = withPrices(
+      product('p', 'Sales Smart', [785_000, 1_310_000], [], {
+        kind: 'service',
+        priceNote: '/ tháng',
+      }),
+      [785_000, 1_050_000, 1_310_000],
+    );
+    expect(cardPrice(plan, 'vi')).toBe(`Từ ${formatVnd(785_000)} / tháng`);
+    const long = withPrices(
+      product('l', 'Liệu trình', [500_000, 500_000], [], {
+        kind: 'service',
+        priceNote: 'Giá tham khảo, tuỳ tình trạng da',
+      }),
+      [500_000],
+    );
+    expect(cardPrice(long, 'vi')).toBe(formatVnd(500_000));
   });
 });

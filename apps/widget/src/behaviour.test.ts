@@ -308,6 +308,26 @@ describe('boot behaviour', () => {
       expect(root.querySelector('.sugg')).toBeNull();
     });
 
+    it('offers the phone chip in the composer; the phone form closes back to it', async () => {
+      const { root, settle } = await richMount();
+      const chip = root.querySelector<HTMLElement>('form.composer > .chip')!;
+      expect(chip.hidden).toBe(false);
+      expect(chip.textContent).toBe('Để lại SĐT');
+      chip.click();
+      await settle();
+      const form = root.querySelector<HTMLElement>('form.phoneform')!;
+      expect(form.hidden).toBe(false);
+      expect(root.querySelector<HTMLElement>('form.composer')!.hidden).toBe(true);
+      expect(form.querySelector('.phead .hint')?.textContent).toBe('Để lại số điện thoại?');
+      expect(form.querySelector('.field button[type=submit]')?.getAttribute('aria-label')).toBe(
+        'Gửi số',
+      );
+      form.querySelector<HTMLElement>('.phead button[aria-label="Quay lại"]')!.click();
+      await settle();
+      expect(form.hidden).toBe(true);
+      expect(chip.hidden).toBe(false);
+    });
+
     it('a reply suggestion is sent as typed', async () => {
       const { root, calls, settle } = await richMount();
       root.querySelector<HTMLElement>('.sg.reply')!.click();

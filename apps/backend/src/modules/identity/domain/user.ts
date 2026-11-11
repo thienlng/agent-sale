@@ -7,6 +7,7 @@ export interface UserProps {
   email: string;
   name: string;
   phone: string | null;
+  /** Empty for a user who signs in only through an identity provider (no password yet). */
   passwordHash: string;
   emailVerifiedAt: Date | null;
   locale: string;
@@ -72,6 +73,14 @@ export class User {
     });
   }
 
+  /**
+   * A user created by an identity provider sign-in (Google): no password, the address proven by
+   * the provider. A password can be added later through the password reset.
+   */
+  static registerFromProvider(input: { email: string; name: string; emailVerifiedAt: Date }): User {
+    return User.register({ ...input, passwordHash: '' });
+  }
+
   static rehydrate(props: UserProps): User {
     return new User(props);
   }
@@ -90,6 +99,10 @@ export class User {
 
   get passwordHash(): string {
     return this.props.passwordHash;
+  }
+
+  get hasPassword(): boolean {
+    return this.props.passwordHash !== '';
   }
 
   snapshot(): Readonly<UserProps> {

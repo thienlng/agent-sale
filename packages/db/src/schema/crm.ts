@@ -280,7 +280,7 @@ export const crmAssignmentPolicies = pgTable(
 );
 
 /**
- * CRM tasks (migration 0072, CRM-04, spec 2026-11-11 §4). Links are opaque ids; only the customer
+ * CRM tasks (migration 0073, CRM-04, spec 2026-11-11 §4). Links are opaque ids; only the customer
  * link is a same-workspace key, and a deleted customer deletes its tasks.
  */
 export const tasks = pgTable(
