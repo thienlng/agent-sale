@@ -109,7 +109,7 @@ export interface EvaluationFacts {
   stageLocked: boolean;
 }
 
-const SENDER_LABEL = { customer: 'Khách', human: 'Nhân viên', bot: 'Bot' } as const;
+const SENDER_LABEL = { customer: 'Customer', human: 'Staff', bot: 'Bot' } as const;
 
 /**
  * A message as one line inside the `<<<` … `>>>` data fence: whitespace collapsed, and the fence

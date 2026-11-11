@@ -12,12 +12,11 @@ import { useSession } from '@/lib/session';
 import { InboxSalesPanel, type InboxCustomerContext } from './-components/inbox-sales-panel';
 
 /**
- * `?conversation=` opens one conversation (links from a customer profile, T-088); `?draft=` puts a
- * reply drafted on Today into its composer once (never sent by itself).
+ * `?conversation=` opens one conversation (links from a customer profile, T-088, and Today). A
+ * reply drafted on Today waits in memory (`lib/pending-reply-draft`), never in the URL.
  */
 const Search = z.object({
   conversation: z.uuid().optional().catch(undefined),
-  draft: z.string().max(2000).optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/app/inbox')({
@@ -35,22 +34,15 @@ export const Route = createFileRoute('/app/inbox')({
 });
 function InboxRoute() {
   const session = useSession();
-  const { conversation, draft } = Route.useSearch();
+  const { conversation } = Route.useSearch();
   return (
     <SalesInbox
       key={`${session?.user.id}:${session?.workspaceId}:${conversation ?? ''}`}
       conversationId={conversation}
-      draft={draft}
     />
   );
 }
-function SalesInbox({
-  conversationId,
-  draft,
-}: {
-  conversationId?: string | undefined;
-  draft?: string | undefined;
-}) {
+function SalesInbox({ conversationId }: { conversationId?: string | undefined }) {
   const [contexts, setContexts] = useState<Record<string, InboxCustomerContext>>({});
   return (
     <InboxPage
@@ -58,9 +50,7 @@ function SalesInbox({
       openConversationId={conversationId}
       renderComposerTools={(conversation, insertText) => (
         <>
-          {conversation.id === conversationId ? (
-            <DraftPrefill draft={draft} insertText={insertText} />
-          ) : null}
+          <DraftPrefill conversationId={conversation.id} insertText={insertText} />
           <ProductShare onInsert={insertText} />
         </>
       )}

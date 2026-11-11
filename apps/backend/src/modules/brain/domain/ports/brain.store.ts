@@ -35,7 +35,7 @@ export interface BrainStore {
   signalsFor(ws: WorkspaceId, conversationIds: readonly string[]): Promise<ConversationSignal[]>;
   /**
    * Writes an evaluation. Only the model's columns are written (intent, mood, needs-a-person,
-   * follow-up, note, `evaluated_until`, `evaluated_at`, the customer link): the stage only when
+   * follow-up, note, `evaluated_until` (never moved back), `evaluated_at`, the customer link): the stage only when
    * the STORED row is not locked, and the stored dismissal is cleared only when
    * `lastCustomerMessageAt` is newer than it. So a member's lock, stage or dismissal written while
    * the model was answering survives. Bumps `version`; returns the stored row.
@@ -60,6 +60,8 @@ export interface BrainStore {
     contactId: string | null,
     at: Date,
   ): Promise<void>;
+  /** Undoes a dismiss: clears `dismissed_until_message_after` (nothing when there is no row). */
+  undismissSignal(ws: WorkspaceId, conversationId: string, at: Date): Promise<void>;
 
   /**
    * Upserts the conversation's idle job (brief rule 1): `run_after = max(existing, due)`, status
@@ -96,10 +98,15 @@ export interface BrainStore {
   recordRun(ws: WorkspaceId, run: SignalRunRecord): Promise<void>;
 
   /**
-   * Signals that may put a conversation on Today (spec §5): complaint or needs a person, stage
-   * `ready` or `price_asked`, or a follow-up due by `now`. At most `limit`, newest first.
+   * The conversations whose signal may put them on Today (spec §5), ids only: complaint or needs a
+   * person (`attention`), stage `ready` judged since `readySince`, stage `price_asked` whose
+   * covered messages are not older than `priceSince`, or a follow-up due by `now`. At most
+   * `limit`, most recently updated first.
    */
-  todaySignals(ws: WorkspaceId, now: Date, limit: number): Promise<ConversationSignal[]>;
+  todaySignalRefs(
+    ws: WorkspaceId,
+    q: { now: Date; readySince: Date; priceSince: Date; limit: number },
+  ): Promise<TodaySignalRef[]>;
   /** Conversations with an idle evaluation waiting (customer messages not evaluated yet). */
   pendingJobIds(ws: WorkspaceId, limit: number): Promise<string[]>;
   /**
@@ -112,6 +119,13 @@ export interface BrainStore {
    * `day` or later (a row with the defaults is created). False when another pass took it.
    */
   claimBriefing(ws: WorkspaceId, day: string): Promise<boolean>;
+}
+
+/** A conversation Today may list because of its signal. */
+export interface TodaySignalRef {
+  conversationId: string;
+  /** Complaint or needs a person: the last staff reply decides whether it is listed. */
+  attention: boolean;
 }
 
 /** `brain_settings` as the briefing pass reads it. */

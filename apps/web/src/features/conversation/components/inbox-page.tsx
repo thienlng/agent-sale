@@ -41,7 +41,7 @@ import { InboxEmptyState } from './inbox-empty-state';
 type SalesPanel = (conversation: InboxConversation, slots: PanelSlots) => ReactNode;
 type ComposerTools = (
   conversation: InboxConversation,
-  insertText: (text: string) => void,
+  insertText: (text: string) => boolean,
 ) => ReactNode;
 
 export function InboxPage({

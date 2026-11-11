@@ -90,4 +90,27 @@ describe('todayCandidates (memory store)', () => {
     );
     expect(rows.every((r) => r.lastHumanReplyAt === null)).toBe(true);
   });
+
+  it('keeps a member to their own and unassigned conversations before the limit', async () => {
+    const store = new MemoryConversationStore();
+    const me = '0190f5c2-0000-7000-8000-0000000000b2';
+    const other = '0190f5c2-0000-7000-8000-0000000000b9';
+    const mine = conv('facebook', '2026-11-02T00:00:00.000Z', { assigneeId: me });
+    const free = conv('facebook', '2026-11-02T00:00:00.000Z');
+    const theirs = conv('facebook', '2026-11-02T00:00:00.000Z', { assigneeId: other });
+    await store.run(ws, async (tx) => {
+      for (const c of [mine, free, theirs]) await tx.save(c);
+    });
+    const rows = await store.run(ws, (tx) =>
+      tx.todayCandidates({
+        ids: [theirs.id],
+        awaitingBefore: new Date('2026-11-02T01:00:00Z'),
+        followUpBefore: new Date('2026-11-02T17:00:00Z'),
+        limit: 100,
+        visibleTo: me,
+        lastHumanFor: [],
+      }),
+    );
+    expect(rows.map((r) => r.conversation.id).sort()).toEqual([mine.id, free.id].sort());
+  });
 });

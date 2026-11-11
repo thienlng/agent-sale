@@ -51,41 +51,28 @@ export function blankSignal(
 }
 
 /**
- * How late a message may be stored behind its channel time and still be read by the next
- * evaluation. Messages carry the channel's time (a webhook can arrive minutes late), and the next
- * evaluation reads the messages after `evaluated_until`; so `evaluated_until` never comes closer
- * to the evaluation than this, and a message stored late within it is read next time.
+ * `evaluated_until` is the exact channel time of the last message an evaluation covered, so "is
+ * there something new" never pays again for covered messages. Accepted limit: a message stored
+ * late (a webhook behind its channel time) that is older than a covered one is not sent to the
+ * model; the member still sees it in the inbox, and the next customer message is evaluated.
  */
-export const EVALUATION_LAG_MS = 10 * 60_000;
-
 /** What one evaluation covered: the last message read and the last customer message among them. */
 export interface EvaluationCoverage {
-  /** Time of the last message the model saw; `evaluated_until` (within the lag allowance). */
+  /** Time of the last message the model saw: `evaluated_until`. */
   lastMessageAt: Date;
   /** Time of the newest customer message the model saw; null when it saw none. */
   lastCustomerMessageAt: Date | null;
   contactId: string | null;
 }
 
-/**
- * `evaluated_until` of an evaluation: the last covered message, but at least `EVALUATION_LAG_MS`
- * before the evaluation (a late-stored message is read next time), never moving back.
- */
-export function evaluatedUntil(prev: Date | null, lastMessageAt: Date, now: Date): Date {
-  const until = Math.min(lastMessageAt.getTime(), now.getTime() - EVALUATION_LAG_MS);
-  return new Date(Math.max(until, prev?.getTime() ?? Number.NEGATIVE_INFINITY));
+/** `evaluated_until` of an evaluation: the last covered message, never moving back. */
+export function evaluatedUntil(prev: Date | null, lastMessageAt: Date): Date {
+  return new Date(Math.max(lastMessageAt.getTime(), prev?.getTime() ?? Number.NEGATIVE_INFINITY));
 }
 
-/**
- * For a member's request (manual, refresh): a customer message after this time is new. Right
- * after an evaluation (within the lag allowance) that is the evaluation itself, so asking again
- * does not pay to re-read the messages `evaluated_until` kept behind for late arrivals; the idle
- * job, which reads after `evaluated_until`, still picks a late message up.
- */
-export function newAfter(s: ConversationSignal | null, now: Date): number {
-  const until = s?.evaluatedUntil?.getTime() ?? Number.NEGATIVE_INFINITY;
-  const at = s?.evaluatedAt?.getTime();
-  return at !== undefined && now.getTime() - at < EVALUATION_LAG_MS ? Math.max(until, at) : until;
+/** A customer message after this time is new: one the last evaluation did not cover. */
+export function newAfter(s: ConversationSignal | null): number {
+  return s?.evaluatedUntil?.getTime() ?? Number.NEGATIVE_INFINITY;
 }
 
 /**
@@ -118,7 +105,7 @@ export function applyEvaluation(
     followUpAt: out.followUpAt ? new Date(out.followUpAt) : null,
     followUpReason: out.followUpAt ? (out.followUpReason ?? null) : null,
     note: out.note || null,
-    evaluatedUntil: evaluatedUntil(prev.evaluatedUntil, cover.lastMessageAt, now),
+    evaluatedUntil: evaluatedUntil(prev.evaluatedUntil, cover.lastMessageAt),
     evaluatedAt: now,
     dismissedUntilMessageAfter: keepDismissal ? dismissed : null,
     version: prev.version + 1,

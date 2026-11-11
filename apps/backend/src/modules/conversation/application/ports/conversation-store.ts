@@ -45,6 +45,8 @@ export interface ConversationTx {
     awaitingBefore: Date;
     followUpBefore: Date;
     limit: number;
+    visibleTo?: string | undefined;
+    lastHumanFor?: readonly string[] | undefined;
   }): Promise<TodayCandidateRow[]>;
 }
 /** A Today candidate: the conversation and the time of its last delivered staff message. */

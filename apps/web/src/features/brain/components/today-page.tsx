@@ -60,7 +60,10 @@ export function TodayPage() {
   function runRefresh() {
     refresh.mutate(undefined, {
       onSuccess: (r) => {
-        if (r.evaluated > 0) toast.success(t('today.refreshed', { count: r.evaluated }));
+        // Ended by the time budget: say how many are left for the next click.
+        if (r.partial)
+          toast.info(t('today.partial', { count: r.evaluated, remaining: r.remaining }));
+        else if (r.evaluated > 0) toast.success(t('today.refreshed', { count: r.evaluated }));
         else if (!r.capped) toast.info(t('today.refreshedNone'));
       },
       onError: () => toast.error(t('evaluate.failed')),

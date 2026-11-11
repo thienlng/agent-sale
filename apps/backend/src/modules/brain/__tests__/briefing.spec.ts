@@ -99,8 +99,34 @@ describe('morning briefing', () => {
     expect(briefingTitle(notificationStrings('vi'), counts)).toBe(
       'Hôm nay: 3 cần chú ý, 8 sắp chốt, 5 cần chăm lại, 2 việc đến hạn',
     );
-    expect(briefingTitle(notificationStrings('en'), counts)).toBe(
+    expect(briefingTitle(notificationStrings('en'), counts, 'en')).toBe(
       'Today: 3 need attention, 8 ready to buy, 5 to follow up, 2 tasks due',
     );
+    const ones = { ...counts, attention: 1, tasks: 1 };
+    expect(briefingTitle(notificationStrings('en'), ones, 'en')).toBe(
+      'Today: 1 needs attention, 8 ready to buy, 5 to follow up, 1 task due',
+    );
+    expect(briefingTitle(notificationStrings('vi'), ones, 'vi')).toBe(
+      'Hôm nay: 1 cần chú ý, 8 sắp chốt, 5 cần chăm lại, 1 việc đến hạn',
+    );
+  });
+
+  it('keeps the day open when a recipient fails, and the others still get it', async () => {
+    const h = setup();
+    const notify = h.briefing['notifications'] as { notify: (i: unknown) => Promise<unknown> };
+    const real = notify.notify.bind(notify);
+    let fail = true;
+    notify.notify = (i: unknown) => {
+      if (fail && (i as { userId: string }).userId === OWNER) return Promise.reject(new Error('x'));
+      return real(i);
+    };
+    expect(await h.briefing.pass(AT_8)).toBe(1);
+    expect(h.notified.map((n) => n.userId)).toEqual([ADMIN]);
+    expect(h.store.briefingDays.get(WS)).toBeUndefined();
+    // The next tick of the hour sends to the one that failed, then the day is taken.
+    fail = false;
+    await h.briefing.pass(new Date(AT_8.getTime() + 60_000));
+    expect(h.notified.map((n) => n.userId)).toContain(OWNER);
+    expect(h.store.briefingDays.get(WS)).toBe('2026-11-11');
   });
 });

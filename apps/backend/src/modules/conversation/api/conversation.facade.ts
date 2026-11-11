@@ -130,12 +130,23 @@ export interface ConversationFacade {
   /**
    * What the Today screen may show (spec 2026-11-11 §5): the conversations with these ids, plus
    * the open ones waiting since `awaitingBefore` or earlier and the ones with a follow-up reminder
-   * due by `followUpBefore` (spam left out), at most `limit` (≤ 1 000). No message text.
+   * due by `followUpBefore` (spam left out), at most `limit` (≤ 1 000), most recently updated
+   * first. No message text.
+   * - `visibleTo`: only the conversations assigned to that member or to nobody (sales and care),
+   *   applied before the limit.
+   * - `lastHumanFor`: `lastHumanReplyAt` is read for these ids only (null for the others); all
+   *   when absent.
    */
-  todayCandidates(
-    ws: WorkspaceId,
-    q: { ids: readonly string[]; awaitingBefore: Date; followUpBefore: Date; limit: number },
-  ): Promise<TodayConversation[]>;
+  todayCandidates(ws: WorkspaceId, q: TodayCandidatesQuery): Promise<TodayConversation[]>;
+}
+/** What `todayCandidates` reads. */
+export interface TodayCandidatesQuery {
+  ids: readonly string[];
+  awaitingBefore: Date;
+  followUpBefore: Date;
+  limit: number;
+  visibleTo?: string | undefined;
+  lastHumanFor?: readonly string[] | undefined;
 }
 /** One conversation as the Today screen reads it. */
 export interface TodayConversation {

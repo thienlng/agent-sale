@@ -6,7 +6,9 @@ import {
   BrainUsageDto,
   ConversationSignalResponse,
   EvaluateSignalsResponse,
+  RefreshTodayResponse,
   ReplyDraftResponse,
+  TodayCountsResponse,
   TodayResponse,
 } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
@@ -148,8 +150,11 @@ async function setup() {
     );
     const ws = boot.memberships[0]?.workspaceId ?? '';
     const headers = { authorization: `Bearer ${auth.accessToken}`, 'x-workspace-id': ws };
-    const call = (method: 'GET' | 'POST' | 'PATCH' | 'PUT', url: string, payload?: object) =>
-      http.inject({ method, url: `/api/v1${url}`, headers, ...(payload ? { payload } : {}) });
+    const call = (
+      method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
+      url: string,
+      payload?: object,
+    ) => http.inject({ method, url: `/api/v1${url}`, headers, ...(payload ? { payload } : {}) });
     return { ws, call };
   };
 
@@ -328,10 +333,28 @@ describe('HTTP: Today', () => {
     ]);
     expect(today.queues[1]?.items[0]).toMatchObject({ conversationId: CONV });
 
+    const counts = await a.call('GET', '/today/counts');
+    expect(counts.statusCode).toBe(200);
+    expect(TodayCountsResponse.parse(counts.json())).toMatchObject({
+      counts: { unanswered: 1, tasks: 0 },
+      total: 1,
+    });
+
     expect((await b.call('POST', `/today/items/${CONV}/dismiss`)).statusCode).toBe(404);
     expect((await a.call('POST', `/today/items/${CONV}/dismiss`)).statusCode).toBe(204);
     const after = TodayResponse.parse((await a.call('GET', '/today')).json());
     expect(after.queues[1]?.count).toBe(0);
+    // Undo.
+    expect((await b.call('DELETE', `/today/items/${CONV}/dismiss`)).statusCode).toBe(404);
+    expect((await a.call('DELETE', `/today/items/${CONV}/dismiss`)).statusCode).toBe(204);
+    expect(TodayResponse.parse((await a.call('GET', '/today')).json()).queues[1]?.count).toBe(1);
+
+    const refreshed = await a.call('POST', '/today/refresh');
+    expect(refreshed.statusCode).toBe(200);
+    expect(RefreshTodayResponse.parse(refreshed.json())).toMatchObject({
+      partial: false,
+      remaining: 0,
+    });
 
     t.gateway.replies = ['Dạ shop gửi giá ngay ạ.'];
     const draft = await a.call('POST', `/conversations/${CONV}/reply-draft`);
@@ -339,8 +362,12 @@ describe('HTTP: Today', () => {
     expect(ReplyDraftResponse.parse(draft.json()).text).toBe('Dạ shop gửi giá ngay ạ.');
     expect((await b.call('POST', `/conversations/${CONV}/reply-draft`)).statusCode).toBe(404);
 
+    // An analyst reads Today but may not change it for everyone.
     t.actAs('analyst');
     expect((await a.call('GET', '/today')).statusCode).toBe(200);
+    expect((await a.call('GET', '/today/counts')).statusCode).toBe(200);
+    expect((await a.call('POST', `/today/items/${CONV}/dismiss`)).statusCode).toBe(403);
+    expect((await a.call('DELETE', `/today/items/${CONV}/dismiss`)).statusCode).toBe(403);
     expect((await a.call('POST', `/conversations/${CONV}/reply-draft`)).statusCode).toBe(403);
     expect((await a.call('POST', '/today/refresh')).statusCode).toBe(403);
   });

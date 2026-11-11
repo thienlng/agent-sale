@@ -191,6 +191,41 @@ describe('DrizzleBrainStore', () => {
     expect(unlocked).toMatchObject({ stage: 'won', stageLocked: false, version: 4 });
     const next = await store.saveEvaluation(b.ws, { ...evaluated, stage: 'ready' }, plus(3));
     expect(next).toMatchObject({ stage: 'ready', dismissedUntilMessageAfter: null, version: 5 });
+    // A racing evaluation that covered less never moves evaluated_until back.
+    await store.saveEvaluation(b.ws, { ...evaluated, evaluatedUntil: plus(10) }, null);
+    const older = await store.saveEvaluation(b.ws, { ...evaluated, evaluatedUntil: plus(5) }, null);
+    expect(older.evaluatedUntil).toEqual(plus(10));
+    // Undo a dismiss clears it.
+    await store.dismissSignal(b.ws, b.conv, null, plus(11));
+    await store.undismissSignal(b.ws, b.conv, plus(12));
+    expect((await store.getSignal(b.ws, b.conv))?.dismissedUntilMessageAfter).toBeNull();
+  });
+
+  it('lists Today signal refs with the ageing bounds and the attention flag', async () => {
+    const [a] = shops;
+    if (!a) throw new Error('setup');
+    const q = (now: Date) =>
+      store.todaySignalRefs(a.ws, {
+        now,
+        readySince: new Date(now.getTime() - 7 * 86_400_000),
+        priceSince: new Date(now.getTime() - 14 * 86_400_000),
+        limit: 10,
+      });
+    await store.saveEvaluation(
+      a.ws,
+      { ...blankSignal(a.conv, null, T0), stage: 'ready', evaluatedAt: T0, evaluatedUntil: T0 },
+      null,
+    );
+    expect(await q(plus(60))).toEqual([{ conversationId: a.conv, attention: false }]);
+    expect(await q(new Date(T0.getTime() + 8 * 86_400_000))).toEqual([]);
+    await store.saveEvaluation(
+      a.ws,
+      { ...blankSignal(a.conv, null, T0), stage: 'ready', mood: 'complaint', evaluatedAt: T0 },
+      null,
+    );
+    expect(await q(new Date(T0.getTime() + 8 * 86_400_000))).toEqual([
+      { conversationId: a.conv, attention: true },
+    ]);
   });
 });
 

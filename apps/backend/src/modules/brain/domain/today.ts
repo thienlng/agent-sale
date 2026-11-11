@@ -7,6 +7,10 @@ import type { ConversationSignal } from './signal.js';
 export const UNANSWERED_AFTER_MS = 15 * 60_000;
 /** A price question followed by this much silence is "asked a price, then went quiet". */
 export const PRICE_SILENT_AFTER_MS = 24 * 3_600_000;
+/** …and after this much silence the price question is too old to chase from Today. */
+export const PRICE_SILENT_UNTIL_MS = 14 * 24 * 3_600_000;
+/** "Sắp chốt" holds a signal judged `ready` this recently (the evaluation, or a member's change). */
+export const READY_WITHIN_MS = 7 * 24 * 3_600_000;
 
 /** The conversation facts Today reads (`ConversationFacade.todayCandidates`). */
 export interface TodayFacts {
@@ -64,11 +68,12 @@ export function isDismissed(f: TodayFacts, s: ConversationSignal | null): boolea
 /**
  * The queue of one conversation (spec §5), or null. The first matching rule wins, in queue order:
  * - attention: the signal says complaint or needs a person, the conversation is open, and no
- *   person of the shop replied after the messages that evaluation covered;
+ *   person of the shop replied after that evaluation ran;
  * - unanswered: open and waiting for 15 minutes or more (a fact, no signal needed);
- * - ready: the signal's stage is `ready` and no order or booking was made since the evaluation
- *   (`ordered`);
- * - price_silent: the stage is `price_asked` and the customer has been silent for 24 hours;
+ * - ready: the signal's stage is `ready`, judged within the last 7 days, and no order or booking
+ *   was made since (`ordered`);
+ * - price_silent: the stage is `price_asked` and the customer has been silent for between 24 hours
+ *   and 14 days;
  * - follow_up: the signal's follow-up time has come, or the conversation's reminder is due today.
  */
 export function classify(
@@ -79,8 +84,10 @@ export function classify(
 ): Omit<TodayEntry, 'facts' | 'signal'> | null {
   const nowMs = now.getTime();
   if (f.status === 'spam') return null;
-  if (s && f.status === 'open' && (s.mood === 'complaint' || s.needsHuman)) {
-    const covered = (s.evaluatedUntil ?? s.evaluatedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
+  if (s && f.status === 'open' && isAttentionCandidate(s)) {
+    // The model judged with every message up to the evaluation: only a staff reply after it
+    // answers the complaint.
+    const covered = (s.evaluatedAt ?? s.evaluatedUntil)?.getTime() ?? Number.NEGATIVE_INFINITY;
     const replied = time(f.lastHumanReplyAt);
     if (replied === null || replied <= covered) {
       return {
@@ -95,7 +102,7 @@ export function classify(
     return { queue: 'unanswered', reason: s?.intent ?? '', at: new Date(waiting) };
   }
   const lastInbound = time(f.lastInboundAt);
-  if (s?.stage === 'ready' && !ordered) {
+  if (s?.stage === 'ready' && !ordered && judgedAt(s).getTime() >= nowMs - READY_WITHIN_MS) {
     return {
       queue: 'ready',
       reason: s.intent ?? '',
@@ -103,7 +110,10 @@ export function classify(
     };
   }
   if (s?.stage === 'price_asked' && lastInbound !== null) {
-    if (lastInbound <= nowMs - PRICE_SILENT_AFTER_MS) {
+    if (
+      lastInbound <= nowMs - PRICE_SILENT_AFTER_MS &&
+      lastInbound >= nowMs - PRICE_SILENT_UNTIL_MS
+    ) {
       return { queue: 'price_silent', reason: s.intent ?? '', at: new Date(lastInbound) };
     }
   }
@@ -140,7 +150,17 @@ const ORDER: Record<TodayConversationQueueKey, 'asc' | 'desc'> = {
  */
 export function orderedSinceSignal(s: ConversationSignal, lastOrderAt: Date | undefined): boolean {
   if (!lastOrderAt) return false;
-  return lastOrderAt.getTime() > (s.evaluatedAt ?? s.updatedAt).getTime();
+  return lastOrderAt.getTime() > judgedAt(s).getTime();
+}
+
+/** When the stage was judged: the evaluation, or the member's change when never evaluated. */
+export function judgedAt(s: Pick<ConversationSignal, 'evaluatedAt' | 'updatedAt'>): Date {
+  return s.evaluatedAt ?? s.updatedAt;
+}
+
+/** The signal may put its conversation in "Phàn nàn / cần người" (the last staff reply decides). */
+export function isAttentionCandidate(s: Pick<ConversationSignal, 'mood' | 'needsHuman'>): boolean {
+  return s.mood === 'complaint' || s.needsHuman;
 }
 
 /**

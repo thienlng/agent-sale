@@ -45,7 +45,7 @@ assistant goal delegation.
 | `needs_human` | true when the AI judges a person must step in (with `reason`) |
 | `follow_up_at`, `follow_up_reason` | when and why to get back in touch (nullable) |
 | `note` | rolling memory note of the conversation (≤ 1 500 chars, Vietnamese) — the incremental input of the next run |
-| `evaluated_until` | time of the last message covered, kept at least 10 min before the evaluation so a message stored late (channel time) is read next run |
+| `evaluated_until` | channel time of the last message covered, never moved back; covered messages are never re-evaluated (a webhook stored late behind a covered message is not sent to the model) |
 | `stage_locked` | set when a member changes the stage by hand; the AI stops writing `stage` |
 | `evaluated_at`, `version` | bookkeeping |
 
@@ -125,19 +125,21 @@ Queues, in this order (each item = customer, channel, one-line reason, time):
 
 | Queue | Source |
 |---|---|
-| **Phàn nàn / cần người** | signal `mood = complaint` or `needs_human`, not answered by a person since |
+| **Phàn nàn / cần người** | signal `mood = complaint` or `needs_human`, not answered by a person since the evaluation ran |
 | **Chưa trả lời** | fact: `awaiting_since` older than 15 min (no LLM) |
-| **Sắp chốt** | signal `stage = ready`, no order/booking since evaluation |
-| **Hỏi giá rồi im** | signal `stage = price_asked`, customer silent > 24 h |
+| **Sắp chốt** | signal `stage = ready` judged within 7 days, no order/booking since |
+| **Hỏi giá rồi im** | signal `stage = price_asked`, customer silent between 24 h and 14 days |
 | **Đến hạn chăm lại** | signal `follow_up_at ≤ now` or conversation `followUpAt ≤ today` |
 | **Việc của tôi** | open tasks due today or overdue |
 
 Item actions: **Mở hội thoại** · **Soạn trả lời** (one LLM call only on click; the draft opens in
 the inbox composer, never sent automatically) · **Thêm việc** · **Bỏ qua** (hidden until a new
-customer message) · **Đánh giá lại** · change stage (locks it).
+customer message; needs `contacts.edit`, with an undo on the toast) · **Đánh giá lại** · change
+stage (locks it). The sidebar badge reads a counts-only endpoint (`GET /today/counts`).
 
 Header: counts per queue, "Làm mới" with remaining evaluations, and a line when the cap is used
-up ("Đã hết lượt đánh giá hôm nay — các mục chỉ dựa trên dữ liệu có sẵn").
+up ("Đã hết lượt đánh giá hôm nay — các mục chỉ dựa trên dữ liệu có sẵn"). "Làm mới" stops
+starting evaluations after about 45 s and says how many are left.
 
 Desktop and phone layouts both; empty state per queue.
 

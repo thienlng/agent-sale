@@ -34,15 +34,23 @@ export interface TaskSubject {
   customerName?: string | undefined;
 }
 
-const pad = (n: number) => String(n).padStart(2, '0');
-/** `YYYY-MM-DDTHH:mm` in the browser's time, for a datetime-local input. */
+/**
+ * Due times are entered and shown in Asia/Ho_Chi_Minh (UTC+7, no daylight saving), the same day
+ * Today uses for "due today", whatever the browser's time zone.
+ */
+const HCM_OFFSET_MS = 7 * 3_600_000;
+/** `YYYY-MM-DDTHH:mm` in Asia/Ho_Chi_Minh, for a datetime-local input. */
 export function toLocalInput(d: Date): string {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return new Date(d.getTime() + HCM_OFFSET_MS).toISOString().slice(0, 16);
+}
+/** A datetime-local value read as Asia/Ho_Chi_Minh time. */
+export function fromLocalInput(value: string): Date {
+  return new Date(`${value}:00+07:00`);
 }
 /** Two hours from now, on the hour: a sensible "later today". */
 function defaultDue(now = new Date()): string {
   const d = new Date(now.getTime() + 2 * 3_600_000);
-  d.setMinutes(0, 0, 0);
+  d.setUTCMinutes(0, 0, 0);
   return toLocalInput(d);
 }
 
@@ -88,7 +96,7 @@ function TaskForm({ subject, onDone }: { subject: TaskSubject; onDone: () => voi
       {
         title: title.trim(),
         note: note.trim() || null,
-        dueAt: due ? new Date(due).toISOString() : null,
+        dueAt: due ? fromLocalInput(due).toISOString() : null,
         assigneeUserId,
         ...(subject.conversationId ? { conversationId: subject.conversationId } : {}),
         ...(subject.contactId ? { contactId: subject.contactId } : {}),
@@ -127,8 +135,12 @@ function TaskForm({ subject, onDone }: { subject: TaskSubject; onDone: () => voi
             id="task-due"
             type="datetime-local"
             value={due}
+            aria-describedby="task-due-zone"
             onChange={(e) => setDue(e.target.value)}
           />
+          <span id="task-due-zone" className="sr-only">
+            {t('task.dueHint')}
+          </span>
         </div>
         <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="task-assignee">{t('task.assignee')}</Label>

@@ -21,7 +21,7 @@ export interface DraftPersona {
   language: 'vi' | 'en';
 }
 
-const SENDER_LABEL = { customer: 'Khách', human: 'Nhân viên', bot: 'Bot' } as const;
+const SENDER_LABEL = { customer: 'Customer', human: 'Staff', bot: 'Bot' } as const;
 const HCM_OFFSET_MS = 7 * 3_600_000;
 const localTime = (iso: string) =>
   new Date(Date.parse(iso) + HCM_OFFSET_MS).toISOString().slice(0, 16).replace('T', ' ');

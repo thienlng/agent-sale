@@ -20,6 +20,7 @@ export class UnavailableBrainStore implements BrainStore {
   saveEvaluation = unavailable;
   saveStage = unavailable;
   dismissSignal = unavailable;
+  undismissSignal = unavailable;
   scheduleJob = unavailable;
   claimDueJobs = unavailable;
   finishJob = unavailable;
@@ -30,7 +31,7 @@ export class UnavailableBrainStore implements BrainStore {
   releaseUsage = unavailable;
   usedOn = unavailable;
   recordRun = unavailable;
-  todaySignals = unavailable;
+  todaySignalRefs = unavailable;
   pendingJobIds = unavailable;
   briefingStates = unavailable;
   claimBriefing = unavailable;

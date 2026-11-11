@@ -4,6 +4,7 @@ import {
   type RefreshTodayResponse,
   type TaskDto,
   type TodayConversationQueueKey,
+  type TodayCounts,
   type TodayItem,
   type TodayResponse,
 } from '@agent-sales/contracts';
@@ -26,6 +27,8 @@ import {
   type TodayFacts,
   type TodayViewer,
   orderedSinceSignal,
+  PRICE_SILENT_UNTIL_MS,
+  READY_WITHIN_MS,
   UNANSWERED_AFTER_MS,
   visibleTo,
 } from '../domain/today.js';
@@ -33,8 +36,10 @@ import { SettingsService } from './settings.service.js';
 import { SignalEvaluator } from './signal-evaluator.js';
 import { UsageService } from './usage.service.js';
 
-/** Signals and conversations read for one Today, at most (a busy shop's working set). */
+/** Conversations read for one Today, at most (a busy shop's working set, the viewer's own). */
 const CANDIDATES_MAX = 1000;
+/** Conversation ids flagged by a signal, read at most (ids only, filtered by the viewer next). */
+const SIGNAL_REFS_MAX = 5000;
 /** Signals read per query (the store's `signalsFor` bound). */
 const SIGNAL_CHUNK = 500;
 /** Open tasks read to find the ones due today (overdue first, so the due ones come first). */
@@ -42,6 +47,11 @@ const TASKS_READ = 100;
 /** `POST /today/refresh`: conversations evaluated per call at most, and side by side. */
 export const REFRESH_MAX = 20;
 const REFRESH_PARALLEL = 3;
+/**
+ * `POST /today/refresh` starts no evaluation after this long, so the request ends well within the
+ * proxy's read timeout (an evaluation takes up to 20 s); the answer says how many are left.
+ */
+export const REFRESH_BUDGET_MS = 45_000;
 
 const EPOCH = new Date(0);
 const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof e);
@@ -77,54 +87,73 @@ export class TodayQuery {
     @Inject(LODGING_FACADE) @Optional() private readonly lodging?: LodgingFacade,
   ) {}
 
-  /** The queues, counts included, as the viewer sees them. */
-  async snapshot(ws: WorkspaceId, viewer: TodayViewer, now: Date): Promise<TodaySnapshot> {
-    const endOfDay = endOfHcmDay(now);
-    const flagged = await this.store.todaySignals(ws, now, CANDIDATES_MAX);
-    const signals = new Map(flagged.map((s) => [s.conversationId, s]));
-    const facts = await this.conversations.todayCandidates(ws, {
-      ids: [...signals.keys()],
-      awaitingBefore: new Date(now.getTime() - UNANSWERED_AFTER_MS),
-      followUpBefore: endOfDay,
-      limit: CANDIDATES_MAX,
+  /** The queues as the viewer sees them, with the facts and signals read for them. */
+  async #queues(
+    ws: WorkspaceId,
+    viewer: TodayViewer,
+    now: Date,
+  ): Promise<Omit<TodaySnapshot, 'taskCount' | 'tasks'>> {
+    const refs = await this.store.todaySignalRefs(ws, {
+      now,
+      readySince: new Date(now.getTime() - READY_WITHIN_MS),
+      priceSince: new Date(now.getTime() - PRICE_SILENT_UNTIL_MS),
+      limit: SIGNAL_REFS_MAX,
     });
+    // The viewer's filter runs in SQL before the cap, and the last staff reply is read only for
+    // the conversations it decides (complaint or needs a person).
+    const facts = await this.conversations.todayCandidates(ws, {
+      ids: refs.map((r) => r.conversationId),
+      awaitingBefore: new Date(now.getTime() - UNANSWERED_AFTER_MS),
+      followUpBefore: endOfHcmDay(now),
+      limit: CANDIDATES_MAX,
+      visibleTo: viewer.viewAll ? undefined : viewer.userId,
+      lastHumanFor: refs.filter((r) => r.attention).map((r) => r.conversationId),
+    });
+    const signals = new Map<string, ConversationSignal>();
     await this.#loadSignals(
       ws,
       facts.map((f) => f.id),
       signals,
     );
+    const ordered = await this.#ordered(ws, facts, signals);
+    return { queues: buildQueues(facts, signals, viewer, now, ordered), facts, signals };
+  }
+
+  /** The queues, counts included, as the viewer sees them, and the viewer's tasks due today. */
+  async snapshot(ws: WorkspaceId, viewer: TodayViewer, now: Date): Promise<TodaySnapshot> {
+    const endOfDay = endOfHcmDay(now);
     const taskScope = { userId: viewer.userId, viewAll: viewer.viewAll };
-    const [taskCount, open] = await Promise.all([
+    const [read, taskCount, open] = await Promise.all([
+      this.#queues(ws, viewer, now),
       this.crm.countOpenTasks(ws, { ...taskScope, dueBefore: endOfDay }),
       this.crm.listOpenTasks(ws, { ...taskScope, limit: TASKS_READ }),
     ]);
     const tasks = open
       .filter((t) => t.dueAt !== null && Date.parse(t.dueAt) < endOfDay.getTime())
       .slice(0, TODAY_QUEUE_ITEMS_MAX);
-    const ordered = await this.#ordered(ws, facts, signals);
-    return {
-      queues: buildQueues(facts, signals, viewer, now, ordered),
-      taskCount,
-      tasks,
-      facts,
-      signals,
-    };
+    return { ...read, taskCount, tasks };
   }
 
-  /** How many items each queue holds (the morning briefing, the sidebar badge). */
-  async counts(
-    ws: WorkspaceId,
-    viewer: TodayViewer,
-    now: Date,
-  ): Promise<Record<TodayConversationQueueKey | 'tasks', number>> {
-    const s = await this.snapshot(ws, viewer, now);
+  /**
+   * How many items each queue holds (`GET /today/counts`: the sidebar badge; the morning
+   * briefing). The queues only: no names, tasks list, usage or settings.
+   */
+  async counts(ws: WorkspaceId, viewer: TodayViewer, now: Date): Promise<TodayCounts> {
+    const [{ queues }, tasks] = await Promise.all([
+      this.#queues(ws, viewer, now),
+      this.crm.countOpenTasks(ws, {
+        userId: viewer.userId,
+        viewAll: viewer.viewAll,
+        dueBefore: endOfHcmDay(now),
+      }),
+    ]);
     return {
-      attention: s.queues.attention.length,
-      unanswered: s.queues.unanswered.length,
-      ready: s.queues.ready.length,
-      price_silent: s.queues.price_silent.length,
-      follow_up: s.queues.follow_up.length,
-      tasks: s.taskCount,
+      attention: queues.attention.length,
+      unanswered: queues.unanswered.length,
+      ready: queues.ready.length,
+      price_silent: queues.price_silent.length,
+      follow_up: queues.follow_up.length,
+      tasks,
     };
   }
 
@@ -158,13 +187,16 @@ export class TodayQuery {
   /**
    * Evaluates the viewer's conversations whose customer messages were not evaluated yet, the
    * ones on Today first (queue order), then those with an idle evaluation waiting; at most 20,
-   * three at a time, until the day's evaluations run out. Then the fresh Today.
+   * three at a time, until the day's evaluations run out or `budgetMs` has passed (no new
+   * evaluation starts after it: `partial`, with how many are `remaining`). Then the fresh Today.
    */
   async refresh(
     ws: WorkspaceId,
     viewer: TodayViewer,
     now = new Date(),
+    budgetMs = REFRESH_BUDGET_MS,
   ): Promise<RefreshTodayResponse> {
+    const deadline = Date.now() + budgetMs;
     const snap = await this.snapshot(ws, viewer, now);
     const known = new Map(snap.facts.map((f) => [f.id, f]));
     const pending = (await this.store.pendingJobIds(ws, CANDIDATES_MAX)).filter(
@@ -176,6 +208,8 @@ export class TodayQuery {
         awaitingBefore: EPOCH,
         followUpBefore: EPOCH,
         limit: CANDIDATES_MAX,
+        visibleTo: viewer.viewAll ? undefined : viewer.userId,
+        lastHumanFor: [],
       });
       await this.#loadSignals(
         ws,
@@ -194,7 +228,7 @@ export class TodayQuery {
     for (const f of ordered) {
       if (picked.length >= REFRESH_MAX) break;
       if (picked.includes(f.id) || f.status === 'spam' || !visibleTo(f, viewer)) continue;
-      if (hasUnevaluated(f, snap.signals.get(f.id) ?? null, now)) picked.push(f.id);
+      if (hasUnevaluated(f, snap.signals.get(f.id) ?? null)) picked.push(f.id);
     }
 
     let evaluated = 0;
@@ -203,7 +237,9 @@ export class TodayQuery {
     if (usage.limit !== null && usage.used >= usage.limit && picked.length) capped = true;
     const queue = capped ? [] : [...picked];
     const work = async () => {
-      for (let id = queue.shift(); id !== undefined && !capped; id = queue.shift()) {
+      while (!capped && Date.now() < deadline) {
+        const id = queue.shift();
+        if (id === undefined) return;
         try {
           const r = await this.evaluator.evaluate(ws, id, 'refresh', now);
           if (r.status === 'ok') evaluated++;
@@ -214,7 +250,14 @@ export class TodayQuery {
       }
     };
     await Promise.all(Array.from({ length: REFRESH_PARALLEL }, work));
-    return { ...(await this.today(ws, viewer, new Date())), evaluated, capped };
+    const remaining = capped ? 0 : queue.length;
+    return {
+      ...(await this.today(ws, viewer, new Date())),
+      evaluated,
+      capped,
+      partial: remaining > 0,
+      remaining,
+    };
   }
 
   /**
@@ -227,16 +270,33 @@ export class TodayQuery {
     conversationId: string,
     now = new Date(),
   ): Promise<void> {
+    const f = await this.#visible(ws, viewer, conversationId);
+    await this.store.dismissSignal(ws, conversationId, f.contactId, now);
+  }
+
+  /** Undoes a dismiss ("Hoàn tác"): the conversation is back on Today. Same NOT_FOUND rule. */
+  async undismiss(
+    ws: WorkspaceId,
+    viewer: TodayViewer,
+    conversationId: string,
+    now = new Date(),
+  ): Promise<void> {
+    await this.#visible(ws, viewer, conversationId);
+    await this.store.undismissSignal(ws, conversationId, now);
+  }
+
+  async #visible(ws: WorkspaceId, viewer: TodayViewer, conversationId: string) {
     const [f] = await this.conversations.todayCandidates(ws, {
       ids: [conversationId],
       awaitingBefore: EPOCH,
       followUpBefore: EPOCH,
       limit: 1,
+      lastHumanFor: [],
     });
     if (!f || f.id !== conversationId || !visibleTo(f, viewer)) {
       throw new SignalConversationNotFoundError(conversationId);
     }
-    await this.store.dismissSignal(ws, conversationId, f.contactId, now);
+    return f;
   }
 
   /**
@@ -293,9 +353,9 @@ export class TodayQuery {
 }
 
 /** A customer message arrived after the messages the last evaluation covered (`newAfter`). */
-function hasUnevaluated(f: TodayFacts, s: ConversationSignal | null, now: Date): boolean {
+function hasUnevaluated(f: TodayFacts, s: ConversationSignal | null): boolean {
   if (!f.lastInboundAt) return false;
-  return Date.parse(f.lastInboundAt) > newAfter(s, now);
+  return Date.parse(f.lastInboundAt) > newAfter(s);
 }
 
 function toItem(e: TodayEntry, names: ReadonlyMap<string, string | null>): TodayItem {

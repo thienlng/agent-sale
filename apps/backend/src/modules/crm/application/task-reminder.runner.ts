@@ -67,7 +67,7 @@ export class TaskReminderRunner implements CrmTaskRunner {
           await this.#notify(task, assignee, ws.accountId, ws.name);
           sent++;
         }
-        await this.store.markReminded(task.id, now);
+        await this.store.markReminded(task, now);
         this.#failures.delete(task.id);
       } catch (e) {
         const failures = (this.#failures.get(task.id) ?? 0) + 1;
@@ -79,7 +79,7 @@ export class TaskReminderRunner implements CrmTaskRunner {
           continue;
         }
         this.#failures.delete(task.id);
-        await this.store.markReminded(task.id, now).catch(() => undefined);
+        await this.store.markReminded(task, now).catch(() => undefined);
       }
     }
     return sent;

@@ -4,13 +4,16 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  Outlet,
   RouterProvider,
 } from '@tanstack/react-router';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Toaster } from 'sonner';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { loadNamespace } from '@/lib/i18n';
+import { peekPendingDraft } from '@/lib/pending-reply-draft';
 import type { Session } from '@/lib/session';
 import { renderWithProviders, stubFetch } from '@/testing/render';
 
@@ -23,7 +26,10 @@ const CONV2 = '0190f5c2-0000-7000-8000-00000000c002';
 const TASK = '0190f5c2-0000-7000-8000-00000000f001';
 
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => WS }));
-vi.mock('@/lib/permissions', () => ({ useCan: () => true }));
+const perms = vi.hoisted(() => ({ canEdit: true }));
+vi.mock('@/lib/permissions', () => ({
+  useCan: (capability: string) => capability !== 'contacts.edit' || perms.canEdit,
+}));
 vi.mock('@/lib/session', () => ({
   useSession: (): Session =>
     ({ user: { id: ME }, workspaceId: WS, memberships: [], accounts: [] }) as unknown as Session,
@@ -93,7 +99,14 @@ function today(over: Partial<TodayResponse> = {}): TodayResponse {
 
 /** Today plus an inbox page that shows the search it was opened with. */
 function renderApp() {
-  const root = createRootRoute();
+  const root = createRootRoute({
+    component: () => (
+      <>
+        <Outlet />
+        <Toaster />
+      </>
+    ),
+  });
   const page = createRoute({
     getParentRoute: () => root,
     path: '/app/today',
@@ -114,18 +127,40 @@ function renderApp() {
 
 beforeAll(async () => {
   await loadNamespace('brain');
+  // jsdom has no pointer capture; the toasts' swipe handling asks for it.
+  Element.prototype.setPointerCapture ??= () => undefined;
+  Element.prototype.releasePointerCapture ??= () => undefined;
 });
 afterEach(() => {
+  perms.canEdit = true;
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
+
+/** `stubFetch`, with chosen requests held until released (to see the state before the answer). */
+function heldFetch(routes: Parameters<typeof stubFetch>[0], held: string[]) {
+  const stub = stubFetch(routes);
+  const waiting = new Map<string, () => void>();
+  const fetchStub = async (input: string, init: RequestInit = {}) => {
+    const key = `${init.method ?? 'GET'} ${input.replace('/api/v1', '')}`;
+    if (held.includes(key)) await new Promise<void>((resolve) => waiting.set(key, resolve));
+    return stub.fetchStub(input, init);
+  };
+  const release = (key: string) => waiting.get(key)?.();
+  return { fetchStub, calls: stub.calls, release, isHeld: (key: string) => waiting.has(key) };
+}
 
 describe('TodayPage', () => {
   it('renders the queues with their counts, items and empty states', async () => {
     vi.stubGlobal('fetch', stubFetch({ 'GET /today': { status: 200, body: today() } }).fetchStub);
     renderApp();
 
-    const attention = await screen.findByRole('region', { name: 'Phàn nàn / cần người' });
+    // The first render of the file also loads the route tree: allow it more time under load.
+    const attention = await screen.findByRole(
+      'region',
+      { name: 'Phàn nàn / cần người' },
+      { timeout: 5000 },
+    );
     expect(within(attention).getByText('Chị Lan')).toBeInTheDocument();
     expect(within(attention).getByText('Giao sai màu áo')).toBeInTheDocument();
     expect(within(attention).getByText('Sắp chốt')).toBeInTheDocument();
@@ -157,33 +192,53 @@ describe('TodayPage', () => {
     expect(screen.getByRole('button', { name: /Làm mới \(còn 0 lượt\)/ })).toBeDisabled();
   });
 
-  it('dismisses an item: it leaves the queue at once', async () => {
-    const routes: Parameters<typeof stubFetch>[0] = {
-      'GET /today': { status: 200, body: today() },
-      [`POST /today/items/${CONV}/dismiss`]: { status: 204 },
-    };
-    const { fetchStub, calls } = stubFetch(routes);
+  it('dismisses an item at once, before the server answers, and offers an undo', async () => {
+    const DISMISS = `POST /today/items/${CONV}/dismiss`;
+    const UNDO = `DELETE /today/items/${CONV}/dismiss`;
+    const { fetchStub, calls, release, isHeld } = heldFetch(
+      {
+        'GET /today': { status: 200, body: today() },
+        [DISMISS]: { status: 204 },
+        [UNDO]: { status: 204 },
+      },
+      [DISMISS],
+    );
     vi.stubGlobal('fetch', fetchStub);
     renderApp();
     const user = userEvent.setup();
     const attention = await screen.findByRole('region', { name: 'Phàn nàn / cần người' });
     await user.click(within(attention).getByRole('button', { name: 'Thao tác khác cho Chị Lan' }));
-    // The server's next Today no longer lists the customer.
-    const after = today();
-    after.queues[0] = { key: 'attention', count: 0, items: [] };
-    routes['GET /today'] = { status: 200, body: after };
     await user.click(await screen.findByRole('menuitem', { name: 'Bỏ qua' }));
 
-    await waitFor(() => expect(within(attention).queryByText('Chị Lan')).toBeNull());
-    expect(calls.some((c) => c.key === `POST /today/items/${CONV}/dismiss`)).toBe(true);
+    // Gone while the request is still held: the optimistic removal, not a refetch.
+    await waitFor(() => expect(isHeld(DISMISS)).toBe(true));
+    expect(within(attention).queryByText('Chị Lan')).toBeNull();
+    expect(within(attention).getByText('Không có khách nào đang phàn nàn hay cần người hỗ trợ.'));
+    release(DISMISS);
+
+    await user.click(await screen.findByRole('button', { name: 'Hoàn tác' }));
+    await waitFor(() => expect(calls.some((c) => c.key === UNDO)).toBe(true));
   });
 
-  it('drafts a reply and opens the inbox with the draft', async () => {
+  it('shows read-only roles the queues with "Mở hội thoại" only', async () => {
+    perms.canEdit = false;
+    vi.stubGlobal('fetch', stubFetch({ 'GET /today': { status: 200, body: today() } }).fetchStub);
+    renderApp();
+    const attention = await screen.findByRole('region', { name: 'Phàn nàn / cần người' });
+    expect(within(attention).getByRole('link', { name: 'Mở hội thoại' })).toBeVisible();
+    expect(within(attention).queryByRole('button', { name: 'Soạn trả lời' })).toBeNull();
+    expect(within(attention).queryByRole('button', { name: /Thao tác khác/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Làm mới/ })).toBeNull();
+  });
+
+  it('drafts a reply, keeps it in memory and opens the inbox without it in the URL', async () => {
     const draft = 'Dạ shop xin lỗi chị, shop đổi áo ngay ạ.';
     vi.stubGlobal(
       'fetch',
       stubFetch({
         'GET /today': { status: 200, body: today() },
+        'GET /today/counts': { status: 200, body: { counts: {}, total: 0 } },
+        'GET /brain/usage': { status: 200, body: { used: 4, limit: 200 } },
         [`POST /conversations/${CONV}/reply-draft`]: { status: 200, body: { text: draft } },
       }).fetchStub,
     );
@@ -193,7 +248,38 @@ describe('TodayPage', () => {
     await user.click(within(attention).getByRole('button', { name: 'Soạn trả lời' }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/app/inbox'));
-    expect(router.state.location.search).toEqual({ conversation: CONV, draft });
+    expect(router.state.location.search).toEqual({ conversation: CONV });
+    expect(router.state.location.href).not.toContain('draft');
+    expect(peekPendingDraft(WS, CONV)).toBe(draft);
+  });
+
+  it('says how many are left when a refresh ran out of time', async () => {
+    const { usage: _u, ...rest } = today();
+    vi.stubGlobal(
+      'fetch',
+      stubFetch({
+        'GET /today': { status: 200, body: today() },
+        'GET /today/counts': { status: 200, body: { counts: {}, total: 0 } },
+        'POST /today/refresh': {
+          status: 200,
+          body: {
+            ...rest,
+            usage: { used: 10, limit: 200 },
+            evaluated: 7,
+            capped: false,
+            partial: true,
+            remaining: 13,
+          },
+        },
+      }).fetchStub,
+    );
+    renderApp();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: /Làm mới \(còn 197 lượt\)/ }));
+    expect(
+      await screen.findByText('Đã đánh giá 7 hội thoại, còn 13 — bấm Làm mới để tiếp tục'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Làm mới \(còn 190 lượt\)/ })).toBeEnabled();
   });
 
   it('creates a task for a customer and completes a task', async () => {
@@ -221,6 +307,7 @@ describe('TodayPage', () => {
     });
 
     const tasks = screen.getByRole('region', { name: 'Việc của tôi' });
+    // The server's next Today no longer lists the task.
     const done = today();
     done.queues[5] = { key: 'tasks', count: 0, items: [] };
     routes['GET /today'] = { status: 200, body: done };
@@ -231,6 +318,33 @@ describe('TodayPage', () => {
       expect(calls.some((c) => c.key === `POST /tasks/${TASK}/complete`)).toBe(true),
     );
     await waitFor(() => expect(within(tasks).queryByText('Gọi lại chị Mai')).toBeNull());
+    expect(await screen.findByText('Đã xong việc')).toBeInTheDocument();
+  });
+
+  it('removes a completed task at once, and puts it back unticked when completing fails', async () => {
+    const COMPLETE = `POST /tasks/${TASK}/complete`;
+    const { fetchStub, release, isHeld } = heldFetch(
+      {
+        'GET /today': { status: 200, body: today() },
+        [COMPLETE]: { status: 500, body: { error: { code: 'INTERNAL', message: 'x' } } },
+      },
+      [COMPLETE],
+    );
+    vi.stubGlobal('fetch', fetchStub);
+    renderApp();
+    const user = userEvent.setup();
+    const tasks = await screen.findByRole('region', { name: 'Việc của tôi' });
+    await user.click(
+      within(tasks).getByRole('checkbox', { name: 'Đánh dấu xong: Gọi lại chị Mai' }),
+    );
+    await waitFor(() => expect(isHeld(COMPLETE)).toBe(true));
+    expect(within(tasks).queryByText('Gọi lại chị Mai')).toBeNull();
+    release(COMPLETE);
+    const back = await within(tasks).findByRole('checkbox', {
+      name: 'Đánh dấu xong: Gọi lại chị Mai',
+    });
+    expect(back).not.toBeChecked();
+    expect(await screen.findByText('Chưa lưu được việc')).toBeInTheDocument();
   });
 
   it('explains manual mode', async () => {

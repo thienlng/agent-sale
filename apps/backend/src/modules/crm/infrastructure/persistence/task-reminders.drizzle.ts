@@ -37,11 +37,23 @@ export class DrizzleTaskReminderStore implements TaskReminderStore {
     return rows.map((r) => ({ ...r, dueAt: r.dueAt ?? now }));
   }
 
-  async markReminded(taskId: string, at: Date): Promise<void> {
+  async markReminded(
+    task: Pick<DueTaskReminder, 'id' | 'dueAt' | 'assigneeUserId'>,
+    at: Date,
+  ): Promise<void> {
     await this.db
       .update(t)
       .set({ remindedAt: at })
-      .where(and(eq(t.id, taskId), isNull(t.remindedAt)));
+      .where(
+        and(
+          eq(t.id, task.id),
+          isNull(t.remindedAt),
+          eq(t.dueAt, task.dueAt),
+          task.assigneeUserId === null
+            ? isNull(t.assigneeUserId)
+            : eq(t.assigneeUserId, task.assigneeUserId),
+        ),
+      );
   }
 }
 

@@ -155,6 +155,38 @@ describe('Today queue rules', () => {
     expect(ids(r, 'price_silent')).toEqual([silent]);
   });
 
+  it('ageing: price_silent between 24 hours and 14 days, ready judged within 7 days', async () => {
+    const { h, add } = setup();
+    const day = 24 * 60;
+    const silent = add(
+      { lastInboundAt: ago(13 * day) },
+      { stage: 'price_asked', evaluatedUntil: new Date(ago(13 * day)) },
+    );
+    add(
+      { lastInboundAt: ago(15 * day) },
+      { stage: 'price_asked', evaluatedUntil: new Date(ago(15 * day)) },
+    );
+    const ready = add({}, { stage: 'ready', evaluatedAt: new Date(ago(6 * day)) });
+    add({}, { stage: 'ready', evaluatedAt: new Date(ago(8 * day)) });
+    // Never evaluated, set by hand 8 days ago.
+    add({}, { stage: 'ready', evaluatedAt: null, updatedAt: new Date(ago(8 * day)) });
+    const r = await h.today.today(WS, ownerView, NOW);
+    expect(ids(r, 'price_silent')).toEqual([silent]);
+    expect(ids(r, 'ready')).toEqual([ready]);
+    // The briefing counts use the same rules.
+    expect(await h.today.counts(WS, ownerView, NOW)).toMatchObject({ price_silent: 1, ready: 1 });
+  });
+
+  it('attention stays when the staff reply was before the evaluation that judged it', async () => {
+    const { h, add } = setup();
+    // The model covered messages up to 60 min ago, ran 30 min ago, and saw a reply at 40 min.
+    const seen = add({ lastHumanReplyAt: ago(40) }, { mood: 'complaint' });
+    const after = add({ lastHumanReplyAt: ago(20) }, { mood: 'complaint' });
+    const r = await h.today.today(WS, ownerView, NOW);
+    expect(ids(r, 'attention')).toEqual([seen]);
+    expect(ids(r, 'attention')).not.toContain(after);
+  });
+
   it('follow_up: the signal follow-up has come, or the reminder is due by the end of today', async () => {
     const { h, add } = setup();
     const bySignal = add({}, { followUpAt: new Date(ago(5)), followUpReason: 'Hẹn gọi lại' });
@@ -253,6 +285,51 @@ describe('Today exclusions and visibility', () => {
     expect(ids(await h.today.today(WS, ownerView, after), 'unanswered')).toEqual([id]);
   });
 
+  it('reads the viewer filter and the last staff reply into the candidate query', async () => {
+    const { h, add } = setup();
+    const complaint = add({}, { mood: 'complaint' });
+    add({}, { stage: 'ready' });
+    const seen: Parameters<typeof h.conversationFacade.todayCandidates>[1][] = [];
+    const read = h.conversationFacade.todayCandidates.bind(h.conversationFacade);
+    h.conversationFacade.todayCandidates = (ws, q) => {
+      seen.push(q);
+      return read(ws, q);
+    };
+    await h.today.today(WS, salesView, NOW);
+    await h.today.today(WS, ownerView, NOW);
+    expect(seen[0]).toMatchObject({ visibleTo: SALES, lastHumanFor: [complaint] });
+    expect(seen[1]?.visibleTo).toBeUndefined();
+  });
+
+  it('counts: the queue sizes only, as the page counts them', async () => {
+    const { h, add } = setup();
+    add({ awaitingSince: ago(20) });
+    add({}, { mood: 'complaint' });
+    h.tasks.push(task({}));
+    const counts = await h.today.counts(WS, ownerView, NOW);
+    expect(counts).toEqual({
+      attention: 1,
+      unanswered: 1,
+      ready: 0,
+      price_silent: 0,
+      follow_up: 0,
+      tasks: 1,
+    });
+  });
+
+  it('undo dismiss puts the conversation back; same visibility rule', async () => {
+    const { h, add } = setup();
+    const id = add({ awaitingSince: ago(30), lastInboundAt: ago(30) });
+    await h.today.dismiss(WS, ownerView, id, NOW);
+    expect(ids(await h.today.today(WS, ownerView, NOW), 'unanswered')).toEqual([]);
+    await h.today.undismiss(WS, ownerView, id, NOW);
+    expect(ids(await h.today.today(WS, ownerView, NOW), 'unanswered')).toEqual([id]);
+    const others = add({ assigneeId: OTHER_MEMBER, awaitingSince: ago(30) });
+    await expect(h.today.undismiss(WS, salesView, others, NOW)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+  });
+
   it('dismiss keeps the signal and refuses a conversation the viewer may not see', async () => {
     const { h, add } = setup();
     const ready = add({}, { stage: 'ready', note: 'Ghi chú' });
@@ -297,16 +374,28 @@ describe('POST /today/refresh', () => {
 
   it('does not pay again for a conversation evaluated minutes ago', async () => {
     const { h, add } = setup();
-    // Evaluated 2 minutes ago, after its last customer message (evaluated_until kept 10 minutes
-    // behind the evaluation for late messages).
+    // Evaluated 2 minutes ago, covering its last customer message.
     const fresh = add(
       { awaitingSince: ago(30), lastInboundAt: ago(5) },
-      { evaluatedUntil: new Date(ago(12)), evaluatedAt: new Date(ago(2)) },
+      { evaluatedUntil: new Date(ago(5)), evaluatedAt: new Date(ago(2)) },
     );
     withMessages(h, fresh, ago(5));
     const r = await h.today.refresh(WS, ownerView, NOW);
     expect(r).toMatchObject({ evaluated: 0 });
     expect(h.gateway.calls).toHaveLength(0);
+  });
+
+  it('starts no evaluation after the time budget and says how many are left', async () => {
+    const { h, add } = setup();
+    const a = add({ awaitingSince: ago(30), lastInboundAt: ago(30) });
+    const b = add({ awaitingSince: ago(40), lastInboundAt: ago(40) });
+    withMessages(h, a, ago(30));
+    withMessages(h, b, ago(40));
+    const r = await h.today.refresh(WS, ownerView, NOW, 0);
+    expect(r).toMatchObject({ evaluated: 0, capped: false, partial: true, remaining: 2 });
+    expect(h.gateway.calls).toHaveLength(0);
+    const full = await h.today.refresh(WS, ownerView, NOW);
+    expect(full).toMatchObject({ evaluated: 2, partial: false, remaining: 0 });
   });
 
   it('stops at the cap and says so', async () => {

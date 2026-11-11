@@ -8,6 +8,7 @@ export {
   type ConversationRunner,
   type SignalContext,
   type SignalContextMessage,
+  type TodayCandidatesQuery,
   type TodayConversation,
 } from './conversation.facade.js';
 export * from './conversation.events.js';

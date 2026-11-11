@@ -2,10 +2,11 @@ import {
   type RefreshTodayResponse,
   type ReplyDraftResponse,
   roleCan,
+  type TodayCountsResponse,
   type TodayResponse,
 } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
-import { Controller, Get, HttpCode, Inject, Param, Post } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Inject, Param, Post } from '@nestjs/common';
 import { z } from 'zod';
 
 import {
@@ -38,6 +39,17 @@ export class TodayController {
     return this.today.today(ws, viewer(u));
   }
 
+  /** The sidebar badge: the counts only (no names, tasks list, usage or settings). */
+  @RequireCapability('contacts.view')
+  @Get('counts')
+  async counts(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() u: AuthState,
+  ): Promise<TodayCountsResponse> {
+    const counts = await this.today.counts(ws, viewer(u), new Date());
+    return { counts, total: Object.values(counts).reduce((n, c) => n + c, 0) };
+  }
+
   @RequireCapability('contacts.edit')
   @Post('refresh')
   @HttpCode(200)
@@ -48,7 +60,8 @@ export class TodayController {
     return this.today.refresh(ws, viewer(u));
   }
 
-  @RequireCapability('contacts.view')
+  /** Hides the conversation for the whole business, so it is a write (`contacts.edit`). */
+  @RequireCapability('contacts.edit')
   @Post('items/:conversationId/dismiss')
   @HttpCode(204)
   async dismiss(
@@ -57,6 +70,18 @@ export class TodayController {
     @Param('conversationId', idPipe) id: string,
   ): Promise<void> {
     await this.today.dismiss(ws, viewer(u), id);
+  }
+
+  /** "Hoàn tác" on the dismiss toast. */
+  @RequireCapability('contacts.edit')
+  @Delete('items/:conversationId/dismiss')
+  @HttpCode(204)
+  async undismiss(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() u: AuthState,
+    @Param('conversationId', idPipe) id: string,
+  ): Promise<void> {
+    await this.today.undismiss(ws, viewer(u), id);
   }
 }
 

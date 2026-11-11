@@ -62,6 +62,10 @@ export class MemoryBrainStore implements BrainStore {
     const row: ConversationSignal = {
       ...s,
       contactId: s.contactId ?? stored.contactId,
+      evaluatedUntil:
+        stored.evaluatedUntil && (!s.evaluatedUntil || stored.evaluatedUntil > s.evaluatedUntil)
+          ? stored.evaluatedUntil
+          : s.evaluatedUntil,
       stage: stored.stageLocked ? stored.stage : s.stage,
       stageLocked: stored.stageLocked,
       dismissedUntilMessageAfter:
@@ -92,6 +96,17 @@ export class MemoryBrainStore implements BrainStore {
       version: base.version + 1,
       updatedAt: at,
     });
+    return Promise.resolve();
+  }
+  undismissSignal(ws: WorkspaceId, id: string, at: Date) {
+    const base = this.signals.get(key(ws, id));
+    if (base)
+      this.signals.set(key(ws, id), {
+        ...base,
+        dismissedUntilMessageAfter: null,
+        version: base.version + 1,
+        updatedAt: at,
+      });
     return Promise.resolve();
   }
   scheduleJob(ws: WorkspaceId, id: string, due: Date) {
@@ -170,7 +185,10 @@ export class MemoryBrainStore implements BrainStore {
     this.runs.push({ workspaceId: ws, ...run });
     return Promise.resolve();
   }
-  todaySignals(ws: WorkspaceId, now: Date, limit: number) {
+  todaySignalRefs(
+    ws: WorkspaceId,
+    q: { now: Date; readySince: Date; priceSince: Date; limit: number },
+  ) {
     return Promise.resolve(
       [...this.signals.entries()]
         .filter(([k]) => k.startsWith(`${ws}/`))
@@ -179,12 +197,17 @@ export class MemoryBrainStore implements BrainStore {
           (s) =>
             s.mood === 'complaint' ||
             s.needsHuman ||
-            s.stage === 'ready' ||
-            s.stage === 'price_asked' ||
-            (s.followUpAt !== null && s.followUpAt <= now),
+            (s.stage === 'ready' && (s.evaluatedAt ?? s.updatedAt) >= q.readySince) ||
+            (s.stage === 'price_asked' &&
+              (s.evaluatedUntil ?? s.evaluatedAt ?? s.updatedAt) >= q.priceSince) ||
+            (s.followUpAt !== null && s.followUpAt <= q.now),
         )
         .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-        .slice(0, limit),
+        .slice(0, q.limit)
+        .map((s) => ({
+          conversationId: s.conversationId,
+          attention: s.mood === 'complaint' || s.needsHuman,
+        })),
     );
   }
   pendingJobIds(ws: WorkspaceId, limit: number) {

@@ -1,6 +1,5 @@
-import { useNavigate } from '@tanstack/react-router';
 import { ClipboardPlus, RefreshCw } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -10,7 +9,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { formatDateTime, formatRelativeTime } from '@/lib/format';
+import { peekPendingDraft, takePendingDraft } from '@/lib/pending-reply-draft';
 import { useCan } from '@/lib/permissions';
+import { useWorkspaceId } from '@/lib/use-workspace';
 
 import { useConversationTasks, useSignal } from '../api/brain';
 import { useItemActions } from '../hooks/use-item-actions';
@@ -84,6 +85,7 @@ export function ConversationSignalSummary({ conversationId }: { conversationId: 
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <StageMenu
+                inline
                 conversationId={conversationId}
                 stage={s?.stage ?? 'new'}
                 locked={s?.stageLocked ?? false}
@@ -129,31 +131,28 @@ export function ConversationTasks({
   );
 }
 
-/** Drafts already put in a composer: a composer remounted meanwhile must not add it twice. */
-const consumed = new Set<string>();
-
 /**
- * Puts a reply drafted on Today into the inbox composer once (`?draft=`), then drops the
- * parameter so a reload does not insert it again. Rendered among the composer tools, which hand
- * it the composer's `insertText`.
+ * Puts a reply drafted on Today (`lib/pending-reply-draft`, in memory) into the composer of its
+ * conversation. Rendered among the composer tools, which hand it the composer's `insertText`.
+ * The draft is dropped from the store only once the composer holds it; when the composer refuses
+ * it (a send is running, or the text would be too long) it waits for the next time the
+ * conversation is opened.
  */
 export function DraftPrefill({
-  draft,
+  conversationId,
   insertText,
 }: {
-  draft: string | undefined;
-  insertText: (text: string) => void;
+  conversationId: string;
+  insertText: (text: string) => boolean;
 }) {
-  const navigate = useNavigate();
+  const ws = useWorkspaceId();
+  // Once per conversation shown: `insertText` changes every render and a refusal toasts.
+  const tried = useRef<string | null>(null);
   useEffect(() => {
-    if (!draft || consumed.has(draft)) return;
-    consumed.add(draft);
-    insertText(draft);
-    void navigate({
-      to: '.',
-      search: (prev: Record<string, unknown>) => ({ ...prev, draft: undefined }),
-      replace: true,
-    });
-  }, [draft, insertText, navigate]);
+    if (tried.current === conversationId) return;
+    tried.current = conversationId;
+    const draft = peekPendingDraft(ws, conversationId);
+    if (draft && insertText(draft)) takePendingDraft(ws, conversationId, draft);
+  }, [ws, conversationId, insertText]);
   return null;
 }

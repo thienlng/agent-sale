@@ -166,6 +166,12 @@ export async function mockApi(page: Page) {
         }),
       );
     if (path === '/today') return route.fulfill(json(todayMock(LONG, user, now)));
+    if (path === '/today/counts') {
+      const queues = todayMock(LONG, user, now).queues;
+      const counts = Object.fromEntries(queues.map((q) => [q.key, q.count]));
+      const total = queues.reduce((n, q) => n + q.count, 0);
+      return route.fulfill(json({ counts, total }));
+    }
     const commerce = commerceRoute(path);
     if (commerce !== undefined) return route.fulfill(json(commerce));
     return route.fulfill(json({ error: { code: 'NOT_FOUND', message: 'not mocked' } }, 404));

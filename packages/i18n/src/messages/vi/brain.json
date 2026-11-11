@@ -12,7 +12,8 @@
     "retry": "Thử lại",
     "summary": "Tóm tắt các hàng",
     "countLabel": "{{count}} mục",
-    "more": "Còn {{count}} mục khác"
+    "more": "Còn {{count}} mục khác",
+    "partial": "Đã đánh giá {{count}} hội thoại, còn {{remaining}} — bấm Làm mới để tiếp tục"
   },
   "queues": {
     "attention": {
@@ -52,7 +53,10 @@
     "unassigned": "Chưa giao",
     "waiting": "Chờ từ {{time}}",
     "noReason": "Chưa có ghi chú",
-    "waitingReply": "Khách đang chờ trả lời"
+    "waitingReply": "Khách đang chờ trả lời",
+    "undo": "Hoàn tác",
+    "restored": "Đã đưa khách trở lại danh sách",
+    "draftOpen": "Mở hội thoại"
   },
   "stage": {
     "label": "Giai đoạn",
@@ -104,7 +108,8 @@
     "complete": "Đánh dấu xong: {{title}}",
     "overdue": "Quá hạn",
     "dueAt": "Hạn {{time}}",
-    "error": "Chưa lưu được việc"
+    "error": "Chưa lưu được việc",
+    "dueHint": "Giờ Việt Nam (GMT+7)"
   },
   "panel": {
     "title": "AI đánh giá",
@@ -132,5 +137,11 @@
     "saved": "Đã lưu cài đặt",
     "error": "Chưa lưu được cài đặt",
     "readOnly": "Chỉ chủ shop và quản trị đổi được cài đặt này."
+  },
+  "channel": {
+    "facebook": "Messenger",
+    "instagram": "Instagram",
+    "website": "Website",
+    "other": "Kênh khác"
   }
 }

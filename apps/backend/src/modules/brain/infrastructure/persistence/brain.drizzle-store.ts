@@ -17,6 +17,7 @@ import type {
   BriefingState,
   SignalJob,
   SignalRunRecord,
+  TodaySignalRef,
 } from '../../domain/ports/brain.store.js';
 import type { BrainSettings } from '../../domain/schedule.js';
 import type { ConversationSignal, StageChange } from '../../domain/signal.js';
@@ -156,6 +157,8 @@ export class DrizzleBrainStore implements BrainStore {
           set: {
             ...model,
             contactId: sql`coalesce(excluded.contact_id, ${cs.contactId})`,
+            // Two evaluations racing never move the covered time back (greatest skips nulls).
+            evaluatedUntil: sql`greatest(${cs.evaluatedUntil}, excluded.evaluated_until)`,
             stage: sql`case when ${cs.stageLocked} then ${cs.stage} else excluded.stage end`,
             dismissedUntilMessageAfter: sql`case
               when ${newer}::timestamptz > ${cs.dismissedUntilMessageAfter} then null
@@ -228,6 +231,19 @@ export class DrizzleBrainStore implements BrainStore {
             updatedAt: at,
           },
         });
+    });
+  }
+
+  undismissSignal(ws: WorkspaceId, conversationId: string, at: Date): Promise<void> {
+    return withTenant(this.db, ws, async (tx) => {
+      await tx
+        .update(cs)
+        .set({
+          dismissedUntilMessageAfter: null,
+          version: sql`${cs.version} + 1`,
+          updatedAt: at,
+        })
+        .where(and(eq(cs.workspaceId, ws), eq(cs.conversationId, conversationId)));
     });
   }
 
@@ -368,11 +384,17 @@ export class DrizzleBrainStore implements BrainStore {
     });
   }
 
-  todaySignals(ws: WorkspaceId, now: Date, limit: number): Promise<ConversationSignal[]> {
+  todaySignalRefs(
+    ws: WorkspaceId,
+    q: { now: Date; readySince: Date; priceSince: Date; limit: number },
+  ): Promise<TodaySignalRef[]> {
     return withTenant(this.db, ws, async (tx) =>
       (
         await tx
-          .select()
+          .select({
+            conversationId: cs.conversationId,
+            attention: sql<boolean>`(${cs.mood} = 'complaint' or ${cs.needsHuman})`,
+          })
           .from(cs)
           .where(
             and(
@@ -380,14 +402,21 @@ export class DrizzleBrainStore implements BrainStore {
               or(
                 eq(cs.mood, 'complaint'),
                 eq(cs.needsHuman, true),
-                inArray(cs.stage, ['ready', 'price_asked']),
-                sql`${cs.followUpAt} <= ${now.toISOString()}::timestamptz`,
+                and(
+                  eq(cs.stage, 'ready'),
+                  sql`coalesce(${cs.evaluatedAt}, ${cs.updatedAt}) >= ${q.readySince.toISOString()}::timestamptz`,
+                ),
+                and(
+                  eq(cs.stage, 'price_asked'),
+                  sql`coalesce(${cs.evaluatedUntil}, ${cs.evaluatedAt}, ${cs.updatedAt}) >= ${q.priceSince.toISOString()}::timestamptz`,
+                ),
+                sql`${cs.followUpAt} <= ${q.now.toISOString()}::timestamptz`,
               ),
             ),
           )
           .orderBy(desc(cs.updatedAt))
-          .limit(limit)
-      ).map(toSignal),
+          .limit(q.limit)
+      ).map((r) => ({ conversationId: r.conversationId, attention: Boolean(r.attention) })),
     );
   }
 

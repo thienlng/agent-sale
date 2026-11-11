@@ -39,24 +39,27 @@ export function StageBadge({ stage, locked }: { stage: SignalStage; locked: bool
       )}
       title={locked ? t('stage.locked') : undefined}
     >
-      {locked ? <Lock className="size-3" aria-label={t('stage.locked')} /> : null}
+      {locked ? <Lock className="size-3" role="img" aria-label={t('stage.locked')} /> : null}
       {t(`stage.${stage}`)}
     </span>
   );
 }
 
 /**
- * "Đổi giai đoạn" inside an item's action menu: a chosen stage is locked (the AI keeps it);
- * "Để AI tự xác định" unlocks it.
+ * "Đổi giai đoạn": a chosen stage is locked (the AI keeps it); "Để AI tự xác định" unlocks it.
+ * Inside an item's action menu it is a submenu; `inline` renders the choices directly (a menu
+ * opened by its own "Đổi giai đoạn" button).
  */
 export function StageMenu({
   conversationId,
   stage,
   locked,
+  inline = false,
 }: {
   conversationId: string;
   stage: SignalStage;
   locked: boolean;
+  inline?: boolean;
 }) {
   const { t } = useTranslation('brain');
   const set = useSetStage();
@@ -68,27 +71,31 @@ export function StageMenu({
         onError: () => toast.error(t('evaluate.failed')),
       },
     );
+  const choices = (
+    <>
+      <DropdownMenuRadioGroup
+        value={locked ? stage : ''}
+        onValueChange={(v) => change(v as SignalStage)}
+      >
+        {SIGNAL_STAGES.map((s) => (
+          <DropdownMenuRadioItem key={s} value={s}>
+            {t(`stage.${s}`)}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
+      {locked ? (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => change(null)}>{t('stage.unlock')}</DropdownMenuItem>
+        </>
+      ) : null}
+    </>
+  );
+  if (inline) return choices;
   return (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger>{t('stage.menu')}</DropdownMenuSubTrigger>
-      <DropdownMenuSubContent>
-        <DropdownMenuRadioGroup
-          value={locked ? stage : ''}
-          onValueChange={(v) => change(v as SignalStage)}
-        >
-          {SIGNAL_STAGES.map((s) => (
-            <DropdownMenuRadioItem key={s} value={s}>
-              {t(`stage.${s}`)}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-        {locked ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => change(null)}>{t('stage.unlock')}</DropdownMenuItem>
-          </>
-        ) : null}
-      </DropdownMenuSubContent>
+      <DropdownMenuSubContent>{choices}</DropdownMenuSubContent>
     </DropdownMenuSub>
   );
 }

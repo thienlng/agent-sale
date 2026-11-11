@@ -55,7 +55,7 @@ describe('SignalEvaluator', () => {
     h.summaries.set(CONV, 'Tóm tắt cũ của hội thoại');
     await h.evaluator.evaluate(WS, CONV, 'manual', NOW);
     expect(userInput(h)).toContain('EARLIER SUMMARY:\nTóm tắt cũ của hội thoại');
-    expect(userInput(h)).toContain('Khách: Áo khoác này giá bao nhiêu?');
+    expect(userInput(h)).toContain('Customer: Áo khoác này giá bao nhiêu?');
 
     // Incremental: the next run sends only the messages after evaluated_until, with the note.
     c.messages.push(msg('customer', 'Còn size L không?', '2026-11-11T03:30:00.000Z'));
@@ -207,21 +207,22 @@ describe('SignalEvaluator', () => {
     });
   });
 
-  it('reads a message stored late (behind its channel time) on the next idle run', async () => {
+  it('never pays twice for covered messages (manual, later refresh, idle job of the burst)', async () => {
     const { h, c } = setup();
     c.messages.push(msg('customer', 'Ship tới quận 7 được không?', '2026-11-11T02:55:00.000Z'));
     await h.evaluator.evaluate(WS, CONV, 'manual', NOW);
-    // evaluated_until stays 10 minutes behind the evaluation.
     expect((await h.store.getSignal(WS, CONV))?.evaluatedUntil).toEqual(
-      new Date('2026-11-11T02:50:00.000Z'),
+      new Date('2026-11-11T02:55:00.000Z'),
     );
-    // Asking again right away costs nothing.
     expect((await h.evaluator.evaluate(WS, CONV, 'manual', NOW)).status).toBe('nothing_new');
-    // A webhook stores a 02:52 message after the evaluation; the idle job reads it.
-    c.messages.splice(2, 0, msg('customer', 'Mã giảm giá còn không?', '2026-11-11T02:52:00.000Z'));
-    const r = await h.evaluator.evaluate(WS, CONV, 'idle', LATER);
-    expect(r.status).toBe('ok');
-    expect(userInput(h, 1)).toContain('Mã giảm giá còn không?');
+    expect((await h.evaluator.evaluate(WS, CONV, 'refresh', LATER)).status).toBe('nothing_new');
+    expect((await h.evaluator.evaluate(WS, CONV, 'idle', LATER)).status).toBe('skipped');
+    expect(h.gateway.calls).toHaveLength(1);
+    // The next customer message is evaluated, and only it is sent.
+    c.messages.push(msg('customer', 'Shop ơi?', '2026-11-11T03:20:00.000Z'));
+    expect((await h.evaluator.evaluate(WS, CONV, 'idle', LATER)).status).toBe('ok');
+    expect(userInput(h, 1)).toContain('Shop ơi?');
+    expect(userInput(h, 1)).not.toContain('Ship tới quận 7');
   });
 
   it('answers capped for an idle job before reading the conversation', async () => {

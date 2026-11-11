@@ -97,13 +97,15 @@ export class SignalEvaluator {
     if (!ctx) throw new SignalConversationNotFoundError(conversationId);
     const customerAts = ctx.messages.filter((m) => m.sender === 'customer').map((m) => m.at);
     const lastCustomer = customerAts[customerAts.length - 1];
+    const after = newAfter(prev);
+    const hasNew = customerAts.some((at) => Date.parse(at) > after);
     if (trigger === 'idle') {
       const { mode } = await this.settings.get(ws);
       const reason = shouldSkip({
         mode,
         isTest: ctx.facts.isTest,
         status: ctx.facts.status,
-        hasNewCustomerMessage: customerAts.length > 0,
+        hasNewCustomerMessage: hasNew,
         lastCustomerMessageAt: lastCustomer ? new Date(lastCustomer) : null,
         now,
       });
@@ -111,8 +113,7 @@ export class SignalEvaluator {
     } else {
       if (ctx.facts.isTest || ctx.facts.status === 'spam')
         return { status: 'disabled', signal: prev };
-      const after = newAfter(prev, now);
-      if (!customerAts.some((at) => Date.parse(at) > after)) {
+      if (!hasNew) {
         return { status: 'nothing_new', signal: prev };
       }
     }

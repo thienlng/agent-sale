@@ -15,7 +15,9 @@
     "countLabel_one": "{{count}} item",
     "countLabel_other": "{{count}} items",
     "refreshed_one": "Evaluated {{count}} conversation",
-    "refreshed_other": "Evaluated {{count}} conversations"
+    "refreshed_other": "Evaluated {{count}} conversations",
+    "partial_one": "Evaluated {{count}} conversation, {{remaining}} left — press Refresh to continue",
+    "partial_other": "Evaluated {{count}} conversations, {{remaining}} left — press Refresh to continue"
   },
   "queues": {
     "attention": {
@@ -55,7 +57,10 @@
     "unassigned": "Unassigned",
     "waiting": "Waiting since {{time}}",
     "noReason": "No note yet",
-    "waitingReply": "Waiting for a reply"
+    "waitingReply": "Waiting for a reply",
+    "undo": "Undo",
+    "restored": "Back on the list",
+    "draftOpen": "Open conversation"
   },
   "stage": {
     "label": "Stage",
@@ -107,7 +112,8 @@
     "complete": "Mark done: {{title}}",
     "overdue": "Overdue",
     "dueAt": "Due {{time}}",
-    "error": "The task could not be saved"
+    "error": "The task could not be saved",
+    "dueHint": "Vietnam time (GMT+7)"
   },
   "panel": {
     "title": "AI read",
@@ -135,5 +141,11 @@
     "saved": "Settings saved",
     "error": "The settings could not be saved",
     "readOnly": "Only the owner and admins can change these settings."
+  },
+  "channel": {
+    "facebook": "Messenger",
+    "instagram": "Instagram",
+    "website": "Website",
+    "other": "Other channel"
   }
 }

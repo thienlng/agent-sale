@@ -43,7 +43,8 @@ const PAGES = [
   ['crm distribution', '/app/crm-settings/distribution', 'Cài đặt khách hàng'],
   ['members', '/app/members', 'Thành viên & quyền truy cập'],
   ['statistics', '/app/analytics', 'Khách hàng mới'],
-  ['today', '/app/today', 'Hôm nay'],
+  // A queue heading: "Hôm nay" alone also names the sidebar entry.
+  ['today', '/app/today', 'Phàn nàn / cần người'],
   ['business profile', '/app/settings/profile', 'Thông tin business'],
   ['security', '/app/settings/security', 'Xác minh 2 bước'],
   ['audit trail', '/app/settings/audit', 'Nhật ký thay đổi'],

@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { Checkbox } from '@/components/ui/checkbox';
-import { formatDateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 import { useCompleteTask } from '../api/brain';
@@ -38,9 +37,9 @@ export function TodayQueue({
             'ml-auto inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-semibold tabular-nums',
             queue.count > 0 ? 'bg-primary-soft text-brand-text' : 'bg-muted text-muted-foreground',
           )}
-          aria-label={t('today.countLabel', { count: queue.count })}
         >
-          {queue.count}
+          <span aria-hidden>{queue.count}</span>
+          <span className="sr-only">{t('today.countLabel', { count: queue.count })}</span>
         </span>
       </header>
       {empty ? (
@@ -64,24 +63,31 @@ export function TodayQueue({
         </ul>
       )}
       {queue.count > queue.items.length ? (
+        // No inbox filter matches a queue, so the rest is a count, not a link.
         <p className="border-t px-4 py-2 text-xs text-muted-foreground">
-          {queue.key === 'tasks' ? (
-            t('today.more', { count: queue.count - queue.items.length })
-          ) : (
-            <Link to="/app/inbox" className="hover:underline">
-              {t('today.more', { count: queue.count - queue.items.length })}
-            </Link>
-          )}
+          {t('today.more', { count: queue.count - queue.items.length })}
         </p>
       ) : null}
     </section>
   );
 }
 
+/** A due time in Asia/Ho_Chi_Minh, the zone the task dialog uses, in the UI language. */
+function dueLabel(iso: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: 'short',
+    timeStyle: 'short',
+    timeZone: 'Asia/Ho_Chi_Minh',
+  }).format(new Date(iso));
+}
+
 /** An open task: tick to complete, its due time (red when overdue) and assignee. */
 export function TaskRow({ task, now }: { task: TaskDto; now: number }) {
-  const { t } = useTranslation('brain');
-  const complete = useCompleteTask();
+  const { t, i18n } = useTranslation('brain');
+  const complete = useCompleteTask({
+    onDone: () => toast.success(t('task.completed')),
+    onFailed: () => toast.error(t('task.error')),
+  });
   const overdue = task.dueAt !== null && Date.parse(task.dueAt) < now;
   const checkboxId = `task-${task.id}`;
   return (
@@ -90,13 +96,11 @@ export function TaskRow({ task, now }: { task: TaskDto; now: number }) {
         id={checkboxId}
         className="mt-0.5"
         aria-label={t('task.complete', { title: task.title })}
-        disabled={complete.isPending}
+        // Controlled: a failed completion unticks it again (the row stays).
+        checked={complete.isPending || complete.isSuccess}
+        disabled={complete.isPending || complete.isSuccess}
         onCheckedChange={(checked) => {
-          if (checked === true)
-            complete.mutate(task.id, {
-              onSuccess: () => toast.success(t('task.completed')),
-              onError: () => toast.error(t('task.error')),
-            });
+          if (checked === true) complete.mutate(task.id);
         }}
       />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -107,7 +111,7 @@ export function TaskRow({ task, now }: { task: TaskDto; now: number }) {
           {task.dueAt ? (
             <span className={cn('tabular-nums', overdue && 'font-medium text-destructive')}>
               {overdue ? `${t('task.overdue')} · ` : ''}
-              {t('task.dueAt', { time: formatDateTime(task.dueAt) })}
+              {t('task.dueAt', { time: dueLabel(task.dueAt, i18n.language) })}
             </span>
           ) : null}
           <span>{task.assigneeName ?? t('task.unassigned')}</span>

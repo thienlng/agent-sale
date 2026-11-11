@@ -13,8 +13,14 @@ export interface DueTaskReminder {
 export interface TaskReminderStore {
   /** Open tasks with an assignee, `due_at <= now` and no reminder yet, oldest due first. */
   due(now: Date, limit: number): Promise<DueTaskReminder[]>;
-  /** Sets `reminded_at` once (a second call keeps the first time). */
-  markReminded(taskId: string, at: Date): Promise<void>;
+  /**
+   * Sets `reminded_at` once (a second call keeps the first time), only while the task still has
+   * the due time and assignee that were read: an edit in between leaves it to be reminded anew.
+   */
+  markReminded(
+    task: Pick<DueTaskReminder, 'id' | 'dueAt' | 'assigneeUserId'>,
+    at: Date,
+  ): Promise<void>;
 }
 
 export const TASK_REMINDER_STORE = Symbol('TASK_REMINDER_STORE');

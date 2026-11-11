@@ -23,11 +23,18 @@ function setup(rows: Row[]) {
     async due(at, limit) {
       return rows
         .filter((r) => r.status === 'open' && !r.remindedAt && r.dueAt <= at)
-        .slice(0, limit);
+        .slice(0, limit)
+        .map((r) => ({ ...r }));
     },
-    async markReminded(id, at) {
-      const row = rows.find((r) => r.id === id);
-      if (row && !row.remindedAt) row.remindedAt = at;
+    async markReminded(task, at) {
+      const row = rows.find((r) => r.id === task.id);
+      if (
+        row &&
+        !row.remindedAt &&
+        row.dueAt.getTime() === task.dueAt.getTime() &&
+        row.assigneeUserId === task.assigneeUserId
+      )
+        row.remindedAt = at;
     },
   };
   const sent: NotifyInput[] = [];
@@ -122,6 +129,19 @@ describe('TaskReminderRunner.tick', () => {
     expect(t.rows[0]?.remindedAt).toBeNull();
     await t.runner.tick(new Date(now.getTime() + MAX_REMINDER_FAILURES * 30_000));
     expect(t.rows[0]?.remindedAt).not.toBeNull();
+  });
+
+  it('does not mark a task reminded when its due time or assignee changed while notifying', async () => {
+    const t = setup([row({})]);
+    const moved = new Date('2026-11-11T05:00:00.000Z');
+    const notify = (t.runner as unknown as { notifications: NotificationFacade }).notifications;
+    const real = notify.notify.bind(notify);
+    notify.notify = async (i) => {
+      Object.assign(t.rows[0] ?? {}, { dueAt: moved });
+      return real(i);
+    };
+    await t.runner.tick(now);
+    expect(t.rows[0]?.remindedAt).toBeNull();
   });
 
   it('a new due time gets a notice of its own (the dedup key carries it)', async () => {

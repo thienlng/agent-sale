@@ -174,11 +174,34 @@ export const TodayResponse = z.object({
 });
 export type TodayResponse = z.infer<typeof TodayResponse>;
 
+/** How many items each queue of Today holds (the full numbers). */
+export const TodayCounts = z.object({
+  attention: z.number().int().min(0),
+  unanswered: z.number().int().min(0),
+  ready: z.number().int().min(0),
+  price_silent: z.number().int().min(0),
+  follow_up: z.number().int().min(0),
+  tasks: z.number().int().min(0),
+});
+export type TodayCounts = z.infer<typeof TodayCounts>;
+
+/** `GET /today/counts`: the counts only, for the sidebar badge (cheaper than `GET /today`). */
+export const TodayCountsResponse = z.object({
+  counts: TodayCounts,
+  /** The sum of the counts. */
+  total: z.number().int().min(0),
+});
+export type TodayCountsResponse = z.infer<typeof TodayCountsResponse>;
+
 /** `POST /today/refresh`: how many conversations were evaluated, then the fresh Today. */
 export const RefreshTodayResponse = TodayResponse.extend({
   evaluated: z.number().int().min(0),
   /** True when the daily evaluations ran out before every conversation was evaluated. */
   capped: z.boolean(),
+  /** True when the time budget ended the refresh with conversations left to evaluate. */
+  partial: z.boolean(),
+  /** Conversations picked but not evaluated because the time budget ended (0 when capped). */
+  remaining: z.number().int().min(0),
 });
 export type RefreshTodayResponse = z.infer<typeof RefreshTodayResponse>;
 

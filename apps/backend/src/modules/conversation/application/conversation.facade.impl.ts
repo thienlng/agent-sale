@@ -32,6 +32,7 @@ import type {
   BotQuickReplies,
   ConversationFacade,
   SignalContext,
+  TodayCandidatesQuery,
   TodayConversation,
 } from '../api/conversation.facade.js';
 import { ConversationError } from '../domain/conversation.errors.js';
@@ -97,13 +98,13 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
       return c ? buildSignalContext(c, await tx.messages(id), after) : null;
     });
   }
-  async todayCandidates(
-    ws: WorkspaceId,
-    q: { ids: readonly string[]; awaitingBefore: Date; followUpBefore: Date; limit: number },
-  ): Promise<TodayConversation[]> {
+  async todayCandidates(ws: WorkspaceId, q: TodayCandidatesQuery): Promise<TodayConversation[]> {
     const ids = q.ids.filter(isUuid);
     const limit = Math.max(0, Math.min(q.limit, 1000));
-    const rows = await this.store.run(ws, (tx) => tx.todayCandidates({ ...q, ids, limit }));
+    const lastHumanFor = q.lastHumanFor?.filter(isUuid);
+    const rows = await this.store.run(ws, (tx) =>
+      tx.todayCandidates({ ...q, ids, limit, lastHumanFor }),
+    );
     return rows.map(({ conversation, lastHumanReplyAt }) => {
       const c = named(conversation.provider, conversation.customerId, conversation);
       return {

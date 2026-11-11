@@ -25,11 +25,7 @@ import { cn } from '@/lib/utils';
 
 import { StageBadge, StageMenu } from './stage-menu';
 
-const CHANNEL_LABEL: Record<string, string> = {
-  facebook: 'Messenger',
-  instagram: 'Instagram',
-  website: 'Website',
-};
+const CHANNELS = new Set(['facebook', 'instagram', 'website']);
 
 /** The customer's photo, or their initial. */
 export function CustomerInitial({ name, url }: { name: string; url: string | null }) {
@@ -77,7 +73,7 @@ export function TodayItem({
   /** Its queue: an unanswered customer without a note reads "waiting for a reply". */
   queue?: string | undefined;
 }) {
-  const { t } = useTranslation('brain');
+  const { t, i18n } = useTranslation('brain');
   const id = item.conversationId;
   const drafting = handlers.drafting === id;
   const evaluating = handlers.evaluating === id;
@@ -100,11 +96,13 @@ export function TodayItem({
             {item.customerName}
           </Link>
           <span className="shrink-0 text-xs text-muted-foreground">
-            {CHANNEL_LABEL[item.channel] ?? item.channel}
+            {t(`channel.${CHANNELS.has(item.channel) ? item.channel : 'other'}`)}
           </span>
           <time
             dateTime={item.at}
-            title={new Date(item.at).toLocaleString()}
+            title={new Date(item.at).toLocaleString(i18n.language, {
+              timeZone: 'Asia/Ho_Chi_Minh',
+            })}
             className="ml-auto shrink-0 text-xs text-muted-foreground tabular-nums"
           >
             {formatRelativeTime(item.at)}
@@ -124,9 +122,15 @@ export function TodayItem({
             {item.assigneeName ?? (item.assigneeId ? '—' : t('item.unassigned'))}
           </span>
           <div className="ml-auto flex shrink-0 items-center gap-1">
-            <Button asChild variant="outline" size="xs" className="hidden sm:inline-flex">
+            <Button
+              asChild
+              variant="outline"
+              size="xs"
+              className={handlers.canAct ? 'hidden sm:inline-flex' : undefined}
+            >
               {open}
             </Button>
+            {/* Every other action changes something (`contacts.edit`); read-only roles open only. */}
             {handlers.canAct ? (
               <>
                 <Button
@@ -152,24 +156,20 @@ export function TodayItem({
                   <ClipboardPlus aria-hidden />
                   {t('item.addTask')}
                 </Button>
-              </>
-            ) : null}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label={t('item.more', { name: item.customerName })}
-                >
-                  <MoreHorizontal aria-hidden />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-48">
-                <DropdownMenuItem asChild className="sm:hidden">
-                  {open}
-                </DropdownMenuItem>
-                {handlers.canAct ? (
-                  <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label={t('item.more', { name: item.customerName })}
+                    >
+                      <MoreHorizontal aria-hidden />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-48">
+                    <DropdownMenuItem asChild className="sm:hidden">
+                      {open}
+                    </DropdownMenuItem>
                     <DropdownMenuItem
                       className="sm:hidden"
                       disabled={drafting}
@@ -194,14 +194,14 @@ export function TodayItem({
                     </DropdownMenuItem>
                     <StageMenu conversationId={id} stage={item.stage} locked={item.stageLocked} />
                     <DropdownMenuSeparator />
-                  </>
-                ) : null}
-                <DropdownMenuItem onSelect={() => handlers.onDismiss(id)}>
-                  <EyeOff aria-hidden />
-                  {t('item.dismiss')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    <DropdownMenuItem onSelect={() => handlers.onDismiss(id)}>
+                      <EyeOff aria-hidden />
+                      {t('item.dismiss')}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : null}
           </div>
         </div>
       </div>
