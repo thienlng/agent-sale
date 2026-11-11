@@ -20,6 +20,7 @@ const entitlements = {
   'feature.facebook_posts': true,
   'feature.public_api': false,
   'api.requests_per_minute': 0,
+  'brain.evaluations.daily': 200,
 };
 
 const plan = (

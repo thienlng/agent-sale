@@ -166,6 +166,14 @@ describe('business brain tables (0073)', () => {
     });
   });
 
+  it('gives every stored plan version the daily evaluation cap (0074)', async () => {
+    const rows = (await exec(
+      sql`select code, entitlements -> 'brain.evaluations.daily' as cap from plans`,
+    )) as unknown as { code: string; cap: unknown }[];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) expect(row).toMatchObject({ cap: 200 });
+  });
+
   it('checks enums and length limits', async () => {
     const [a] = pair();
     const insertTask = (over: Partial<typeof tasks.$inferInsert>) =>

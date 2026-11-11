@@ -469,4 +469,4 @@ Migration 0073 (additive) adds five tenant tables owned by the `brain` module, `
 
 Data export (SET-10): `tasks.csv` (crm) and `conversation_signals.csv` (brain, paged by `conversation_id` through `exportTable()`'s `key` option). `signal_jobs`, `signal_runs`, `signal_usage` and `brain_settings` are operational and not exported, like `ai_runs` and the analytics projections.
 
-Migration 0073 also widens `notifications_type_check` with `today.briefing`, `brain.complaint` and `task.due`.
+Migration 0073 also widens `notifications_type_check` with `today.briefing`, `brain.complaint` and `task.due`. Migration 0074 adds `brain.evaluations.daily: 200` to every stored plan version that lacks it, so the plan catalog stays a complete entitlement set (unlimited `null` is set per account through an entitlement override).
