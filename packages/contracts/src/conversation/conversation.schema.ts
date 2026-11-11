@@ -217,6 +217,11 @@ export type ConversationListResponse = z.infer<typeof ConversationListResponse>;
 export const ConversationDetailDto = z.object({
   conversation: ConversationDto,
   messages: z.array(InboxMessageDto),
+  /**
+   * A member may still reply between 24 hours and 7 days after the customer's last message (Meta
+   * `HUMAN_AGENT` tag, env `META_HUMAN_AGENT_TAG`; Messenger and Instagram only, ADR-031).
+   */
+  humanAgentReply: z.boolean().optional(),
 });
 export type ConversationDetailDto = z.infer<typeof ConversationDetailDto>;
 export const SendInboxMessageRequest = z

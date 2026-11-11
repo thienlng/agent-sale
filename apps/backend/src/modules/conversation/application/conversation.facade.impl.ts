@@ -209,7 +209,13 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
   async get(ws: WorkspaceId, id: string) {
     const detail = await this.load(ws, id);
     const [conversation] = await attachTags(this.crm, ws, [detail.conversation]);
-    return { ...detail, conversation: conversation ?? detail.conversation };
+    const meta =
+      detail.conversation.provider === 'facebook' || detail.conversation.provider === 'instagram';
+    return {
+      ...detail,
+      conversation: conversation ?? detail.conversation,
+      humanAgentReply: meta && this.humanAgentTag === true,
+    };
   }
   private load(ws: WorkspaceId, id: string) {
     return this.store.run(ws, async (tx) => ({

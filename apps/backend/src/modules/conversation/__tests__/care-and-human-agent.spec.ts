@@ -208,6 +208,18 @@ describe('HUMAN_AGENT for members (META_HUMAN_AGENT_TAG)', () => {
     expect(channels.deliver).not.toHaveBeenCalled();
   });
 
+  it('tells the inbox whether a member may reply with the tag (Meta channels, flag on)', async () => {
+    const c = await facade(true).receive(ws, channelId, event());
+    expect((await facade(true).get(ws, c.id)).humanAgentReply).toBe(true);
+    expect((await facade().get(ws, c.id)).humanAgentReply).toBe(false);
+  });
+
+  it('never offers the tag on the website', async () => {
+    provider = 'website';
+    const site = await facade(true).receive(ws, channelId, event());
+    expect((await facade(true).get(ws, site.id)).humanAgentReply).toBe(false);
+  });
+
   it('never tags a bot reply', async () => {
     const service = facade(true);
     const c = await service.receive(ws, channelId, event());

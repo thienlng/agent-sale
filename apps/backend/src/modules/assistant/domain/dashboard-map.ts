@@ -41,7 +41,7 @@ export const DASHBOARD_PAGES: readonly DashboardPage[] = [
   {
     path: '/app/today',
     purpose:
-      "what needs doing today: complaints, unanswered customers, ready to buy, price asked then silent, follow-ups, the user's due tasks",
+      "what needs doing today: follow-up drafts awaiting approval, complaints, unanswered customers, ready to buy, price asked then silent, follow-ups, the user's due tasks; what the AI sent today; orders Rapiz brought in",
     audience: 'all',
   },
   { path: '/app/analytics', purpose: 'statistics', audience: 'all' },
@@ -134,7 +134,7 @@ export const DASHBOARD_PAGES: readonly DashboardPage[] = [
   {
     path: '/app/settings/brain',
     purpose:
-      "AI conversation evaluation settings: today's evaluations used, automatic or on-click mode, quiet time, morning briefing",
+      "AI conversation evaluation settings: today's evaluations used, automatic or on-click mode, quiet time, morning briefing; automatic follow-up (care agent) templates, autonomy level, quiet hours and daily cap",
     audience: 'all',
   },
 ];
