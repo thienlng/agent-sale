@@ -60,7 +60,7 @@
 	}
 
 	# Marketing pages (apps/site/public). A folder path without its slash redirects to it.
-	@site path / /index.html /images/* /fonts/* /static/* /nganh/* /tinh-nang/* /tich-hop /tich-hop/* /bao-mat /bao-mat/* /bang-gia /bang-gia/* /dat-lich-demo /dat-lich-demo/* /ve-rapiz /ve-rapiz/*
+	@site path / /index.html /images/* /fonts/* /static/* /nganh/* /tinh-nang/* /tich-hop /tich-hop/* /bao-mat /bao-mat/* /bang-gia /bang-gia/* /dat-lich-demo /dat-lich-demo/* /ve-rapiz /ve-rapiz/* /privacy /privacy/* /terms /terms/*
 	handle @site {
 		root * /srv/site
 		file_server
