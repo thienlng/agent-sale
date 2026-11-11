@@ -4,8 +4,8 @@ import { workspaceId } from '@agent-sales/shared';
 
 /**
  * The crm module's part of the workspace data export (SET-10): customers, notes, history
- * (requests recorded by bots are history entries) and tag assignments. Internal search text,
- * sync bookkeeping and versions are left out.
+ * (requests recorded by bots are history entries), tag assignments and tasks (CRM-04). Internal
+ * search text, sync and reminder bookkeeping and versions are left out.
  */
 export class CrmExportSource implements WorkspaceExportSource {
   constructor(private readonly db: Database | null) {}
@@ -82,6 +82,28 @@ export class CrmExportSource implements WorkspaceExportSource {
           { header: 'values', sql: 't.values' },
           { header: 'assigned_by', sql: 't.assigned_by_name' },
           { header: 'assigned_at', sql: 't.assigned_at', time: true },
+        ],
+      }),
+      exportTable(db, id, {
+        file: 'tasks.csv',
+        table: 'tasks',
+        columns: [
+          { header: 'id', sql: 't.id' },
+          { header: 'title', sql: 't.title' },
+          { header: 'note', sql: 't.note' },
+          { header: 'status', sql: 't.status' },
+          { header: 'due_at', sql: 't.due_at', time: true },
+          { header: 'assignee_kind', sql: 't.assignee_kind' },
+          { header: 'assignee_user_id', sql: 't.assignee_user_id' },
+          { header: 'customer_id', sql: 't.contact_id' },
+          { header: 'conversation_id', sql: 't.conversation_id' },
+          { header: 'subject_type', sql: 't.subject_type' },
+          { header: 'subject_id', sql: 't.subject_id' },
+          { header: 'source', sql: 't.source' },
+          { header: 'created_by', sql: 't.created_by' },
+          { header: 'created_at', sql: 't.created_at', time: true },
+          { header: 'done_at', sql: 't.done_at', time: true },
+          { header: 'done_by', sql: 't.done_by' },
         ],
       }),
     ];

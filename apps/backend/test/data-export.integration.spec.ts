@@ -83,6 +83,10 @@ describe('data export', () => {
     await contact(lan, 'Khách Lan, Hà Nội', '0912345678');
     await contact(lan, '=HYPERLINK("x")', '0987654321');
     await contact(other, 'Khách của shop khác', '0900000000');
+    await h.owner.db.insert(schema.tasks).values([
+      { id: newId(), workspaceId: lan.ownWorkspace, title: 'Gọi lại khách Lan' },
+      { id: newId(), workspaceId: other.ownWorkspace, title: 'Việc của shop khác' },
+    ]);
 
     const empty = DataExportList.parse((await h.call(lan.h, 'GET', '/data-exports')).json());
     expect(empty).toEqual({ data: [], usedToday: 0, dailyLimit: 3 });
@@ -122,6 +126,7 @@ describe('data export', () => {
       'customer_notes.csv',
       'customer_history.csv',
       'customer_tags.csv',
+      'tasks.csv',
       'conversations.csv',
       'messages.csv',
       'products.csv',
@@ -142,6 +147,8 @@ describe('data export', () => {
     expect(customers).toContain('"Khách Lan, Hà Nội"');
     expect(customers).toContain(`"'=HYPERLINK(""x"")"`);
     expect(customers).not.toContain('shop khác');
+    expect(text('tasks.csv')).toContain('Gọi lại khách Lan');
+    expect(text('tasks.csv')).not.toContain('shop khác');
     expect(text('people.csv')).toContain('lan@export.vn');
     expect(text('people.csv')).not.toContain('other@export.vn');
     expect(text('business.csv')).toContain('Shop Lan');
