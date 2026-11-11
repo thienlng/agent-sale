@@ -1,9 +1,8 @@
 import type { TodayApprovalItem, TodayApprovalQueue } from '@agent-sales/contracts';
 import { Link } from '@tanstack/react-router';
-import { Clock, Loader2, PenLine, Send, X } from 'lucide-react';
+import { CalendarClock, Clock, Loader2, PenLine, Send, X } from 'lucide-react';
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
 
 import {
   AlertDialog,
@@ -18,10 +17,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ApiClientError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
-import { useApproveAllDrafts, useApproveDraft, useRejectDraft } from '../api/care';
+import { sendTime, useApproveAllDrafts, useApproveDraft, useRejectDraft } from '../api/care';
 import { CHANNELS, CustomerInitial } from './today-item';
 
 /** The care agent writes at most this much; an edit keeps to it too (spec §4). */
@@ -38,22 +36,13 @@ function useTimeLeft() {
   };
 }
 
-/** What a failed approval means for the member. */
-function useApprovalError() {
-  const { t } = useTranslation('brain');
-  return (e: Error) =>
-    toast.error(
-      e instanceof ApiClientError && (e.status === 409 || e.status === 404)
-        ? t('approval.gone')
-        : t('approval.failed'),
-    );
-}
-
 /**
  * "Chờ duyệt" (spec 2026-11-11 care §5): the follow-ups the care agent drafted at level
  * "đề xuất". Each can be sent as is, edited then sent, or dropped; "Gửi tất cả" sends the lot
  * after a confirm. Expired drafts (the window closed) are already filtered out by the page.
- * Write actions need `contacts.edit`; others read the drafts only.
+ * Approved messages waiting for their time (quiet hours, or queued by "Gửi tất cả") stay listed
+ * with "Sẽ gửi lúc 08:00" and no action. Write actions need `contacts.edit`; others read only.
+ * The toasts of every action are raised by the mutation hooks (the row unmounts at once).
  */
 export function ApprovalQueue({
   queue,
@@ -67,17 +56,12 @@ export function ApprovalQueue({
   const { t } = useTranslation('brain');
   const headingId = `today-queue-${queue.key}`;
   const all = useApproveAllDrafts();
-  const onError = useApprovalError();
-  const ids = queue.items.map((i) => i.careMessageId);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const ids = queue.items.filter((i) => !i.scheduledFor).map((i) => i.careMessageId);
+  const hidden = queue.count - ids.length;
 
   function sendAll() {
-    all.mutate(ids, {
-      onSuccess: (r) =>
-        r.notSent > 0
-          ? toast.warning(t('approval.sentAllPartial', { count: r.sent, notSent: r.notSent }))
-          : toast.success(t('approval.sentAll', { count: r.sent })),
-      onError,
-    });
+    all.mutate(ids);
   }
 
   return (
@@ -111,7 +95,14 @@ export function ApprovalQueue({
         {canAct && ids.length > 1 ? (
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button size="sm" variant="outline" className="shrink-0" disabled={all.isPending}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0"
+                // An open edit would be dropped: send it (or cancel it) first.
+                disabled={all.isPending || editingId !== null}
+                title={editingId !== null ? t('approval.sendAllEditing') : undefined}
+              >
                 {all.isPending ? (
                   <Loader2 className="animate-spin" aria-hidden />
                 ) : (
@@ -125,7 +116,10 @@ export function ApprovalQueue({
                 <AlertDialogTitle>
                   {t('approval.sendAllTitle', { count: ids.length })}
                 </AlertDialogTitle>
-                <AlertDialogDescription>{t('approval.sendAllDescription')}</AlertDialogDescription>
+                <AlertDialogDescription>
+                  {t('approval.sendAllDescription')}
+                  {hidden > 0 ? ` ${t('approval.sendAllShown', { count: hidden })}` : ''}
+                </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>{t('approval.cancel')}</AlertDialogCancel>
@@ -142,13 +136,24 @@ export function ApprovalQueue({
       ) : (
         <ul className="divide-y">
           {queue.items.map((item) => (
-            <ApprovalRow key={item.careMessageId} item={item} now={now} canAct={canAct} />
+            <ApprovalRow
+              key={item.careMessageId}
+              item={item}
+              now={now}
+              canAct={canAct}
+              editing={editingId === item.careMessageId}
+              onEditing={(on) =>
+                setEditingId((cur) =>
+                  on ? item.careMessageId : cur === item.careMessageId ? null : cur,
+                )
+              }
+            />
           ))}
         </ul>
       )}
-      {queue.count > queue.items.length ? (
+      {hidden > 0 ? (
         <p className="border-t px-4 py-2 text-xs text-muted-foreground">
-          {t('today.more', { count: queue.count - queue.items.length })}
+          {t('today.more', { count: hidden })}
         </p>
       ) : null}
     </section>
@@ -159,18 +164,23 @@ function ApprovalRow({
   item,
   now,
   canAct,
+  editing,
+  onEditing,
 }: {
   item: TodayApprovalItem;
   now: number;
   canAct: boolean;
+  editing: boolean;
+  onEditing: (on: boolean) => void;
 }) {
-  const { t } = useTranslation('brain');
+  const { t, i18n } = useTranslation('brain');
   const timeLeft = useTimeLeft();
-  const onError = useApprovalError();
   const approve = useApproveDraft();
   const reject = useRejectDraft();
-  const [editing, setEditing] = useState(false);
+  const setEditing = onEditing;
   const [text, setText] = useState(item.text);
+  const name = item.customerName;
+  const scheduled = item.scheduledFor;
   const editorId = useId();
   const busy = approve.isPending || reject.isPending;
   const urgent =
@@ -178,16 +188,8 @@ function ApprovalRow({
   const trimmed = text.trim();
 
   function send(edited?: string) {
-    approve.mutate(
-      { id: item.careMessageId, text: edited },
-      {
-        onSuccess: (r) =>
-          r.status === 'sent'
-            ? toast.success(t('approval.sent', { name: item.customerName }))
-            : toast.warning(t('approval.notSent')),
-        onError,
-      },
-    );
+    setEditing(false);
+    approve.mutate({ id: item.careMessageId, text: edited, name });
   }
 
   return (
@@ -208,7 +210,12 @@ function ApprovalRow({
           <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
             {t(`care.template.${item.template}`)}
           </span>
-          {item.windowClosesAt ? (
+          {scheduled ? (
+            <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-xs font-medium text-brand-text tabular-nums">
+              <CalendarClock className="size-3.5" aria-hidden />
+              {t('approval.willSendAt', { time: sendTime(scheduled, i18n.language) })}
+            </span>
+          ) : item.windowClosesAt ? (
             <span
               className={cn(
                 'ml-auto inline-flex shrink-0 items-center gap-1 text-xs tabular-nums',
@@ -218,6 +225,7 @@ function ApprovalRow({
             >
               <Clock className="size-3.5" aria-hidden />
               {timeLeft(item.windowClosesAt, now)}
+              <span className="sr-only">. {t('approval.windowHint')}</span>
             </span>
           ) : null}
         </div>
@@ -266,9 +274,14 @@ function ApprovalRow({
             {item.text}
           </p>
         )}
-        {canAct && !editing ? (
+        {canAct && !editing && !scheduled ? (
           <div className="flex flex-wrap items-center gap-1.5">
-            <Button size="xs" disabled={busy} onClick={() => send()}>
+            <Button
+              size="xs"
+              disabled={busy}
+              aria-label={t('approval.sendTo', { name })}
+              onClick={() => send()}
+            >
               {approve.isPending ? (
                 <Loader2 className="animate-spin" aria-hidden />
               ) : (
@@ -276,7 +289,13 @@ function ApprovalRow({
               )}
               {t('approval.send')}
             </Button>
-            <Button size="xs" variant="outline" disabled={busy} onClick={() => setEditing(true)}>
+            <Button
+              size="xs"
+              variant="outline"
+              disabled={busy}
+              aria-label={t('approval.editFor', { name })}
+              onClick={() => setEditing(true)}
+            >
               <PenLine aria-hidden />
               {t('approval.edit')}
             </Button>
@@ -284,12 +303,8 @@ function ApprovalRow({
               size="xs"
               variant="ghost"
               disabled={busy}
-              onClick={() =>
-                reject.mutate(item.careMessageId, {
-                  onSuccess: () => toast.success(t('approval.rejected')),
-                  onError,
-                })
-              }
+              aria-label={t('approval.rejectFor', { name })}
+              onClick={() => reject.mutate({ id: item.careMessageId, name })}
             >
               <X aria-hidden />
               {t('approval.reject')}

@@ -156,12 +156,10 @@
     "cancel": "Hủy",
     "sendAll": "Gửi tất cả",
     "sendAllTitle": "Gửi {{count}} tin chăm sóc?",
-    "sendAllDescription": "Các tin được gửi đúng như AI đã soạn. Tin nào đã hết 24 giờ hoặc khách vừa nhắn sẽ không gửi.",
+    "sendAllDescription": "Các tin được gửi đúng như AI đã soạn: vài tin đầu gửi ngay, số còn lại gửi trong ít phút (ban đêm: lúc 08:00). Tin nào đã hết 24 giờ hoặc khách vừa nhắn sẽ không gửi.",
     "sendAllConfirm": "Gửi {{count}} tin",
     "sent": "Đã gửi tin cho {{name}}",
-    "sentAll": "Đã gửi {{count}} tin",
-    "sentAllPartial": "Đã gửi {{count}} tin, {{notSent}} tin không gửi được (hết 24 giờ hoặc khách vừa nhắn)",
-    "notSent": "Tin chưa gửi được (hết 24 giờ hoặc khách vừa nhắn)",
+    "notSent": "Tin chưa gửi được — kênh báo lỗi, thử lại sau",
     "rejected": "Đã bỏ tin này",
     "gone": "Tin này không còn gửi được — đã có người xử lý hoặc đã hết 24 giờ",
     "failed": "Chưa gửi được, thử lại sau",
@@ -169,7 +167,29 @@
     "leftMinutes": "còn {{count}} phút",
     "windowHint": "Messenger và Instagram chỉ cho shop nhắn trong 24 giờ sau tin cuối của khách",
     "editLabel": "Sửa tin gửi {{name}}",
-    "chars": "{{count}}/{{max}} ký tự"
+    "chars": "{{count}}/{{max}} ký tự",
+    "sendAllShown": "Chỉ các tin đang hiển thị được gửi; còn {{count}} tin khác chờ duyệt.",
+    "sendAllEditing": "Gửi hoặc hủy tin đang sửa trước",
+    "scheduled": "Đã duyệt tin cho {{name}} — sẽ gửi lúc {{time}}",
+    "willSendAt": "Sẽ gửi lúc {{time}}",
+    "sendTo": "Gửi tin cho {{name}}",
+    "editFor": "Sửa rồi gửi tin cho {{name}}",
+    "rejectFor": "Bỏ tin gửi {{name}}",
+    "errors": {
+      "takenOver": "Nhân viên đang giữ hội thoại này nên tin đã được bỏ",
+      "customerReplied": "Khách vừa nhắn lại nên tin này đã được bỏ — hãy trả lời khách trong hộp thư",
+      "limit": "Khách đã nhận 2 tin chăm sóc trong 24 giờ — thử lại sau",
+      "windowClosed": "Đã hết 24 giờ nhắn tin nên tin này đã được bỏ",
+      "stopped": "Tin này không còn phù hợp (khách đã đặt, đã đóng hoặc không muốn nhận tin) nên đã được bỏ"
+    },
+    "bulk": {
+      "sent": "Đã gửi {{count}} tin",
+      "scheduled": "{{count}} tin sẽ gửi sau ít phút hoặc lúc 08:00",
+      "expired": "{{count}} tin đã hết hạn (hết 24 giờ hoặc khách vừa nhắn)",
+      "failed": "{{count}} tin lỗi kênh",
+      "waiting": "{{count}} tin vẫn chờ (khách đã nhận đủ 2 tin trong 24 giờ)",
+      "none": "Không có tin nào được gửi"
+    }
   },
   "care": {
     "template": {
@@ -187,19 +207,37 @@
   "impact": {
     "title": "Rapiz đã mang lại",
     "headline": {
-      "today": "Hôm nay Rapiz đã mang lại {{count}} đơn · {{revenue}}",
-      "7d": "7 ngày qua Rapiz đã mang lại {{count}} đơn · {{revenue}}",
-      "30d": "30 ngày qua Rapiz đã mang lại {{count}} đơn · {{revenue}}"
+      "orders": {
+        "today": "Hôm nay Rapiz đã mang lại {{count}} đơn · {{revenue}}",
+        "7d": "7 ngày qua Rapiz đã mang lại {{count}} đơn · {{revenue}}",
+        "30d": "30 ngày qua Rapiz đã mang lại {{count}} đơn · {{revenue}}"
+      },
+      "bookings": {
+        "today": "Hôm nay Rapiz đã mang lại {{count}} lượt đặt phòng · {{revenue}}",
+        "7d": "7 ngày qua Rapiz đã mang lại {{count}} lượt đặt phòng · {{revenue}}",
+        "30d": "30 ngày qua Rapiz đã mang lại {{count}} lượt đặt phòng · {{revenue}}"
+      }
     },
     "money": "{{amount}}",
-    "split": "AI tự chốt {{aiOrders}} đơn · {{aiRevenue}} — AI + nhân viên {{staffOrders}} đơn · {{staffRevenue}}",
+    "split": {
+      "orders": "AI tự chốt {{aiOrders}} đơn · {{aiRevenue}} — AI + nhân viên {{staffOrders}} đơn · {{staffRevenue}}",
+      "bookings": "AI tự chốt {{aiOrders}} lượt · {{aiRevenue}} — AI + nhân viên {{staffOrders}} lượt · {{staffRevenue}}"
+    },
     "followUps": "{{count}} tin chăm sóc, {{replies}} khách trả lời",
-    "empty": "Chưa có đơn nào nhờ AI. Khi khách đặt đơn trong 7 ngày sau tin của bot hoặc AI chăm sóc, Rapiz sẽ tính ở đây.",
+    "empty": {
+      "orders": "Chưa có đơn nào nhờ AI. Khi khách đặt đơn trong 7 ngày sau tin của bot hoặc AI chăm sóc, Rapiz sẽ tính ở đây.",
+      "bookings": "Chưa có lượt đặt phòng nào nhờ AI. Khi khách đặt phòng trong 7 ngày sau tin của bot hoặc AI chăm sóc, Rapiz sẽ tính ở đây."
+    },
     "range": "Khoảng thời gian",
     "ranges": {
       "today": "Hôm nay",
       "7d": "7 ngày",
       "30d": "30 ngày"
+    },
+    "followUpsHeadline": {
+      "today": "Hôm nay AI đã gửi {{count}} tin chăm sóc, {{replies}} khách trả lời",
+      "7d": "7 ngày qua AI đã gửi {{count}} tin chăm sóc, {{replies}} khách trả lời",
+      "30d": "30 ngày qua AI đã gửi {{count}} tin chăm sóc, {{replies}} khách trả lời"
     }
   },
   "autonomy": {
@@ -242,11 +280,12 @@
     "afterSaleDays": "Nhắc sau",
     "afterSaleDaysHint": "ngày ({{min}}–{{max}})",
     "quietHours": "Giờ yên lặng",
-    "quietHoursValue": "Không nhắn từ {{from}} đến {{to}} (giờ Việt Nam)",
+    "quietHoursValue": "Không nhắn từ {{from}} đến {{to}} ({{zone}})",
     "perConversation": "Mỗi khách",
     "perConversationValue": "Tối đa {{count}} tin trong 24 giờ",
     "dailyCap": "Giới hạn mỗi ngày",
     "dailyCapValue": "{{count}} tin chăm sóc",
-    "dailyCapUnlimited": "Không giới hạn"
+    "dailyCapUnlimited": "Không giới hạn",
+    "zoneVietnam": "giờ Việt Nam"
   }
 }

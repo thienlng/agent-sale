@@ -59,7 +59,7 @@ export function visibleQueues(today: TodayResponse, now: number): TodayResponse[
  * customer. "Làm mới" evaluates the conversations with new customer messages within the day's
  * evaluations; when they run out a banner says the queues use the data already there.
  */
-export function TodayPage() {
+export function TodayPage({ bookings = false }: { bookings?: boolean } = {}) {
   const { t, i18n } = useTranslation('brain');
   const today = useToday();
   const refresh = useRefreshToday();
@@ -151,7 +151,7 @@ export function TodayPage() {
         </p>
       ) : null}
 
-      {canSeeImpact ? <ImpactStrip /> : null}
+      {canSeeImpact ? <ImpactStrip bookings={bookings} /> : null}
 
       {data ? (
         <>

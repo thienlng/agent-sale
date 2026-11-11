@@ -161,14 +161,11 @@
     "sendAll": "Send all",
     "sendAllTitle_one": "Send {{count}} follow-up?",
     "sendAllTitle_other": "Send {{count}} follow-ups?",
-    "sendAllDescription": "The messages go out exactly as the AI wrote them. Any whose 24 hours ran out, or whose customer just wrote, are not sent.",
+    "sendAllDescription": "The messages go out exactly as the AI wrote them: the first few at once, the rest within minutes (at night: at 08:00). Any whose 24 hours ran out, or whose customer just wrote, are not sent.",
     "sendAllConfirm_one": "Send {{count}} message",
     "sendAllConfirm_other": "Send {{count}} messages",
     "sent": "Sent to {{name}}",
-    "sentAll_one": "Sent {{count}} message",
-    "sentAll_other": "Sent {{count}} messages",
-    "sentAllPartial": "Sent {{count}}, {{notSent}} not sent (24 hours ran out or the customer just wrote)",
-    "notSent": "Not sent (24 hours ran out or the customer just wrote)",
+    "notSent": "Not sent — the channel reported an error, try again later",
     "rejected": "Follow-up dropped",
     "gone": "This follow-up can no longer be sent — someone handled it or its 24 hours ran out",
     "failed": "Could not send, try again later",
@@ -178,7 +175,35 @@
     "leftMinutes_other": "{{count}} minutes left",
     "windowHint": "Messenger and Instagram let a page message a customer only within 24 hours of their last message",
     "editLabel": "Edit the message to {{name}}",
-    "chars": "{{count}}/{{max}} characters"
+    "chars": "{{count}}/{{max}} characters",
+    "sendAllShown_one": "Only the follow-ups shown are sent; {{count}} more is waiting.",
+    "sendAllShown_other": "Only the follow-ups shown are sent; {{count}} more are waiting.",
+    "sendAllEditing": "Send or cancel the message you are editing first",
+    "scheduled": "Approved for {{name}} — goes out at {{time}}",
+    "willSendAt": "Goes out at {{time}}",
+    "sendTo": "Send to {{name}}",
+    "editFor": "Edit and send to {{name}}",
+    "rejectFor": "Drop the message to {{name}}",
+    "errors": {
+      "takenOver": "A team member holds this conversation, so the follow-up was dropped",
+      "customerReplied": "The customer just wrote, so this follow-up was dropped — answer them in the inbox",
+      "limit": "This customer got 2 follow-ups in the last 24 hours — try again later",
+      "windowClosed": "The 24 hours ran out, so this follow-up was dropped",
+      "stopped": "This follow-up no longer applies (ordered, closed or opted out), so it was dropped"
+    },
+    "bulk": {
+      "sent_one": "Sent {{count}} message",
+      "sent_other": "Sent {{count}} messages",
+      "scheduled_one": "{{count}} goes out within minutes or at 08:00",
+      "scheduled_other": "{{count}} go out within minutes or at 08:00",
+      "expired_one": "{{count}} expired (24 hours ran out or the customer just wrote)",
+      "expired_other": "{{count}} expired (24 hours ran out or the customer just wrote)",
+      "failed_one": "{{count}} failed on the channel",
+      "failed_other": "{{count}} failed on the channel",
+      "waiting_one": "{{count}} still waiting (the customer got 2 follow-ups in 24 hours)",
+      "waiting_other": "{{count}} still waiting (the customer got 2 follow-ups in 24 hours)",
+      "none": "Nothing was sent"
+    }
   },
   "care": {
     "template": {
@@ -198,22 +223,46 @@
   "impact": {
     "title": "Brought in by Rapiz",
     "headline": {
-      "today_one": "Today Rapiz brought in {{count}} order · {{revenue}}",
-      "today_other": "Today Rapiz brought in {{count}} orders · {{revenue}}",
-      "7d_one": "In the last 7 days Rapiz brought in {{count}} order · {{revenue}}",
-      "7d_other": "In the last 7 days Rapiz brought in {{count}} orders · {{revenue}}",
-      "30d_one": "In the last 30 days Rapiz brought in {{count}} order · {{revenue}}",
-      "30d_other": "In the last 30 days Rapiz brought in {{count}} orders · {{revenue}}"
+      "orders": {
+        "today_one": "Today Rapiz brought in {{count}} order · {{revenue}}",
+        "today_other": "Today Rapiz brought in {{count}} orders · {{revenue}}",
+        "7d_one": "In the last 7 days Rapiz brought in {{count}} order · {{revenue}}",
+        "7d_other": "In the last 7 days Rapiz brought in {{count}} orders · {{revenue}}",
+        "30d_one": "In the last 30 days Rapiz brought in {{count}} order · {{revenue}}",
+        "30d_other": "In the last 30 days Rapiz brought in {{count}} orders · {{revenue}}"
+      },
+      "bookings": {
+        "today_one": "Today Rapiz brought in {{count}} booking · {{revenue}}",
+        "today_other": "Today Rapiz brought in {{count}} bookings · {{revenue}}",
+        "7d_one": "In the last 7 days Rapiz brought in {{count}} booking · {{revenue}}",
+        "7d_other": "In the last 7 days Rapiz brought in {{count}} bookings · {{revenue}}",
+        "30d_one": "In the last 30 days Rapiz brought in {{count}} booking · {{revenue}}",
+        "30d_other": "In the last 30 days Rapiz brought in {{count}} bookings · {{revenue}}"
+      }
     },
     "money": "₫{{amount}}",
-    "split": "AI alone {{aiOrders}} · {{aiRevenue}} — AI + staff {{staffOrders}} · {{staffRevenue}}",
+    "split": {
+      "orders": "AI alone {{aiOrders}} · {{aiRevenue}} — AI + staff {{staffOrders}} · {{staffRevenue}}",
+      "bookings": "AI alone {{aiOrders}} · {{aiRevenue}} — AI + staff {{staffOrders}} · {{staffRevenue}}"
+    },
     "followUps": "{{count}} follow-ups, {{replies}} customers replied",
-    "empty": "No orders from the AI yet. When a customer orders within 7 days of a bot or follow-up message, Rapiz counts it here.",
+    "empty": {
+      "orders": "No orders from the AI yet. When a customer orders within 7 days of a bot or follow-up message, Rapiz counts it here.",
+      "bookings": "No bookings from the AI yet. When a customer books within 7 days of a bot or follow-up message, Rapiz counts it here."
+    },
     "range": "Period",
     "ranges": {
       "today": "Today",
       "7d": "7 days",
       "30d": "30 days"
+    },
+    "followUpsHeadline": {
+      "today_one": "Today the AI sent {{count}} follow-up, {{replies}} customers replied",
+      "today_other": "Today the AI sent {{count}} follow-ups, {{replies}} customers replied",
+      "7d_one": "In the last 7 days the AI sent {{count}} follow-up, {{replies}} customers replied",
+      "7d_other": "In the last 7 days the AI sent {{count}} follow-ups, {{replies}} customers replied",
+      "30d_one": "In the last 30 days the AI sent {{count}} follow-up, {{replies}} customers replied",
+      "30d_other": "In the last 30 days the AI sent {{count}} follow-ups, {{replies}} customers replied"
     }
   },
   "autonomy": {
@@ -256,13 +305,14 @@
     "afterSaleDays": "Remind after",
     "afterSaleDaysHint": "days ({{min}}–{{max}})",
     "quietHours": "Quiet hours",
-    "quietHoursValue": "No messages from {{from}} to {{to}} (Vietnam time)",
+    "quietHoursValue": "No messages from {{from}} to {{to}} ({{zone}})",
     "perConversation": "Per customer",
     "perConversationValue_one": "At most {{count}} message in 24 hours",
     "perConversationValue_other": "At most {{count}} messages in 24 hours",
     "dailyCap": "Daily limit",
     "dailyCapValue_one": "{{count}} follow-up",
     "dailyCapValue_other": "{{count}} follow-ups",
-    "dailyCapUnlimited": "No limit"
+    "dailyCapUnlimited": "No limit",
+    "zoneVietnam": "Vietnam time"
   }
 }

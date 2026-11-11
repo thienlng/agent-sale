@@ -34,9 +34,10 @@ function isEmpty(r: ImpactResponse): boolean {
  * "Rapiz đã mang lại" (spec 2026-11-11 care §6): orders and revenue that followed an AI touch,
  * AI alone vs AI + staff, for today / 7 days / 30 days. Whole-business figures, so only roles
  * with `analytics.view` and `contacts.view_all` see it (the page decides). Nothing yet: a short
- * explainer instead of zeros.
+ * explainer instead of zeros; follow-ups but no sale yet: the follow-ups lead. A hotel's sales
+ * are stay bookings (`bookings`).
  */
-export function ImpactStrip() {
+export function ImpactStrip({ bookings = false }: { bookings?: boolean }) {
   const { t } = useTranslation('brain');
   const [range, setRange] = useState<ImpactRange>('30d');
   const impact = useImpact(range);
@@ -44,6 +45,7 @@ export function ImpactStrip() {
   const r = impact.data;
   if (impact.isError) return null;
   const orders = r ? r.ai.orders + r.aiStaff.orders : 0;
+  const unit = bookings ? 'bookings' : 'orders';
   return (
     <section
       aria-labelledby="impact-title"
@@ -60,17 +62,24 @@ export function ImpactStrip() {
           {!r ? (
             <Skeleton className="my-1 h-5 w-64 max-w-full" />
           ) : isEmpty(r) ? (
-            <p className="text-sm text-muted-foreground">{t('impact.empty')}</p>
+            <p className="text-sm text-muted-foreground">{t(`impact.empty.${unit}`)}</p>
+          ) : orders === 0 ? (
+            <p className="text-sm font-semibold break-words">
+              {t(`impact.followUpsHeadline.${range}`, {
+                count: r.followUpsSent,
+                replies: r.repliesReceived,
+              })}
+            </p>
           ) : (
             <>
               <p className="text-sm font-semibold break-words">
-                {t(`impact.headline.${range}`, {
+                {t(`impact.headline.${unit}.${range}`, {
                   count: orders,
                   revenue: money(r.ai.revenue + r.aiStaff.revenue),
                 })}
               </p>
               <p className="text-xs text-muted-foreground break-words">
-                {t('impact.split', {
+                {t(`impact.split.${unit}`, {
                   aiOrders: r.ai.orders,
                   aiRevenue: money(r.ai.revenue),
                   staffOrders: r.aiStaff.orders,

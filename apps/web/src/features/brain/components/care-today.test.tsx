@@ -14,7 +14,7 @@ import {
 } from '@tanstack/react-router';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Toaster } from 'sonner';
+import { toast, Toaster } from 'sonner';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { loadNamespace } from '@/lib/i18n';
@@ -60,6 +60,7 @@ function draft(over: Partial<TodayApprovalItem> = {}): TodayApprovalItem {
     template: 'silent',
     text: 'Dạ chị Lan ơi, mẫu áo chị hỏi vẫn còn size M ạ.',
     windowClosesAt: iso(3 * H + 60_000),
+    scheduledFor: null,
     createdAt: iso(-60_000),
     ...over,
   };
@@ -73,7 +74,11 @@ function today(drafts: TodayApprovalItem[]): TodayResponse {
       { key: 'ready', count: 0, items: [] },
       { key: 'price_silent', count: 0, items: [] },
       { key: 'follow_up', count: 0, items: [] },
-      { key: 'approval', count: drafts.length, items: drafts },
+      {
+        key: 'approval',
+        count: drafts.filter((d) => !d.scheduledFor).length,
+        items: drafts,
+      },
       { key: 'tasks', count: 0, items: [] },
     ],
     usage: { used: 3, limit: 200 },
@@ -154,6 +159,20 @@ function renderApp() {
   renderWithProviders(<RouterProvider router={router} />);
 }
 
+/**
+ * A fetch that holds the requests matching `held` until released: the row is gone (optimistic)
+ * before the server answers, as on a real network.
+ */
+function holding(stub: ReturnType<typeof stubFetch>, held: (key: string) => boolean) {
+  const waiting: Array<() => void> = [];
+  const fetch = async (input: string, init: RequestInit = {}) => {
+    if (held(`${init.method ?? 'GET'} ${input.replace('/api/v1', '')}`))
+      await new Promise<void>((r) => waiting.push(r));
+    return stub.fetchStub(input, init);
+  };
+  return { fetch, release: () => waiting.splice(0).forEach((r) => r()) };
+}
+
 function routes(
   body: TodayResponse,
   extra: Parameters<typeof stubFetch>[0] = {},
@@ -172,6 +191,8 @@ beforeAll(async () => {
   Element.prototype.releasePointerCapture ??= () => undefined;
 });
 afterEach(() => {
+  // Toasts live in sonner's module-level store: never let one test see another's.
+  toast.dismiss();
   perms.canEdit = true;
   perms.analytics = true;
   vi.useRealTimers();
@@ -196,7 +217,7 @@ describe('Today: "Chờ duyệt"', () => {
     expect(chips.getAllByRole('link')[0]).toHaveTextContent('Chờ duyệt2');
   });
 
-  it('sends a draft as it is, and drops another', async () => {
+  it('sends a draft as it is, and drops another; the toasts come after the rows are gone', async () => {
     const stub = stubFetch(
       routes(today(twoDrafts()), {
         [`POST /today/approval/${CARE}/approve`]: { status: 200, body: sent(CARE) },
@@ -206,50 +227,120 @@ describe('Today: "Chờ duyệt"', () => {
         },
       }),
     );
-    vi.stubGlobal('fetch', stub.fetchStub);
+    const net = holding(stub, (k) => k.startsWith('POST'));
+    vi.stubGlobal('fetch', net.fetch);
     renderApp();
     const user = userEvent.setup();
     const queue = await screen.findByRole('region', { name: 'Chờ duyệt' }, { timeout: 5000 });
-    const row = (name: string) => within(within(queue).getByText(name).closest('li')!);
-    await user.click(row('Anh Minh').getByRole('button', { name: 'Bỏ' }));
-    await waitFor(() =>
-      expect(stub.calls.some((c) => c.key === `POST /today/approval/${CARE2}/reject`)).toBe(true),
-    );
+    await user.click(within(queue).getByRole('button', { name: 'Bỏ tin gửi Anh Minh' }));
+    await waitFor(() => expect(within(queue).queryByText('Anh Minh')).toBeNull());
+    net.release();
     expect(await screen.findByText('Đã bỏ tin này')).toBeInTheDocument();
-    await user.click(row('Chị Lan').getByRole('button', { name: 'Gửi' }));
-    await waitFor(() =>
-      expect(
-        stub.calls.find((c) => c.key === `POST /today/approval/${CARE}/approve`)?.body,
-      ).toEqual({}),
-    );
+    await user.click(within(queue).getByRole('button', { name: 'Gửi tin cho Chị Lan' }));
+    await waitFor(() => expect(within(queue).queryByText('Chị Lan')).toBeNull());
+    net.release();
     expect(await screen.findByText('Đã gửi tin cho Chị Lan')).toBeInTheDocument();
+    expect(stub.calls.find((c) => c.key === `POST /today/approval/${CARE}/approve`)?.body).toEqual(
+      {},
+    );
   });
 
-  it('takes a draft off the queue at once, before the server answers', async () => {
+  it('warns when the channel did not take the message (200, failed)', async () => {
     const stub = stubFetch(
-      routes(today(twoDrafts()), {
-        [`POST /today/approval/${CARE2}/reject`]: {
+      routes(today([draft()]), {
+        [`POST /today/approval/${CARE}/approve`]: {
           status: 200,
-          body: { ...sent(CARE2), status: 'rejected' },
+          body: { ...sent(CARE), status: 'failed' },
         },
       }),
     );
-    let release: () => void = () => undefined;
-    vi.stubGlobal('fetch', async (input: string, init: RequestInit = {}) => {
-      if (input.endsWith('/reject')) await new Promise<void>((r) => (release = r));
-      return stub.fetchStub(input, init);
-    });
+    const net = holding(stub, (k) => k.startsWith('POST'));
+    vi.stubGlobal('fetch', net.fetch);
     renderApp();
     const user = userEvent.setup();
     const queue = await screen.findByRole('region', { name: 'Chờ duyệt' }, { timeout: 5000 });
-    const minh = within(queue).getByText('Anh Minh').closest('li')!;
-    await user.click(within(minh).getByRole('button', { name: 'Bỏ' }));
-    await waitFor(() => expect(within(queue).queryByText('Anh Minh')).toBeNull());
-    release();
-    await waitFor(() =>
-      expect(stub.calls.some((c) => c.key === `POST /today/approval/${CARE2}/reject`)).toBe(true),
+    await user.click(within(queue).getByRole('button', { name: 'Gửi tin cho Chị Lan' }));
+    await waitFor(() => expect(within(queue).queryByText('Chị Lan')).toBeNull());
+    net.release();
+    expect(
+      await screen.findByText('Tin chưa gửi được — kênh báo lỗi, thử lại sau'),
+    ).toBeInTheDocument();
+  });
+
+  it('says when an approval at night goes out at 08:00, and lists it without actions', async () => {
+    const stub = stubFetch(
+      routes(
+        today([
+          draft(),
+          draft({
+            conversationId: CONV2,
+            careMessageId: CARE2,
+            customerName: 'Anh Minh',
+            scheduledFor: '2026-11-12T01:00:00.000Z',
+          }),
+        ]),
+        {
+          [`POST /today/approval/${CARE}/approve`]: {
+            status: 200,
+            body: { ...sent(CARE), status: 'scheduled', scheduledFor: '2026-11-12T01:00:00.000Z' },
+          },
+        },
+      ),
     );
-    expect(await screen.findByText('Đã bỏ tin này')).toBeInTheDocument();
+    const net = holding(stub, (k) => k.startsWith('POST'));
+    vi.stubGlobal('fetch', net.fetch);
+    renderApp();
+    const user = userEvent.setup();
+    const queue = await screen.findByRole('region', { name: 'Chờ duyệt' }, { timeout: 5000 });
+    const minh = within(within(queue).getByText('Anh Minh').closest('li')!);
+    expect(minh.getByText('Sẽ gửi lúc 08:00')).toBeInTheDocument();
+    expect(minh.queryByRole('button')).toBeNull();
+    // Only the draft waits for approval: no "Gửi tất cả" for a single draft.
+    expect(within(queue).queryByRole('button', { name: 'Gửi tất cả' })).toBeNull();
+    await user.click(within(queue).getByRole('button', { name: 'Gửi tin cho Chị Lan' }));
+    await waitFor(() => expect(within(queue).queryByText('Chị Lan')).toBeNull());
+    net.release();
+    expect(
+      await screen.findByText('Đã duyệt tin cho Chị Lan — sẽ gửi lúc 08:00'),
+    ).toBeInTheDocument();
+  });
+
+  it('puts back only the draft whose request failed, not one still being sent', async () => {
+    const stub = stubFetch(
+      routes(today(twoDrafts()), {
+        [`POST /today/approval/${CARE}/approve`]: {
+          status: 409,
+          body: {
+            error: { code: 'CONFLICT', message: 'x', details: { reason: 'CARE_TAKEN_OVER' } },
+          },
+        },
+        [`POST /today/approval/${CARE2}/approve`]: { status: 200, body: sent(CARE2) },
+      }),
+    );
+    // Refetches of Today hang too, so only the cache's own rollback is on screen.
+    let holdToday = false;
+    const lan = holding(stub, (k) => k.startsWith('POST') || (holdToday && k === 'GET /today'));
+    const minh = holding(stub, (k) => k.startsWith('POST'));
+    vi.stubGlobal('fetch', async (input: string, init: RequestInit = {}) =>
+      input.includes(CARE2) ? minh.fetch(input, init) : lan.fetch(input, init),
+    );
+    renderApp();
+    const user = userEvent.setup();
+    const queue = await screen.findByRole('region', { name: 'Chờ duyệt' }, { timeout: 5000 });
+    holdToday = true;
+    await user.click(within(queue).getByRole('button', { name: 'Gửi tin cho Chị Lan' }));
+    await user.click(within(queue).getByRole('button', { name: 'Gửi tin cho Anh Minh' }));
+    await waitFor(() => expect(within(queue).queryByText('Anh Minh')).toBeNull());
+    // Lan's request fails while Minh's is still on its way.
+    lan.release();
+    expect(
+      await screen.findByText('Nhân viên đang giữ hội thoại này nên tin đã được bỏ'),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(within(queue).getByText('Chị Lan')).toBeInTheDocument());
+    expect(within(queue).queryByText('Anh Minh')).toBeNull();
+    holdToday = false;
+    minh.release();
+    lan.release();
   });
 
   it('edits a draft inline (at most 600 characters) and sends the edited text', async () => {
@@ -262,7 +353,7 @@ describe('Today: "Chờ duyệt"', () => {
     renderApp();
     const user = userEvent.setup();
     const queue = await screen.findByRole('region', { name: 'Chờ duyệt' }, { timeout: 5000 });
-    await user.click(within(queue).getByRole('button', { name: 'Sửa rồi gửi' }));
+    await user.click(within(queue).getByRole('button', { name: 'Sửa rồi gửi tin cho Chị Lan' }));
     const editor = within(queue).getByRole('textbox', { name: 'Sửa tin gửi Chị Lan' });
     expect(editor).toHaveAttribute('maxLength', '600');
     await user.clear(editor);
@@ -283,6 +374,7 @@ describe('Today: "Chờ duyệt"', () => {
           status: 200,
           body: {
             sent: 1,
+            scheduled: 0,
             notSent: 1,
             results: [
               { id: CARE, status: 'sent' },
@@ -307,28 +399,39 @@ describe('Today: "Chờ duyệt"', () => {
       }),
     );
     expect(
-      await screen.findByText(
-        'Đã gửi 1 tin, 1 tin không gửi được (hết 24 giờ hoặc khách vừa nhắn)',
-      ),
+      await screen.findByText('Đã gửi 1 tin · 1 tin đã hết hạn (hết 24 giờ hoặc khách vừa nhắn)'),
     ).toBeInTheDocument();
   });
 
-  it('says so when a draft was already handled (409) and puts it back', async () => {
-    vi.stubGlobal(
-      'fetch',
-      stubFetch(
-        routes(today([draft()]), {
-          [`POST /today/approval/${CARE}/approve`]: {
-            status: 409,
-            body: { error: { code: 'CONFLICT', message: 'decided' } },
-          },
-        }),
-      ).fetchStub,
-    );
+  it('keeps "Gửi tất cả" off while a draft is being edited', async () => {
+    vi.stubGlobal('fetch', stubFetch(routes(today(twoDrafts()))).fetchStub);
     renderApp();
     const user = userEvent.setup();
     const queue = await screen.findByRole('region', { name: 'Chờ duyệt' }, { timeout: 5000 });
-    await user.click(within(queue).getByRole('button', { name: 'Gửi' }));
+    expect(within(queue).getByRole('button', { name: 'Gửi tất cả' })).toBeEnabled();
+    await user.click(within(queue).getByRole('button', { name: 'Sửa rồi gửi tin cho Chị Lan' }));
+    expect(within(queue).getByRole('button', { name: 'Gửi tất cả' })).toBeDisabled();
+    await user.click(within(queue).getByRole('button', { name: 'Hủy' }));
+    expect(within(queue).getByRole('button', { name: 'Gửi tất cả' })).toBeEnabled();
+  });
+
+  it('says so when a draft was already handled (409) and puts it back', async () => {
+    const stub = stubFetch(
+      routes(today([draft()]), {
+        [`POST /today/approval/${CARE}/approve`]: {
+          status: 409,
+          body: { error: { code: 'CONFLICT', message: 'decided' } },
+        },
+      }),
+    );
+    const net = holding(stub, (k) => k.startsWith('POST'));
+    vi.stubGlobal('fetch', net.fetch);
+    renderApp();
+    const user = userEvent.setup();
+    const queue = await screen.findByRole('region', { name: 'Chờ duyệt' }, { timeout: 5000 });
+    await user.click(within(queue).getByRole('button', { name: 'Gửi tin cho Chị Lan' }));
+    await waitFor(() => expect(within(queue).queryByText('Chị Lan')).toBeNull());
+    net.release();
     expect(
       await screen.findByText('Tin này không còn gửi được — đã có người xử lý hoặc đã hết 24 giờ'),
     ).toBeInTheDocument();

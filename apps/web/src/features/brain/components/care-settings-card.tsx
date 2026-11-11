@@ -99,7 +99,10 @@ function CareForm({
     () => new Map(actions.map((a) => [a.action, a.level] as const)),
   );
   const [templates, setTemplates] = useState(() => settings.templates.map(toForm));
-  const valid = templates.every((tpl) => tpl.key !== 'after_sale' || daysValid(tpl.afterSaleDays));
+  // A switched-off template's days are not editable, so they never block saving.
+  const valid = templates.every(
+    (tpl) => tpl.key !== 'after_sale' || !tpl.enabled || daysValid(tpl.afterSaleDays),
+  );
 
   function patch(key: TemplateForm['key'], change: Partial<TemplateForm>) {
     setTemplates((all) => all.map((tpl) => (tpl.key === key ? { ...tpl, ...change } : tpl)));
@@ -114,7 +117,10 @@ function CareForm({
         .map((a) => ({ action: a.action, level: levels.get(a.action) ?? a.level })),
       templates: templates.flatMap((tpl) => {
         const before = settings.templates.find((b) => b.key === tpl.key);
-        const days = Number(tpl.afterSaleDays);
+        // Off with days that are not valid: the stored days are kept.
+        const days = daysValid(tpl.afterSaleDays)
+          ? Number(tpl.afterSaleDays)
+          : (before?.afterSaleDays ?? CARE_AFTER_SALE_DAYS.default);
         const same =
           before &&
           before.enabled === tpl.enabled &&
@@ -251,6 +257,10 @@ function CareForm({
             {t('careSettings.quietHoursValue', {
               from: hour(settings.quietHours.from),
               to: hour(settings.quietHours.to),
+              zone:
+                settings.quietHours.timeZone === 'Asia/Ho_Chi_Minh'
+                  ? t('careSettings.zoneVietnam')
+                  : settings.quietHours.timeZone,
             })}
           </dd>
           <dt className="text-muted-foreground">{t('careSettings.perConversation')}</dt>
