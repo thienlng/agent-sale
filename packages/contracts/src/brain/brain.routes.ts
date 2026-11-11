@@ -1,0 +1,83 @@
+import { defineRoutes } from '../common/routes.js';
+import {
+  BrainSettingsDto,
+  BrainUsageDto,
+  ConversationSignalResponse,
+  EvaluateSignalsResponse,
+  UpdateBrainSettingsRequest,
+  UpdateConversationSignalRequest,
+} from './brain.schema.js';
+
+export const brainRoutes = defineRoutes([
+  {
+    method: 'get',
+    path: '/conversations/{id}/signals',
+    assistant: {
+      use: 'read',
+      when: "The AI's current read of a conversation: stage, intent, mood, follow-up and note",
+    },
+    summary: "The AI's signals of a conversation (null before its first evaluation)",
+    tag: 'brain',
+    auth: true,
+    workspaceScoped: true,
+    responses: { 200: ConversationSignalResponse },
+  },
+  {
+    method: 'post',
+    path: '/conversations/{id}/signals/evaluate',
+    assistant: {
+      use: 'write',
+      when: 'Re-evaluate one conversation now; uses one of the daily evaluations',
+    },
+    summary: 'Evaluate the conversation now (counts toward the daily cap)',
+    tag: 'brain',
+    auth: true,
+    workspaceScoped: true,
+    responses: { 200: EvaluateSignalsResponse },
+  },
+  {
+    method: 'patch',
+    path: '/conversations/{id}/signals',
+    assistant: {
+      use: 'write',
+      when: 'Set the stage of a conversation by hand (the AI then keeps it) or unlock it',
+    },
+    summary: 'Set the stage by hand (locks it) or unlock it',
+    tag: 'brain',
+    auth: true,
+    workspaceScoped: true,
+    body: UpdateConversationSignalRequest,
+    responses: { 200: ConversationSignalResponse },
+  },
+  {
+    method: 'get',
+    path: '/brain/settings',
+    assistant: { use: 'read', when: 'How and when conversations are evaluated, and the briefing' },
+    summary: 'Business Brain settings (evaluation mode, idle minutes, morning briefing)',
+    tag: 'brain',
+    auth: true,
+    workspaceScoped: true,
+    responses: { 200: BrainSettingsDto },
+  },
+  {
+    method: 'put',
+    path: '/brain/settings',
+    assistant: { use: 'write', when: 'Change the evaluation mode, idle minutes or the briefing' },
+    summary: 'Replace the Business Brain settings',
+    tag: 'brain',
+    auth: true,
+    workspaceScoped: true,
+    body: UpdateBrainSettingsRequest,
+    responses: { 200: BrainSettingsDto },
+  },
+  {
+    method: 'get',
+    path: '/brain/usage',
+    assistant: { use: 'read', when: 'How many conversation evaluations were used today' },
+    summary: 'Evaluations used today and the daily limit',
+    tag: 'brain',
+    auth: true,
+    workspaceScoped: true,
+    responses: { 200: BrainUsageDto },
+  },
+]);

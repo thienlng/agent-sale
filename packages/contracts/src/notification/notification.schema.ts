@@ -13,6 +13,8 @@ export const NotificationType = z.enum([
   /** A whole-workspace data export is ready to download, or failed (SET-10). */
   'dataexport.ready',
   'dataexport.failed',
+  /** An evaluation newly found a customer complaint (Business Brain, spec 2026-11-11 §6). */
+  'brain.complaint',
 ]);
 export type NotificationType = z.infer<typeof NotificationType>;
 

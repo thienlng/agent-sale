@@ -115,5 +115,11 @@
       "title": "New message from {{customer}}",
       "body": "{{business}} · {{excerpt}}"
     }
+  },
+  "brain": {
+    "complaint": {
+      "title": "{{customer}} is complaining",
+      "body": "{{business}} · {{reason}}"
+    }
   }
 }

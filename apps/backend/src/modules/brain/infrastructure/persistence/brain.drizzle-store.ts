@@ -1,0 +1,277 @@
+import {
+  and,
+  type Database,
+  eq,
+  inArray,
+  schema,
+  sql,
+  withSystem,
+  withTenant,
+} from '@agent-sales/db';
+import { newId, workspaceId as asWorkspaceId, type WorkspaceId } from '@agent-sales/shared';
+
+import type { BrainStore, SignalJob, SignalRunRecord } from '../../domain/ports/brain.store.js';
+import type { BrainSettings } from '../../domain/schedule.js';
+import type { ConversationSignal } from '../../domain/signal.js';
+
+const cs = schema.conversationSignals;
+const jb = schema.signalJobs;
+const us = schema.signalUsage;
+const st = schema.brainSettings;
+
+const toSignal = (r: typeof cs.$inferSelect): ConversationSignal => ({
+  conversationId: r.conversationId,
+  contactId: r.contactId,
+  stage: r.stage,
+  intent: r.intent,
+  mood: r.mood,
+  needsHuman: r.needsHuman,
+  needsHumanReason: r.needsHumanReason,
+  followUpAt: r.followUpAt,
+  followUpReason: r.followUpReason,
+  note: r.note,
+  evaluatedUntil: r.evaluatedUntil,
+  evaluatedAt: r.evaluatedAt,
+  stageLocked: r.stageLocked,
+  dismissedUntilMessageAfter: r.dismissedUntilMessageAfter,
+  version: r.version,
+  updatedAt: r.updatedAt,
+});
+
+type RawJob = {
+  workspace_id: string;
+  conversation_id: string;
+  trigger: SignalJob['trigger'];
+  run_after: string | Date;
+  attempts: number;
+};
+
+/** A foreign-key violation: the conversation was deleted before its job was written. */
+const isMissingConversation = (e: unknown): boolean => {
+  const code = (x: unknown) => (x as { code?: unknown } | null)?.code;
+  return code(e) === '23503' || code((e as { cause?: unknown } | null)?.cause) === '23503';
+};
+
+/**
+ * Brain tables through Drizzle. Tenant methods run in `withTenant` (RLS); the worker's claims and
+ * resets run on the system login (`withSystem`), across businesses.
+ */
+export class DrizzleBrainStore implements BrainStore {
+  constructor(
+    private readonly db: Database,
+    private readonly systemDb: Database,
+  ) {}
+
+  getSettings(ws: WorkspaceId): Promise<BrainSettings | null> {
+    return withTenant(this.db, ws, async (tx) => {
+      const [r] = await tx.select().from(st).where(eq(st.workspaceId, ws));
+      return r
+        ? {
+            mode: r.mode,
+            idleMinutes: r.idleMinutes,
+            briefingEnabled: r.briefingEnabled,
+            briefingHour: r.briefingHour,
+          }
+        : null;
+    });
+  }
+
+  putSettings(ws: WorkspaceId, s: BrainSettings): Promise<void> {
+    return withTenant(this.db, ws, async (tx) => {
+      const values = {
+        mode: s.mode,
+        idleMinutes: s.idleMinutes,
+        briefingEnabled: s.briefingEnabled,
+        briefingHour: s.briefingHour,
+      };
+      await tx
+        .insert(st)
+        .values({ workspaceId: ws, ...values })
+        .onConflictDoUpdate({ target: st.workspaceId, set: values });
+    });
+  }
+
+  getSignal(ws: WorkspaceId, conversationId: string): Promise<ConversationSignal | null> {
+    return withTenant(this.db, ws, async (tx) => {
+      const [r] = await tx
+        .select()
+        .from(cs)
+        .where(and(eq(cs.workspaceId, ws), eq(cs.conversationId, conversationId)));
+      return r ? toSignal(r) : null;
+    });
+  }
+
+  signalsFor(ws: WorkspaceId, ids: readonly string[]): Promise<ConversationSignal[]> {
+    if (!ids.length) return Promise.resolve([]);
+    return withTenant(this.db, ws, async (tx) =>
+      (
+        await tx
+          .select()
+          .from(cs)
+          .where(and(eq(cs.workspaceId, ws), inArray(cs.conversationId, [...ids])))
+      ).map(toSignal),
+    );
+  }
+
+  saveSignal(ws: WorkspaceId, s: ConversationSignal): Promise<void> {
+    return withTenant(this.db, ws, async (tx) => {
+      const values = {
+        contactId: s.contactId,
+        stage: s.stage,
+        intent: s.intent,
+        mood: s.mood,
+        needsHuman: s.needsHuman,
+        needsHumanReason: s.needsHumanReason,
+        followUpAt: s.followUpAt,
+        followUpReason: s.followUpReason,
+        note: s.note,
+        evaluatedUntil: s.evaluatedUntil,
+        evaluatedAt: s.evaluatedAt,
+        stageLocked: s.stageLocked,
+        dismissedUntilMessageAfter: s.dismissedUntilMessageAfter,
+        version: s.version,
+        updatedAt: s.updatedAt,
+      };
+      await tx
+        .insert(cs)
+        .values({ workspaceId: ws, conversationId: s.conversationId, ...values })
+        .onConflictDoUpdate({ target: [cs.workspaceId, cs.conversationId], set: values });
+    });
+  }
+
+  async scheduleJob(ws: WorkspaceId, conversationId: string, due: Date): Promise<void> {
+    try {
+      await withTenant(this.db, ws, async (tx) => {
+        await tx
+          .insert(jb)
+          .values({
+            workspaceId: ws,
+            conversationId,
+            trigger: 'idle',
+            runAfter: due,
+            status: 'pending',
+          })
+          .onConflictDoUpdate({
+            target: [jb.workspaceId, jb.conversationId],
+            set: {
+              runAfter: sql`greatest(${jb.runAfter}, excluded.run_after)`,
+              status: 'pending',
+              trigger: 'idle',
+              attempts: 0,
+            },
+          });
+      });
+    } catch (e) {
+      if (!isMissingConversation(e)) throw e;
+    }
+  }
+
+  claimDueJobs(now: Date, limit: number, leaseMs: number): Promise<SignalJob[]> {
+    const at = now.toISOString();
+    return withSystem(this.systemDb, async (tx) => {
+      const rows = await tx.execute<RawJob>(sql`
+        with picked as (
+          select workspace_id, conversation_id from signal_jobs
+          where status = 'pending' and run_after <= ${at}::timestamptz
+            and (lease_until is null or lease_until < ${at}::timestamptz)
+          order by run_after
+          limit ${limit}
+          for update skip locked)
+        update signal_jobs j
+        set lease_until = ${at}::timestamptz + ${leaseMs}::int * interval '1 millisecond',
+            attempts = j.attempts + 1
+        from picked
+        where j.workspace_id = picked.workspace_id and j.conversation_id = picked.conversation_id
+        returning j.workspace_id, j.conversation_id, j.trigger, j.run_after, j.attempts`);
+      return [...rows].map((r) => ({
+        workspaceId: asWorkspaceId(r.workspace_id),
+        conversationId: r.conversation_id,
+        trigger: r.trigger,
+        runAfter: new Date(r.run_after),
+        attempts: Number(r.attempts),
+      }));
+    });
+  }
+
+  finishJob(ws: WorkspaceId, conversationId: string, claimedRunAfter: Date): Promise<void> {
+    return withTenant(this.db, ws, async (tx) => {
+      const key = and(eq(jb.workspaceId, ws), eq(jb.conversationId, conversationId));
+      await tx.delete(jb).where(and(key, sql`${jb.runAfter} <= ${claimedRunAfter.toISOString()}`));
+      // A newer customer message moved it: it stays, free to be claimed when due.
+      await tx.update(jb).set({ leaseUntil: null }).where(key);
+    });
+  }
+
+  capJob(ws: WorkspaceId, conversationId: string, until: Date): Promise<void> {
+    return withTenant(this.db, ws, async (tx) => {
+      await tx
+        .update(jb)
+        .set({ status: 'capped', runAfter: until, leaseUntil: null })
+        .where(and(eq(jb.workspaceId, ws), eq(jb.conversationId, conversationId)));
+    });
+  }
+
+  retryJob(ws: WorkspaceId, conversationId: string, retryAt: Date): Promise<void> {
+    return withTenant(this.db, ws, async (tx) => {
+      await tx
+        .update(jb)
+        .set({
+          runAfter: sql`greatest(${jb.runAfter}, ${retryAt.toISOString()}::timestamptz)`,
+          leaseUntil: null,
+        })
+        .where(and(eq(jb.workspaceId, ws), eq(jb.conversationId, conversationId)));
+    });
+  }
+
+  resetCappedJobs(now: Date): Promise<number> {
+    return withSystem(this.systemDb, async (tx) => {
+      const rows = await tx
+        .update(jb)
+        .set({ status: 'pending' })
+        .where(and(eq(jb.status, 'capped'), sql`${jb.runAfter} <= ${now.toISOString()}`))
+        .returning({ id: jb.conversationId });
+      return rows.length;
+    });
+  }
+
+  reserveUsage(ws: WorkspaceId, day: string, limit: number | null): Promise<boolean> {
+    if (limit !== null && limit <= 0) return Promise.resolve(false);
+    return withTenant(this.db, ws, async (tx) => {
+      const rows = await tx
+        .insert(us)
+        .values({ workspaceId: ws, day, count: 1 })
+        .onConflictDoUpdate({
+          target: [us.workspaceId, us.day],
+          set: { count: sql`${us.count} + 1` },
+          ...(limit === null ? {} : { setWhere: sql`${us.count} < ${limit}` }),
+        })
+        .returning({ count: us.count });
+      return rows.length > 0;
+    });
+  }
+
+  releaseUsage(ws: WorkspaceId, day: string): Promise<void> {
+    return withTenant(this.db, ws, async (tx) => {
+      await tx
+        .update(us)
+        .set({ count: sql`greatest(${us.count} - 1, 0)` })
+        .where(and(eq(us.workspaceId, ws), eq(us.day, day)));
+    });
+  }
+
+  usedOn(ws: WorkspaceId, day: string): Promise<number> {
+    return withTenant(this.db, ws, async (tx) => {
+      const [r] = await tx
+        .select({ count: us.count })
+        .from(us)
+        .where(and(eq(us.workspaceId, ws), eq(us.day, day)));
+      return r?.count ?? 0;
+    });
+  }
+
+  recordRun(ws: WorkspaceId, run: SignalRunRecord): Promise<void> {
+    return withTenant(this.db, ws, async (tx) => {
+      await tx.insert(schema.signalRuns).values({ id: newId(), workspaceId: ws, ...run });
+    });
+  }
+}

@@ -73,6 +73,11 @@
     "api": {
       "requests_per_minute": "Requests per minute per key"
     },
+    "brain": {
+      "evaluations": {
+        "daily": "Conversation evaluations per day"
+      }
+    },
     "amount": "Replies",
     "periodDays": "Cycle (days)"
   },

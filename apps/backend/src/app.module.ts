@@ -11,6 +11,7 @@ import { AssistantModule } from './modules/assistant/assistant.module.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { BackofficeModule } from './modules/backoffice/backoffice.module.js';
 import { BillingModule } from './modules/billing/billing.module.js';
+import { BrainModule } from './modules/brain/brain.module.js';
 import { CommerceModule } from './modules/commerce/commerce.module.js';
 import { CrmModule } from './modules/crm/crm.module.js';
 import { DeveloperModule } from './modules/developer/developer.module.js';
@@ -57,6 +58,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module.js';
     BackofficeModule,
     DeveloperModule,
     DataexportModule,
+    BrainModule,
   ],
 })
 export class AppModule {}

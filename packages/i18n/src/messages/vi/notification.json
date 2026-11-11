@@ -115,5 +115,11 @@
       "title": "Tin nhắn mới từ {{customer}}",
       "body": "{{business}} · {{excerpt}}"
     }
+  },
+  "brain": {
+    "complaint": {
+      "title": "{{customer}} đang phàn nàn",
+      "body": "{{business}} · {{reason}}"
+    }
   }
 }
