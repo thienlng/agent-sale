@@ -10,6 +10,7 @@ import type { ChannelFacade } from '../src/modules/channel/api/index.js';
 import type { CommerceFacade, ConversationOrder } from '../src/modules/commerce/api/index.js';
 import { ApprovalService } from '../src/modules/care/application/approval.service.js';
 import { CareEnroller } from '../src/modules/care/application/care-enroller.js';
+import { CareGuard } from '../src/modules/care/application/care-guard.js';
 import { CareRunnerImpl } from '../src/modules/care/application/care-runner.js';
 import { CareSender } from '../src/modules/care/application/care-sender.js';
 import { CareSettingsService } from '../src/modules/care/application/care-settings.service.js';
@@ -42,8 +43,11 @@ const at = (h: number) => new Date(T0.getTime() + h * H);
 class ScriptedModel {
   calls: GenerateRequest[] = [];
   replies: string[] = [];
-  generate(request: GenerateRequest): Promise<GenerateResponse> {
+  /** Runs while the model "writes" (a race lands here). */
+  onCall: (() => Promise<void>) | null = null;
+  async generate(request: GenerateRequest): Promise<GenerateResponse> {
     this.calls.push(request);
+    await this.onCall?.();
     const text =
       this.replies.shift() ??
       JSON.stringify({
@@ -51,7 +55,7 @@ class ScriptedModel {
         text: 'Dạ áo khoác size M vẫn còn ạ, anh cần em giữ không?',
         reason: '',
       });
-    return Promise.resolve({
+    return {
       text,
       toolCalls: [],
       stopReason: 'end',
@@ -59,7 +63,7 @@ class ScriptedModel {
       provider: 'fake',
       model: 'fake-basic',
       latencyMs: 5,
-    });
+    };
   }
 }
 
@@ -153,15 +157,17 @@ function setup(dailyLimit?: number) {
   const writer = new CareWriter(conversations, bots, model);
   const sender = new CareSender(store, conversations);
   const enroller = new CareEnroller(events, store, settings, conversations, brain, commerce);
-  const step = new CareStep(store, settings, writer, sender, conversations, brain, commerce);
-  const runner = new CareRunnerImpl(store, enroller, step);
+  const guard = new CareGuard(settings, conversations, brain, commerce);
+  const step = new CareStep(store, settings, writer, sender, guard, brain);
   const approvals = new ApprovalService(
     store,
     sender,
+    guard,
     conversations,
     brain,
     fakeIdentity() as never,
   );
+  const runner = new CareRunnerImpl(store, enroller, step, approvals);
   const impact = new ImpactQuery(store, conversations, commerce);
   return {
     conversations,
@@ -180,13 +186,17 @@ function setup(dailyLimit?: number) {
   };
 }
 
-function customer(id: string, text = 'Áo khoác này giá bao nhiêu?'): NormalizedEvent {
+function customer(
+  id: string,
+  text = 'Áo khoác này giá bao nhiêu?',
+  psid = 'psid-1',
+): NormalizedEvent {
   return {
     kind: 'facebook',
     assetExternalId: 'page',
     externalEventId: id,
     externalMessageId: id,
-    senderExternalId: 'psid-1',
+    senderExternalId: psid,
     type: 'message',
     occurredAt: new Date(),
     text,
@@ -195,21 +205,21 @@ function customer(id: string, text = 'Áo khoác này giá bao nhiêu?'): Normal
 }
 
 /** The customer asked a price at T0, the bot answered, the Brain judged `price_asked`. */
-async function pricedConversation(h: ReturnType<typeof setup>): Promise<string> {
+async function pricedConversation(h: ReturnType<typeof setup>, psid = 'psid-1'): Promise<string> {
   vi.setSystemTime(T0);
-  const c = await h.conversations.receive(ws, channelId, customer('in-1'));
+  const c = await h.conversations.receive(ws, channelId, customer(`in-1-${psid}`, undefined, psid));
   h.events.push({
     workspaceId: ws,
     type: 'conversation.message.received.v1',
     aggregateId: c.id,
-    payload: { messageId: 'in-1', type: 'message', occurredAt: T0.toISOString() },
+    payload: { messageId: `in-1-${psid}`, type: 'message', occurredAt: T0.toISOString() },
     createdAt: T0,
   });
   vi.setSystemTime(at(0.01));
   await h.conversations.commitBotReply(ws, c.id, {
     revision: c.revision,
     text: 'Dạ áo khoác 450k ạ',
-    idempotencyKey: 'bot:in-1',
+    idempotencyKey: `bot:in-1-${psid}`,
   });
   vi.setSystemTime(at(0.8));
   h.signals.set(c.id, { stage: 'price_asked', note: 'Khách hỏi giá áo khoác size M, 450k.' });
@@ -280,7 +290,7 @@ describe('care agent flow (suggest)', () => {
     expect(conversation.mode).toBe('bot');
     await expect(
       h.approvals.approve(ws, view, item?.careMessageId ?? '', undefined),
-    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    ).rejects.toMatchObject({ code: 'CARE_DRAFT_DECIDED' });
 
     // The customer answers: the cycle stops, the +21 h step never runs.
     vi.setSystemTime(at(3));
@@ -313,9 +323,7 @@ describe('care agent flow (suggest)', () => {
     expect((await h.approvals.approvals(ws, view, at(24), 20)).count).toBe(0);
     await expect(
       h.approvals.approve(ws, view, item?.careMessageId ?? '', undefined),
-    ).rejects.toMatchObject({
-      code: 'CONFLICT',
-    });
+    ).rejects.toMatchObject({ code: 'CARE_WINDOW_CLOSED' });
     expect(h.channels.deliver).toHaveBeenCalledTimes(1);
   });
 
@@ -465,5 +473,301 @@ describe('attribution', () => {
     });
     const r3 = await h.impact.impact(ws, 'today', at(8 * 24 + 1));
     expect(r3.ai.orders + r3.aiStaff.orders).toBe(0);
+  });
+});
+
+const view = { userId: owner, viewAll: true };
+/** The draft of the first conversation, written at +2 h (12:00 local). */
+async function drafted(h: ReturnType<typeof setup>, psid = 'psid-1') {
+  const conv = await pricedConversation(h, psid);
+  vi.setSystemTime(at(2));
+  await h.runner.tick(at(2));
+  const draft = h.store.messages.find((m) => m.conversationId === conv && m.status === 'draft');
+  return { conv, id: draft?.id ?? '' };
+}
+const usedToday = (h: ReturnType<typeof setup>) => h.settings.settings(ws, at(2));
+
+describe('races: nothing goes out after the customer wrote again', () => {
+  it('worker: a customer message during the model call wins; the bot can still answer it', async () => {
+    const h = setup();
+    h.autonomy.level = 'act_and_report';
+    const conv = await pricedConversation(h);
+    vi.setSystemTime(at(2));
+    h.model.onCall = async () => {
+      await h.conversations.receive(ws, channelId, customer('in-race', 'Còn size L không?'));
+    };
+    await h.runner.tick(at(2));
+    expect(h.channels.deliver).toHaveBeenCalledTimes(1); // the bot's first answer only
+    expect(h.store.messages[0]).toMatchObject({
+      status: 'expired',
+      skipReason: 'customer_replied',
+    });
+    expect(h.store.enrollments[0]).toMatchObject({
+      status: 'stopped',
+      stopReason: 'customer_replied',
+    });
+    const { conversation } = await h.conversations.get(ws, conv);
+    expect(conversation.awaitingSince).not.toBeNull(); // still on Today's "unanswered"
+    // The bot's in-flight answer to the new message is not fenced off by the follow-up.
+    expect(
+      await h.conversations.commitBotReply(ws, conv, {
+        revision: conversation.revision,
+        text: 'Dạ còn size L ạ',
+        idempotencyKey: 'bot:in-race',
+      }),
+    ).toMatchObject({ status: 'sent' });
+    // The daily reservation was given back.
+    expect((await usedToday(h)).usage.used).toBe(0);
+  });
+
+  it('approval: a customer message with no enroller pass expires the draft (409)', async () => {
+    const h = setup();
+    const { conv, id } = await drafted(h);
+    vi.setSystemTime(at(2.5));
+    await h.conversations.receive(ws, channelId, customer('in-2', 'Ok để em nghĩ'));
+    // No outbox pass ran: only the approval's own checks stand between the draft and a send.
+    await expect(h.approvals.approve(ws, view, id, undefined, at(2.5))).rejects.toMatchObject({
+      code: 'CARE_CUSTOMER_REPLIED',
+    });
+    expect(h.channels.deliver).toHaveBeenCalledTimes(1);
+    expect(h.store.messages.find((m) => m.id === id)?.status).toBe('expired');
+    expect((await h.conversations.get(ws, conv)).conversation.awaitingSince).not.toBeNull();
+  });
+
+  it('approval: a customer message between the checks and the send is refused in the reservation', async () => {
+    const h = setup();
+    const { id } = await drafted(h);
+    vi.setSystemTime(at(2.5));
+    // Lands after the approval read the facts, right before the send reserves the message.
+    const commit = h.conversations.commitCareMessage.bind(h.conversations);
+    vi.spyOn(h.conversations, 'commitCareMessage').mockImplementationOnce(async (...args) => {
+      await h.conversations.receive(ws, channelId, customer('in-late', 'Thôi khỏi'));
+      return commit(...args);
+    });
+    await expect(h.approvals.approve(ws, view, id, undefined, at(2.5))).rejects.toMatchObject({
+      code: 'CARE_CUSTOMER_REPLIED',
+    });
+    expect(h.channels.deliver).toHaveBeenCalledTimes(1);
+    expect(h.store.messages.find((m) => m.id === id)).toMatchObject({
+      status: 'expired',
+      skipReason: 'customer_replied',
+    });
+  });
+
+  it('approval: an order or opt-out read fresh expires the draft', async () => {
+    const h = setup();
+    const { conv, id } = await drafted(h);
+    h.orders.push({
+      orderId: 'o1',
+      conversationId: conv,
+      createdAt: at(2.2),
+      total: 1,
+      status: 'new',
+    });
+    await expect(h.approvals.approve(ws, view, id, undefined, at(2.5))).rejects.toMatchObject({
+      code: 'CARE_STOPPED',
+      details: { stopReason: 'ordered' },
+    });
+    expect(h.channels.deliver).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('takeover and hand-off', () => {
+  it('refuses to approve while a person holds the conversation and expires the draft', async () => {
+    const h = setup();
+    const { conv, id } = await drafted(h);
+    await h.conversations.update(ws, conv, { mode: 'human' }, owner);
+    await expect(h.approvals.approve(ws, view, id, undefined, at(2.5))).rejects.toMatchObject({
+      code: 'CARE_TAKEN_OVER',
+    });
+    expect(h.store.messages.find((m) => m.id === id)?.status).toBe('expired');
+    expect(h.channels.deliver).toHaveBeenCalledTimes(1);
+  });
+
+  it('a hand-off event expires the open drafts and stops the cycle', async () => {
+    const h = setup();
+    const { conv, id } = await drafted(h);
+    await h.conversations.handOff(ws, conv, owner);
+    h.events.push({
+      workspaceId: ws,
+      type: 'conversation.control.updated.v1',
+      aggregateId: conv,
+      payload: { mode: 'human', status: 'open', actorId: owner, revision: 9 },
+      createdAt: at(2.2),
+    });
+    await h.runner.tick(at(2.2));
+    expect(h.store.messages.find((m) => m.id === id)?.status).toBe('expired');
+    expect(h.store.enrollments[0]).toMatchObject({ status: 'stopped', stopReason: 'taken_over' });
+  });
+});
+
+describe('a step is sent once', () => {
+  it('a re-run of a step that already sent (crash before advance) writes and sends nothing', async () => {
+    const h = setup();
+    h.autonomy.level = 'auto';
+    await pricedConversation(h);
+    vi.setSystemTime(at(2));
+    await h.runner.tick(at(2));
+    expect(h.channels.deliver).toHaveBeenCalledTimes(2);
+    // As if `advance` never happened and the lease ran out.
+    Object.assign(h.store.enrollments[0] ?? {}, { step: 0, nextAt: at(2), leaseUntil: null });
+    vi.setSystemTime(at(3));
+    await h.runner.tick(at(3));
+    expect(h.model.calls).toHaveLength(1);
+    expect(h.channels.deliver).toHaveBeenCalledTimes(2);
+    expect(h.store.messages).toHaveLength(1);
+    expect(h.store.enrollments[0]).toMatchObject({ step: 1, status: 'active' });
+  });
+
+  it('a doubled run that loses the insert race sends nothing and gives the reservation back', async () => {
+    const h = setup();
+    h.autonomy.level = 'auto';
+    await pricedConversation(h);
+    vi.setSystemTime(at(2));
+    const job = h.store.enrollments[0];
+    h.store.beforeInsert = () => {
+      h.store.beforeInsert = null;
+      // The other run wrote the step first.
+      h.store.messages.push({
+        ...(h.store.messages[0] as (typeof h.store.messages)[number]),
+        id: newId(),
+        workspaceId: ws,
+        conversationId: job?.conversationId ?? '',
+        enrollmentId: job?.id ?? null,
+        anchorAt: job?.anchorAt ?? T0,
+        step: 0,
+        status: 'sending',
+        template: 'silent',
+        level: 'auto',
+        text: 'x',
+        skipReason: null,
+        windowClosesAt: null,
+        scheduledFor: null,
+        sentMessageId: null,
+        sentAt: null,
+        decidedBy: null,
+        decidedAt: null,
+        createdAt: at(2),
+        updatedAt: at(2),
+      });
+    };
+    await h.runner.tick(at(2));
+    expect(h.channels.deliver).toHaveBeenCalledTimes(1);
+    expect((await usedToday(h)).usage.used).toBe(0);
+    // The send in flight counts toward the per-conversation limit.
+    expect(await h.store.sentTimes(ws, job?.conversationId ?? '', at(0))).toHaveLength(1);
+  });
+
+  it('gives the daily reservation back when the channel refuses the send', async () => {
+    const h = setup();
+    h.autonomy.level = 'auto';
+    await pricedConversation(h);
+    vi.mocked(h.channels.deliver).mockResolvedValueOnce({
+      externalId: null,
+      status: 'failed',
+      failureCode: 'meta_error',
+    } as never);
+    vi.setSystemTime(at(2));
+    await h.runner.tick(at(2));
+    expect(h.store.messages[0]?.status).toBe('failed');
+    expect((await usedToday(h)).usage.used).toBe(0);
+  });
+});
+
+describe('approvals in the quiet hours and the limit', () => {
+  it('schedules an approval at 23:00 for 08:00 and sends it then', async () => {
+    const h = setup();
+    const { id } = await drafted(h);
+    vi.setSystemTime(at(13)); // 23:00 local
+    const dto = await h.approvals.approve(ws, view, id, 'Dạ áo vẫn còn ạ', at(13));
+    expect(dto).toMatchObject({ status: 'scheduled', scheduledFor: at(22).toISOString() });
+    const queue = await h.approvals.approvals(ws, view, at(13), 20);
+    expect(queue.count).toBe(0);
+    expect(queue.items).toMatchObject([{ careMessageId: id, scheduledFor: at(22).toISOString() }]);
+    await h.runner.tick(at(13));
+    expect(h.channels.deliver).toHaveBeenCalledTimes(1);
+    vi.setSystemTime(at(22));
+    await h.runner.tick(at(22));
+    expect(h.store.messages.find((m) => m.id === id)).toMatchObject({
+      status: 'sent',
+      text: 'Dạ áo vẫn còn ạ',
+      decidedBy: owner,
+    });
+  });
+
+  it('expires a scheduled approval when the customer wrote before 08:00', async () => {
+    const h = setup();
+    const { id } = await drafted(h);
+    await h.approvals.approve(ws, view, id, undefined, at(13));
+    vi.setSystemTime(at(15));
+    await h.conversations.receive(ws, channelId, customer('in-night', 'Mai em ghé'));
+    vi.setSystemTime(at(22));
+    await h.runner.tick(at(22));
+    expect(h.store.messages.find((m) => m.id === id)?.status).toBe('expired');
+    expect(h.channels.deliver).toHaveBeenCalledTimes(1);
+  });
+
+  it('applies the 2-per-24 h limit to approvals (the draft stays)', async () => {
+    const h = setup();
+    const { conv, id } = await drafted(h);
+    for (const at0 of [at(1), at(1.5)])
+      h.store.messages.push({
+        ...(h.store.messages[0] as (typeof h.store.messages)[number]),
+        id: newId(),
+        conversationId: conv,
+        enrollmentId: null,
+        status: 'sent',
+        sentAt: at0,
+      });
+    await expect(h.approvals.approve(ws, view, id, undefined, at(2.5))).rejects.toMatchObject({
+      code: 'CARE_LIMIT_REACHED',
+    });
+    expect(h.store.messages.find((m) => m.id === id)?.status).toBe('draft');
+  });
+
+  it('"Gửi tất cả" sends the first few and queues the rest for the worker', async () => {
+    const h = setup();
+    const ids: string[] = [];
+    for (let i = 0; i < 7; i++) ids.push((await drafted(h, `psid-${i}`)).id);
+    const r = await h.approvals.approveAll(ws, view, undefined, at(2.5));
+    expect(r).toMatchObject({ sent: 5, scheduled: 2, notSent: 0 });
+    vi.setSystemTime(at(2.6));
+    await h.runner.tick(at(2.6));
+    expect(h.store.messages.filter((m) => ids.includes(m.id) && m.status === 'sent')).toHaveLength(
+      7,
+    );
+  });
+});
+
+describe('housekeeping', () => {
+  it('closes after-sales check-ins once they leave Today', async () => {
+    const h = setup();
+    const conv = await pricedConversation(h);
+    await h.store.enroll(ws, {
+      conversationId: conv,
+      template: 'after_sale',
+      anchorAt: at(-100),
+      nextAt: at(-24),
+    });
+    await h.runner.tick(at(5 * 24));
+    expect(h.store.enrollments.find((e) => e.template === 'after_sale')?.status).toBe('active');
+    await h.runner.tick(at(7 * 24));
+    expect(h.store.enrollments.find((e) => e.template === 'after_sale')?.status).toBe('done');
+  });
+
+  it('counts a customer who answered two follow-ups once', async () => {
+    const h = setup();
+    h.autonomy.level = 'auto';
+    const conv = await pricedConversation(h);
+    vi.setSystemTime(at(2));
+    await h.runner.tick(at(2));
+    vi.setSystemTime(at(22));
+    await h.runner.tick(at(22));
+    expect(h.store.messages.filter((m) => m.status === 'sent')).toHaveLength(2);
+    vi.setSystemTime(at(23));
+    await h.conversations.receive(ws, channelId, customer('in-back', 'Cho em 1 cái'));
+    const r = await h.impact.impact(ws, '7d', at(23.5));
+    expect(r).toMatchObject({ followUpsSent: 2, repliesReceived: 1 });
+    expect(conv).toBeTruthy();
   });
 });

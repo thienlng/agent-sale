@@ -47,18 +47,31 @@ export interface Sale {
   total: number;
 }
 
+/**
+ * The attribution of a sale from the conversation module's per-sale aggregate (`aiTouches`: the
+ * first AI touch in the 7 days before it, and whether staff wrote after it) — the same rule as
+ * `attribute`, read in SQL so no message list is loaded.
+ */
+export function attributionOf(t: {
+  firstBotAt: string | null;
+  staffAfter: boolean;
+}): Attribution | null {
+  if (!t.firstBotAt) return null;
+  return t.staffAfter ? 'ai_staff' : 'ai';
+}
+
 /** Sums the attributed sales (counts and integer revenue) per kind. */
 export function summarize(
   sales: readonly Sale[],
-  touchesOf: (conversationId: string) => readonly Touch[],
+  attributionOfSale: (sale: Sale, index: number) => Attribution | null,
 ): { ai: { orders: number; revenue: number }; aiStaff: { orders: number; revenue: number } } {
   const out = { ai: { orders: 0, revenue: 0 }, aiStaff: { orders: 0, revenue: 0 } };
-  for (const s of sales) {
-    const a = attribute(s.createdAt, touchesOf(s.conversationId));
-    if (!a) continue;
+  sales.forEach((s, i) => {
+    const a = attributionOfSale(s, i);
+    if (!a) return;
     const bucket = a === 'ai' ? out.ai : out.aiStaff;
     bucket.orders += 1;
     bucket.revenue += Math.max(0, Math.round(s.total));
-  }
+  });
   return out;
 }

@@ -7,10 +7,11 @@ import { CONVERSATION_FACADE, type ConversationFacade } from '../../conversation
 import { LODGING_FACADE, type LodgingFacade } from '../../lodging/api/index.js';
 import {
   ATTRIBUTION_WINDOW_MS,
+  type Attribution,
+  attributionOf,
   rangeStart,
   type Sale,
   summarize,
-  type Touch,
 } from '../domain/attribution.js';
 import { CARE_STORE, type CareStore } from '../domain/ports/care.store.js';
 
@@ -24,7 +25,8 @@ const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof
  * customers wrote after them, and the orders (commerce) and stay bookings (lodging) made in a
  * conversation within 7 days after an AI touch — a bot reply or a care message — attributed to
  * the AI alone or to AI + staff (a member wrote in between). A query over `care_messages`, the
- * conversations' delivered messages and the commerce/lodging facades; no event pipeline.
+ * conversations' delivered messages (aggregated per sale in SQL: nothing is truncated) and the
+ * commerce/lodging facades; no event pipeline.
  */
 @Injectable()
 export class ImpactQuery {
@@ -44,14 +46,11 @@ export class ImpactQuery {
       this.store.sentBetween(ws, { since, until, limit: SENT_READ }),
       this.#sales(ws, since, until),
     ]);
-    const replies = await this.#replies(ws, sent);
-    const timeline = await this.#touches(
-      ws,
-      sales.map((s) => s.conversationId),
-      new Date(since.getTime() - ATTRIBUTION_WINDOW_MS),
-      until,
-    );
-    const figures = summarize(sales, (id) => timeline.get(id) ?? []);
+    const [replies, attributions] = await Promise.all([
+      this.#replies(ws, sent),
+      this.#attributions(ws, sales),
+    ]);
+    const figures = summarize(sales, (_s, i) => attributions[i] ?? null);
     return {
       range,
       since: since.toISOString(),
@@ -80,13 +79,22 @@ export class ImpactQuery {
     }));
   }
 
-  /** How many sent follow-ups the customer wrote after (their last message is later). */
+  /**
+   * How many customers wrote back after a follow-up of the range: one per conversation (their
+   * last message is later than the first follow-up of the range), however many follow-ups it got.
+   */
   async #replies(
     ws: WorkspaceId,
     sent: readonly { conversationId: string; sentAt: Date | null }[],
-  ) {
-    const ids = [...new Set(sent.map((m) => m.conversationId))];
-    const last = new Map<string, number>();
+  ): Promise<number> {
+    const first = new Map<string, number>();
+    for (const m of sent) {
+      if (!m.sentAt) continue;
+      const t = m.sentAt.getTime();
+      first.set(m.conversationId, Math.min(first.get(m.conversationId) ?? t, t));
+    }
+    const ids = [...first.keys()];
+    let replied = 0;
     for (let i = 0; i < ids.length; i += IDS_PER_READ) {
       const rows = await this.conversations.todayCandidates(ws, {
         ids: ids.slice(i, i + IDS_PER_READ),
@@ -95,33 +103,25 @@ export class ImpactQuery {
         limit: IDS_PER_READ,
         lastHumanFor: [],
       });
-      for (const r of rows) if (r.lastInboundAt) last.set(r.id, Date.parse(r.lastInboundAt));
+      for (const r of rows) {
+        const at = first.get(r.id);
+        if (r.lastInboundAt && at !== undefined && Date.parse(r.lastInboundAt) > at) replied++;
+      }
     }
-    return sent.filter((m) => {
-      const t = last.get(m.conversationId);
-      return t !== undefined && m.sentAt !== null && t > m.sentAt.getTime();
-    }).length;
+    return replied;
   }
 
-  /** The delivered outbound messages of these conversations, as touches per conversation. */
-  async #touches(
-    ws: WorkspaceId,
-    conversationIds: readonly string[],
-    since: Date,
-    until: Date,
-  ): Promise<Map<string, Touch[]>> {
-    const ids = [...new Set(conversationIds)];
-    const out = new Map<string, Touch[]>();
-    for (let i = 0; i < ids.length; i += IDS_PER_READ) {
-      const rows = await this.conversations.outboundTimeline(ws, ids.slice(i, i + IDS_PER_READ), {
-        since,
-        until,
-      });
-      for (const r of rows) {
-        const list = out.get(r.conversationId) ?? [];
-        list.push({ sender: r.sender, at: new Date(r.at) });
-        out.set(r.conversationId, list);
-      }
+  /** Each sale's attribution, from the per-sale aggregate of the conversation module. */
+  async #attributions(ws: WorkspaceId, sales: readonly Sale[]): Promise<(Attribution | null)[]> {
+    const out: (Attribution | null)[] = [];
+    for (let i = 0; i < sales.length; i += IDS_PER_READ) {
+      const chunk = sales.slice(i, i + IDS_PER_READ);
+      const touches = await this.conversations.aiTouches(
+        ws,
+        chunk.map((s) => ({ conversationId: s.conversationId, at: s.createdAt })),
+        ATTRIBUTION_WINDOW_MS,
+      );
+      out.push(...chunk.map((_s, j) => (touches[j] ? attributionOf(touches[j]) : null)));
     }
     return out;
   }

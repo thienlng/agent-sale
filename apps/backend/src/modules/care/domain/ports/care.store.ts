@@ -28,6 +28,8 @@ export interface CareMessage {
   id: string;
   conversationId: string;
   enrollmentId: string | null;
+  /** The customer message the step was written for (a send is refused if they wrote after). */
+  anchorAt: Date;
   template: CareTemplateKey;
   step: number;
   level: AutonomyLevel;
@@ -35,6 +37,8 @@ export interface CareMessage {
   status: CareMessageStatus;
   skipReason: string | null;
   windowClosesAt: Date | null;
+  /** When an approved message goes out (`scheduled`). */
+  scheduledFor: Date | null;
   sentMessageId: string | null;
   sentAt: Date | null;
   decidedBy: string | null;
@@ -47,6 +51,7 @@ export interface NewCareMessage {
   id: string;
   conversationId: string;
   enrollmentId: string | null;
+  anchorAt: Date;
   template: CareTemplateKey;
   step: number;
   level: AutonomyLevel;
@@ -69,7 +74,10 @@ export interface CareStore {
   templates(ws: WorkspaceId): Promise<CareTemplateRow[]>;
   putTemplate(ws: WorkspaceId, row: CareTemplateRow, now: Date): Promise<void>;
 
-  /** Takes one message of the day atomically (`count < limit`); `null` limit = unlimited. */
+  /**
+   * Takes one message of the day atomically (`count < limit`); `null` limit = unlimited; a limit
+   * of 0 takes nothing and writes nothing.
+   */
   reserveUsage(ws: WorkspaceId, day: string, limit: number | null): Promise<boolean>;
   releaseUsage(ws: WorkspaceId, day: string): Promise<void>;
   usedOn(ws: WorkspaceId, day: string): Promise<number>;
@@ -111,25 +119,58 @@ export interface CareStore {
 
   /**
    * Writes a message the agent wrote; a new draft expires the conversation's older drafts. One
-   * audit row (`care.message.drafted|sending|skipped`, actor `ai:care`).
+   * audit row (`care.message.drafted|sending|skipped`, actor `ai:care`). False (nothing written)
+   * when this step of the cycle (enrollment, anchor, step) already has a message: a step is
+   * written and sent once, even when a crashed or doubled run repeats it.
    */
-  insertMessage(ws: WorkspaceId, m: NewCareMessage): Promise<void>;
+  insertMessage(ws: WorkspaceId, m: NewCareMessage): Promise<boolean>;
+  /** The message of one step of a cycle, if it was written already. */
+  stepMessage(
+    ws: WorkspaceId,
+    enrollmentId: string,
+    anchorAt: Date,
+    step: number,
+  ): Promise<CareMessage | null>;
   getMessage(ws: WorkspaceId, id: string): Promise<CareMessage | null>;
   /** A conversation's care messages, newest first (≤ `limit`). */
   messagesOf(ws: WorkspaceId, conversationId: string, limit: number): Promise<CareMessage[]>;
   /** Drafts waiting for a person, newest first (≤ `limit`). */
   drafts(ws: WorkspaceId, limit: number): Promise<CareMessage[]>;
+  /** Approved messages waiting for their time (`scheduled`), soonest first (≤ `limit`). */
+  scheduled(ws: WorkspaceId, limit: number): Promise<CareMessage[]>;
   /**
-   * Takes a draft to send it: `draft` → `sending` with the decider, only while its window is open.
-   * Null when it is no longer a draft or its window closed (then it is `expired`).
+   * A person approves a draft, only while its window is open: `draft` → `sending` (sent now), or
+   * → `scheduled` at `sendAt` when given (quiet hours, or queued for the worker's next tick); `text` replaces the draft's text when given. Null when it is no longer a draft or
+   * its window closed (then it is `expired`).
    */
-  claimDraft(ws: WorkspaceId, id: string, by: string, now: Date): Promise<CareMessage | null>;
-  /** Records the delivery: `sent` or `failed` (`reason`), the text that went out. */
+  claimDraft(
+    ws: WorkspaceId,
+    id: string,
+    by: string,
+    now: Date,
+    opts?: { text?: string | undefined; sendAt?: Date | undefined },
+  ): Promise<CareMessage | null>;
+  /** Approved messages of every business whose time came (`scheduled`, `send_at <= now`). */
+  dueScheduled(now: Date, limit: number): Promise<{ workspaceId: WorkspaceId; id: string }[]>;
+  /** Takes a due scheduled message to send it (`scheduled` → `sending`); null when gone. */
+  claimScheduled(ws: WorkspaceId, id: string, now: Date): Promise<CareMessage | null>;
+  /** A scheduled message waits until `at` (the per-conversation limit). */
+  deferScheduled(ws: WorkspaceId, id: string, at: Date, now: Date): Promise<void>;
+  /**
+   * A draft or scheduled message will not go out (a stop rule, the window, a takeover):
+   * → `expired` with the reason. False when it was in neither state.
+   */
+  expireMessage(ws: WorkspaceId, id: string, reason: string, now: Date): Promise<boolean>;
+  /**
+   * Records the delivery: `sent`, `failed` (the channel refused it) or `expired` (the
+   * conversation refused it: the customer wrote, a person took over, closed, out of the window),
+   * the text that went out and the reason.
+   */
   finishSend(
     ws: WorkspaceId,
     id: string,
     r: {
-      status: 'sent' | 'failed';
+      status: 'sent' | 'failed' | 'expired';
       text: string;
       sentMessageId: string | null;
       reason: string | null;
@@ -139,16 +180,26 @@ export interface CareStore {
   ): Promise<void>;
   /** `draft` → `rejected` by a person; false when it was no longer a draft. */
   rejectDraft(ws: WorkspaceId, id: string, by: string, now: Date): Promise<boolean>;
-  /** When the agent's messages to the conversation went out since `since`. */
-  sentTimes(ws: WorkspaceId, conversationId: string, since: Date): Promise<Date[]>;
+  /**
+   * When the agent's messages to the conversation went out (or will: `sending`, `scheduled` at
+   * their time, a send interrupted by a crash) since `since`, but `exceptId`. For the limit of 2
+   * per 24 hours, which must also count a send whose outcome is unknown.
+   */
+  sentTimes(
+    ws: WorkspaceId,
+    conversationId: string,
+    since: Date,
+    exceptId?: string,
+  ): Promise<Date[]>;
   /** Sent messages in `[since, until)`, newest first (≤ `limit`), optionally of one level. */
   sentBetween(
     ws: WorkspaceId,
     q: { since: Date; until: Date; level?: AutonomyLevel; limit: number },
   ): Promise<CareMessage[]>;
   /**
-   * Worker pass, every business: drafts whose window closed → `expired`, sends stuck in
-   * `sending` since `staleBefore` → `failed`. Returns how many changed.
+   * Worker pass, every business: drafts and scheduled messages whose window closed → `expired`,
+   * sends stuck in `sending` since `staleBefore` → `failed`, after-sales check-ins no longer
+   * listed (due more than 7 days ago) → `done`. Returns how many changed.
    */
   expireDue(now: Date, staleBefore: Date): Promise<number>;
 }

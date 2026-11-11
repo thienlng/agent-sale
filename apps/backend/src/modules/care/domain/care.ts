@@ -198,3 +198,18 @@ export function draftExpired(windowClosesAt: Date | null, now: Date): boolean {
 export function afterSaleDueAt(completedAt: Date, days: number): Date {
   return new Date(completedAt.getTime() + days * DAY_MS);
 }
+
+/**
+ * The idempotency key of a care message's send: one per step of a cycle (enrollment, the
+ * customer message it is for, step), so a repeated run or approval never sends a second message.
+ */
+export function careSendKey(m: {
+  id: string;
+  enrollmentId: string | null;
+  anchorAt: Date;
+  step: number;
+}): string {
+  return m.enrollmentId
+    ? `care:${m.enrollmentId}:${m.anchorAt.getTime()}:${m.step}`
+    : `care:${m.id}`;
+}

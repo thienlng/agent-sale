@@ -1,6 +1,6 @@
 import type { ConversationView, InboxMessageDto } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
-import type { TimelineEntry } from '../../api/conversation.facade.js';
+import type { AiTouch } from '../../api/conversation.facade.js';
 import type { ConversationFilter, ConversationPage } from '../../domain/conversation-filter.js';
 export interface ConversationTx {
   lockPeer(channelId: string, customerId: string): Promise<void>;
@@ -40,12 +40,13 @@ export interface ConversationTx {
     byChannel: { channel: string; count: number }[];
     ids: string[];
   }>;
-  /** See `ConversationFacade.outboundTimeline` (ids already filtered to uuids, ≤ 1 000). */
-  outboundTimeline(q: {
-    ids: readonly string[];
-    since: Date;
-    until: Date;
-  }): Promise<TimelineEntry[]>;
+  /** See `ConversationFacade.aiTouches` (ids already uuids, ≤ 1 000 points). */
+  aiTouches(
+    points: readonly { conversationId: string; at: Date }[],
+    windowMs: number,
+  ): Promise<AiTouch[]>;
+  /** The newest message a person of the shop sent that did not fail (ISO), via one indexed max. */
+  lastHumanAt(conversationId: string): Promise<string | null>;
   /** See `ConversationFacade.todayCandidates`. */
   todayCandidates(q: {
     ids: readonly string[];

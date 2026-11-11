@@ -45,7 +45,7 @@ export const ConversationSignalDto = z.object({
   stageLocked: z.boolean(),
   /** Hidden from Today until a customer message newer than this arrives. */
   dismissedUntilMessageAfter: z.iso.datetime().nullable(),
-  /** The customer asked not to be contacted: the care agent never follows up (0074). */
+  /** The customer asked not to be contacted: the care agent never follows up (0075). */
   optOut: z.boolean(),
   version: z.number().int(),
   updatedAt: z.iso.datetime(),
@@ -174,6 +174,11 @@ export const TodayApprovalItem = TodayItem.extend({
   text: z.string().max(2000),
   /** The draft expires then (the 24-hour window closes); it can no longer be sent. */
   windowClosesAt: z.iso.datetime().nullable(),
+  /**
+   * Approved and waiting to go out at this time ("Sẽ gửi lúc 08:00": approved in the quiet hours,
+   * or queued by "Gửi tất cả"); null for a draft still waiting for a person.
+   */
+  scheduledFor: z.iso.datetime().nullable().default(null),
   createdAt: z.iso.datetime(),
 });
 export type TodayApprovalItem = z.infer<typeof TodayApprovalItem>;
@@ -291,6 +296,7 @@ export const ImpactResponse = z.object({
   since: z.iso.datetime(),
   until: z.iso.datetime(),
   followUpsSent: z.number().int().min(0),
+  /** Customers who wrote back after a follow-up of the range (one per conversation). */
   repliesReceived: z.number().int().min(0),
   ai: ImpactFigures,
   aiStaff: ImpactFigures,

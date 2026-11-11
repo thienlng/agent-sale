@@ -11,8 +11,14 @@ import { AutonomyLevel } from '../brain/brain.schema.js';
 export const CareTemplateKey = z.enum(['silent', 'ready', 'after_sale']);
 export type CareTemplateKey = z.infer<typeof CareTemplateKey>;
 
+/**
+ * `scheduled`: approved, goes out at `scheduledFor` (approved in the quiet hours → 08:00 local, or
+ * queued by "Gửi tất cả" for the worker), only if the window is still open and the stop rules
+ * still pass then (else `expired`).
+ */
 export const CareMessageStatus = z.enum([
   'draft',
+  'scheduled',
   'sending',
   'sent',
   'failed',
@@ -77,6 +83,8 @@ export const CareMessageDto = z.object({
   status: CareMessageStatus,
   skipReason: z.string().max(200).nullable(),
   windowClosesAt: z.iso.datetime().nullable(),
+  /** When an approved message goes out (`scheduled`); null otherwise. */
+  scheduledFor: z.iso.datetime().nullable().default(null),
   /** The conversation message that was sent (`sent` and `failed`). */
   sentMessageId: z.uuid().nullable(),
   sentAt: z.iso.datetime().nullable(),
@@ -100,6 +108,11 @@ export type BulkApproveCareMessagesRequest = z.infer<typeof BulkApproveCareMessa
 
 export const BulkApproveCareMessagesResponse = z.object({
   sent: z.number().int().min(0),
+  /**
+   * Approved and queued (`scheduled`): sent by the worker within a minute, or at 08:00 when
+   * approved in the quiet hours. "Gửi tất cả" sends only the first few at once.
+   */
+  scheduled: z.number().int().min(0).default(0),
   /** Not sent: the window closed, the conversation changed, or the channel failed. */
   notSent: z.number().int().min(0),
   results: z.array(z.object({ id: z.uuid(), status: CareMessageStatus })),

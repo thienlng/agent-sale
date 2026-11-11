@@ -488,6 +488,7 @@ describe('Today with the care agent (ADR-031)', () => {
     template: 'silent' as const,
     text: 'Dạ mẫu này vẫn còn ạ',
     windowClosesAt: later(600),
+    scheduledFor: null,
     createdAt: ago(10),
   });
 

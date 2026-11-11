@@ -6,6 +6,7 @@ import {
   gte,
   inArray,
   lt,
+  ne,
   schema,
   sql,
   type TenantTx,
@@ -37,6 +38,7 @@ const toMessage = (r: typeof cm.$inferSelect): CareMessage => ({
   id: r.id,
   conversationId: r.conversationId,
   enrollmentId: r.enrollmentId,
+  anchorAt: r.anchorAt,
   template: r.template,
   step: r.step,
   level: r.level,
@@ -44,12 +46,16 @@ const toMessage = (r: typeof cm.$inferSelect): CareMessage => ({
   status: r.status,
   skipReason: r.skipReason,
   windowClosesAt: r.windowClosesAt,
+  scheduledFor: r.sendAt,
   sentMessageId: r.sentMessageId,
   sentAt: r.sentAt,
   decidedBy: r.decidedBy,
   decidedAt: r.decidedAt,
   createdAt: r.createdAt,
 });
+
+/** Messages a person approved that have not gone out yet, and drafts: what a stop expires. */
+const OPEN_STATUSES = ['draft', 'scheduled'] as const;
 
 const isUuidLike = (v: string | null): v is string =>
   v !== null && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
@@ -133,7 +139,7 @@ export class DrizzleCareStore implements CareStore {
               and(
                 eq(cm.workspaceId, ws),
                 eq(cm.template, row.key),
-                eq(cm.status, 'draft'),
+                inArray(cm.status, [...OPEN_STATUSES]),
                 inArray(cm.conversationId, ids),
               ),
             );
@@ -143,6 +149,7 @@ export class DrizzleCareStore implements CareStore {
   }
 
   reserveUsage(ws: WorkspaceId, day: string, limit: number | null): Promise<boolean> {
+    if (limit !== null && limit <= 0) return Promise.resolve(false);
     return withTenant(this.db, ws, async (tx) => {
       const rows = await tx
         .insert(us)
@@ -248,7 +255,7 @@ export class DrizzleCareStore implements CareStore {
             and(
               eq(cm.workspaceId, ws),
               eq(cm.conversationId, conversationId),
-              eq(cm.status, 'draft'),
+              inArray(cm.status, [...OPEN_STATUSES]),
             ),
           );
       }
@@ -321,7 +328,7 @@ export class DrizzleCareStore implements CareStore {
             and(
               eq(cm.workspaceId, ws),
               eq(cm.conversationId, row.conversationId),
-              eq(cm.status, 'draft'),
+              inArray(cm.status, [...OPEN_STATUSES]),
             ),
           );
       }
@@ -363,9 +370,35 @@ export class DrizzleCareStore implements CareStore {
     );
   }
 
-  insertMessage(ws: WorkspaceId, m: NewCareMessage): Promise<void> {
+  insertMessage(ws: WorkspaceId, m: NewCareMessage): Promise<boolean> {
     return withTenant(this.db, ws, async (tx) => {
+      // The step's unique index (enrollment, anchor, step): a repeated step writes nothing.
+      const inserted = await tx
+        .insert(cm)
+        .values({
+          id: m.id,
+          workspaceId: ws,
+          conversationId: m.conversationId,
+          enrollmentId: m.enrollmentId,
+          anchorAt: m.anchorAt,
+          template: m.template,
+          step: m.step,
+          level: m.level,
+          text: m.text.slice(0, 2000),
+          skipReason: m.skipReason?.slice(0, 200) ?? null,
+          status: m.status,
+          windowClosesAt: m.windowClosesAt,
+          model: m.model?.slice(0, 120) ?? null,
+          inputTokens: m.inputTokens,
+          outputTokens: m.outputTokens,
+          createdAt: m.createdAt,
+          updatedAt: m.createdAt,
+        })
+        .onConflictDoNothing()
+        .returning({ id: cm.id });
+      if (!inserted.length) return false;
       if (m.status === 'draft') {
+        // A new draft replaces the conversation's older ones.
         await tx
           .update(cm)
           .set({ status: 'expired', updatedAt: m.createdAt })
@@ -374,27 +407,10 @@ export class DrizzleCareStore implements CareStore {
               eq(cm.workspaceId, ws),
               eq(cm.conversationId, m.conversationId),
               eq(cm.status, 'draft'),
+              ne(cm.id, m.id),
             ),
           );
       }
-      await tx.insert(cm).values({
-        id: m.id,
-        workspaceId: ws,
-        conversationId: m.conversationId,
-        enrollmentId: m.enrollmentId,
-        template: m.template,
-        step: m.step,
-        level: m.level,
-        text: m.text.slice(0, 2000),
-        skipReason: m.skipReason?.slice(0, 200) ?? null,
-        status: m.status,
-        windowClosesAt: m.windowClosesAt,
-        model: m.model?.slice(0, 120) ?? null,
-        inputTokens: m.inputTokens,
-        outputTokens: m.outputTokens,
-        createdAt: m.createdAt,
-        updatedAt: m.createdAt,
-      });
       const action =
         m.status === 'draft'
           ? 'care.message.drafted'
@@ -415,6 +431,29 @@ export class DrizzleCareStore implements CareStore {
         },
         null,
       );
+      return true;
+    });
+  }
+
+  stepMessage(
+    ws: WorkspaceId,
+    enrollmentId: string,
+    anchorAt: Date,
+    step: number,
+  ): Promise<CareMessage | null> {
+    return withTenant(this.db, ws, async (tx) => {
+      const [r] = await tx
+        .select()
+        .from(cm)
+        .where(
+          and(
+            eq(cm.workspaceId, ws),
+            eq(cm.enrollmentId, enrollmentId),
+            eq(cm.anchorAt, anchorAt),
+            eq(cm.step, step),
+          ),
+        );
+      return r ? toMessage(r) : null;
     });
   }
 
@@ -454,11 +493,38 @@ export class DrizzleCareStore implements CareStore {
     );
   }
 
-  claimDraft(ws: WorkspaceId, id: string, by: string, now: Date): Promise<CareMessage | null> {
+  scheduled(ws: WorkspaceId, limit: number): Promise<CareMessage[]> {
+    return withTenant(this.db, ws, async (tx) =>
+      (
+        await tx
+          .select()
+          .from(cm)
+          .where(and(eq(cm.workspaceId, ws), eq(cm.status, 'scheduled')))
+          .orderBy(cm.sendAt)
+          .limit(limit)
+      ).map(toMessage),
+    );
+  }
+
+  claimDraft(
+    ws: WorkspaceId,
+    id: string,
+    by: string,
+    now: Date,
+    opts: { text?: string | undefined; sendAt?: Date | undefined } = {},
+  ): Promise<CareMessage | null> {
+    const later = opts.sendAt !== undefined;
     return withTenant(this.db, ws, async (tx) => {
       const [r] = await tx
         .update(cm)
-        .set({ status: 'sending', decidedBy: by, decidedAt: now, updatedAt: now })
+        .set({
+          status: later ? 'scheduled' : 'sending',
+          sendAt: later ? (opts.sendAt ?? null) : null,
+          ...(opts.text !== undefined ? { text: opts.text.slice(0, 2000) } : {}),
+          decidedBy: by,
+          decidedAt: now,
+          updatedAt: now,
+        })
         .where(
           and(
             eq(cm.workspaceId, ws),
@@ -468,12 +534,92 @@ export class DrizzleCareStore implements CareStore {
           ),
         )
         .returning();
-      if (r) return toMessage(r);
+      if (r) {
+        if (later)
+          await audit(
+            tx,
+            ws,
+            'care.message.scheduled',
+            id,
+            { conversationId: r.conversationId, sendAt: r.sendAt?.toISOString() ?? null },
+            by,
+          );
+        return toMessage(r);
+      }
       await tx
         .update(cm)
         .set({ status: 'expired', updatedAt: now })
-        .where(and(eq(cm.workspaceId, ws), eq(cm.id, id), eq(cm.status, 'draft')));
+        .where(
+          and(
+            eq(cm.workspaceId, ws),
+            eq(cm.id, id),
+            eq(cm.status, 'draft'),
+            sql`${cm.windowClosesAt} <= ${now.toISOString()}::timestamptz`,
+          ),
+        );
       return null;
+    });
+  }
+
+  dueScheduled(now: Date, limit: number): Promise<{ workspaceId: WorkspaceId; id: string }[]> {
+    return withSystem(this.systemDb, async (tx) =>
+      (
+        await tx
+          .select({ workspaceId: cm.workspaceId, id: cm.id })
+          .from(cm)
+          .where(
+            and(eq(cm.status, 'scheduled'), sql`${cm.sendAt} <= ${now.toISOString()}::timestamptz`),
+          )
+          .orderBy(cm.sendAt)
+          .limit(limit)
+      ).map((r) => ({ workspaceId: asWorkspaceId(r.workspaceId), id: r.id })),
+    );
+  }
+
+  claimScheduled(ws: WorkspaceId, id: string, now: Date): Promise<CareMessage | null> {
+    return withTenant(this.db, ws, async (tx) => {
+      const [r] = await tx
+        .update(cm)
+        .set({ status: 'sending', updatedAt: now })
+        .where(
+          and(
+            eq(cm.workspaceId, ws),
+            eq(cm.id, id),
+            eq(cm.status, 'scheduled'),
+            sql`${cm.sendAt} <= ${now.toISOString()}::timestamptz`,
+          ),
+        )
+        .returning();
+      return r ? toMessage(r) : null;
+    });
+  }
+
+  deferScheduled(ws: WorkspaceId, id: string, at: Date, now: Date): Promise<void> {
+    return withTenant(this.db, ws, async (tx) => {
+      await tx
+        .update(cm)
+        .set({ sendAt: at, updatedAt: now })
+        .where(and(eq(cm.workspaceId, ws), eq(cm.id, id), eq(cm.status, 'scheduled')));
+    });
+  }
+
+  expireMessage(ws: WorkspaceId, id: string, reason: string, now: Date): Promise<boolean> {
+    return withTenant(this.db, ws, async (tx) => {
+      const [row] = await tx
+        .update(cm)
+        .set({ status: 'expired', skipReason: reason.slice(0, 200), updatedAt: now })
+        .where(and(eq(cm.workspaceId, ws), eq(cm.id, id), inArray(cm.status, [...OPEN_STATUSES])))
+        .returning({ conversationId: cm.conversationId });
+      if (!row) return false;
+      await audit(
+        tx,
+        ws,
+        'care.message.expired',
+        id,
+        { conversationId: row.conversationId, reason: reason.slice(0, 200) },
+        null,
+      );
+      return true;
     });
   }
 
@@ -481,7 +627,7 @@ export class DrizzleCareStore implements CareStore {
     ws: WorkspaceId,
     id: string,
     r: {
-      status: 'sent' | 'failed';
+      status: 'sent' | 'failed' | 'expired';
       text: string;
       sentMessageId: string | null;
       reason: string | null;
@@ -506,7 +652,7 @@ export class DrizzleCareStore implements CareStore {
       await audit(
         tx,
         ws,
-        r.status === 'sent' ? 'care.message.sent' : 'care.message.failed',
+        `care.message.${r.status}`,
         id,
         {
           conversationId: row.conversationId,
@@ -532,21 +678,30 @@ export class DrizzleCareStore implements CareStore {
     });
   }
 
-  sentTimes(ws: WorkspaceId, conversationId: string, since: Date): Promise<Date[]> {
+  sentTimes(
+    ws: WorkspaceId,
+    conversationId: string,
+    since: Date,
+    exceptId?: string,
+  ): Promise<Date[]> {
+    // A send in flight or interrupted may have reached the customer: it counts (at its start).
+    const at = sql<Date | string>`coalesce(${cm.sentAt}, ${cm.sendAt}, ${cm.updatedAt})`;
     return withTenant(this.db, ws, async (tx) =>
       (
         await tx
-          .select({ at: cm.sentAt })
+          .select({ at })
           .from(cm)
           .where(
             and(
               eq(cm.workspaceId, ws),
               eq(cm.conversationId, conversationId),
-              eq(cm.status, 'sent'),
-              gte(cm.sentAt, since),
+              sql`(${cm.status} in ('sent','sending','scheduled')
+                or (${cm.status} = 'failed' and ${cm.skipReason} = 'interrupted'))`,
+              sql`${at} >= ${since.toISOString()}::timestamptz`,
+              exceptId ? ne(cm.id, exceptId) : undefined,
             ),
           )
-      ).flatMap((r) => (r.at ? [r.at] : [])),
+      ).map((r) => new Date(r.at)),
     );
   }
 
@@ -581,7 +736,7 @@ export class DrizzleCareStore implements CareStore {
         .set({ status: 'expired', updatedAt: now })
         .where(
           and(
-            eq(cm.status, 'draft'),
+            inArray(cm.status, [...OPEN_STATUSES]),
             sql`${cm.windowClosesAt} <= ${now.toISOString()}::timestamptz`,
           ),
         )
@@ -596,7 +751,20 @@ export class DrizzleCareStore implements CareStore {
           ),
         )
         .returning({ id: cm.id });
-      return expired.length + stale.length;
+      // An after-sales check-in leaves Today 7 days after it became due: its cycle is done.
+      const listedSince = new Date(now.getTime() - AFTER_SALE_LISTED_MS).toISOString();
+      const done = await tx
+        .update(en)
+        .set({ status: 'done', leaseUntil: null, updatedAt: now })
+        .where(
+          and(
+            eq(en.status, 'active'),
+            eq(en.template, 'after_sale'),
+            sql`${en.nextAt} < ${listedSince}::timestamptz`,
+          ),
+        )
+        .returning({ id: en.id });
+      return expired.length + stale.length + done.length;
     });
   }
 }

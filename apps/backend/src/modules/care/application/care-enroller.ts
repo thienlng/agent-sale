@@ -1,5 +1,6 @@
 import {
   BrainSignalsUpdatedPayload,
+  ControlUpdatedPayload,
   MessageReceivedPayload,
   OrderCreatedV1,
   OrderStatusChangedV1,
@@ -34,6 +35,7 @@ import { CareSettingsService, type CareTemplates } from './care-settings.service
 export const CARE_EVENTS = [
   'conversation.message.received.v1',
   'conversation.reply.completed.v1',
+  'conversation.control.updated.v1',
   'brain.signals.updated.v1',
   'commerce.order.created.v1',
   'commerce.order.status_changed.v1',
@@ -54,6 +56,8 @@ const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof
  * - a customer message stops the conversation's message cycles (and a due after-sales check-in):
  *   the customer replied; the Brain re-evaluates and may start a new cycle;
  * - a member's message (inbox send or Page echo) stops them too (a person took over);
+ * - a hand-off or takeover (mode `human`) or closing the conversation stops them and expires
+ *   their drafts and approved-but-unsent messages (ADR-031 §7);
  * - `brain.signals.updated.v1` starts "Khách im lặng" (exploring, price asked) or "Sắp chốt"
  *   (ready) anchored at the last customer message, and stops the other or both (won, lost,
  *   spam, after-sales, opt-out);
@@ -139,6 +143,19 @@ export class CareEnroller {
           now,
           now,
         );
+        return;
+      }
+      case 'conversation.control.updated.v1': {
+        const p = ControlUpdatedPayload.safeParse(row.payload);
+        if (!p.success) return;
+        const reason =
+          p.data.mode === 'human'
+            ? 'taken_over'
+            : p.data.status !== undefined && p.data.status !== 'open'
+              ? 'closed'
+              : null;
+        if (reason)
+          await this.store.stopConversation(ws, row.aggregateId, MESSAGE_TEMPLATES, reason, now);
         return;
       }
       case 'brain.signals.updated.v1': {

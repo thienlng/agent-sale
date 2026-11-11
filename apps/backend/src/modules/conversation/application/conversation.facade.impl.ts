@@ -31,9 +31,9 @@ import type {
   BotAttachment,
   BotQuickReplies,
   ConversationFacade,
+  AiTouch,
   FollowUpFacts,
   SignalContext,
-  TimelineEntry,
   TodayCandidatesQuery,
   TodayConversation,
 } from '../api/conversation.facade.js';
@@ -112,10 +112,7 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
     return this.store.run(ws, async (tx) => {
       const c = await tx.find(id);
       if (!c) return null;
-      const human = (await tx.messages(id))
-        .filter((m) => m.sender === 'human' && m.direction === 'outbound' && m.status !== 'failed')
-        .map((m) => Date.parse(m.createdAt))
-        .filter(Number.isFinite);
+      const lastHumanAt = await tx.lastHumanAt(id);
       return {
         id: c.id,
         provider: c.provider,
@@ -124,23 +121,30 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
         assigneeId: c.assigneeId,
         lastInboundAt: Date.parse(c.lastInboundAt) > 0 ? c.lastInboundAt : null,
         lastMessageSender: c.lastMessageSender,
-        lastHumanAt: human.length ? new Date(Math.max(...human)).toISOString() : null,
+        lastHumanAt,
       };
     });
   }
-  async outboundTimeline(
+  async aiTouches(
     ws: WorkspaceId,
-    ids: readonly string[],
-    range: { since: Date; until: Date },
-  ): Promise<TimelineEntry[]> {
-    const wanted = [...new Set(ids.filter(isUuid))].slice(0, 1000);
-    if (!wanted.length) return [];
-    return this.store.run(ws, (tx) => tx.outboundTimeline({ ids: wanted, ...range }));
+    points: readonly { conversationId: string; at: Date }[],
+    windowMs: number,
+  ): Promise<AiTouch[]> {
+    if (points.length > 1000)
+      throw new ConversationError('VALIDATION_FAILED', 'At most 1000 points per read');
+    // Points of a non-uuid id have no messages; they are answered without a read.
+    const valid = points.filter((p) => isUuid(p.conversationId));
+    const read = valid.length
+      ? await this.store.run(ws, (tx) => tx.aiTouches(valid, windowMs))
+      : [];
+    const none: AiTouch = { firstBotAt: null, staffAfter: false };
+    let i = 0;
+    return points.map((p) => (isUuid(p.conversationId) ? (read[i++] ?? none) : none));
   }
   async commitCareMessage(
     ws: WorkspaceId,
     id: string,
-    input: { text: string; idempotencyKey: string },
+    input: { text: string; idempotencyKey: string; anchorAt: Date },
   ): Promise<InboxMessageDto> {
     if (!input.text.trim() || input.text.length > 2000)
       throw new ConversationError(
@@ -150,11 +154,17 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
     const sent = await this.reserveAndDeliver(
       ws,
       id,
-      { text: input.text, idempotencyKey: input.idempotencyKey, source: 'care' },
+      {
+        text: input.text,
+        idempotencyKey: input.idempotencyKey,
+        source: 'care',
+        careAnchorAt: input.anchorAt,
+      },
       null,
       null,
     );
-    if (!sent) throw new ConversationError('CONFLICT', 'Conversation control changed');
+    if (!sent)
+      throw new ConversationError('CONFLICT', 'Conversation control changed', 'taken_over');
     return sent;
   }
   async todayCandidates(ws: WorkspaceId, q: TodayCandidatesQuery): Promise<TodayConversation[]> {
@@ -823,6 +833,8 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
       idempotencyKey: string;
       ui?: MessageUi | undefined;
       source?: 'care' | undefined;
+      /** Care only: the customer message the follow-up was written for. */
+      careAnchorAt?: Date | undefined;
     },
     actorId: string | null,
     expectedRevision: number | 'follow-up' | null,
@@ -862,7 +874,25 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
       // Staff reopen Done or Spam before replying, so nothing is sent from a folder by mistake;
       // the care agent never writes to a closed conversation.
       if ((actorId || input.source === 'care') && c.status !== 'open')
-        throw new ConversationError('CONFLICT', 'Reopen the conversation before replying');
+        throw new ConversationError(
+          'CONFLICT',
+          'Reopen the conversation before replying',
+          'conversation_closed',
+        );
+      // A follow-up goes out only while the bot holds the conversation and the customer has not
+      // written since the message it was written for (ADR-031): checked here, in the reserving
+      // transaction, so a customer message or a takeover during the model call wins.
+      if (input.source === 'care') {
+        if (c.mode !== 'bot')
+          throw new ConversationError('CONFLICT', 'A person holds the conversation', 'taken_over');
+        const anchor = input.careAnchorAt?.getTime() ?? Number.NEGATIVE_INFINITY;
+        if (c.lastMessageSender === 'customer' || Date.parse(c.lastInboundAt) > anchor)
+          throw new ConversationError(
+            'CONFLICT',
+            'The customer wrote after the follow-up was written',
+            'customer_replied',
+          );
+      }
       if (expectedRevision !== null && !bot?.isActive) return null;
       if (
         expectedRevision !== null &&
@@ -877,7 +907,11 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
         humanAgentTag: this.humanAgentTag === true,
       });
       if (window === 'closed' || Date.parse(c.lastInboundAt) > Date.now() + 300000)
-        throw new ConversationError('CONFLICT', 'The 24-hour messaging window is closed');
+        throw new ConversationError(
+          'CONFLICT',
+          'The 24-hour messaging window is closed',
+          'window_closed',
+        );
       const tag = window === 'human_agent' ? ('HUMAN_AGENT' as const) : undefined;
       const updated = {
         ...c,

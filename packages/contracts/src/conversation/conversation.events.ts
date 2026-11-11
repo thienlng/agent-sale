@@ -19,6 +19,13 @@ export const MessageReceivedPayload = z.object({
 });
 export type MessageReceivedPayload = z.infer<typeof MessageReceivedPayload>;
 
+/** `conversation.control.updated.v1`: a person or the bot changed who holds it, or its status. */
+export const ControlUpdatedPayload = z.object({
+  mode: z.enum(['bot', 'human']).optional(),
+  status: z.string().optional(),
+});
+export type ControlUpdatedPayload = z.infer<typeof ControlUpdatedPayload>;
+
 export const ReplyCompletedPayload = z.object({
   messageId: z.string(),
   /** `sent` once the provider accepted it. */

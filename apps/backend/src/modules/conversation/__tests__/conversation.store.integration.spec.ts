@@ -189,20 +189,80 @@ describe('DrizzleConversationStore', () => {
     expect(mine.map((f) => f.id).sort()).toEqual([replied.id, other.id].sort());
   });
 
-  it('reads the delivered outbound timeline with the care marker, per tenant and range', async () => {
+  it('refuses a care message once the customer wrote, sends it after the bot answered, and attributes per point', async () => {
     const c = await service.receive(a, channelId, event('timeline-1', 'customer-timeline'));
-    const since = new Date(Date.now() - 60_000);
-    await service.commitCareMessage(a, c.id, { text: 'Dạ còn ạ', idempotencyKey: 'care:t1' });
-    await service.send(a, c.id, { text: 'Em Lan đây', idempotencyKey: newId() }, newId());
-    const until = new Date(Date.now() + 60_000);
-    const rows = await service.outboundTimeline(a, [c.id], { since, until });
-    expect(rows.map((r) => [r.sender, r.source])).toEqual([
-      ['bot', 'care'],
-      ['human', null],
-    ]);
-    expect(await service.outboundTimeline(b, [c.id], { since, until })).toEqual([]);
-    expect(await service.outboundTimeline(a, [c.id], { since: until, until })).toEqual([]);
-    expect(await service.followUpFacts(a, c.id)).toMatchObject({ mode: 'human', status: 'open' });
+    const anchor = new Date(c.lastInboundAt);
+    const patch = (json: string) =>
+      withTenant(tenantDb, a, (tx) =>
+        tx
+          .update(schema.conversations)
+          .set({ mode: 'bot', data: sql`${schema.conversations.data} || ${json}::jsonb` })
+          .where(eq(schema.conversations.id, c.id)),
+      );
+    // The bot holds it (as the bot module would), but nobody answered the customer yet: a
+    // follow-up is refused in the reserving transaction.
+    await patch('{"mode":"bot"}');
+    await expect(
+      service.commitCareMessage(a, c.id, {
+        text: 'Dạ còn ạ',
+        idempotencyKey: 'care:t0',
+        anchorAt: anchor,
+      }),
+    ).rejects.toMatchObject({ code: 'CONFLICT', details: { reason: 'customer_replied' } });
+    // The bot answered.
+    await patch('{"lastMessageSender":"bot"}');
+    // A follow-up written for an older customer message is refused too.
+    await expect(
+      service.commitCareMessage(a, c.id, {
+        text: 'Dạ còn ạ',
+        idempotencyKey: 'care:t0',
+        anchorAt: new Date(anchor.getTime() - 1000),
+      }),
+    ).rejects.toMatchObject({ details: { reason: 'customer_replied' } });
+    const care = await service.commitCareMessage(a, c.id, {
+      text: 'Dạ còn ạ',
+      idempotencyKey: 'care:t1',
+      anchorAt: anchor,
+    });
+    expect(care).toMatchObject({ sender: 'bot', source: 'care' });
+    // The same key again returns the first message (no second send).
+    expect(
+      (
+        await service.commitCareMessage(a, c.id, {
+          text: 'Dạ còn ạ',
+          idempotencyKey: 'care:t1',
+          anchorAt: anchor,
+        })
+      ).id,
+    ).toBe(care.id);
+    const staff = newId();
+    await service.send(a, c.id, { text: 'Em Lan đây', idempotencyKey: newId() }, staff);
+    // A person holds it now: no follow-up.
+    await expect(
+      service.commitCareMessage(a, c.id, {
+        text: 'Dạ',
+        idempotencyKey: 'care:t2',
+        anchorAt: anchor,
+      }),
+    ).rejects.toMatchObject({ details: { reason: 'taken_over' } });
+    const later = new Date(Date.now() + 60_000);
+    const [touch, none] = await service.aiTouches(
+      a,
+      [
+        { conversationId: c.id, at: later },
+        { conversationId: c.id, at: new Date(anchor.getTime() - 1000) },
+      ],
+      7 * 86_400_000,
+    );
+    expect(touch?.firstBotAt).not.toBeNull();
+    expect(touch?.staffAfter).toBe(true);
+    expect(none).toEqual({ firstBotAt: null, staffAfter: false });
+    expect(
+      await service.aiTouches(b, [{ conversationId: c.id, at: later }], 7 * 86_400_000),
+    ).toEqual([{ firstBotAt: null, staffAfter: false }]);
+    const facts = await service.followUpFacts(a, c.id);
+    expect(facts).toMatchObject({ mode: 'human', status: 'open' });
+    expect(facts?.lastHumanAt).not.toBeNull();
   });
 
   it('serves stored Rapiz attachments on the current public host, other links unchanged', async () => {

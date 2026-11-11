@@ -79,14 +79,27 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
+/** The customer asked, the bot answered: what a follow-up is written for (anchor = the ask). */
+async function answered(service: ConversationFacadeImpl, id = 'in1') {
+  const c = await service.receive(ws, channelId, event(id));
+  await service.commitBotReply(ws, c.id, {
+    revision: c.revision,
+    text: 'Dạ còn ạ',
+    idempotencyKey: `bot:${id}`,
+  });
+  vi.mocked(channels.deliver).mockClear();
+  return { id: c.id, anchorAt: new Date(c.lastInboundAt) };
+}
+
 describe('care messages', () => {
   it('sends a care message as a bot message marked care, without taking the conversation', async () => {
     const service = facade();
-    const c = await service.receive(ws, channelId, event());
+    const c = await answered(service);
     vi.advanceTimersByTime(2 * H);
     const sent = await service.commitCareMessage(ws, c.id, {
       text: 'Dạ mẫu này vẫn còn ạ',
       idempotencyKey: 'care:1',
+      anchorAt: c.anchorAt,
     });
     expect(sent).toMatchObject({ sender: 'bot', source: 'care', status: 'sent' });
     expect(sent).not.toHaveProperty('tag');
@@ -97,44 +110,92 @@ describe('care messages', () => {
     await service.commitCareMessage(ws, c.id, {
       text: 'Dạ mẫu này vẫn còn ạ',
       idempotencyKey: 'care:1',
+      anchorAt: c.anchorAt,
     });
     expect(channels.deliver).toHaveBeenCalledTimes(1);
     const completed = store.events.find(
-      (e) => (e as { type: string }).type === 'conversation.reply.completed.v1',
+      (e) =>
+        (e as { type: string }).type === 'conversation.reply.completed.v1' &&
+        (e as { payload: { source?: string } }).payload.source === 'care',
     ) as { payload: Record<string, unknown> };
     expect(completed.payload).toMatchObject({ sender: 'bot', source: 'care' });
   });
 
+  it('refuses when the customer wrote after the anchor or is waiting, and when a person holds it', async () => {
+    const service = facade();
+    const c = await answered(service);
+    vi.advanceTimersByTime(H);
+    // The customer wrote again (nobody answered yet): refused, nothing delivered.
+    await service.receive(ws, channelId, event('in2'));
+    await expect(
+      service.commitCareMessage(ws, c.id, {
+        text: 'Anh còn quan tâm không ạ?',
+        idempotencyKey: 'care:r1',
+        anchorAt: c.anchorAt,
+      }),
+    ).rejects.toMatchObject({ code: 'CONFLICT', details: { reason: 'customer_replied' } });
+    expect(channels.deliver).not.toHaveBeenCalled();
+    // The conversation stays waiting for an answer.
+    expect((await service.get(ws, c.id)).conversation.awaitingSince).not.toBeNull();
+
+    // The bot answered again; then a person takes the conversation.
+    const d = await answered(service, 'in3');
+    await service.update(ws, d.id, { mode: 'human' }, actor);
+    await expect(
+      service.commitCareMessage(ws, d.id, {
+        text: 'Dạ',
+        idempotencyKey: 'care:r2',
+        anchorAt: d.anchorAt,
+      }),
+    ).rejects.toMatchObject({ code: 'CONFLICT', details: { reason: 'taken_over' } });
+    expect(channels.deliver).not.toHaveBeenCalled();
+  });
+
   it('never sends a care message after 24 hours, even with the HUMAN_AGENT flag on', async () => {
     const service = facade(true);
-    const c = await service.receive(ws, channelId, event());
+    const c = await answered(service);
     vi.advanceTimersByTime(25 * H);
     await expect(
-      service.commitCareMessage(ws, c.id, { text: 'Chào anh', idempotencyKey: 'care:2' }),
-    ).rejects.toMatchObject({ code: 'CONFLICT' });
+      service.commitCareMessage(ws, c.id, {
+        text: 'Chào anh',
+        idempotencyKey: 'care:2',
+        anchorAt: c.anchorAt,
+      }),
+    ).rejects.toMatchObject({ code: 'CONFLICT', details: { reason: 'window_closed' } });
     expect(channels.deliver).not.toHaveBeenCalled();
   });
 
   it('refuses a closed conversation, empty text and another workspace', async () => {
     const service = facade();
-    const c = await service.receive(ws, channelId, event());
-    await service.update(ws, c.id, { status: 'resolved', expectedRevision: c.revision }, actor);
+    const c = await answered(service);
+    const { conversation } = await service.get(ws, c.id);
+    await service.update(
+      ws,
+      c.id,
+      { status: 'resolved', expectedRevision: conversation.revision },
+      actor,
+    );
+    const input = { text: 'Chào anh', anchorAt: c.anchorAt };
     await expect(
-      service.commitCareMessage(ws, c.id, { text: 'Chào anh', idempotencyKey: 'care:3' }),
-    ).rejects.toMatchObject({ code: 'CONFLICT' });
+      service.commitCareMessage(ws, c.id, { ...input, idempotencyKey: 'care:3' }),
+    ).rejects.toMatchObject({ code: 'CONFLICT', details: { reason: 'conversation_closed' } });
     await expect(
-      service.commitCareMessage(ws, c.id, { text: '  ', idempotencyKey: 'care:4' }),
+      service.commitCareMessage(ws, c.id, { ...input, text: '  ', idempotencyKey: 'care:4' }),
     ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     await expect(
-      service.commitCareMessage(other, c.id, { text: 'Chào anh', idempotencyKey: 'care:5' }),
+      service.commitCareMessage(other, c.id, { ...input, idempotencyKey: 'care:5' }),
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
-  it('reads the follow-up facts and the delivered outbound timeline', async () => {
+  it('reads the follow-up facts and the AI touches before a sale', async () => {
     const service = facade();
-    const c = await service.receive(ws, channelId, event());
+    const c = await answered(service);
     vi.advanceTimersByTime(H);
-    await service.commitCareMessage(ws, c.id, { text: 'Dạ', idempotencyKey: 'care:6' });
+    await service.commitCareMessage(ws, c.id, {
+      text: 'Dạ',
+      idempotencyKey: 'care:6',
+      anchorAt: c.anchorAt,
+    });
     vi.advanceTimersByTime(H);
     await service.send(ws, c.id, { text: 'Em Lan đây ạ', idempotencyKey: newId() }, actor);
     const facts = await service.followUpFacts(ws, c.id);
@@ -149,20 +210,27 @@ describe('care messages', () => {
     });
     expect(await service.followUpFacts(other, c.id)).toBeNull();
     expect(await service.followUpFacts(ws, 'not-a-uuid')).toBeNull();
-    const timeline = await service.outboundTimeline(ws, [c.id, 'x'], {
-      since: new Date('2026-11-11T00:00:00Z'),
-      until: new Date('2026-11-12T00:00:00Z'),
-    });
-    expect(timeline.map((t) => [t.sender, t.source, t.at])).toEqual([
-      ['bot', 'care', '2026-11-11T04:00:00.000Z'],
-      ['human', null, '2026-11-11T05:00:00.000Z'],
+    const week = 7 * 24 * H;
+    const touches = await service.aiTouches(
+      ws,
+      [
+        { conversationId: c.id, at: new Date('2026-11-11T06:00:00Z') },
+        { conversationId: 'x', at: new Date('2026-11-11T06:00:00Z') },
+        { conversationId: c.id, at: new Date('2026-11-11T04:30:00Z') },
+        { conversationId: c.id, at: new Date('2026-11-20T00:00:00Z') },
+      ],
+      week,
+    );
+    expect(touches).toEqual([
+      // The bot's answer (03:00) is the first AI touch; Lan wrote at 05:00.
+      { firstBotAt: '2026-11-11T03:00:00.000Z', staffAfter: true },
+      { firstBotAt: null, staffAfter: false },
+      { firstBotAt: '2026-11-11T03:00:00.000Z', staffAfter: false },
+      { firstBotAt: null, staffAfter: false },
     ]);
     expect(
-      await service.outboundTimeline(other, [c.id], {
-        since: new Date(0),
-        until: new Date('2030-01-01T00:00:00Z'),
-      }),
-    ).toEqual([]);
+      await service.aiTouches(other, [{ conversationId: c.id, at: new Date() }], week),
+    ).toEqual([{ firstBotAt: null, staffAfter: false }]);
   });
 });
 

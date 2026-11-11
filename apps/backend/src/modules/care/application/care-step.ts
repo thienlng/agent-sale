@@ -1,10 +1,7 @@
 import { newId, type WorkspaceId } from '@agent-sales/shared';
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { BRAIN_FACADE, type BrainFacade } from '../../brain/api/index.js';
-import { COMMERCE_FACADE, type CommerceFacade } from '../../commerce/api/index.js';
-import { CONVERSATION_FACADE, type ConversationFacade } from '../../conversation/api/index.js';
-import { LODGING_FACADE, type LodgingFacade } from '../../lodging/api/index.js';
 import {
   CARE_MAX_ATTEMPTS,
   CARE_RETRY_MS,
@@ -12,12 +9,12 @@ import {
   nextAllowedAfterLimit,
   nextHcmMidnight,
   placeInWindow,
+  type StopReason,
   stepDue,
-  stopReason,
-  windowClosesAt,
 } from '../domain/care.js';
 import { CARE_STORE, type CareJob, type CareStore } from '../domain/ports/care.store.js';
-import { CareSender } from './care-sender.js';
+import { CareGuard } from './care-guard.js';
+import { CareSender, type SendOutcome } from './care-sender.js';
 import { CareSettingsService } from './care-settings.service.js';
 import { CareWriter } from './care-writer.service.js';
 
@@ -26,7 +23,27 @@ const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof
 
 /** What one due step did. */
 export type StepOutcome =
-  'drafted' | 'sent' | 'send_failed' | 'skipped' | 'stopped' | 'rescheduled' | 'retry';
+  | 'drafted'
+  | 'sent'
+  | 'send_failed'
+  | 'skipped'
+  | 'stopped'
+  | 'rescheduled'
+  | 'retry'
+  /** The step already has a message (a crashed or doubled run): nothing written or sent. */
+  | 'repeated';
+
+/** Why a send the conversation refused ends the cycle. */
+const STOP_ON_REFUSAL: Record<
+  Extract<SendOutcome, { status: 'failed' }>['reason'],
+  StopReason | null
+> = {
+  customer_replied: 'customer_replied',
+  taken_over: 'taken_over',
+  conversation_closed: 'closed',
+  window_closed: 'window_closed',
+  channel_failed: null,
+};
 
 /**
  * Runs one due step of a follow-up cycle (spec §3–§5), in order: the stop rules (template off,
@@ -37,6 +54,11 @@ export type StepOutcome =
  * writes the message or skips, and the autonomy level decides: `suggest` → a draft on Today
  * ("Chờ duyệt") that expires with the window; `act_and_report` / `auto` → sent now as a care
  * bot message. Then the cycle moves to its next step (placed in the window) or ends.
+ *
+ * A step is written and sent once: its message is keyed by (enrollment, anchor, step), checked
+ * before the model call and enforced by a unique index, and its send uses the same key. The
+ * daily reservation is given back whenever no message came of it (the model failed, the send
+ * was refused or failed, or the step threw).
  */
 @Injectable()
 export class CareStep {
@@ -47,39 +69,31 @@ export class CareStep {
     @Inject(CareSettingsService) private readonly settings: CareSettingsService,
     @Inject(CareWriter) private readonly writer: CareWriter,
     @Inject(CareSender) private readonly sender: CareSender,
-    @Inject(CONVERSATION_FACADE) private readonly conversations: ConversationFacade,
+    @Inject(CareGuard) private readonly guard: CareGuard,
     @Inject(BRAIN_FACADE) private readonly brain: BrainFacade,
-    @Inject(COMMERCE_FACADE) @Optional() private readonly commerce?: CommerceFacade,
-    @Inject(LODGING_FACADE) @Optional() private readonly lodging?: LodgingFacade,
   ) {}
 
   async run(job: CareJob, now: Date): Promise<StepOutcome> {
     const ws = job.workspaceId;
     const conv = job.conversationId;
-    const [templates, facts, signals, lastOrderAt] = await Promise.all([
-      this.settings.templates(ws),
-      this.conversations.followUpFacts(ws, conv),
-      this.brain.signalsFor(ws, [conv]),
-      this.#lastOrderAt(ws, conv),
-    ]);
-    const stop = async (reason: Parameters<CareStore['stop']>[2]) => {
+    const stop = async (reason: StopReason) => {
       await this.store.stop(ws, job.id, reason, now);
       return 'stopped' as const;
     };
-    if (!facts) return stop('closed');
-    const signal = signals[0] ?? null;
-    const template = templates[job.template];
-    const reason = stopReason({
+    const g = await this.guard.check(ws, {
+      conversationId: conv,
       template: job.template,
-      templateEnabled: template.enabled,
       anchorAt: job.anchorAt,
-      facts,
-      signal: signal ? { stage: signal.stage, optOut: signal.optOut } : null,
-      lastOrderAt,
     });
-    if (reason) return stop(reason);
-    const closes = windowClosesAt(facts.provider, facts.lastInboundAt);
+    if (g.reason) return stop(g.reason);
+    const closes = g.closes;
     if (!closes) return stop('unsupported_channel');
+    // Written already by an earlier run of this step (it crashed, or its lease ran out while it
+    // was still working): never write or send it again.
+    if (await this.store.stepMessage(ws, job.id, job.anchorAt, job.step)) {
+      await this.#next(ws, job, closes, now);
+      return 'repeated';
+    }
 
     // Quiet hours, then the per-conversation limit: both only move the step inside the window.
     const later = async (at: Date, resetAttempts = true) => {
@@ -101,81 +115,85 @@ export class CareStep {
       await this.store.reschedule(ws, job.id, placed, true);
       return 'rescheduled';
     }
-    let written;
+    // The reservation is kept only when a message came of it (a draft, a send, a skip).
+    let keep = false;
     try {
-      written = await this.writer.write(ws, {
+      let written;
+      try {
+        written = await this.writer.write(ws, {
+          conversationId: conv,
+          template: job.template,
+          step: job.step,
+          instruction: g.template.instruction,
+          note: g.signal?.note ?? null,
+        });
+      } catch (e) {
+        written = { kind: 'failed' as const };
+        this.#log.warn(`care step of ${conv} not written (${errorClass(e)})`);
+      }
+      if (written.kind === 'failed' || written.kind === 'disabled') {
+        if (written.kind === 'disabled' || job.attempts >= CARE_MAX_ATTEMPTS)
+          return await stop('ai_failed');
+        return (await later(new Date(now.getTime() + CARE_RETRY_MS), false)) === 'stopped'
+          ? 'stopped'
+          : 'retry';
+      }
+
+      const level = await this.brain.levelFor(ws, 'care.send_message');
+      const id = newId();
+      const base = {
+        id,
         conversationId: conv,
+        enrollmentId: job.id,
+        anchorAt: job.anchorAt,
         template: job.template,
         step: job.step,
-        instruction: template.instruction,
-        note: signal?.note ?? null,
-      });
-    } catch (e) {
-      written = { kind: 'failed' as const };
-      this.#log.warn(`care step of ${conv} not written (${errorClass(e)})`);
+        level,
+        windowClosesAt: closes,
+        model: written.model,
+        inputTokens: written.inputTokens,
+        outputTokens: written.outputTokens,
+        createdAt: now,
+      };
+      const row =
+        written.kind === 'skip'
+          ? { ...base, text: '', status: 'skipped' as const, skipReason: written.reason }
+          : {
+              ...base,
+              text: written.text,
+              status: level === 'suggest' ? ('draft' as const) : ('sending' as const),
+              skipReason: null,
+            };
+      if (!(await this.store.insertMessage(ws, row))) {
+        // Another run wrote this step meanwhile.
+        await this.#next(ws, job, closes, now);
+        return 'repeated';
+      }
+      let outcome: StepOutcome;
+      if (row.status === 'skipped') {
+        keep = true;
+        outcome = 'skipped';
+      } else if (row.status === 'draft') {
+        keep = true;
+        outcome = 'drafted';
+      } else {
+        const sent = await this.sender.send(ws, row, null, now);
+        if (sent.status !== 'sent') {
+          // The conversation refused it (the customer wrote, a person took over, closed, out of
+          // the window): the cycle ends. A channel failure moves on to the next step.
+          const reason = STOP_ON_REFUSAL[sent.reason];
+          if (reason) return await stop(reason);
+          outcome = 'send_failed';
+        } else {
+          keep = true;
+          outcome = 'sent';
+        }
+      }
+      await this.#next(ws, job, closes, now);
+      return outcome;
+    } finally {
+      if (!keep) await this.settings.release(ws, reservation);
     }
-    if (written.kind === 'failed' || written.kind === 'disabled') {
-      await this.settings.release(ws, reservation);
-      if (written.kind === 'disabled' || job.attempts >= CARE_MAX_ATTEMPTS)
-        return stop('ai_failed');
-      return (await later(new Date(now.getTime() + CARE_RETRY_MS), false)) === 'stopped'
-        ? 'stopped'
-        : 'retry';
-    }
-
-    const level = await this.brain.levelFor(ws, 'care.send_message');
-    const id = newId();
-    const base = {
-      id,
-      conversationId: conv,
-      enrollmentId: job.id,
-      template: job.template,
-      step: job.step,
-      level,
-      windowClosesAt: closes,
-      model: written.model,
-      inputTokens: written.inputTokens,
-      outputTokens: written.outputTokens,
-      createdAt: now,
-    };
-    let outcome: StepOutcome;
-    if (written.kind === 'skip') {
-      await this.store.insertMessage(ws, {
-        ...base,
-        text: '',
-        status: 'skipped',
-        skipReason: written.reason,
-      });
-      outcome = 'skipped';
-    } else if (level === 'suggest') {
-      await this.store.insertMessage(ws, {
-        ...base,
-        text: written.text,
-        status: 'draft',
-        skipReason: null,
-      });
-      outcome = 'drafted';
-    } else {
-      await this.store.insertMessage(ws, {
-        ...base,
-        text: written.text,
-        status: 'sending',
-        skipReason: null,
-      });
-      const sent = await this.sender.send(
-        ws,
-        { id, conversationId: conv, text: written.text },
-        null,
-        now,
-      );
-      if (sent.status !== 'sent') {
-        // A closed conversation or window ends the cycle; a channel failure moves on.
-        if (sent.reason === 'conversation_changed') return stop('window_closed');
-        outcome = 'send_failed';
-      } else outcome = 'sent';
-    }
-    await this.#next(ws, job, closes, now);
-    return outcome;
   }
 
   /** The cycle's next step, placed in the window; or its end. */
@@ -187,18 +205,5 @@ export class CareStep {
       return;
     }
     await this.store.advance(ws, job.id, job.step + 1, at, now);
-  }
-
-  /** The newest order or stay booking of the conversation (a failed read: none). */
-  async #lastOrderAt(ws: WorkspaceId, conv: string): Promise<Date | null> {
-    const read = (p: Promise<{ at: Date }[]> | undefined) =>
-      (p ?? Promise.resolve([])).catch(() => [] as { at: Date }[]);
-    const times = (
-      await Promise.all([
-        read(this.commerce?.latestOrderTimes(ws, [conv])),
-        read(this.lodging?.latestBookingTimes(ws, [conv])),
-      ])
-    ).flat();
-    return times.length ? new Date(Math.max(...times.map((t) => t.at.getTime()))) : null;
   }
 }

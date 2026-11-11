@@ -48,8 +48,6 @@ const likePattern = (q: string): string => `%${q.replace(/[\\%_]/g, '\\$&')}%`;
 const waitingNow = sql`(${c.awaitingSince} is not null and ${c.status} = 'open')`;
 /** One array parameter instead of one per id (Postgres allows 65535 parameters per statement). */
 const uuidArray = (ids: readonly string[]) => sql`${`{${ids.join(',')}}`}::uuid[]`;
-/** Rows read by one `outboundTimeline` call at most. */
-const TIMELINE_MAX = 20_000;
 const date = (iso: string | null): Date | null => (iso ? new Date(iso) : null);
 /** Every condition except the tab; counts use exactly these. */
 function baseConditions(ws: WorkspaceId, f: ConversationFilter): SQL[] {
@@ -338,35 +336,57 @@ export class DrizzleConversationStore implements ConversationStore {
             ids: ids.map((r) => r.id),
           };
         },
-        async outboundTimeline({ ids, since, until }) {
-          if (!ids.length) return [];
-          const at = sql`(${m.data}->>'createdAt')::timestamptz`;
-          const rows = await tx
+        async aiTouches(points, windowMs) {
+          if (!points.length) return [];
+          const at = (alias: string) => sql.raw(`(${alias}.data->>'createdAt')::timestamptz`);
+          const delivered = (alias: string, sender: 'bot' | 'human') =>
+            sql.raw(
+              `${alias}.workspace_id = p.ws and ${alias}.conversation_id = p.conv` +
+                ` and ${alias}.data->>'direction' = 'outbound' and ${alias}.data->>'status' = 'sent'` +
+                ` and ${alias}.data->>'sender' = '${sender}'`,
+            );
+          const convs = `{${points.map((p) => p.conversationId).join(',')}}`;
+          const ats = `{${points.map((p) => p.at.toISOString()).join(',')}}`;
+          // Per point: the first bot message in the window, then whether staff wrote after it.
+          const rows = await tx.execute<{
+            ord: string | number;
+            first_bot: string | Date | null;
+            staff: boolean;
+          }>(sql`
+            select p.ord, f.first_bot,
+                   f.first_bot is not null and exists (
+                     select 1 from ${m} h
+                      where ${delivered('h', 'human')}
+                        and ${at('h')} > f.first_bot and ${at('h')} < p.at) as staff
+              from (select ${ws}::uuid as ws, u.conv, u.at, u.ord
+                      from unnest(${convs}::uuid[], ${ats}::timestamptz[])
+                           with ordinality as u(conv, at, ord)) p
+              cross join lateral (
+                select min(${at('b')}) as first_bot from ${m} b
+                 where ${delivered('b', 'bot')}
+                   and ${at('b')} >= p.at - make_interval(secs => ${windowMs / 1000})
+                   and ${at('b')} < p.at) f
+             order by p.ord`);
+          return rows.map((r) => ({
+            firstBotAt: r.first_bot ? new Date(r.first_bot).toISOString() : null,
+            staffAfter: r.staff === true,
+          }));
+        },
+        async lastHumanAt(conversationId) {
+          const [r] = await tx
             .select({
-              conversationId: m.conversationId,
-              sender: sql<string>`${m.data}->>'sender'`,
-              source: sql<string | null>`${m.data}->>'source'`,
-              at: sql<string | Date>`${at}`,
+              at: sql<string | Date | null>`max((${m.data}->>'createdAt')::timestamptz)`,
             })
             .from(m)
             .where(
               and(
                 eq(m.workspaceId, ws),
-                sql`${m.conversationId} = any(${uuidArray(ids)})`,
-                sql`${m.data}->>'direction' = 'outbound' and ${m.data}->>'status' = 'sent'`,
-                sql`${m.data}->>'sender' in ('bot','human')`,
-                sql`${at} >= ${since.toISOString()}::timestamptz`,
-                sql`${at} < ${until.toISOString()}::timestamptz`,
+                eq(m.conversationId, conversationId),
+                sql`${m.data}->>'sender' = 'human' and ${m.data}->>'direction' = 'outbound'`,
+                sql`${m.data}->>'status' <> 'failed'`,
               ),
-            )
-            .orderBy(asc(m.conversationId), asc(at))
-            .limit(TIMELINE_MAX);
-          return rows.map((r) => ({
-            conversationId: r.conversationId,
-            sender: r.sender === 'human' ? ('human' as const) : ('bot' as const),
-            source: r.source === 'care' ? ('care' as const) : null,
-            at: new Date(r.at).toISOString(),
-          }));
+            );
+          return r?.at ? new Date(r.at).toISOString() : null;
         },
         async todayCandidates({
           ids,

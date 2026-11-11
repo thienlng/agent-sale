@@ -55,6 +55,7 @@ export class MemoryCareStore implements CareStore {
     return Promise.resolve();
   }
   reserveUsage(ws: WorkspaceId, day: string, limit: number | null) {
+    if (limit !== null && limit <= 0) return Promise.resolve(false);
     const k = `${ws}/${day}`;
     const n = this.usage.get(k) ?? 0;
     if (limit !== null && n >= limit) return Promise.resolve(false);
@@ -196,18 +197,42 @@ export class MemoryCareStore implements CareStore {
   }
   #expireDrafts(ws: WorkspaceId, conversationId: string, now: Date) {
     for (const m of this.messages)
-      if (m.workspaceId === ws && m.conversationId === conversationId && m.status === 'draft') {
+      if (
+        m.workspaceId === ws &&
+        m.conversationId === conversationId &&
+        (m.status === 'draft' || m.status === 'scheduled')
+      ) {
         m.status = 'expired';
         m.updatedAt = now;
       }
   }
-  insertMessage(ws: WorkspaceId, m: NewCareMessage) {
-    if (m.status === 'draft') this.#expireDrafts(ws, m.conversationId, m.createdAt);
+  /** Test hook: runs just before a step's message is written (a race lands here). */
+  beforeInsert: (() => Promise<void> | void) | null = null;
+  async insertMessage(ws: WorkspaceId, m: NewCareMessage) {
+    await this.beforeInsert?.();
+    if (
+      m.enrollmentId &&
+      this.messages.some(
+        (x) =>
+          x.workspaceId === ws &&
+          x.enrollmentId === m.enrollmentId &&
+          x.anchorAt.getTime() === m.anchorAt.getTime() &&
+          x.step === m.step,
+      )
+    )
+      return false;
+    if (m.status === 'draft')
+      for (const x of this.messages)
+        if (x.workspaceId === ws && x.conversationId === m.conversationId && x.status === 'draft') {
+          x.status = 'expired';
+          x.updatedAt = m.createdAt;
+        }
     this.messages.push({
       id: m.id,
       workspaceId: ws,
       conversationId: m.conversationId,
       enrollmentId: m.enrollmentId,
+      anchorAt: m.anchorAt,
       template: m.template,
       step: m.step,
       level: m.level,
@@ -215,6 +240,7 @@ export class MemoryCareStore implements CareStore {
       status: m.status,
       skipReason: m.skipReason,
       windowClosesAt: m.windowClosesAt,
+      scheduledFor: null,
       sentMessageId: null,
       sentAt: null,
       decidedBy: null,
@@ -228,7 +254,17 @@ export class MemoryCareStore implements CareStore {
       targetId: m.id,
       actor: null,
     });
-    return Promise.resolve();
+    return true;
+  }
+  stepMessage(ws: WorkspaceId, enrollmentId: string, anchorAt: Date, step: number) {
+    const m = this.messages.find(
+      (x) =>
+        x.workspaceId === ws &&
+        x.enrollmentId === enrollmentId &&
+        x.anchorAt.getTime() === anchorAt.getTime() &&
+        x.step === step,
+    );
+    return Promise.resolve(m ? { ...m } : null);
   }
   #get(ws: WorkspaceId, id: string) {
     return this.messages.find((m) => m.workspaceId === ws && m.id === id);
@@ -255,21 +291,94 @@ export class MemoryCareStore implements CareStore {
         .map((m) => ({ ...m })),
     );
   }
-  claimDraft(ws: WorkspaceId, id: string, by: string, now: Date) {
+  scheduled(ws: WorkspaceId, limit: number) {
+    return Promise.resolve(
+      this.messages
+        .filter((m) => m.workspaceId === ws && m.status === 'scheduled')
+        .sort((a, b) => (a.scheduledFor?.getTime() ?? 0) - (b.scheduledFor?.getTime() ?? 0))
+        .slice(0, limit)
+        .map((m) => ({ ...m })),
+    );
+  }
+  claimDraft(
+    ws: WorkspaceId,
+    id: string,
+    by: string,
+    now: Date,
+    opts: { text?: string | undefined; sendAt?: Date | undefined } = {},
+  ) {
     const m = this.#get(ws, id);
     if (!m || m.status !== 'draft') return Promise.resolve(null);
     if (m.windowClosesAt && m.windowClosesAt.getTime() <= now.getTime()) {
       m.status = 'expired';
       return Promise.resolve(null);
     }
-    Object.assign(m, { status: 'sending', decidedBy: by, decidedAt: now, updatedAt: now });
+    const later = opts.sendAt !== undefined;
+    Object.assign(m, {
+      status: later ? 'scheduled' : 'sending',
+      scheduledFor: later ? (opts.sendAt ?? null) : null,
+      ...(opts.text !== undefined ? { text: opts.text } : {}),
+      decidedBy: by,
+      decidedAt: now,
+      updatedAt: now,
+    });
+    if (later)
+      this.audits.push({
+        workspaceId: ws,
+        action: 'care.message.scheduled',
+        targetId: id,
+        actor: by,
+      });
     return Promise.resolve({ ...m });
+  }
+  dueScheduled(now: Date, limit: number) {
+    return Promise.resolve(
+      this.messages
+        .filter(
+          (m) =>
+            m.status === 'scheduled' &&
+            m.scheduledFor !== null &&
+            m.scheduledFor.getTime() <= now.getTime(),
+        )
+        .sort((a, b) => (a.scheduledFor?.getTime() ?? 0) - (b.scheduledFor?.getTime() ?? 0))
+        .slice(0, limit)
+        .map((m) => ({ workspaceId: m.workspaceId, id: m.id })),
+    );
+  }
+  claimScheduled(ws: WorkspaceId, id: string, now: Date) {
+    const m = this.#get(ws, id);
+    if (
+      !m ||
+      m.status !== 'scheduled' ||
+      !m.scheduledFor ||
+      m.scheduledFor.getTime() > now.getTime()
+    )
+      return Promise.resolve(null);
+    Object.assign(m, { status: 'sending', updatedAt: now });
+    return Promise.resolve({ ...m });
+  }
+  deferScheduled(ws: WorkspaceId, id: string, at: Date, now: Date) {
+    const m = this.#get(ws, id);
+    if (m?.status === 'scheduled') Object.assign(m, { scheduledFor: at, updatedAt: now });
+    return Promise.resolve();
+  }
+  expireMessage(ws: WorkspaceId, id: string, reason: string, now: Date) {
+    const m = this.#get(ws, id);
+    if (!m || (m.status !== 'draft' && m.status !== 'scheduled')) return Promise.resolve(false);
+    Object.assign(m, { status: 'expired', skipReason: reason, updatedAt: now });
+    this.audits.push({
+      workspaceId: ws,
+      action: 'care.message.expired',
+      targetId: id,
+      actor: null,
+    });
+    return Promise.resolve(true);
   }
   finishSend(
     ws: WorkspaceId,
     id: string,
     r: {
-      status: 'sent' | 'failed';
+      status: 'sent' | 'failed' | 'expired';
       text: string;
       sentMessageId: string | null;
       reason: string | null;
@@ -302,18 +411,21 @@ export class MemoryCareStore implements CareStore {
     Object.assign(m, { status: 'rejected', decidedBy: by, decidedAt: now });
     return Promise.resolve(true);
   }
-  sentTimes(ws: WorkspaceId, conversationId: string, since: Date) {
+  sentTimes(ws: WorkspaceId, conversationId: string, since: Date, exceptId?: string) {
     return Promise.resolve(
       this.messages
         .filter(
           (m) =>
             m.workspaceId === ws &&
             m.conversationId === conversationId &&
-            m.status === 'sent' &&
-            m.sentAt &&
-            m.sentAt.getTime() >= since.getTime(),
+            m.id !== exceptId &&
+            (m.status === 'sent' ||
+              m.status === 'sending' ||
+              m.status === 'scheduled' ||
+              (m.status === 'failed' && m.skipReason === 'interrupted')),
         )
-        .flatMap((m) => (m.sentAt ? [m.sentAt] : [])),
+        .map((m) => m.sentAt ?? m.scheduledFor ?? m.updatedAt)
+        .filter((t) => t.getTime() >= since.getTime()),
     );
   }
   sentBetween(
@@ -339,14 +451,28 @@ export class MemoryCareStore implements CareStore {
   expireDue(now: Date, staleBefore: Date) {
     let n = 0;
     for (const m of this.messages) {
-      if (m.status === 'draft' && m.windowClosesAt && m.windowClosesAt.getTime() <= now.getTime()) {
+      if (
+        (m.status === 'draft' || m.status === 'scheduled') &&
+        m.windowClosesAt &&
+        m.windowClosesAt.getTime() <= now.getTime()
+      ) {
         m.status = 'expired';
         n++;
       } else if (m.status === 'sending' && m.updatedAt.getTime() <= staleBefore.getTime()) {
         m.status = 'failed';
+        m.skipReason = 'interrupted';
         n++;
       }
     }
+    for (const e of this.enrollments)
+      if (
+        e.status === 'active' &&
+        e.template === 'after_sale' &&
+        e.nextAt.getTime() < now.getTime() - AFTER_SALE_LISTED_MS
+      ) {
+        e.status = 'done';
+        n++;
+      }
     return Promise.resolve(n);
   }
 }

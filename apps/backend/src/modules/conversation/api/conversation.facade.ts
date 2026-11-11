@@ -146,26 +146,41 @@ export interface ConversationFacade {
   followUpFacts(ws: WorkspaceId, id: string): Promise<FollowUpFacts | null>;
   /**
    * Sends a care agent message (ADR-031) as a bot message marked `source: 'care'`: the
-   * conversation must be open and inside the channel's window (never a message tag); it does not
-   * take the conversation from the bot or from a person. Idempotent by `idempotencyKey`. Throws
-   * NOT_FOUND, CONFLICT (not open, window closed) or VALIDATION_FAILED (empty or > 2 000 chars). A
-   * failed delivery is stored as a failed message and returned, never thrown.
+   * conversation must be open, held by the bot (`mode: 'bot'`), inside the channel's window (never
+   * a message tag), and the customer must not have written after `anchorAt` (the customer message
+   * the follow-up was written for) nor be waiting for an answer. Checked in the same transaction
+   * that reserves the message, so a customer message or a takeover that lands while the model
+   * writes wins. It does not take the conversation from the bot. Idempotent by `idempotencyKey`
+   * (a repeated key returns the first message). Throws NOT_FOUND, CONFLICT with
+   * `details.reason` = a `CareRefusal`, or VALIDATION_FAILED (empty or > 2 000 chars). A failed
+   * delivery is stored as a failed message and returned, never thrown.
    */
   commitCareMessage(
     ws: WorkspaceId,
     id: string,
-    input: { text: string; idempotencyKey: string },
+    input: { text: string; idempotencyKey: string; anchorAt: Date },
   ): Promise<InboxMessageDto>;
   /**
-   * The delivered outbound messages (bot and staff, with the care marker) of these conversations
-   * (≤ 1 000 ids) sent in `[since, until)`, oldest first per conversation; at most 20 000 rows. For
-   * the care agent's attribution ("Rapiz đã mang lại"). No message text.
+   * For the care agent's attribution ("Rapiz đã mang lại"), per point (a sale in a conversation
+   * at a time; ≤ 1 000 points): the first bot message (a bot reply or a care message) delivered
+   * in the `windowMs` before it, and whether a person of the shop delivered a message between
+   * that one and the sale. Aggregated in SQL, in the order of `points`. No message text.
    */
-  outboundTimeline(
+  aiTouches(
     ws: WorkspaceId,
-    ids: readonly string[],
-    range: { since: Date; until: Date },
-  ): Promise<TimelineEntry[]>;
+    points: readonly { conversationId: string; at: Date }[],
+    windowMs: number,
+  ): Promise<AiTouch[]>;
+}
+/** Why `commitCareMessage` refused a care message (`details.reason` of the CONFLICT). */
+export type CareRefusal =
+  'conversation_closed' | 'window_closed' | 'customer_replied' | 'taken_over';
+/** One point of `aiTouches`. */
+export interface AiTouch {
+  /** ISO time of the first bot message in the window; null when there was none. */
+  firstBotAt: string | null;
+  /** A person of the shop wrote after `firstBotAt` and before the sale. */
+  staffAfter: boolean;
 }
 /** What `followUpFacts` returns (ISO times; null when it never happened). */
 export interface FollowUpFacts {
@@ -178,15 +193,6 @@ export interface FollowUpFacts {
   lastMessageSender: 'customer' | 'human' | 'bot';
   /** The last message a person of the shop sent that did not fail (inbox or Page echo). */
   lastHumanAt: string | null;
-}
-/** One delivered outbound message of `outboundTimeline`. */
-export interface TimelineEntry {
-  conversationId: string;
-  sender: 'bot' | 'human';
-  /** `care`: written by the care agent. */
-  source: 'care' | null;
-  /** ISO time. */
-  at: string;
 }
 /** What `todayCandidates` reads. */
 export interface TodayCandidatesQuery {

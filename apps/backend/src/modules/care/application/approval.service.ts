@@ -6,29 +6,55 @@ import type {
   ConversationSignalDto,
   TodayApprovalItem,
 } from '@agent-sales/contracts';
-import { isUuid, userId, type WorkspaceId } from '@agent-sales/shared';
+import { type DomainError, isUuid, userId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { BRAIN_FACADE, type BrainFacade, type TodayViewerRef } from '../../brain/api/index.js';
 import {
+  type CareRefusal,
   CONVERSATION_FACADE,
   type ConversationFacade,
   type TodayConversation,
 } from '../../conversation/api/index.js';
 import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.js';
-import { draftExpired, hcmDayStart } from '../domain/care.js';
 import {
+  draftExpired,
+  hcmDayStart,
+  inQuietHours,
+  type MessageTemplate,
+  nextAllowedAfterLimit,
+  placeInWindow,
+  quietHoursEnd,
+  type StopReason,
+} from '../domain/care.js';
+import {
+  CareCustomerRepliedError,
+  CareLimitReachedError,
   CareMessageNotFoundError,
   CareMessageNotPendingError,
+  CareStoppedError,
+  CareTakenOverError,
   CareWindowClosedError,
 } from '../domain/care.errors.js';
 import { CARE_STORE, type CareMessage, type CareStore } from '../domain/ports/care.store.js';
+import { CareGuard } from './care-guard.js';
 import { CareSender } from './care-sender.js';
 
 /** Drafts read for one Today (the newest; a busy shop's queue). */
 const DRAFTS_READ = 500;
-/** "Gửi tất cả" sends at most this many at once. */
+/** "Gửi tất cả" approves at most this many at once… */
 export const BULK_MAX = 50;
+/** …and sends this many in the request; the rest are `scheduled` for the worker's next tick. */
+export const BULK_SEND_NOW = 5;
+const DAY_MS = 86_400_000;
+
+/** The refusal shown to the member for a stop rule or a refused send (409, module code). */
+export function refusalError(id: string, reason: StopReason | CareRefusal): DomainError {
+  if (reason === 'taken_over') return new CareTakenOverError(id);
+  if (reason === 'customer_replied') return new CareCustomerRepliedError(id);
+  if (reason === 'window_closed') return new CareWindowClosedError(id);
+  return new CareStoppedError(id, reason === 'conversation_closed' ? 'closed' : reason);
+}
 const AI_DONE_MAX = 50;
 const EPOCH = new Date(0);
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -44,6 +70,7 @@ export function toCareMessageDto(m: CareMessage): CareMessageDto {
     status: m.status,
     skipReason: m.skipReason,
     windowClosesAt: iso(m.windowClosesAt),
+    scheduledFor: iso(m.scheduledFor),
     sentMessageId: m.sentMessageId,
     sentAt: iso(m.sentAt),
     decidedBy: m.decidedBy,
@@ -63,30 +90,37 @@ export class ApprovalService {
   constructor(
     @Inject(CARE_STORE) private readonly store: CareStore,
     @Inject(CareSender) private readonly sender: CareSender,
+    @Inject(CareGuard) private readonly guard: CareGuard,
     @Inject(CONVERSATION_FACADE) private readonly conversations: ConversationFacade,
     @Inject(BRAIN_FACADE) private readonly brain: BrainFacade,
     @Inject(IDENTITY_FACADE) private readonly identity: IdentityFacade,
   ) {}
 
-  /** The viewer's drafts still inside their window: the count and up to `limit` items. */
+  /**
+   * The viewer's drafts still inside their window (`count`: they wait for a person), then their
+   * approved messages waiting for their time ("Sẽ gửi lúc 08:00"): up to `limit` items.
+   */
   async approvals(
     ws: WorkspaceId,
     viewer: TodayViewerRef,
     now: Date,
     limit: number,
   ): Promise<{ count: number; items: TodayApprovalItem[] }> {
-    const drafts = (await this.store.drafts(ws, DRAFTS_READ)).filter(
-      (d) => !draftExpired(d.windowClosesAt, now),
-    );
-    if (!drafts.length) return { count: 0, items: [] };
+    const [allDrafts, scheduled] = await Promise.all([
+      this.store.drafts(ws, DRAFTS_READ),
+      this.store.scheduled(ws, DRAFTS_READ),
+    ]);
+    const drafts = allDrafts.filter((d) => !draftExpired(d.windowClosesAt, now));
+    const open = [...drafts, ...scheduled.filter((d) => !draftExpired(d.windowClosesAt, now))];
+    if (!open.length) return { count: 0, items: [] };
     const facts = await this.#facts(
       ws,
-      drafts.map((d) => d.conversationId),
+      open.map((d) => d.conversationId),
       viewer,
     );
-    const visible = drafts.filter((d) => facts.has(d.conversationId));
-    const shown = visible.slice(0, Math.max(0, limit));
-    if (!shown.length) return { count: visible.length, items: [] };
+    const count = drafts.filter((d) => facts.has(d.conversationId)).length;
+    const shown = open.filter((d) => facts.has(d.conversationId)).slice(0, Math.max(0, limit));
+    if (!shown.length) return { count, items: [] };
     const [signals, names] = await Promise.all([
       this.#signals(
         ws,
@@ -95,7 +129,7 @@ export class ApprovalService {
       this.#names(shown.map((d) => facts.get(d.conversationId)?.assigneeId ?? null)),
     ]);
     return {
-      count: visible.length,
+      count,
       items: shown.flatMap((d) => {
         const f = facts.get(d.conversationId);
         if (!f) return [];
@@ -118,6 +152,7 @@ export class ApprovalService {
             template: d.template,
             text: d.text,
             windowClosesAt: iso(d.windowClosesAt),
+            scheduledFor: d.status === 'scheduled' ? iso(d.scheduledFor) : null,
             createdAt: d.createdAt.toISOString(),
           },
         ];
@@ -126,9 +161,19 @@ export class ApprovalService {
   }
 
   /**
-   * Sends a draft now (with the edited text when given). NOT_FOUND when it is not the viewer's to
-   * see; CONFLICT when it was decided already, or the window closed or the conversation changed
-   * (then it is `expired` / `failed`). A channel failure is an answer (`failed`), not an error.
+   * A person approves a draft (with the edited text when given). The stop rules are read again
+   * first (a lost outbox event never turns into a wrong send): when one applies — the customer
+   * wrote, a person holds the conversation (ADR-031 §7), opted out, ordered, closed… — the draft
+   * expires and the answer is 409 with a module code. Then:
+   * - in the quiet hours (21:00–08:00) it is `scheduled` for 08:00 local, sent then by the worker
+   *   if the window is still open and the rules still pass (else `expired`); refused when 08:00
+   *   is already past the window;
+   * - the per-conversation limit (2 per 24 hours) applies to approved messages too: 409
+   *   `CARE_LIMIT_REACHED`, the draft stays to approve later;
+   * - `queue` ("Gửi tất cả" past the first few): `scheduled` now, for the worker's next tick;
+   * - else it is sent now. A channel failure is an answer (`failed`), not an error; a send the
+   *   conversation refused expires the draft and answers 409.
+   * NOT_FOUND when it is not the viewer's to see; `CARE_DRAFT_DECIDED` when already decided.
    */
   async approve(
     ws: WorkspaceId,
@@ -136,24 +181,51 @@ export class ApprovalService {
     id: string,
     text: string | undefined,
     now = new Date(),
+    opts: { queue?: boolean } = {},
   ): Promise<CareMessageDto> {
     const m = await this.#visible(ws, viewer, id);
     if (m.status !== 'draft') throw new CareMessageNotPendingError(id, m.status);
-    // Takes the draft only while its window is open (a closed one becomes `expired`).
-    const claimed = await this.store.claimDraft(ws, id, viewer.userId, now);
+    if (draftExpired(m.windowClosesAt, now)) {
+      await this.store.expireMessage(ws, id, 'window_closed', now);
+      throw new CareWindowClosedError(id);
+    }
+    const g = await this.guard.check(ws, {
+      conversationId: m.conversationId,
+      template: m.template as MessageTemplate,
+      anchorAt: m.anchorAt,
+    });
+    if (g.reason) {
+      await this.store.expireMessage(ws, id, g.reason, now);
+      throw refusalError(id, g.reason);
+    }
+    const quiet = inQuietHours(now);
+    const sendAt = quiet ? quietHoursEnd(now) : now;
+    if (quiet && m.windowClosesAt && !placeInWindow(sendAt, m.windowClosesAt)) {
+      await this.store.expireMessage(ws, id, 'window_closed', now);
+      throw new CareWindowClosedError(id);
+    }
+    const recent = await this.store.sentTimes(
+      ws,
+      m.conversationId,
+      new Date(sendAt.getTime() - DAY_MS),
+    );
+    const allowedAt = nextAllowedAfterLimit(recent, sendAt);
+    if (allowedAt) throw new CareLimitReachedError(id, allowedAt);
+    const schedule = quiet || opts.queue === true;
+    const claimed = await this.store.claimDraft(ws, id, viewer.userId, now, {
+      text,
+      sendAt: schedule ? sendAt : undefined,
+    });
     if (!claimed) {
       const again = await this.store.getMessage(ws, id);
       if (again?.status === 'expired') throw new CareWindowClosedError(id);
       throw new CareMessageNotPendingError(id, again?.status ?? 'unknown');
     }
-    const out = await this.sender.send(
-      ws,
-      { id, conversationId: m.conversationId, text: text ?? m.text },
-      viewer.userId,
-      now,
-    );
-    if (out.status === 'failed' && out.reason === 'conversation_changed') {
-      throw new CareWindowClosedError(id);
+    if (claimed.status === 'sending') {
+      const out = await this.sender.send(ws, claimed, viewer.userId, now);
+      if (out.status === 'failed' && out.reason !== 'channel_failed') {
+        throw refusalError(id, out.reason);
+      }
     }
     const stored = await this.store.getMessage(ws, id);
     if (!stored) throw new CareMessageNotFoundError(id);
@@ -176,7 +248,11 @@ export class ApprovalService {
     return toCareMessageDto(stored);
   }
 
-  /** "Gửi tất cả": the given drafts (or every draft the viewer sees), at most 50, one by one. */
+  /**
+   * "Gửi tất cả": the given drafts (or every draft the viewer sees), at most 50, each approved
+   * like one "Gửi". Only the first `BULK_SEND_NOW` are sent in the request (each send waits on
+   * Meta); the others are `scheduled` for the worker's next tick (or 08:00 in the quiet hours).
+   */
   async approveAll(
     ws: WorkspaceId,
     viewer: TodayViewerRef,
@@ -185,11 +261,18 @@ export class ApprovalService {
   ): Promise<BulkApproveCareMessagesResponse> {
     const wanted = ids?.length
       ? [...new Set(ids)].slice(0, BULK_MAX)
-      : (await this.approvals(ws, viewer, now, BULK_MAX)).items.map((i) => i.careMessageId);
+      : (await this.approvals(ws, viewer, now, BULK_MAX)).items
+          .filter((i) => i.scheduledFor === null)
+          .map((i) => i.careMessageId);
     const results: { id: string; status: CareMessageStatus }[] = [];
+    let attempted = 0;
     for (const id of wanted) {
       try {
-        results.push({ id, status: (await this.approve(ws, viewer, id, undefined, now)).status });
+        const dto = await this.approve(ws, viewer, id, undefined, now, {
+          queue: attempted >= BULK_SEND_NOW,
+        });
+        if (dto.status !== 'scheduled') attempted++;
+        results.push({ id, status: dto.status });
       } catch {
         const m = isUuid(id) ? await this.store.getMessage(ws, id) : null;
         // An id the viewer may not see is reported like a missing one: no detail leaks.
@@ -198,7 +281,54 @@ export class ApprovalService {
       }
     }
     const sent = results.filter((r) => r.status === 'sent').length;
-    return { sent, notSent: results.length - sent, results };
+    const scheduled = results.filter((r) => r.status === 'scheduled').length;
+    return { sent, scheduled, notSent: results.length - sent - scheduled, results };
+  }
+
+  /**
+   * Worker pass: approved messages whose time came (`scheduled`), sent as their approver — if
+   * the window is still open and the stop rules still pass (else `expired`), outside the quiet
+   * hours, and within the per-conversation limit (else they wait, inside the window).
+   */
+  async sendScheduled(now: Date, limit = 20): Promise<number> {
+    let sent = 0;
+    for (const { workspaceId: ws, id } of await this.store.dueScheduled(now, limit)) {
+      const m = await this.store.getMessage(ws, id);
+      if (!m || m.status !== 'scheduled') continue;
+      const closes = m.windowClosesAt;
+      const expire = (reason: string) => this.store.expireMessage(ws, id, reason, now);
+      if (closes && !placeInWindow(now, closes)) {
+        await expire('window_closed');
+        continue;
+      }
+      const g = await this.guard.check(ws, {
+        conversationId: m.conversationId,
+        template: m.template as MessageTemplate,
+        anchorAt: m.anchorAt,
+      });
+      if (g.reason) {
+        await expire(g.reason);
+        continue;
+      }
+      const recent = await this.store.sentTimes(
+        ws,
+        m.conversationId,
+        new Date(now.getTime() - DAY_MS),
+        id,
+      );
+      const wait = inQuietHours(now) ? quietHoursEnd(now) : nextAllowedAfterLimit(recent, now);
+      if (wait) {
+        const at = closes ? placeInWindow(wait, closes) : wait;
+        if (at) await this.store.deferScheduled(ws, id, at, now);
+        else await expire('window_closed');
+        continue;
+      }
+      const claimed = await this.store.claimScheduled(ws, id, now);
+      if (!claimed) continue;
+      const out = await this.sender.send(ws, claimed, claimed.decidedBy, now);
+      if (out.status === 'sent') sent++;
+    }
+    return sent;
   }
 
   /** "AI đã làm": today's (local day) sends at level `act_and_report` the viewer may see. */

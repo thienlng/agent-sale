@@ -2,7 +2,7 @@
 
 **Purpose:** Business Brain v1 (spec `docs/superpowers/specs/2026-11-11-business-brain-today-design.md`, ADR-030): one AI judgement per conversation (stage, intent, mood, needs-a-person, follow-up, rolling note), evaluated when a conversation goes idle or on request, within a daily cap; the complaint alert.
 
-**Owned tables:** `conversation_signals` (+ `opt_out`, 0074), `signal_jobs`, `signal_runs`, `signal_usage`, `brain_settings`, `autonomy_settings` (0074, ADR-031), `brain_checkpoints` (global, app_system only: the outbox position, row `brain.signals`) (schema `packages/db/src/schema/brain.ts`, migrations 0072, 0074).
+**Owned tables:** `conversation_signals` (+ `opt_out`, 0075), `signal_jobs`, `signal_runs`, `signal_usage`, `brain_settings`, `autonomy_settings` (0075, ADR-031), `brain_checkpoints` (global, app_system only: the outbox position, row `brain.signals`) (schema `packages/db/src/schema/brain.ts`, migrations 0073, 0075).
 
 **Public API (`api/`):**
 - `BRAIN_FACADE` → `signalsFor(ws, convIds)`, `evaluateNow(ws, convId, 'manual'|'refresh')` → `{status: ok|capped|nothing_new|disabled, signal}`, `usage(ws)` → `{day, used, limit}`, `settings(ws)`, `levelFor(ws, action)` (autonomy registry, `domain/autonomy.ts`: `care.send_message` default `suggest`, levels suggest · act_and_report · auto).

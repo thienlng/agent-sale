@@ -15,6 +15,7 @@ import { CARE_FACADE } from './api/care.facade.js';
 import { CARE_RUNNER } from './api/care.runner.js';
 import { ApprovalService } from './application/approval.service.js';
 import { CARE_EVENTS, CareEnroller } from './application/care-enroller.js';
+import { CareGuard } from './application/care-guard.js';
 import { CareRunnerImpl } from './application/care-runner.js';
 import { CareSender } from './application/care-sender.js';
 import { CareSettingsService } from './application/care-settings.service.js';
@@ -74,6 +75,7 @@ import {
     CareSettingsService,
     CareWriter,
     CareSender,
+    CareGuard,
     CareEnroller,
     CareStep,
     ApprovalService,

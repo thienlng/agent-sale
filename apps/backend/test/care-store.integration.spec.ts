@@ -17,7 +17,7 @@ import { DrizzleCareEventSource } from '../src/modules/care/infrastructure/persi
 import { DrizzleCareStore } from '../src/modules/care/infrastructure/persistence/care.drizzle-store.js';
 
 /**
- * The care module's Drizzle store and outbox reader on a real Postgres (migration 0074): cycles
+ * The care module's Drizzle store and outbox reader on a real Postgres (migration 0075): cycles
  * keyed by anchor, the leased claim, the daily counter, drafts (claim, expiry), tenant isolation
  * and the brain's `brain.signals.updated.v1` event read from the outbox.
  */
@@ -124,6 +124,7 @@ describe('DrizzleCareStore', () => {
         id,
         conversationId: a.conv,
         enrollmentId: null,
+        anchorAt: T0,
         template: 'silent',
         step: 0,
         level: 'suggest',
@@ -178,6 +179,92 @@ describe('DrizzleCareStore', () => {
     expect(audits.map((r) => r.action)).toEqual(
       expect.arrayContaining(['care.message.drafted', 'care.message.sent']),
     );
+  });
+
+  it('writes a step once, counts sends in flight, schedules approvals and closes old check-ins', async () => {
+    const b = shop(1);
+    const enrollment = newId();
+    const step = (id: string, status: 'sending' | 'draft') =>
+      store.insertMessage(b.ws, {
+        id,
+        conversationId: b.conv,
+        enrollmentId: enrollment,
+        anchorAt: T0,
+        template: 'silent',
+        step: 0,
+        level: 'auto',
+        text: 'Dạ còn ạ',
+        status,
+        skipReason: null,
+        windowClosesAt: plus(24),
+        model: 'fake',
+        inputTokens: 1,
+        outputTokens: 1,
+        createdAt: plus(2),
+      });
+    const first = newId();
+    expect(await step(first, 'sending')).toBe(true);
+    // A crashed or doubled run of the same step writes nothing (unique step index).
+    expect(await step(newId(), 'sending')).toBe(false);
+    expect((await store.stepMessage(b.ws, enrollment, T0, 0))?.id).toBe(first);
+    expect(await store.stepMessage(b.ws, enrollment, T0, 1)).toBeNull();
+    // A send whose outcome is unknown counts toward the 2-per-24 h limit.
+    expect(await store.sentTimes(b.ws, b.conv, T0)).toHaveLength(1);
+    expect(await store.sentTimes(b.ws, b.conv, T0, first)).toHaveLength(0);
+
+    // An approval in the quiet hours: scheduled with its time and the edited text.
+    const draftId = newId();
+    await store.insertMessage(b.ws, {
+      id: draftId,
+      conversationId: b.conv,
+      enrollmentId: null,
+      anchorAt: T0,
+      template: 'silent',
+      step: 1,
+      level: 'suggest',
+      text: 'Dạ',
+      status: 'draft',
+      skipReason: null,
+      windowClosesAt: plus(24),
+      model: 'fake',
+      inputTokens: 1,
+      outputTokens: 1,
+      createdAt: plus(3),
+    });
+    const scheduled = await store.claimDraft(b.ws, draftId, user, plus(13), {
+      text: 'Dạ áo còn ạ',
+      sendAt: plus(22),
+    });
+    expect(scheduled).toMatchObject({
+      status: 'scheduled',
+      text: 'Dạ áo còn ạ',
+      scheduledFor: plus(22),
+    });
+    expect((await store.scheduled(b.ws, 10)).map((m) => m.id)).toEqual([draftId]);
+    expect(await store.dueScheduled(plus(21), 10)).toEqual([]);
+    expect(await store.dueScheduled(plus(22), 10)).toEqual([{ workspaceId: b.ws, id: draftId }]);
+    expect(await store.claimScheduled(shop(0).ws, draftId, plus(22))).toBeNull();
+    expect((await store.claimScheduled(b.ws, draftId, plus(22)))?.status).toBe('sending');
+    expect(await store.expireMessage(b.ws, draftId, 'customer_replied', plus(22))).toBe(false);
+
+    // A limit of 0 takes nothing and writes no counter row.
+    expect(await store.reserveUsage(b.ws, '2026-12-01', 0)).toBe(false);
+    expect(await store.usedOn(b.ws, '2026-12-01')).toBe(0);
+
+    // An after-sales check-in due more than 7 days ago is closed by the expiry pass.
+    const conv2 = newId();
+    await exec(sql`insert into conversations (id, workspace_id, channel_id, customer_id, data)
+      select ${conv2}, workspace_id, channel_id, ${conv2}, '{}'::jsonb from conversations where id = ${b.conv}`);
+    await store.enroll(
+      b.ws,
+      { conversationId: conv2, template: 'after_sale', anchorAt: T0, nextAt: plus(1) },
+      T0,
+    );
+    await store.expireDue(plus(1 + 7 * 24 + 1), plus(-100));
+    const [row] = await exec(
+      sql`select status from care_enrollments where conversation_id = ${conv2}`,
+    );
+    expect(row?.status).toBe('done');
   });
 
   it('lists due after-sales check-ins and stops them on a customer message', async () => {

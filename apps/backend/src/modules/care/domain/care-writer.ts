@@ -115,7 +115,8 @@ export function buildWriterInput(input: {
     `OWNER INSTRUCTION:\n<<<\n${fenceSafe(input.instruction) || '(none)'}\n>>>`,
     `PERSONA: ${personaLine(input.persona)}`,
     `SHOP FACTS:\n<<<\n${facts.join('\n') || '(none)'}\n>>>`,
-    `NOTE:\n${input.note ? fenceSafe(input.note) : '(none)'}`,
+    // The Brain's note summarises customer text: data, fenced like the messages.
+    `NOTE:\n<<<\n${input.note ? fenceSafe(input.note) : '(none)'}\n>>>`,
     `MESSAGES (oldest first):\n<<<\n${lines.join('\n')}\n>>>`,
   ].join('\n\n');
 }

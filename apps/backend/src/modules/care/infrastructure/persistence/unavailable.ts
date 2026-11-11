@@ -27,10 +27,16 @@ export class UnavailableCareStore implements CareStore {
   reschedule = unavailable;
   afterSaleDue = () => Promise.resolve([]);
   insertMessage = unavailable;
+  stepMessage = unavailable;
   getMessage = unavailable;
   messagesOf = unavailable;
   drafts = () => Promise.resolve([]);
+  scheduled = () => Promise.resolve([]);
   claimDraft = unavailable;
+  dueScheduled = () => Promise.resolve([]);
+  claimScheduled = unavailable;
+  deferScheduled = unavailable;
+  expireMessage = unavailable;
   finishSend = unavailable;
   rejectDraft = unavailable;
   sentTimes = unavailable;

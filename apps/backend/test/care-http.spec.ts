@@ -23,6 +23,7 @@ import { createLogger } from '../src/common/logger.js';
 import { BILLING_FACADE } from '../src/modules/billing/api/index.js';
 import { BRAIN_STORE } from '../src/modules/brain/domain/ports/brain.store.js';
 import { MemoryBrainStore } from '../src/modules/brain/__tests__/factories/memory-brain-store.js';
+import { blankSignal } from '../src/modules/brain/domain/signal.js';
 import { CARE_STORE } from '../src/modules/care/domain/ports/care.store.js';
 import { MemoryCareStore } from '../src/modules/care/__tests__/factories/memory-care-store.js';
 import {
@@ -39,11 +40,16 @@ afterEach(async () => {
   await app?.close();
   app = undefined;
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
+/** 10:00 in Asia/Ho_Chi_Minh: outside the quiet hours (only `Date` is faked). */
+const DAYTIME = new Date('2026-11-11T03:00:00.000Z');
 
 const CONV = '0190f5c2-0000-7000-8000-00000000e001';
 
 async function setup() {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(DAYTIME);
   configureEnv({ NODE_ENV: 'test', LOG_LEVEL: 'error' });
   const brainStore = new MemoryBrainStore();
   const careStore = new MemoryCareStore();
@@ -86,7 +92,23 @@ async function setup() {
         source: 'care',
       });
     },
-    outboundTimeline: () => Promise.resolve([]),
+    followUpFacts: (ws: WorkspaceId, id: string) =>
+      Promise.resolve(
+        owners.get(id) === ws
+          ? {
+              id,
+              provider: 'facebook',
+              status: 'open',
+              mode: 'bot',
+              assigneeId: null,
+              lastInboundAt: at,
+              lastMessageSender: 'bot',
+              lastHumanAt: null,
+            }
+          : null,
+      ),
+    aiTouches: (_ws: WorkspaceId, points: readonly unknown[]) =>
+      Promise.resolve(points.map(() => ({ firstBotAt: null, staffAfter: false }))),
   } as unknown as ConversationFacade;
   const billing = { entitlements: () => Promise.resolve({ limits: {} }) };
   const module = await Test.createTestingModule({ imports: [AppModule] })
@@ -150,10 +172,16 @@ async function setup() {
   /** A draft of the care agent for `conv` in `ws`, open for `hours` more. */
   const draft = async (ws: string, conv = CONV, hours = 10) => {
     const id = newId();
+    // The Brain still judges the customer `price_asked` (the follow-up applies).
+    await brainStore.saveSignal(workspaceId(ws), {
+      ...blankSignal(conv, null, new Date()),
+      stage: 'price_asked',
+    });
     await careStore.insertMessage(workspaceId(ws), {
       id,
       conversationId: conv,
       enrollmentId: null,
+      anchorAt: new Date(at),
       template: 'silent',
       step: 0,
       level: 'suggest',
@@ -282,7 +310,9 @@ describe('HTTP: Chờ duyệt', () => {
     expect(sent.statusCode).toBe(200);
     expect(CareMessageDto.parse(sent.json())).toMatchObject({ status: 'sent', text: 'Dạ còn ạ' });
     expect(t.sends).toEqual([{ ws: a.ws, id: CONV, text: 'Dạ còn ạ' }]);
-    expect((await a.call('POST', `/today/approval/${id}/approve`, {})).statusCode).toBe(409);
+    const again = await a.call('POST', `/today/approval/${id}/approve`, {});
+    expect(again.statusCode).toBe(409);
+    expect(again.json()).toMatchObject({ error: { details: { reason: 'CARE_DRAFT_DECIDED' } } });
     expect(t.careStore.audits.map((x) => x.action)).toContain('care.message.sent');
   });
 
@@ -299,7 +329,12 @@ describe('HTTP: Chờ duyệt', () => {
     const all = BulkApproveCareMessagesResponse.parse(
       (await a.call('POST', '/today/approval/approve-all', {})).json(),
     );
-    expect(all).toMatchObject({ sent: 1, notSent: 0, results: [{ id: two, status: 'sent' }] });
+    expect(all).toMatchObject({
+      sent: 1,
+      scheduled: 0,
+      notSent: 0,
+      results: [{ id: two, status: 'sent' }],
+    });
     const done = AiDoneResponse.parse((await a.call('GET', '/today/ai-done')).json());
     expect(done.count).toBe(0); // approved drafts are not "AI đã làm"
     t.actAs('analyst');
@@ -327,5 +362,29 @@ describe('HTTP: Rapiz đã mang lại', () => {
     expect((await a.call('GET', '/brain/impact?range=today')).statusCode).toBe(403);
     t.actAs('analyst');
     expect((await a.call('GET', '/brain/impact?range=today')).statusCode).toBe(200);
+  });
+});
+
+describe('HTTP: approvals at night', () => {
+  it('schedules an approval in the quiet hours for 08:00 and shows it on Today', async () => {
+    const t = await setup();
+    vi.setSystemTime(new Date('2026-11-11T16:00:00.000Z')); // 23:00 local
+    const a = await t.signup('care-night@example.test');
+    t.owners.set(CONV, a.ws);
+    const id = await t.draft(a.ws, CONV, 20);
+    const r = await a.call('POST', `/today/approval/${id}/approve`, {});
+    expect(r.statusCode).toBe(200);
+    expect(CareMessageDto.parse(r.json())).toMatchObject({
+      status: 'scheduled',
+      scheduledFor: '2026-11-12T01:00:00.000Z',
+    });
+    expect(t.sends).toEqual([]);
+    const approval = TodayResponse.parse((await a.call('GET', '/today')).json()).queues.find(
+      (q) => q.key === 'approval',
+    );
+    expect(approval).toMatchObject({
+      count: 0,
+      items: [{ careMessageId: id, scheduledFor: '2026-11-12T01:00:00.000Z' }],
+    });
   });
 });
