@@ -20,6 +20,8 @@ const PAGES = [
   '/bang-gia/',
   '/dat-lich-demo/',
   '/ve-rapiz/',
+  '/privacy/',
+  '/terms/',
 ];
 
 /** Script errors, failed same-origin requests and any request leaving the site. */

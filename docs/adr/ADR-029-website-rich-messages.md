@@ -29,9 +29,12 @@ untrusted, ADR on the page context); the widget stays plain TypeScript, ES2017, 
    context (`website-page@2`), never on Messenger, Instagram or comment replies:
    - `show_products {text, productIds 1..6}` sends at once, through the turn's `MessageSink`, one
      message with the text and cards built from catalog data the turn has seen (focus products and
-     every product a catalog tool returned): name, price line (one price, "Từ / From" a range
-     start, or the offering's price note) and the first allowlisted picture. Unknown ids are
-     reported back; with none known, nothing is sent.
+     every product a catalog tool listed, search rows included): name, price line (one price,
+     "Từ / From" a range start, or the offering's price note, a short note next to the price) and
+     the product's first picture on the public media base (a card picture does not become
+     sendable by id). An id the turn has not seen may also be an exact product code or name
+     (models garble near-identical UUIDv7s). Unknown ids are reported back; with none known,
+     nothing is sent and the known `{id, name}` are listed so the model can retry.
    - `suggest_next {replies? ≤3, links? ≤2 {id, title}}` keeps up to 4 buttons, replies first,
      for the final answer; a later call replaces an earlier one. They are attached to the last
      bubble of the final message only when the turn is answered without a guardrail (never on a

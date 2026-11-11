@@ -188,3 +188,72 @@ export const SITE_FAQS: readonly SiteFaq[] = [
       'Mỗi sự kiện Rapiz gửi đi kèm chữ ký để hệ thống của doanh nghiệp kiểm tra đúng là từ Rapiz và không bị sửa trên đường truyền.',
   },
 ];
+
+export interface SitePlan {
+  /** Product code, the match key of a re-seed. */
+  code: string;
+  name: string;
+  description: string;
+  /** Shown next to the card price (`cardPrice`), or instead of it for the free plan. */
+  priceNote: string;
+  /** Monthly price per prepaid term: one variant each (12, 6, 3 months), or one 0 for free. */
+  variants: readonly { sku: string; name: string; price: number }[];
+  /** Cover picture on the site (`apps/site/tools/plan_images.mjs`), fetched at seed time. */
+  image: string;
+}
+
+/** The plans as catalog products, so the website chat can show them as cards (ADR-029). */
+export const SITE_PLANS: readonly SitePlan[] = [
+  {
+    code: 'RAPIZ-FREE',
+    name: 'Miễn phí',
+    description:
+      'Một người, một fanpage. Đủ để thử bot với khách thật. 0đ, không thời hạn, không cần thẻ thanh toán. 1.000 lượt trả lời AI mỗi 14 ngày, 1 thành viên, tối đa 3 kênh, 5.000 khách hàng lưu trữ; Tin nhắn đa kênh, Đào tạo Bot, chốt đơn trong chat, Trợ lý Rapiz.',
+    priceNote: '0đ, không thời hạn',
+    variants: [{ sku: 'RAPIZ-FREE', name: 'Không thời hạn', price: 0 }],
+    image: '/images/plans/free.png',
+  },
+  {
+    code: 'RAPIZ-SALES-SMART',
+    name: 'Sales Smart',
+    description:
+      'Shop và cơ sở dịch vụ có đội sale nhỏ. 7.000 lượt trả lời AI mỗi 30 ngày, 5 thành viên, 5 kênh, 20.000 khách hàng, bình luận Facebook theo bài đăng, khung chat website, 10 GB ảnh và tệp.',
+    priceNote: '/ tháng',
+    variants: [
+      { sku: 'RAPIZ-SALES-SMART-12M', name: 'Trả trước 12 tháng', price: 785_000 },
+      { sku: 'RAPIZ-SALES-SMART-6M', name: 'Trả trước 6 tháng', price: 1_050_000 },
+      { sku: 'RAPIZ-SALES-SMART-3M', name: 'Trả trước 3 tháng', price: 1_310_000 },
+    ],
+    image: '/images/plans/smart.png',
+  },
+  {
+    code: 'RAPIZ-SALES-PRO',
+    name: 'Sales Pro',
+    description:
+      'Nhiều fanpage, nhiều chi nhánh, cần kết nối hệ thống. Mọi thứ trong Sales Smart, 15 thành viên, 20 kênh, 50.000 khách hàng, 30 GB, thêm mô hình AI Pro, API công khai và webhook có chữ ký.',
+    priceNote: '/ tháng',
+    variants: [
+      { sku: 'RAPIZ-SALES-PRO-12M', name: 'Trả trước 12 tháng', price: 974_000 },
+      { sku: 'RAPIZ-SALES-PRO-6M', name: 'Trả trước 6 tháng', price: 1_299_000 },
+      { sku: 'RAPIZ-SALES-PRO-3M', name: 'Trả trước 3 tháng', price: 1_624_000 },
+    ],
+    image: '/images/plans/pro.png',
+  },
+  {
+    code: 'RAPIZ-SALES-NEO',
+    name: 'Sales Neo',
+    description:
+      'Chuỗi và doanh nghiệp nhiều thương hiệu. Mọi thứ trong Sales Pro, 30 thành viên, 100 kênh, không giới hạn khách hàng, thêm mô hình AI Neo, 100 GB lưu trữ.',
+    priceNote: '/ tháng',
+    variants: [
+      { sku: 'RAPIZ-SALES-NEO-12M', name: 'Trả trước 12 tháng', price: 1_624_000 },
+      { sku: 'RAPIZ-SALES-NEO-6M', name: 'Trả trước 6 tháng', price: 1_999_000 },
+      { sku: 'RAPIZ-SALES-NEO-3M', name: 'Trả trước 3 tháng', price: 2_499_000 },
+    ],
+    image: '/images/plans/neo.png',
+  },
+];
+
+/** What the bot must keep in mind about every plan product. */
+export const SITE_PLAN_BOT_NOTES =
+  'Giá các phiên bản là giá mỗi tháng theo kỳ trả trước (12 / 6 / 3 tháng), không phải tổng tiền cả kỳ. Rapiz không nhận đơn trong chat: khách đăng ký trên website hoặc để lại liên hệ để đội Rapiz tư vấn.';

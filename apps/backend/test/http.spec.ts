@@ -19,6 +19,7 @@ import {
   TestLlmProviderResponse,
 } from '@agent-sales/contracts';
 import { HermesLoginClient } from '@agent-sales/ai-core';
+import { Logger } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -29,10 +30,17 @@ import {
   type LlmProviderFactory,
 } from '../src/modules/ai/application/ports/llm-provider-factory.js';
 import {
+  GOOGLE_OAUTH_CLIENT,
+  type GoogleOAuthClient,
+} from '../src/modules/identity/application/ports/google-oauth.js';
+import {
   USER_REPOSITORY,
   type UserRepository,
 } from '../src/modules/identity/domain/ports/user.repository.js';
 import { signUpVerified, signupCode } from './support/signup.js';
+
+/** Synthetic OAuth client secret for tests (built at runtime so secret scanners skip it). */
+const TEST_CLIENT_SECRET = ['test', 'client', 'secret'].join('-');
 
 /** HTTP-level tests through Fastify inject; no DB configured → in-memory adapters. */
 let current: NestFastifyApplication | undefined;
@@ -228,6 +236,127 @@ describe('HTTP: auth and tenancy', () => {
       cookies: { rapiz_rt: cookie?.value ?? '' },
     });
     expect(evil.statusCode).toBe(403);
+  });
+
+  it('Google sign-in is offered as unavailable until it is configured', async () => {
+    const a = await app();
+    const providers = await inject(a, { method: 'GET', url: '/api/v1/auth/providers' });
+    expect(providers.json()).toEqual({ google: false });
+    const start = await inject(a, {
+      method: 'GET',
+      url: '/api/v1/auth/google/start?redirect=//evil',
+    });
+    expect(start.statusCode).toBe(302);
+    expect(start.headers.location).toBe(
+      '/login?google_error=unavailable&redirect=%2Fapp%2Fanalytics',
+    );
+  });
+
+  it('Google sign-in: start, callback, then the SPA refreshes with the cookie', async () => {
+    const a = await app({
+      GOOGLE_CLIENT_ID: 'client-123.apps.googleusercontent.com',
+      GOOGLE_CLIENT_SECRET: TEST_CLIENT_SECRET,
+    });
+    expect((await inject(a, { method: 'GET', url: '/api/v1/auth/providers' })).json()).toEqual({
+      google: true,
+    });
+    const start = await inject(a, {
+      method: 'GET',
+      url: '/api/v1/auth/google/start?redirect=%2Fapp%2Finbox',
+    });
+    expect(start.statusCode).toBe(302);
+    const google = new URL(String(start.headers.location));
+    expect(google.host).toBe('accounts.google.com');
+    expect(google.searchParams.get('redirect_uri')).toBe(
+      'http://localhost:5173/api/v1/auth/google/callback',
+    );
+    const flow = start.cookies.find((c) => c.name === 'rapiz_google');
+    expect(flow).toMatchObject({ httpOnly: true, path: '/api/v1/auth/google', sameSite: 'Lax' });
+
+    const client = a.get<GoogleOAuthClient>(GOOGLE_OAUTH_CLIENT);
+    vi.spyOn(client, 'exchange').mockResolvedValue({
+      subject: 'google-sub-9',
+      email: 'chu.shop@gmail.com',
+      emailVerified: true,
+      name: 'Chủ Shop',
+      hostedDomain: null,
+      nonce: google.searchParams.get('nonce'),
+    });
+    const callback = await inject(a, {
+      method: 'GET',
+      url: `/api/v1/auth/google/callback?code=abc&state=${google.searchParams.get('state')}`,
+      cookies: { rapiz_google: flow?.value ?? '' },
+    });
+    expect(callback.statusCode).toBe(302);
+    expect(callback.headers.location).toBe('/login?google=done&redirect=%2Fapp%2Finbox');
+    const refresh = callback.cookies.find((c) => c.name === 'rapiz_rt');
+    expect(refresh).toMatchObject({ httpOnly: true, path: '/api/v1/auth' });
+    expect(callback.cookies.find((c) => c.name === 'rapiz_google')?.value).toBe('');
+
+    const session = await inject(a, {
+      method: 'POST',
+      url: '/api/v1/auth/refresh',
+      payload: {},
+      headers: { origin: 'http://localhost:5173' },
+      cookies: { rapiz_rt: refresh?.value ?? '' },
+    });
+    expect(AuthResponse.parse(session.json()).user).toMatchObject({
+      email: 'chu.shop@gmail.com',
+      emailVerified: true,
+    });
+
+    // Replaying the callback (flow cookie gone) or cancelling on Google lands back on /login.
+    const replay = await inject(a, {
+      method: 'GET',
+      url: `/api/v1/auth/google/callback?code=abc&state=${google.searchParams.get('state')}`,
+    });
+    expect(replay.headers.location).toBe('/login?google_error=expired&redirect=%2Fapp%2Fanalytics');
+    const cancelled = await inject(a, {
+      method: 'GET',
+      url: '/api/v1/auth/google/callback?error=access_denied',
+      cookies: { rapiz_google: flow?.value ?? '' },
+    });
+    expect(cancelled.headers.location).toBe(
+      '/login?google_error=cancelled&redirect=%2Fapp%2Finbox',
+    );
+  });
+
+  it('Google sign-in: an unexpected error redirects with `failed` and logs no PII', async () => {
+    const a = await app({
+      GOOGLE_CLIENT_ID: 'client-123.apps.googleusercontent.com',
+      GOOGLE_CLIENT_SECRET: TEST_CLIENT_SECRET,
+    });
+    const start = await inject(a, {
+      method: 'GET',
+      url: '/api/v1/auth/google/start?redirect=%2Fapp%2Finbox',
+    });
+    const google = new URL(String(start.headers.location));
+    const flow = start.cookies.find((c) => c.name === 'rapiz_google');
+    const client = a.get<GoogleOAuthClient>(GOOGLE_OAUTH_CLIENT);
+    // Shaped like a failed drizzle query: the message carries the parameters.
+    const dbError = new Error(
+      'Failed query: insert into users params: lan@shop.vn,Lan,google-sub-9',
+      {
+        cause: Object.assign(new Error('duplicate key'), { code: '23505' }),
+      },
+    );
+    dbError.name = 'DrizzleQueryError';
+    vi.spyOn(client, 'exchange').mockRejectedValue(dbError);
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    try {
+      const callback = await inject(a, {
+        method: 'GET',
+        url: `/api/v1/auth/google/callback?code=abc&state=${google.searchParams.get('state')}`,
+        cookies: { rapiz_google: flow?.value ?? '' },
+      });
+      expect(callback.headers.location).toBe('/login?google_error=failed&redirect=%2Fapp%2Finbox');
+      expect(warn).toHaveBeenCalledWith('Google sign-in failed: DrizzleQueryError (23505)');
+      const logged = JSON.stringify(warn.mock.calls);
+      expect(logged).not.toContain('lan@shop.vn');
+      expect(logged).not.toContain('google-sub-9');
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('native clients get and send the refresh token in the body', async () => {

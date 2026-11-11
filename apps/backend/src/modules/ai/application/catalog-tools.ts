@@ -27,6 +27,8 @@ export interface CatalogToolContext {
   catalog: CatalogFacade;
   /** Called with the products whose full details the model receives (their pictures become sendable). */
   onProducts?(products: readonly ProductDto[]): void;
+  /** Called with every product the model saw a row of (search rows, the browse index, details). */
+  onListed?(products: readonly ProductDto[]): void;
 }
 
 /**
@@ -102,6 +104,7 @@ async function search(ctx: CatalogToolContext, input: z.infer<typeof SearchInput
     });
     const top = rows.slice(0, DETAIL_ROWS);
     ctx.onProducts?.(top);
+    ctx.onListed?.(rows);
     return done(
       { rows: rows.map(compactProduct), details: top.map(productDetails) },
       top.map((p) => p.id),
@@ -110,10 +113,13 @@ async function search(ctx: CatalogToolContext, input: z.infer<typeof SearchInput
   const filtered = input.maxPriceVnd !== undefined || input.inStockOnly !== undefined;
   const total = filtered ? undefined : await catalog.countBotCatalog(ws, scope);
   if (total !== undefined && total <= BROWSE_CAP) {
-    return browse(await catalog.searchBotCatalog(ws, scope, { ...filters, limit: BROWSE_CAP }));
+    return browse(
+      ctx,
+      await catalog.searchBotCatalog(ws, scope, { ...filters, limit: BROWSE_CAP }),
+    );
   }
   const rows = await catalog.searchBotCatalog(ws, scope, { ...filters, limit: BROWSE_CAP });
-  if (total === undefined && rows.length < BROWSE_CAP) return browse(rows);
+  if (total === undefined && rows.length < BROWSE_CAP) return browse(ctx, rows);
   return done({
     tooMany: true,
     // The count ignores the filters, so it is only meaningful for an unfiltered browse.
@@ -124,7 +130,8 @@ async function search(ctx: CatalogToolContext, input: z.infer<typeof SearchInput
   });
 }
 
-function browse(rows: ProductDto[]): ToolResult {
+function browse(ctx: CatalogToolContext, rows: ProductDto[]): ToolResult {
+  ctx.onListed?.(rows);
   const index = rows.map((p) => {
     const { summary: _s, imageCount: _i, ...row } = compactProduct(p);
     return row;
@@ -137,6 +144,7 @@ async function details(ctx: CatalogToolContext, ids: string[]) {
   const found = await ctx.catalog.getBotProductsByIds(ctx.ws, ctx.scope, ids);
   const foundIds = new Set(found.map((p) => p.id));
   ctx.onProducts?.(found);
+  ctx.onListed?.(found);
   return done(
     { products: found.map(productDetails), notFound: ids.filter((id) => !foundIds.has(id)) },
     found.map((p) => p.id),

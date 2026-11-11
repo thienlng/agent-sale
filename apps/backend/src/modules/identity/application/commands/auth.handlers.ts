@@ -182,7 +182,8 @@ export class LoginHandler {
     const wait = await this.limiter.hit(key);
     if (wait > 0) throw new TooManyAttemptsError(wait);
     const user = await this.users.findByEmail(input.email);
-    if (!user) {
+    // A Google-only user has no password yet: same answer and cost as an unknown email.
+    if (!user?.hasPassword) {
       await this.hasher.dummyVerify(input.password);
       throw new InvalidCredentialsError();
     }

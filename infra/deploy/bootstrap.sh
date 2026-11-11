@@ -73,6 +73,11 @@ META_APP_ORIGIN=https://$HOST
 # sent and signup cannot finish.
 # RESEND_API_KEY=
 EMAIL_FROM="Rapiz <noreply@rapiz.io>"
+
+# Sign in with Google (ADR-007): web OAuth client with the redirect URI
+# https://rapiz.io/api/v1/auth/google/callback. Unset: the button shows "coming soon".
+# GOOGLE_CLIENT_ID=
+# GOOGLE_CLIENT_SECRET=
 ENV
   rm -f "$key"
   echo "wrote $DIR/.env"

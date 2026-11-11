@@ -32,3 +32,13 @@ f39ee0f9ee0511cc90e39ba4ad8ddd652cc9f1a6:packages/ai-core/src/agent/safety.test.
 2d958d6c5e4bf0460821ecdbf9afc1ccc1fb4767:packages/ai-core/src/agent/safety.test.ts:jwt:194
 # Backup plan (ADR-028): synthetic base64 of "0123456789abcdef..." in an early test fixture, removed later.
 32e02f3fa72f5dd35c735dbcfcadc9b702cf418e:docs/superpowers/plans/2026-11-08-backup-dr-phase1.md:generic-api-key:287
+
+# Google sign-in tests: the synthetic test value secret-xyz-123, not a credential (PR #169).
+16c0c3ce9ae89ec088b0bd0dca2bd8dfa9959ee6:apps/backend/src/modules/identity/__tests__/google-oauth.client.spec.ts:generic-api-key:132
+16c0c3ce9ae89ec088b0bd0dca2bd8dfa9959ee6:apps/backend/src/modules/identity/__tests__/google-oauth.client.spec.ts:generic-api-key:169
+16c0c3ce9ae89ec088b0bd0dca2bd8dfa9959ee6:apps/backend/src/modules/identity/__tests__/google-oauth.client.spec.ts:generic-api-key:191
+16c0c3ce9ae89ec088b0bd0dca2bd8dfa9959ee6:apps/backend/test/http.spec.ts:generic-api-key:324
+a094838f1acf3a80762d5a126224d8b3ecc98d4d:apps/backend/src/modules/identity/__tests__/google-oauth.client.spec.ts:generic-api-key:115
+a094838f1acf3a80762d5a126224d8b3ecc98d4d:apps/backend/src/modules/identity/__tests__/google-oauth.client.spec.ts:generic-api-key:57
+a094838f1acf3a80762d5a126224d8b3ecc98d4d:apps/backend/src/modules/identity/__tests__/google-oauth.client.spec.ts:generic-api-key:85
+a094838f1acf3a80762d5a126224d8b3ecc98d4d:apps/backend/test/http.spec.ts:generic-api-key:254

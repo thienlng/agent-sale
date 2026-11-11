@@ -8,8 +8,10 @@
 # verifies X-Hub-Signature-256), the Meta OAuth callbacks (state-checked by the API), /media
 # (product pictures Meta downloads) and the website chat widget: /widget.js and its public API,
 # called from customer sites without the gate cookie (site key, allowed domains and a signed
-# visitor token are checked by the API). The hash lives in the Nginx Proxy Manager data
-# volume, the gate token in the NPM proxy host config; nothing secret goes to Git.
+# visitor token are checked by the API), and the privacy and terms pages with the marketing
+# assets they load (/static, /fonts, /images), which Google links from its sign-in screen. The
+# hash lives in the Nginx Proxy Manager data volume, the gate token in the NPM proxy host config;
+# nothing secret goes to Git.
 # The new credentials are written to ~/beta-access.txt (mode 600) for the owner.
 set -euo pipefail
 
@@ -46,6 +48,13 @@ else
 set \$rapiz_gate \"$gate\";
 
 location /webhooks/ {
+  include conf.d/include/proxy.conf;
+}
+# Privacy policy and terms: Google shows them on its sign-in screen, so they must stay public.
+location ~ ^/(privacy|terms)(/.*)?\$ {
+  include conf.d/include/proxy.conf;
+}
+location ~ ^/(static|fonts|images)/ {
   include conf.d/include/proxy.conf;
 }
 location /media/ {

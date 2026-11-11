@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { AuthLayout } from '@/features/identity/components/auth-layout';
 import { SignupForm } from '@/features/identity/components/signup-form';
+import { safeRedirectPath } from '@/lib/safe-redirect';
 import { ensureSession } from '@/lib/session';
 
 /** Same-app paths only (no open redirect); `email` prefills the form (invitation links). */
@@ -22,11 +23,14 @@ export const Route = createFileRoute('/signup')({
 function SignupPage() {
   const navigate = useNavigate();
   const { redirect: target, email } = Route.useSearch();
-  // One leading slash, not followed by another slash or a backslash.
-  const safe = target && /^\/(?![/\\])/.test(target) ? target : '/app/analytics';
+  const safe = safeRedirectPath(target);
   return (
     <AuthLayout>
-      <SignupForm defaultEmail={email} onSuccess={() => void navigate({ to: safe })} />
+      <SignupForm
+        defaultEmail={email}
+        redirect={target ? safe : undefined}
+        onSuccess={() => void navigate({ to: safe })}
+      />
     </AuthLayout>
   );
 }
