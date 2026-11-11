@@ -1,8 +1,10 @@
 import {
+  type AutonomySettingsResponse,
   type BrainSettingsDto,
   type BrainUsageDto,
   type ConversationSignalResponse,
   type EvaluateSignalsResponse,
+  UpdateAutonomySettingsRequest,
   UpdateBrainSettingsRequest,
   UpdateConversationSignalRequest,
 } from '@agent-sales/contracts';
@@ -11,6 +13,8 @@ import { Body, Controller, Get, HttpCode, Inject, Param, Patch, Post, Put } from
 import { z } from 'zod';
 
 import {
+  type AuthState,
+  CurrentUser,
   CurrentWorkspace,
   RequireCapability,
   WorkspaceScoped,
@@ -75,6 +79,23 @@ export class BrainController {
     @Body(new ZodValidationPipe(UpdateBrainSettingsRequest)) body: UpdateBrainSettingsRequest,
   ): Promise<BrainSettingsDto> {
     return this.brain.putSettings(ws, body);
+  }
+
+  @Get('autonomy')
+  autonomy(@CurrentWorkspace() ws: WorkspaceId): Promise<AutonomySettingsResponse> {
+    return this.brain.autonomy(ws);
+  }
+
+  /** Raising what the AI may do alone is the owner's or an admin's call. */
+  @RequireCapability('settings.manage')
+  @Put('autonomy')
+  putAutonomy(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() u: AuthState,
+    @Body(new ZodValidationPipe(UpdateAutonomySettingsRequest))
+    body: UpdateAutonomySettingsRequest,
+  ): Promise<AutonomySettingsResponse> {
+    return this.brain.putAutonomy(ws, body, u.userId);
   }
 
   @Get('usage')

@@ -139,7 +139,9 @@
       "ready": "{{count}} sắp chốt",
       "price_silent": "{{count}} hỏi giá rồi im",
       "follow_up": "{{count}} cần chăm lại",
-      "tasks": "{{count}} việc đến hạn"
+      "approval": "{{count}} chờ duyệt",
+      "tasks": "{{count}} việc đến hạn",
+      "impact": "7 ngày qua Rapiz đã mang lại {{orders}} đơn · {{revenue}} ({{sent}} tin chăm sóc)"
     }
   }
 }

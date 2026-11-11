@@ -41,6 +41,8 @@ export interface TodayEntry {
   signal: ConversationSignal | null;
   reason: string;
   at: Date;
+  /** `after_sale`: in "follow_up" because the care agent's after-sales check-in is due. */
+  careTemplate?: 'after_sale';
 }
 
 const time = (iso: string | null | undefined): number | null => {
@@ -74,13 +76,15 @@ export function isDismissed(f: TodayFacts, s: ConversationSignal | null): boolea
  *   was made since (`ordered`);
  * - price_silent: the stage is `price_asked` and the customer has been silent for between 24 hours
  *   and 14 days;
- * - follow_up: the signal's follow-up time has come, or the conversation's reminder is due today.
+ * - follow_up: the signal's follow-up time has come, or the conversation's reminder is due today,
+ *   or the care agent's after-sales check-in is due (`afterSaleDue`, ADR-031).
  */
 export function classify(
   f: TodayFacts,
   s: ConversationSignal | null,
   now: Date,
   ordered = false,
+  afterSaleDue = false,
 ): Omit<TodayEntry, 'facts' | 'signal'> | null {
   const nowMs = now.getTime();
   if (f.status === 'spam') return null;
@@ -132,6 +136,9 @@ export function classify(
       at: useSignal ? signalDue : (reminderDue ?? now),
     };
   }
+  if (afterSaleDue) {
+    return { queue: 'follow_up', reason: '', at: now, careTemplate: 'after_sale' };
+  }
   return null;
 }
 
@@ -166,7 +173,8 @@ export function isAttentionCandidate(s: Pick<ConversationSignal, 'mood' | 'needs
 /**
  * Places every visible, not dismissed conversation in its first matching queue, each queue
  * sorted (spec §5). `signals` maps conversation ids to their signal; `ordered` holds the
- * conversations with an order or booking since their evaluation (never "ready").
+ * conversations with an order or booking since their evaluation (never "ready"); `afterSale` the
+ * ones whose after-sales check-in is due.
  */
 export function buildQueues(
   conversations: readonly TodayFacts[],
@@ -174,6 +182,7 @@ export function buildQueues(
   viewer: TodayViewer,
   now: Date,
   ordered: ReadonlySet<string> = new Set(),
+  afterSale: ReadonlySet<string> = new Set(),
 ): Record<TodayConversationQueueKey, TodayEntry[]> {
   const out: Record<TodayConversationQueueKey, TodayEntry[]> = {
     attention: [],
@@ -189,7 +198,7 @@ export function buildQueues(
     if (!visibleTo(f, viewer)) continue;
     const s = signals.get(f.id) ?? null;
     if (isDismissed(f, s)) continue;
-    const placed = classify(f, s, now, ordered.has(f.id));
+    const placed = classify(f, s, now, ordered.has(f.id), afterSale.has(f.id));
     if (placed) out[placed.queue].push({ ...placed, facts: f, signal: s });
   }
   for (const key of Object.keys(out) as TodayConversationQueueKey[]) {

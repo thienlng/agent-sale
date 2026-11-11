@@ -2,7 +2,7 @@ import { SignalMood, SignalStage } from '@agent-sales/contracts';
 import { z } from 'zod';
 
 /** Versioned system prompt in `packages/ai-core/prompts/` (Rule 05). */
-export const EVALUATION_PROMPT = { name: 'brain-signals', version: 1 } as const;
+export const EVALUATION_PROMPT = { name: 'brain-signals', version: 2 } as const;
 export const EVALUATION_TIER = 'basic' as const;
 export const EVALUATION_MAX_OUTPUT_TOKENS = 600;
 export const EVALUATION_TIMEOUT_MS = 20_000;
@@ -22,6 +22,7 @@ export const EvaluationWireSchema = z.object({
   followUpAt: z.string().nullable(),
   followUpReason: z.string().nullable(),
   note: z.string(),
+  optOut: z.boolean(),
 });
 
 /** Text cut to the column's limit (a long answer is still usable). */
@@ -69,6 +70,8 @@ export function evaluationOutputSchema(now: Date) {
       .transform((v) => followUpTime(v, now)),
     followUpReason: optionalText(200),
     note: text(1500),
+    // Asked for since prompt v2; an answer without it is not an opt-out.
+    optOut: z.boolean().default(false),
   });
 }
 export type EvaluationOutput = z.output<ReturnType<typeof evaluationOutputSchema>>;

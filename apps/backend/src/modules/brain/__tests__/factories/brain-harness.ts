@@ -7,6 +7,8 @@ import { BrainFacadeImpl } from '../../application/brain.facade.impl.js';
 import { Briefing } from '../../application/briefing.js';
 import { ReplyDraftService } from '../../application/reply-draft.service.js';
 import { TodayQuery } from '../../application/today.query.js';
+import { TodayExtensions } from '../../application/today-extensions.js';
+import { AutonomyService } from '../../application/autonomy.service.js';
 import type { TodayFacts } from '../../domain/today.js';
 import { ComplaintAlert } from '../../application/complaint-alert.js';
 import { SettingsService } from '../../application/settings.service.js';
@@ -55,6 +57,7 @@ export function answer(over: Record<string, unknown> = {}): string {
     followUpAt: null,
     followUpReason: null,
     note: 'Khách hỏi giá áo khoác size M.',
+    optOut: false,
     ...over,
   });
 }
@@ -263,6 +266,7 @@ export function brainHarness(opts: { limit?: number | null | 'missing' } = {}) {
     alert,
   );
   const scheduler = new SignalScheduler(events, store, settings);
+  const extensions = new TodayExtensions();
   const today = new TodayQuery(
     store,
     conversationFacade,
@@ -273,11 +277,20 @@ export function brainHarness(opts: { limit?: number | null | 'missing' } = {}) {
     evaluator,
     commerce,
     lodging,
+    extensions,
   );
-  const briefing = new Briefing(store, workspaces, notifications, today);
+  const briefing = new Briefing(store, workspaces, notifications, today, extensions);
   const runner = new SignalRunner(store, scheduler, evaluator, briefing);
   const drafts = new ReplyDraftService(store, conversationFacade, bots, gateway, usage);
-  const facade = new BrainFacadeImpl(store, conversationFacade, evaluator, usage, settings);
+  const autonomy = new AutonomyService(store);
+  const facade = new BrainFacadeImpl(
+    store,
+    conversationFacade,
+    evaluator,
+    usage,
+    settings,
+    autonomy,
+  );
   return {
     store,
     events,
@@ -293,6 +306,8 @@ export function brainHarness(opts: { limit?: number | null | 'missing' } = {}) {
     facade,
     conversationFacade,
     today,
+    extensions,
+    autonomy,
     briefing,
     drafts,
     facts,

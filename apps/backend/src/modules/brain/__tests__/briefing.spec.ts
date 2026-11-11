@@ -1,7 +1,7 @@
 import { notificationStrings } from '@agent-sales/i18n/notification';
 import { describe, expect, it } from 'vitest';
 
-import { briefingTitle } from '../application/briefing.js';
+import { briefingTitle, impactLine, isHcmMonday } from '../application/briefing.js';
 import { blankSignal } from '../domain/signal.js';
 import { DEFAULT_BRAIN_SETTINGS } from '../domain/schedule.js';
 import { brainHarness, OWNER, SALES, WS } from './factories/brain-harness.js';
@@ -94,6 +94,7 @@ describe('morning briefing', () => {
       ready: 8,
       price_silent: 0,
       follow_up: 5,
+      approval: 0,
       tasks: 2,
     };
     expect(briefingTitle(notificationStrings('vi'), counts)).toBe(
@@ -128,5 +129,77 @@ describe('morning briefing', () => {
     await h.briefing.pass(new Date(AT_8.getTime() + 60_000));
     expect(h.notified.map((n) => n.userId)).toContain(OWNER);
     expect(h.store.briefingDays.get(WS)).toBe('2026-11-11');
+  });
+});
+
+describe('briefing with the care agent (ADR-031)', () => {
+  /** Monday 2026-11-16, 08:00 in Asia/Ho_Chi_Minh. */
+  const MONDAY_8 = new Date('2026-11-16T01:00:30.000Z');
+  const impact = {
+    range: '7d' as const,
+    since: '2026-11-09T01:00:30.000Z',
+    until: MONDAY_8.toISOString(),
+    followUpsSent: 9,
+    repliesReceived: 4,
+    ai: { orders: 3, revenue: 1_200_000 },
+    aiStaff: { orders: 1, revenue: 300_000 },
+  };
+
+  it('knows the local Monday', () => {
+    expect(isHcmMonday(MONDAY_8)).toBe(true);
+    // Sunday 23:30 UTC is Monday 06:30 in Asia/Ho_Chi_Minh.
+    expect(isHcmMonday(new Date('2026-11-15T23:30:00Z'))).toBe(true);
+    expect(isHcmMonday(AT_8)).toBe(false);
+  });
+
+  it('writes the weekly line, and nothing when the AI brought and sent nothing', () => {
+    expect(impactLine(notificationStrings('vi'), impact, 'vi')).toBe(
+      '7 ngày qua Rapiz đã mang lại 4 đơn · 1.500.000 ₫ (9 tin chăm sóc)',
+    );
+    expect(
+      impactLine(
+        notificationStrings('vi'),
+        {
+          ...impact,
+          followUpsSent: 0,
+          ai: { orders: 0, revenue: 0 },
+          aiStaff: { orders: 0, revenue: 0 },
+        },
+        'vi',
+      ),
+    ).toBeNull();
+  });
+
+  it('counts the drafts waiting for approval and adds the impact on Monday only', async () => {
+    const h = setup(false);
+    let impactReads = 0;
+    h.extensions.registerCare({
+      approvals: async () => ({ count: 2, items: [] }),
+      afterSaleDue: async () => [],
+      impact: async () => {
+        impactReads++;
+        return impact;
+      },
+    });
+    expect(await h.briefing.pass(AT_8)).toBe(2);
+    expect(h.notified[0]?.title).toBe('Hôm nay: 2 chờ duyệt');
+    expect(h.notified[0]?.body).not.toContain('7 ngày qua');
+    expect(impactReads).toBe(0);
+    h.notified.length = 0;
+    expect(await h.briefing.pass(MONDAY_8)).toBe(2);
+    expect(impactReads).toBe(1);
+    expect(h.notified[0]?.body).toContain('7 ngày qua Rapiz đã mang lại 4 đơn');
+    expect(h.notified[0]?.params).toMatchObject({ approval: 2, impactOrders: 4 });
+  });
+
+  it('sends the Monday impact even when every queue is empty', async () => {
+    const h = setup(false);
+    h.extensions.registerCare({
+      approvals: async () => ({ count: 0, items: [] }),
+      afterSaleDue: async () => [],
+      impact: async () => impact,
+    });
+    expect(await h.briefing.pass(MONDAY_8)).toBe(2);
+    expect(await h.briefing.pass(new Date('2026-11-17T01:00:30.000Z'))).toBe(0);
   });
 });

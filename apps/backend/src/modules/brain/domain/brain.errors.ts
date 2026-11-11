@@ -39,3 +39,11 @@ export class NothingToDraftError extends DomainError {
     super('The conversation has no message to answer');
   }
 }
+
+/** The action does not allow that autonomy level. */
+export class AutonomyLevelNotAllowedError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor(action: string, level: string) {
+    super('This action does not allow that level', { action, level });
+  }
+}

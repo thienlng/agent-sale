@@ -329,6 +329,7 @@ describe('HTTP: Today', () => {
       'ready',
       'price_silent',
       'follow_up',
+      'approval',
       'tasks',
     ]);
     expect(today.queues[1]?.items[0]).toMatchObject({ conversationId: CONV });

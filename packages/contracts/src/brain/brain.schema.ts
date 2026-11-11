@@ -45,6 +45,8 @@ export const ConversationSignalDto = z.object({
   stageLocked: z.boolean(),
   /** Hidden from Today until a customer message newer than this arrives. */
   dismissedUntilMessageAfter: z.iso.datetime().nullable(),
+  /** The customer asked not to be contacted: the care agent never follows up (0074). */
+  optOut: z.boolean(),
   version: z.number().int(),
   updatedAt: z.iso.datetime(),
 });
@@ -123,7 +125,8 @@ export const TODAY_CONVERSATION_QUEUES = [
 ] as const;
 export const TodayConversationQueueKey = z.enum(TODAY_CONVERSATION_QUEUES);
 export type TodayConversationQueueKey = z.infer<typeof TodayConversationQueueKey>;
-export const TODAY_QUEUES = [...TODAY_CONVERSATION_QUEUES, 'tasks'] as const;
+/** `approval` ("Chờ duyệt"): care messages the AI drafted, waiting for a person (ADR-031). */
+export const TODAY_QUEUES = [...TODAY_CONVERSATION_QUEUES, 'approval', 'tasks'] as const;
 export type TodayQueueKey = (typeof TODAY_QUEUES)[number];
 /** Items per queue at most (the count is the full number). */
 export const TODAY_QUEUE_ITEMS_MAX = 20;
@@ -145,6 +148,8 @@ export const TodayItem = z.object({
   assigneeId: z.uuid().nullable(),
   assigneeName: z.string().nullable(),
   stageLocked: z.boolean(),
+  /** `after_sale`: listed in "Đến hạn chăm lại" because the after-sales check-in is due. */
+  careTemplate: z.literal('after_sale').optional(),
 });
 export type TodayItem = z.infer<typeof TodayItem>;
 
@@ -162,11 +167,29 @@ export const TodayTaskQueue = z.object({
 });
 export type TodayTaskQueue = z.infer<typeof TodayTaskQueue>;
 
-export const TodayQueue = z.union([TodayConversationQueue, TodayTaskQueue]);
+/** One draft of the care agent waiting for a person ("Chờ duyệt", spec 2026-11-11 care §5). */
+export const TodayApprovalItem = TodayItem.extend({
+  careMessageId: z.uuid(),
+  template: z.enum(['silent', 'ready', 'after_sale']),
+  text: z.string().max(2000),
+  /** The draft expires then (the 24-hour window closes); it can no longer be sent. */
+  windowClosesAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+});
+export type TodayApprovalItem = z.infer<typeof TodayApprovalItem>;
+
+export const TodayApprovalQueue = z.object({
+  key: z.literal('approval'),
+  count: z.number().int().min(0),
+  items: z.array(TodayApprovalItem).max(TODAY_QUEUE_ITEMS_MAX),
+});
+export type TodayApprovalQueue = z.infer<typeof TodayApprovalQueue>;
+
+export const TodayQueue = z.union([TodayConversationQueue, TodayApprovalQueue, TodayTaskQueue]);
 export type TodayQueue = z.infer<typeof TodayQueue>;
 
 export const TodayResponse = z.object({
-  /** Always the six queues, in `TODAY_QUEUES` order. */
+  /** Always the seven queues, in `TODAY_QUEUES` order. */
   queues: z.array(TodayQueue),
   usage: z.object({ used: z.number().int().min(0), limit: z.number().int().min(0).nullable() }),
   mode: z.enum(['auto', 'manual']),
@@ -181,6 +204,7 @@ export const TodayCounts = z.object({
   ready: z.number().int().min(0),
   price_silent: z.number().int().min(0),
   follow_up: z.number().int().min(0),
+  approval: z.number().int().min(0),
   tasks: z.number().int().min(0),
 });
 export type TodayCounts = z.infer<typeof TodayCounts>;
@@ -208,3 +232,83 @@ export type RefreshTodayResponse = z.infer<typeof RefreshTodayResponse>;
 /** `POST /conversations/{id}/reply-draft`: a suggested reply, never sent by itself. */
 export const ReplyDraftResponse = z.object({ text: z.string().min(1).max(2000) });
 export type ReplyDraftResponse = z.infer<typeof ReplyDraftResponse>;
+
+// ─── Autonomy levels (spec 2026-11-11 care §5, ADR-031) ─────────────────────────────────────────
+
+/** The actions whose autonomy a business sets. */
+export const AutonomyAction = z.enum(['care.send_message']);
+export type AutonomyAction = z.infer<typeof AutonomyAction>;
+/**
+ * `suggest` ("đề xuất"): the AI drafts, a person sends; `act_and_report` ("làm rồi báo"): the AI
+ * sends and Today lists it; `auto` ("tự làm"): the AI sends, only the reports mention it.
+ */
+export const AutonomyLevel = z.enum(['suggest', 'act_and_report', 'auto']);
+export type AutonomyLevel = z.infer<typeof AutonomyLevel>;
+
+export const AutonomyActionDto = z.object({
+  action: AutonomyAction,
+  level: AutonomyLevel,
+  default: AutonomyLevel,
+  /** The levels this action allows. */
+  levels: z.array(AutonomyLevel),
+});
+export type AutonomyActionDto = z.infer<typeof AutonomyActionDto>;
+
+export const AutonomySettingsResponse = z.object({ actions: z.array(AutonomyActionDto) });
+export type AutonomySettingsResponse = z.infer<typeof AutonomySettingsResponse>;
+
+export const UpdateAutonomySettingsRequest = z
+  .object({
+    actions: z
+      .array(z.object({ action: AutonomyAction, level: AutonomyLevel }).strict())
+      .min(1)
+      .max(10),
+  })
+  .strict();
+export type UpdateAutonomySettingsRequest = z.infer<typeof UpdateAutonomySettingsRequest>;
+
+// ─── "Rapiz đã mang lại" (spec 2026-11-11 care §6) ─────────────────────────────────────────────
+
+export const ImpactRange = z.enum(['today', '7d', '30d']);
+export type ImpactRange = z.infer<typeof ImpactRange>;
+
+export const ImpactQuery = z.object({ range: ImpactRange.default('30d') });
+export type ImpactQuery = z.infer<typeof ImpactQuery>;
+
+const ImpactFigures = z.object({
+  orders: z.number().int().min(0),
+  /** Integer VND: orders' totals and stay bookings' sell totals. */
+  revenue: z.number().int().min(0),
+});
+
+/**
+ * Orders and stay bookings created within 7 days after an AI touch (a care message or a bot
+ * reply) in the same conversation: `ai` when no member messaged in between, `aiStaff` when one
+ * did. Plus the follow-ups the care agent sent and how many customers answered them.
+ */
+export const ImpactResponse = z.object({
+  range: ImpactRange,
+  since: z.iso.datetime(),
+  until: z.iso.datetime(),
+  followUpsSent: z.number().int().min(0),
+  repliesReceived: z.number().int().min(0),
+  ai: ImpactFigures,
+  aiStaff: ImpactFigures,
+});
+export type ImpactResponse = z.infer<typeof ImpactResponse>;
+
+// ─── Integration events ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * `brain.signals.updated.v1` (outbox, aggregate `conversation`): an evaluation or a member's stage
+ * change was written. Ids and enums only; consumers read the signal through the brain facade.
+ */
+export const BRAIN_SIGNALS_UPDATED = 'brain.signals.updated.v1';
+export const BrainSignalsUpdatedPayload = z.object({
+  conversationId: z.uuid(),
+  stage: SignalStage,
+  optOut: z.boolean(),
+  version: z.number().int(),
+  occurredAt: z.iso.datetime(),
+});
+export type BrainSignalsUpdatedPayload = z.infer<typeof BrainSignalsUpdatedPayload>;

@@ -96,7 +96,8 @@ function withoutConversation(today: TodayResponse, conversationId: string): Toda
   return {
     ...today,
     queues: today.queues.map((q) => {
-      if (q.key === 'tasks') return q;
+      // Tasks and the care drafts ("Chờ duyệt") are not dismissed with the conversation.
+      if (q.key === 'tasks' || q.key === 'approval') return q;
       const items = q.items.filter((i) => i.conversationId !== conversationId);
       return { ...q, items, count: Math.max(0, q.count - (q.items.length - items.length)) };
     }),

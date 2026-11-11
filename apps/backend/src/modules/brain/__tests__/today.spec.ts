@@ -239,7 +239,7 @@ describe('Today queue rules', () => {
     expect(queue(await h.today.today(WS, ownerView, NOW), 'tasks').count).toBe(1);
   });
 
-  it('returns the six queues in order, the usage and the mode', async () => {
+  it('returns the seven queues in order, the usage and the mode', async () => {
     const { h } = setup();
     await h.settings.put(WS, { ...DEFAULT_BRAIN_SETTINGS, mode: 'manual' });
     const r = await h.today.today(WS, ownerView, NOW);
@@ -249,9 +249,12 @@ describe('Today queue rules', () => {
       'ready',
       'price_silent',
       'follow_up',
+      'approval',
       'tasks',
     ]);
     expect(r).toMatchObject({ usage: { used: 0, limit: 200 }, mode: 'manual' });
+    // Without the care module the approval queue is empty.
+    expect(queue(r, 'approval')).toEqual({ key: 'approval', count: 0, items: [] });
   });
 });
 
@@ -313,6 +316,7 @@ describe('Today exclusions and visibility', () => {
       ready: 0,
       price_silent: 0,
       follow_up: 0,
+      approval: 0,
       tasks: 1,
     });
   });
@@ -463,5 +467,88 @@ describe('POST /conversations/{id}/reply-draft', () => {
       code: 'NOT_FOUND',
     });
     expect(h.gateway.calls).toHaveLength(0);
+  });
+});
+
+describe('Today with the care agent (ADR-031)', () => {
+  const draft = (conversationId: string) => ({
+    conversationId,
+    contactId: null,
+    customerName: 'Khách',
+    avatarUrl: null,
+    channel: 'facebook',
+    reason: '',
+    stage: 'price_asked' as const,
+    mood: 'neutral' as const,
+    at: ago(10),
+    assigneeId: null,
+    assigneeName: null,
+    stageLocked: false,
+    careMessageId: nextId(),
+    template: 'silent' as const,
+    text: 'Dạ mẫu này vẫn còn ạ',
+    windowClosesAt: later(600),
+    createdAt: ago(10),
+  });
+
+  it('lists the care drafts in "approval" and counts them, as the viewer sees them', async () => {
+    const { h, add } = setup();
+    const conv = add({});
+    const seen: { viewAll: boolean; limit: number }[] = [];
+    h.extensions.registerCare({
+      approvals: async (_ws, viewer, _now, limit) => {
+        seen.push({ viewAll: viewer.viewAll, limit });
+        return { count: 3, items: limit ? [draft(conv)] : [] };
+      },
+      afterSaleDue: async () => [],
+      impact: async () => {
+        throw new Error('not used');
+      },
+    });
+    const r = await h.today.today(WS, salesView, NOW);
+    expect(queue(r, 'approval')).toMatchObject({ count: 3, items: [{ conversationId: conv }] });
+    expect((await h.today.counts(WS, salesView, NOW)).approval).toBe(3);
+    expect(seen).toEqual([
+      { viewAll: false, limit: 20 },
+      { viewAll: false, limit: 0 },
+    ]);
+  });
+
+  it('puts a due after-sales check-in in "follow_up", after the other rules', async () => {
+    const { h, add } = setup();
+    const due = add({});
+    const waiting = add({ awaitingSince: ago(30) });
+    h.extensions.registerCare({
+      approvals: async () => ({ count: 0, items: [] }),
+      afterSaleDue: async () => [due, waiting],
+      impact: async () => {
+        throw new Error('not used');
+      },
+    });
+    const r = await h.today.today(WS, ownerView, NOW);
+    expect(ids(r, 'follow_up')).toEqual([due]);
+    expect((queue(r, 'follow_up') as TodayConversationQueue).items[0]?.careTemplate).toBe(
+      'after_sale',
+    );
+    expect(ids(r, 'unanswered')).toEqual([waiting]);
+  });
+
+  it('keeps Today working when the care source fails', async () => {
+    const { h, add } = setup();
+    add({ awaitingSince: ago(30) });
+    h.extensions.registerCare({
+      approvals: async () => {
+        throw new Error('down');
+      },
+      afterSaleDue: async () => {
+        throw new Error('down');
+      },
+      impact: async () => {
+        throw new Error('down');
+      },
+    });
+    const r = await h.today.today(WS, ownerView, NOW);
+    expect(queue(r, 'approval').count).toBe(0);
+    expect(queue(r, 'unanswered').count).toBe(1);
   });
 });

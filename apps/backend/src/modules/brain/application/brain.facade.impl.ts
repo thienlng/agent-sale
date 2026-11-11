@@ -1,9 +1,13 @@
 import type {
+  AutonomyAction,
+  AutonomyLevel,
+  AutonomySettingsResponse,
   BrainSettingsDto,
   BrainUsageDto,
   ConversationSignalDto,
   EvaluateSignalsStatus,
   SignalTrigger,
+  UpdateAutonomySettingsRequest,
   UpdateConversationSignalRequest,
 } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
@@ -17,6 +21,7 @@ import {
 } from '../domain/brain.errors.js';
 import { BRAIN_STORE, type BrainStore } from '../domain/ports/brain.store.js';
 import { type ConversationSignal, stageChange } from '../domain/signal.js';
+import { AutonomyService } from './autonomy.service.js';
 import { SettingsService } from './settings.service.js';
 import { SignalEvaluator } from './signal-evaluator.js';
 import { UsageService } from './usage.service.js';
@@ -43,6 +48,7 @@ export function toSignalDto(s: ConversationSignal): ConversationSignalDto {
     evaluatedAt: iso(s.evaluatedAt),
     stageLocked: s.stageLocked,
     dismissedUntilMessageAfter: iso(s.dismissedUntilMessageAfter),
+    optOut: s.optOut,
     version: s.version,
     updatedAt: s.updatedAt.toISOString(),
   };
@@ -57,6 +63,7 @@ export class BrainFacadeImpl implements BrainFacade {
     @Inject(SignalEvaluator) private readonly evaluator: SignalEvaluator,
     @Inject(UsageService) private readonly usageService: UsageService,
     @Inject(SettingsService) private readonly settingsService: SettingsService,
+    @Inject(AutonomyService) private readonly autonomyService: AutonomyService,
   ) {}
 
   async signalsFor(
@@ -109,6 +116,22 @@ export class BrainFacadeImpl implements BrainFacade {
 
   usage(ws: WorkspaceId): Promise<BrainUsageDto> {
     return this.usageService.usage(ws);
+  }
+
+  levelFor(ws: WorkspaceId, action: AutonomyAction): Promise<AutonomyLevel> {
+    return this.autonomyService.levelFor(ws, action);
+  }
+
+  autonomy(ws: WorkspaceId): Promise<AutonomySettingsResponse> {
+    return this.autonomyService.list(ws);
+  }
+
+  putAutonomy(
+    ws: WorkspaceId,
+    input: UpdateAutonomySettingsRequest,
+    actorId: string,
+  ): Promise<AutonomySettingsResponse> {
+    return this.autonomyService.put(ws, input, actorId);
   }
 
   settings(ws: WorkspaceId): Promise<BrainSettingsDto> {
