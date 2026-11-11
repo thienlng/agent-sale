@@ -7,6 +7,7 @@ import type {
   CareEventRow,
   CareEventSource,
   CareJob,
+  CareJobRef,
   CareMessage,
   CareStore,
   CareTemplateRow,
@@ -152,31 +153,36 @@ export class MemoryCareStore implements CareStore {
       })),
     );
   }
-  #find(ws: WorkspaceId, id: string) {
+  #find(ws: WorkspaceId, job: CareJobRef) {
     return this.enrollments.find(
-      (e) => e.workspaceId === ws && e.id === id && e.status === 'active',
+      (e) =>
+        e.workspaceId === ws &&
+        e.id === job.id &&
+        e.status === 'active' &&
+        e.anchorAt.getTime() === job.anchorAt.getTime() &&
+        e.step === job.step,
     );
   }
-  advance(ws: WorkspaceId, id: string, step: number, nextAt: Date) {
-    const e = this.#find(ws, id);
+  advance(ws: WorkspaceId, job: CareJobRef, step: number, nextAt: Date) {
+    const e = this.#find(ws, job);
     if (e) Object.assign(e, { step, nextAt, leaseUntil: null, attempts: 0 });
     return Promise.resolve();
   }
-  finish(ws: WorkspaceId, id: string) {
-    const e = this.#find(ws, id);
+  finish(ws: WorkspaceId, job: CareJobRef) {
+    const e = this.#find(ws, job);
     if (e) Object.assign(e, { status: 'done', leaseUntil: null });
     return Promise.resolve();
   }
-  stop(ws: WorkspaceId, id: string, reason: StopReason, now: Date) {
-    const e = this.#find(ws, id);
+  stop(ws: WorkspaceId, job: CareJobRef, reason: StopReason, now: Date) {
+    const e = this.#find(ws, job);
     if (e) {
       Object.assign(e, { status: 'stopped', stopReason: reason, leaseUntil: null });
       this.#expireDrafts(ws, e.conversationId, now);
     }
     return Promise.resolve();
   }
-  reschedule(ws: WorkspaceId, id: string, at: Date, resetAttempts: boolean) {
-    const e = this.#find(ws, id);
+  reschedule(ws: WorkspaceId, job: CareJobRef, at: Date, resetAttempts: boolean) {
+    const e = this.#find(ws, job);
     if (e)
       Object.assign(e, { nextAt: at, leaseUntil: null, ...(resetAttempts ? { attempts: 0 } : {}) });
     return Promise.resolve();

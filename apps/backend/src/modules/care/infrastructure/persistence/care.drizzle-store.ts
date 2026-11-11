@@ -20,6 +20,7 @@ import { newId, workspaceId as asWorkspaceId, type WorkspaceId } from '@agent-sa
 import { AFTER_SALE_LISTED_MS, type MessageTemplate, type StopReason } from '../../domain/care.js';
 import type {
   CareJob,
+  CareJobRef,
   CareMessage,
   CareStore,
   CareTemplateRow,
@@ -56,6 +57,16 @@ const toMessage = (r: typeof cm.$inferSelect): CareMessage => ({
 
 /** Messages a person approved that have not gone out yet, and drafts: what a stop expires. */
 const OPEN_STATUSES = ['draft', 'scheduled'] as const;
+
+/** The cycle is still active at the claimed anchor and step (a restarted cycle is not touched). */
+const activeAt = (ws: WorkspaceId, job: CareJobRef) =>
+  and(
+    eq(en.workspaceId, ws),
+    eq(en.id, job.id),
+    eq(en.status, 'active'),
+    eq(en.anchorAt, job.anchorAt),
+    eq(en.step, job.step),
+  );
 
 const isUuidLike = (v: string | null): v is string =>
   v !== null && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
@@ -295,30 +306,30 @@ export class DrizzleCareStore implements CareStore {
     });
   }
 
-  advance(ws: WorkspaceId, id: string, step: number, nextAt: Date, now: Date): Promise<void> {
+  advance(ws: WorkspaceId, job: CareJobRef, step: number, nextAt: Date, now: Date): Promise<void> {
     return withTenant(this.db, ws, async (tx) => {
       await tx
         .update(en)
         .set({ step, nextAt, leaseUntil: null, attempts: 0, updatedAt: now })
-        .where(and(eq(en.workspaceId, ws), eq(en.id, id), eq(en.status, 'active')));
+        .where(activeAt(ws, job));
     });
   }
 
-  finish(ws: WorkspaceId, id: string, now: Date): Promise<void> {
+  finish(ws: WorkspaceId, job: CareJobRef, now: Date): Promise<void> {
     return withTenant(this.db, ws, async (tx) => {
       await tx
         .update(en)
         .set({ status: 'done', leaseUntil: null, updatedAt: now })
-        .where(and(eq(en.workspaceId, ws), eq(en.id, id), eq(en.status, 'active')));
+        .where(activeAt(ws, job));
     });
   }
 
-  stop(ws: WorkspaceId, id: string, reason: StopReason, now: Date): Promise<void> {
+  stop(ws: WorkspaceId, job: CareJobRef, reason: StopReason, now: Date): Promise<void> {
     return withTenant(this.db, ws, async (tx) => {
       const [row] = await tx
         .update(en)
         .set({ status: 'stopped', stopReason: reason, leaseUntil: null, updatedAt: now })
-        .where(and(eq(en.workspaceId, ws), eq(en.id, id), eq(en.status, 'active')))
+        .where(activeAt(ws, job))
         .returning({ conversationId: en.conversationId });
       if (row) {
         await tx
@@ -335,7 +346,7 @@ export class DrizzleCareStore implements CareStore {
     });
   }
 
-  reschedule(ws: WorkspaceId, id: string, at: Date, resetAttempts: boolean): Promise<void> {
+  reschedule(ws: WorkspaceId, job: CareJobRef, at: Date, resetAttempts: boolean): Promise<void> {
     return withTenant(this.db, ws, async (tx) => {
       await tx
         .update(en)
@@ -345,7 +356,7 @@ export class DrizzleCareStore implements CareStore {
           ...(resetAttempts ? { attempts: 0 } : {}),
           updatedAt: new Date(),
         })
-        .where(and(eq(en.workspaceId, ws), eq(en.id, id), eq(en.status, 'active')));
+        .where(activeAt(ws, job));
     });
   }
 

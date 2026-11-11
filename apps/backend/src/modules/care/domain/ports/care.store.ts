@@ -23,6 +23,12 @@ export interface CareJob {
   attempts: number;
 }
 
+/**
+ * The claimed position of a cycle (id, anchor, step). The worker's updates match it, so a step
+ * that ran late never moves or ends a cycle that restarted (newer anchor) or moved on meanwhile.
+ */
+export type CareJobRef = Pick<CareJob, 'id' | 'anchorAt' | 'step'>;
+
 /** One row of `care_messages`. */
 export interface CareMessage {
   id: string;
@@ -106,14 +112,17 @@ export interface CareStore {
   ): Promise<number>;
   /** Due active message cycles of every business, leased (FOR UPDATE SKIP LOCKED). */
   claimDue(now: Date, limit: number, leaseMs: number): Promise<CareJob[]>;
-  /** Moves the cycle to `step` due at `nextAt` (lease released, attempts reset). */
-  advance(ws: WorkspaceId, id: string, step: number, nextAt: Date, now: Date): Promise<void>;
+  /**
+   * Moves the cycle to `step` due at `nextAt` (lease released, attempts reset). This and the
+   * next three change the cycle only while it is still active at the job's anchor and step.
+   */
+  advance(ws: WorkspaceId, job: CareJobRef, step: number, nextAt: Date, now: Date): Promise<void>;
   /** The cycle ran its last step. */
-  finish(ws: WorkspaceId, id: string, now: Date): Promise<void>;
+  finish(ws: WorkspaceId, job: CareJobRef, now: Date): Promise<void>;
   /** The cycle stops (and the conversation's drafts expire). */
-  stop(ws: WorkspaceId, id: string, reason: StopReason, now: Date): Promise<void>;
+  stop(ws: WorkspaceId, job: CareJobRef, reason: StopReason, now: Date): Promise<void>;
   /** The same step runs again at `at` (lease released; attempts kept unless `resetAttempts`). */
-  reschedule(ws: WorkspaceId, id: string, at: Date, resetAttempts: boolean): Promise<void>;
+  reschedule(ws: WorkspaceId, job: CareJobRef, at: Date, resetAttempts: boolean): Promise<void>;
   /** After-sales check-ins due before `before` and listed (due less than 7 days ago). */
   afterSaleDue(ws: WorkspaceId, before: Date, now: Date): Promise<string[]>;
 

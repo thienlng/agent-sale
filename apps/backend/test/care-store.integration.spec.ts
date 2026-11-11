@@ -99,11 +99,46 @@ describe('DrizzleCareStore', () => {
     expect(await store.claimDue(plus(3), 10, 120_000)).toEqual([]);
     const [job] = claimed;
     if (!job) throw new Error('claim');
-    await store.advance(a.ws, job.id, 1, plus(22), plus(3));
+    await store.advance(a.ws, job, 1, plus(22), plus(3));
     expect(await store.claimDue(plus(4), 10, 120_000)).toEqual([]);
-    expect(await store.claimDue(plus(22), 10, 120_000)).toMatchObject([{ step: 1 }]);
-    await store.finish(a.ws, job.id, plus(22));
+    const [next] = await store.claimDue(plus(22), 10, 120_000);
+    expect(next).toMatchObject({ step: 1 });
+    if (!next) throw new Error('claim');
+    // The step-0 job is stale now: it no longer ends the cycle.
+    await store.finish(a.ws, job, plus(22));
+    expect(await store.claimDue(plus(23), 10, 120_000)).toMatchObject([{ step: 1 }]);
+    await store.finish(a.ws, next, plus(23));
     expect(await store.claimDue(plus(30), 10, 120_000)).toEqual([]);
+  });
+
+  it('never lets a stale step move or end a restarted cycle', async () => {
+    const a = shop(0);
+    const e = {
+      conversationId: a.conv,
+      template: 'ready' as const,
+      anchorAt: plus(40),
+      nextAt: plus(41),
+    };
+    expect(await store.enroll(a.ws, e, plus(40))).toBe(true);
+    const mine = async (at: Date) =>
+      (await store.claimDue(at, 10, 1000)).filter(
+        (j) => j.conversationId === a.conv && j.template === 'ready',
+      );
+    const [stale] = await mine(plus(41));
+    if (!stale) throw new Error('claim');
+    // The customer wrote again while the step ran: the cycle restarts at a newer anchor.
+    expect(await store.enroll(a.ws, { ...e, anchorAt: plus(42), nextAt: plus(43) }, plus(42))).toBe(
+      true,
+    );
+    await store.stop(a.ws, stale, 'ai_failed', plus(42));
+    await store.finish(a.ws, stale, plus(42));
+    await store.advance(a.ws, stale, 1, plus(60), plus(42));
+    await store.reschedule(a.ws, stale, plus(60), true);
+    const [fresh] = await mine(plus(43));
+    expect(fresh).toMatchObject({ id: stale.id, step: 0, anchorAt: plus(42) });
+    if (!fresh) throw new Error('claim');
+    await store.stop(a.ws, fresh, 'customer_replied', plus(43));
+    expect(await mine(plus(100))).toEqual([]);
   });
 
   it('counts the day atomically up to the limit', async () => {

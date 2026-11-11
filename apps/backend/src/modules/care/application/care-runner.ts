@@ -74,7 +74,7 @@ export class CareRunnerImpl implements CareRunner {
       // at most a few times.
       this.#log.warn(`care step of ${job.conversationId} failed (${errorClass(e)})`);
       if (job.attempts >= CARE_MAX_ATTEMPTS) {
-        await this.store.stop(job.workspaceId, job.id, 'ai_failed', now).catch(() => undefined);
+        await this.store.stop(job.workspaceId, job, 'ai_failed', now).catch(() => undefined);
       }
     }
   }

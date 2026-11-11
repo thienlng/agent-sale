@@ -77,7 +77,7 @@ export class CareStep {
     const ws = job.workspaceId;
     const conv = job.conversationId;
     const stop = async (reason: StopReason) => {
-      await this.store.stop(ws, job.id, reason, now);
+      await this.store.stop(ws, job, reason, now);
       return 'stopped' as const;
     };
     const g = await this.guard.check(ws, {
@@ -99,7 +99,7 @@ export class CareStep {
     const later = async (at: Date, resetAttempts = true) => {
       const placed = placeInWindow(at, closes);
       if (!placed) return stop('window_closed');
-      await this.store.reschedule(ws, job.id, placed, resetAttempts);
+      await this.store.reschedule(ws, job, placed, resetAttempts);
       return 'rescheduled' as const;
     };
     if (inQuietHours(now)) return later(now);
@@ -112,7 +112,7 @@ export class CareStep {
     if (!reservation) {
       const placed = placeInWindow(nextHcmMidnight(now), closes);
       if (!placed) return stop('capped');
-      await this.store.reschedule(ws, job.id, placed, true);
+      await this.store.reschedule(ws, job, placed, true);
       return 'rescheduled';
     }
     // The reservation is kept only when a message came of it (a draft, a send, a skip).
@@ -201,9 +201,9 @@ export class CareStep {
     const due = stepDue(job.template, job.step + 1, job.anchorAt);
     const at = due ? placeInWindow(due, closes) : null;
     if (!at) {
-      await this.store.finish(ws, job.id, now);
+      await this.store.finish(ws, job, now);
       return;
     }
-    await this.store.advance(ws, job.id, job.step + 1, at, now);
+    await this.store.advance(ws, job, job.step + 1, at, now);
   }
 }
