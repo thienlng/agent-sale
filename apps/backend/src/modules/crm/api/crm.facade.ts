@@ -4,6 +4,7 @@ import type {
   ConversationTagChip,
   CustomerRequestKind,
   RequestFieldKey,
+  TaskDto,
 } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 
@@ -200,6 +201,20 @@ export interface CrmFacade {
     workspaceId: WorkspaceId,
     q: { since: Date; until: Date; kinds?: readonly CustomerRequestKind[] },
   ): Promise<RequestsRecorded>;
+
+  /**
+   * Open tasks with a due time before `dueBefore` (Today, T-4): with `userId`, the tasks assigned
+   * to that user and the unassigned ones; without it, every open task.
+   */
+  countOpenTasks(
+    workspaceId: WorkspaceId,
+    q: { userId?: string; dueBefore: Date },
+  ): Promise<number>;
+  /** Open tasks by due time (undated last), scoped like `countOpenTasks`; at most `limit`. */
+  listOpenTasks(
+    workspaceId: WorkspaceId,
+    q: { userId?: string; limit: number },
+  ): Promise<TaskDto[]>;
 }
 
 export const CRM_FACADE = Symbol('CRM_FACADE');

@@ -115,5 +115,12 @@
       "title": "Tin nhắn mới từ {{customer}}",
       "body": "{{business}} · {{excerpt}}"
     }
+  },
+  "task": {
+    "due": {
+      "title": "Đến hạn: {{title}}",
+      "body": "{{business}}",
+      "body_customer": "{{business}} · Khách {{customer}}"
+    }
   }
 }

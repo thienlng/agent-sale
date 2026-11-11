@@ -157,3 +157,44 @@ export class RequestsNotOfferedError extends DomainError {
     super('Customer requests are not available for this business');
   }
 }
+
+/** A task of another workspace, or one the member may not see (CRM-04), answers 404. */
+export class TaskNotFoundError extends DomainError {
+  readonly code = 'NOT_FOUND';
+  constructor(id: string) {
+    super('Task not found', { id });
+  }
+}
+
+/** A done task cannot be cancelled, nor a cancelled one completed. */
+export class TaskClosedError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor(status: 'done' | 'cancelled') {
+    super(status === 'done' ? 'This task is already done' : 'This task was cancelled', {
+      status,
+    });
+  }
+}
+
+/** Everyone's tasks (`scope=all`) need `contacts.view_all`. */
+export class TaskScopeNotAllowedError extends DomainError {
+  readonly code = 'FORBIDDEN';
+  constructor() {
+    super("Seeing everyone's tasks needs the contacts.view_all permission");
+  }
+}
+
+export class TaskAssigneeNotMemberError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor(userId: string) {
+    super('Only active members of this workspace can be assigned a task', { userId });
+  }
+}
+
+/** The list cursor is not one this API gave out. */
+export class InvalidTaskCursorError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor() {
+    super('Invalid cursor');
+  }
+}

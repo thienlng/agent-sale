@@ -64,6 +64,7 @@ export * from './crm/crm-settings.schema.js';
 export * from './crm/crm.events.js';
 export * from './crm/crm.routes.js';
 export * from './crm/customer-request.js';
+export * from './crm/task.schema.js';
 export * from './saas/saas.schema.js';
 export * from './saas/saas.routes.js';
 export * from './assistant/assistant.schema.js';

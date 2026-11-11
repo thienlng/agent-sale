@@ -115,5 +115,12 @@
       "title": "New message from {{customer}}",
       "body": "{{business}} · {{excerpt}}"
     }
+  },
+  "task": {
+    "due": {
+      "title": "Due now: {{title}}",
+      "body": "{{business}}",
+      "body_customer": "{{business}} · Customer {{customer}}"
+    }
   }
 }

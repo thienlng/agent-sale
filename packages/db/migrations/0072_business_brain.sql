@@ -180,3 +180,10 @@ CREATE POLICY tasks_system ON tasks FOR ALL TO app_system
 GRANT SELECT, INSERT, UPDATE, DELETE
   ON conversation_signals, signal_jobs, signal_runs, signal_usage, brain_settings, tasks
   TO app_tenant, app_system;
+
+-- Notification types of Business Brain v1: the morning briefing, a complaint alert and a due task.
+ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
+ALTER TABLE notifications ADD CONSTRAINT notifications_type_check CHECK (type IN (
+  'assistant.report','assistant.alert','assistant.schedule_paused',
+  'inbox.handoff','inbox.message','dataexport.ready','dataexport.failed',
+  'today.briefing','brain.complaint','task.due'));
