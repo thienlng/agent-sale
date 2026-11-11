@@ -114,6 +114,11 @@ export type GoogleSignInFailure =
   | 'expired'
   /** Google does not vouch for the email address. */
   | 'unverified_email'
+  /**
+   * A Rapiz account already uses the address and Google is not authoritative for it (not Gmail, no
+   * matching Workspace domain), so it is not linked: sign in with the password instead.
+   */
+  | 'account_exists'
   /** Google answered with an error or a token that did not verify. */
   | 'failed';
 

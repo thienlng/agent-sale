@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { createRemoteJWKSet, type JWTVerifyGetKey, jwtVerify } from 'jose';
 
 import type { GoogleOAuthClient, GoogleProfile } from '../../application/ports/google-oauth.js';
@@ -8,6 +9,27 @@ const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
 const ISSUERS = ['https://accounts.google.com', 'accounts.google.com'];
 const TIMEOUT_MS = 10_000;
+/** Small allowance for clock skew between Google and this server. */
+const CLOCK_TOLERANCE_S = 30;
+/** Google's token-endpoint `error` values (RFC 6749 §5.2), the only part of an error answer logged. */
+const TOKEN_ERRORS = new Set([
+  'invalid_request',
+  'invalid_client',
+  'invalid_grant',
+  'unauthorized_client',
+  'unsupported_grant_type',
+  'invalid_scope',
+  'redirect_uri_mismatch',
+  'access_denied',
+  'server_error',
+  'temporarily_unavailable',
+]);
+
+const log = new Logger('GoogleOAuth');
+
+function tokenErrorWord(error: unknown): string {
+  return typeof error === 'string' && TOKEN_ERRORS.has(error) ? error : 'other';
+}
 
 interface Options {
   clientId: string;
@@ -55,6 +77,7 @@ export class HttpGoogleOAuthClient implements GoogleOAuthClient {
     redirectUri: string;
   }): Promise<GoogleProfile> {
     let idToken: unknown;
+    let tokenError: string | null = null;
     try {
       const res = await this.#fetch(TOKEN_URL, {
         method: 'POST',
@@ -69,9 +92,17 @@ export class HttpGoogleOAuthClient implements GoogleOAuthClient {
         }).toString(),
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
-      if (!res.ok) throw new GoogleSignInError('failed');
-      idToken = ((await res.json()) as { id_token?: unknown }).id_token;
-    } catch {
+      const body = (await res.json().catch(() => ({}))) as { id_token?: unknown; error?: unknown };
+      if (!res.ok) {
+        tokenError = tokenErrorWord(body.error);
+        throw new GoogleSignInError('failed');
+      }
+      idToken = body.id_token;
+    } catch (e) {
+      // Only Google's error word (a fixed vocabulary) or the error class: never the code or body.
+      log.warn(
+        `Google token exchange failed: ${tokenError ?? (e instanceof Error ? e.name : 'unknown')}`,
+      );
       throw new GoogleSignInError('failed');
     }
     if (typeof idToken !== 'string') throw new GoogleSignInError('failed');
@@ -80,6 +111,8 @@ export class HttpGoogleOAuthClient implements GoogleOAuthClient {
         issuer: ISSUERS,
         audience: this.options.clientId,
         algorithms: ['RS256'],
+        requiredClaims: ['exp', 'iat', 'sub'],
+        clockTolerance: CLOCK_TOLERANCE_S,
       });
       if (typeof payload.sub !== 'string' || typeof payload['email'] !== 'string') {
         throw new GoogleSignInError('failed');
@@ -89,9 +122,15 @@ export class HttpGoogleOAuthClient implements GoogleOAuthClient {
         email: payload['email'],
         emailVerified: payload['email_verified'] === true || payload['email_verified'] === 'true',
         name: typeof payload['name'] === 'string' ? payload['name'] : null,
+        hostedDomain: typeof payload['hd'] === 'string' ? payload['hd'] : null,
         nonce: typeof payload['nonce'] === 'string' ? payload['nonce'] : null,
       };
-    } catch {
+    } catch (e) {
+      // jose's fixed error code (e.g. ERR_JWT_EXPIRED), never the token or its claims.
+      const code = (e as { code?: unknown }).code;
+      log.warn(
+        `Google ID token rejected: ${typeof code === 'string' && /^ERR_[A-Z_]{1,60}$/.test(code) ? code : 'invalid_claims'}`,
+      );
       throw new GoogleSignInError('failed');
     }
   }

@@ -147,6 +147,19 @@ describe('LoginForm', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Bạn đã huỷ đăng nhập với Google.');
   });
 
+  it('sends a Google sign-in for an address that already has an account to the password', async () => {
+    vi.stubGlobal(
+      'fetch',
+      stubFetch({ 'GET /auth/providers': { status: 200, body: { google: true } } }).fetchStub,
+    );
+    renderWithRouter(() => (
+      <LoginForm onSuccess={() => {}} google={{ step: 'error', reason: 'account_exists' }} />
+    ));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Email này đã có tài khoản. Hãy đăng nhập bằng mật khẩu.',
+    );
+  });
+
   it('asks a two-factor user for the code after Google, then signs in', async () => {
     const { fetchStub, calls } = stubFetch({
       'POST /auth/google/mfa': {

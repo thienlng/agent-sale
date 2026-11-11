@@ -12,7 +12,14 @@ import { login, verifyGoogleSignIn } from '@/lib/session';
 import { FormError } from './form-error';
 import { GoogleButton } from './google-button';
 
-const GOOGLE_ERRORS = ['cancelled', 'expired', 'unverified_email', 'unavailable', 'too_many'];
+const GOOGLE_ERRORS = [
+  'cancelled',
+  'expired',
+  'unverified_email',
+  'unavailable',
+  'account_exists',
+  'too_many',
+];
 
 /** A Google sign-in that came back to /login: still waiting for the code, or failed with a reason. */
 export type GoogleReturn = { step: 'mfa' } | { step: 'error'; reason: string };

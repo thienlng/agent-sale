@@ -42,6 +42,17 @@ const MFA_COOKIE = 'rapiz_google_mfa';
 const COOKIE_PATH = '/api/v1/auth/google';
 
 /**
+ * A log-safe description of an unexpected error: its class name and, for a database error, the
+ * SQLSTATE of its cause. Never the message (Rule 07: no PII in logs).
+ */
+export function errorTag(e: unknown): string {
+  const name = e instanceof Error && /^\w{1,60}$/.test(e.name) ? e.name : 'unknown';
+  const cause = e instanceof Error ? (e.cause as { code?: unknown } | undefined) : undefined;
+  const code = cause?.code;
+  return typeof code === 'string' && /^[0-9A-Z_]{1,40}$/.test(code) ? `${name} (${code})` : name;
+}
+
+/**
  * Sign in with Google (ADR-007). The browser goes to /start, Google, /callback, then back to the
  * SPA's /login with `google=done` (refresh cookie set), `google=mfa` (code still needed) or
  * `google_error=<reason>`. The SPA never sees a Google token.
@@ -97,7 +108,8 @@ export class GoogleAuthController {
     } catch (e) {
       const known = googleFailureReason(e);
       // The reason is a fixed word, never a code or token.
-      if (!known) this.#log.warn(`Google sign-in failed: ${(e as Error).message}`);
+      // Never the message: a failed query's message carries its parameters (email, name, sub).
+      if (!known) this.#log.warn(`Google sign-in failed: ${errorTag(e)}`);
       const reason = known ?? 'failed';
       this.#toLogin(reply, { google_error: reason }, this.google.redirectOf(flow));
     }

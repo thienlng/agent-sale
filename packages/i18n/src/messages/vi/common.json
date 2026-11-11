@@ -89,6 +89,7 @@
       "expired": "Phiên đăng nhập với Google đã hết hạn. Vui lòng thử lại.",
       "unverified_email": "Email Google này chưa được xác minh. Hãy dùng tài khoản Google khác hoặc đăng ký bằng email.",
       "unavailable": "Đăng nhập với Google chưa được bật.",
+      "account_exists": "Email này đã có tài khoản. Hãy đăng nhập bằng mật khẩu.",
       "too_many": "Thử quá nhiều lần. Vui lòng đợi một chút rồi thử lại.",
       "failed": "Không đăng nhập được với Google. Vui lòng thử lại."
     },

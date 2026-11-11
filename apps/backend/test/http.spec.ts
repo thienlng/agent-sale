@@ -19,6 +19,7 @@ import {
   TestLlmProviderResponse,
 } from '@agent-sales/contracts';
 import { HermesLoginClient } from '@agent-sales/ai-core';
+import { Logger } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -275,6 +276,7 @@ describe('HTTP: auth and tenancy', () => {
       email: 'chu.shop@gmail.com',
       emailVerified: true,
       name: 'Chủ Shop',
+      hostedDomain: null,
       nonce: google.searchParams.get('nonce'),
     });
     const callback = await inject(a, {
@@ -314,6 +316,44 @@ describe('HTTP: auth and tenancy', () => {
     expect(cancelled.headers.location).toBe(
       '/login?google_error=cancelled&redirect=%2Fapp%2Finbox',
     );
+  });
+
+  it('Google sign-in: an unexpected error redirects with `failed` and logs no PII', async () => {
+    const a = await app({
+      GOOGLE_CLIENT_ID: 'client-123.apps.googleusercontent.com',
+      GOOGLE_CLIENT_SECRET: 'secret-xyz-123',
+    });
+    const start = await inject(a, {
+      method: 'GET',
+      url: '/api/v1/auth/google/start?redirect=%2Fapp%2Finbox',
+    });
+    const google = new URL(String(start.headers.location));
+    const flow = start.cookies.find((c) => c.name === 'rapiz_google');
+    const client = a.get<GoogleOAuthClient>(GOOGLE_OAUTH_CLIENT);
+    // Shaped like a failed drizzle query: the message carries the parameters.
+    const dbError = new Error(
+      'Failed query: insert into users params: lan@shop.vn,Lan,google-sub-9',
+      {
+        cause: Object.assign(new Error('duplicate key'), { code: '23505' }),
+      },
+    );
+    dbError.name = 'DrizzleQueryError';
+    vi.spyOn(client, 'exchange').mockRejectedValue(dbError);
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    try {
+      const callback = await inject(a, {
+        method: 'GET',
+        url: `/api/v1/auth/google/callback?code=abc&state=${google.searchParams.get('state')}`,
+        cookies: { rapiz_google: flow?.value ?? '' },
+      });
+      expect(callback.headers.location).toBe('/login?google_error=failed&redirect=%2Fapp%2Finbox');
+      expect(warn).toHaveBeenCalledWith('Google sign-in failed: DrizzleQueryError (23505)');
+      const logged = JSON.stringify(warn.mock.calls);
+      expect(logged).not.toContain('lan@shop.vn');
+      expect(logged).not.toContain('google-sub-9');
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('native clients get and send the refresh token in the body', async () => {

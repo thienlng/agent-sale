@@ -1,5 +1,6 @@
+import { Logger } from '@nestjs/common';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { HttpGoogleOAuthClient } from '../infrastructure/security/google-oauth.client.js';
 
@@ -91,6 +92,7 @@ describe('HttpGoogleOAuthClient', () => {
       email: 'lan@gmail.com',
       emailVerified: true,
       name: 'Lan',
+      hostedDomain: null,
       nonce: 'n-1',
     });
     expect(Object.fromEntries(forms[0] ?? [])).toMatchObject({
@@ -117,6 +119,86 @@ describe('HttpGoogleOAuthClient', () => {
         fetch: fetchFn,
       });
       await expect(client.exchange(exchange)).rejects.toMatchObject({ reason: 'failed' });
+    }
+  });
+
+  it('returns the Workspace domain (hd) when Google sends one', async () => {
+    const { privateKey, jwks } = await keys();
+    const { fetchFn } = tokenEndpoint(
+      await idToken(privateKey, { email: 'lan@shop.vn', hd: 'shop.vn' }),
+    );
+    const client = new HttpGoogleOAuthClient({
+      clientId: CLIENT_ID,
+      clientSecret: 'secret-xyz-123',
+      keys: jwks,
+      fetch: fetchFn,
+    });
+    await expect(client.exchange(exchange)).resolves.toMatchObject({
+      email: 'lan@shop.vn',
+      hostedDomain: 'shop.vn',
+    });
+  });
+
+  it('rejects an expired token, another issuer and a token without exp or iat', async () => {
+    const { privateKey, jwks } = await keys();
+    const signed = (build: (jwt: SignJWT) => SignJWT) =>
+      build(
+        new SignJWT({ email: 'lan@gmail.com', email_verified: true, nonce: 'n-1' })
+          .setProtectedHeader({ alg: 'RS256', kid: 'k1' })
+          .setAudience(CLIENT_ID)
+          .setSubject('google-sub-1'),
+      ).sign(privateKey);
+    const now = Math.floor(Date.now() / 1000);
+    const tokens = [
+      // Expired beyond the clock tolerance.
+      await signed((j) =>
+        j
+          .setIssuer('https://accounts.google.com')
+          .setIssuedAt(now - 3600)
+          .setExpirationTime(now - 120),
+      ),
+      await signed((j) =>
+        j.setIssuer('https://evil.example').setIssuedAt().setExpirationTime('5m'),
+      ),
+      await signed((j) => j.setIssuer('https://accounts.google.com').setIssuedAt()),
+      await signed((j) => j.setIssuer('https://accounts.google.com').setExpirationTime('5m')),
+    ];
+    for (const token of tokens) {
+      const client = new HttpGoogleOAuthClient({
+        clientId: CLIENT_ID,
+        clientSecret: 'secret-xyz-123',
+        keys: jwks,
+        fetch: tokenEndpoint(token).fetchFn,
+      });
+      await expect(client.exchange(exchange)).rejects.toMatchObject({ reason: 'failed' });
+    }
+  });
+
+  it("logs only Google's error word for a failed exchange, never the code or the body", async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    try {
+      for (const [body, word] of [
+        [
+          { error: 'redirect_uri_mismatch', error_description: 'lan@gmail.com' },
+          'redirect_uri_mismatch',
+        ],
+        [{ error: 'lan@gmail.com auth-code' }, 'other'],
+      ] as const) {
+        const fetchFn = (async () =>
+          new Response(JSON.stringify(body), { status: 400 })) as unknown as typeof fetch;
+        const client = new HttpGoogleOAuthClient({
+          clientId: CLIENT_ID,
+          clientSecret: 'secret-xyz-123',
+          fetch: fetchFn,
+        });
+        await expect(client.exchange(exchange)).rejects.toMatchObject({ reason: 'failed' });
+        expect(warn).toHaveBeenLastCalledWith(`Google token exchange failed: ${word}`);
+      }
+      const logged = JSON.stringify(warn.mock.calls);
+      expect(logged).not.toContain('lan@gmail.com');
+      expect(logged).not.toContain('auth-code');
+    } finally {
+      warn.mockRestore();
     }
   });
 });

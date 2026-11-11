@@ -28,7 +28,11 @@ import {
 } from './application/commands/auth.handlers.js';
 import { EmailCodeService } from './application/email-codes.js';
 import { GoogleSignInService } from './application/google-sign-in.js';
-import { GOOGLE_OAUTH_CLIENT, GOOGLE_SIGN_IN_OPTIONS } from './application/ports/google-oauth.js';
+import {
+  GOOGLE_CALLBACK_LIMITER,
+  GOOGLE_OAUTH_CLIENT,
+  GOOGLE_SIGN_IN_OPTIONS,
+} from './application/ports/google-oauth.js';
 import {
   API_KEY_STORE,
   API_PLAN_GATE,
@@ -141,6 +145,11 @@ import { IdempotencyInterceptor } from './interface/http/idempotency.interceptor
           redirectUri: env.GOOGLE_REDIRECT_URI ?? `${origin}/api/v1/auth/google/callback`,
         };
       },
+    },
+    {
+      provide: GOOGLE_CALLBACK_LIMITER,
+      // Failed Google callbacks per IP: higher than password login, many users share a CGNAT IP.
+      useFactory: () => new InMemoryAttemptLimiter(60, 15 * 60 * 1000),
     },
     GoogleSignInService,
     {

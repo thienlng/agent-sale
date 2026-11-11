@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { LoginLayout } from '@/features/identity/components/login-layout';
 import { type GoogleReturn, LoginForm } from '@/features/identity/components/login-form';
+import { safeRedirectPath } from '@/lib/safe-redirect';
 import { completeGoogleSignIn, ensureSession } from '@/lib/session';
 
 /**
@@ -16,16 +17,11 @@ const Search = z.object({
   google_error: z.string().max(40).optional().catch(undefined),
 });
 
-/** One leading slash, not followed by another slash or a backslash. */
-function safePath(target: string | undefined): string {
-  return target && /^\/(?![/\\])/.test(target) ? target : '/app/analytics';
-}
-
 export const Route = createFileRoute('/login')({
   validateSearch: Search,
   beforeLoad: async ({ search }) => {
     const session = search.google === 'done' ? await completeGoogleSignIn() : await ensureSession();
-    if (session) throw redirect({ href: safePath(search.redirect) });
+    if (session) throw redirect({ href: safeRedirectPath(search.redirect) });
   },
   component: LoginPage,
 });
@@ -33,7 +29,7 @@ export const Route = createFileRoute('/login')({
 function LoginPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
-  const safe = safePath(search.redirect);
+  const safe = safeRedirectPath(search.redirect);
   // `google=done` only renders when the cookie did not turn into a session.
   const google: GoogleReturn | undefined =
     search.google === 'mfa'

@@ -5,6 +5,8 @@ export interface GoogleProfile {
   email: string;
   emailVerified: boolean;
   name: string | null;
+  /** The `hd` claim: the Google Workspace domain that manages the account, null for consumer accounts. */
+  hostedDomain: string | null;
   /** The `nonce` claim; must equal the one sent with the authorization request. */
   nonce: string | null;
 }
@@ -35,3 +37,9 @@ export interface GoogleSignInOptions {
   redirectUri: string;
 }
 export const GOOGLE_SIGN_IN_OPTIONS = Symbol('GOOGLE_SIGN_IN_OPTIONS');
+
+/**
+ * Its own attempt limiter for failed Google callbacks per IP, with a higher ceiling than password
+ * login: many real users share one CGNAT or office IP.
+ */
+export const GOOGLE_CALLBACK_LIMITER = Symbol('GOOGLE_CALLBACK_LIMITER');

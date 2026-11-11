@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { SecretBox } from '../../../common/security/secret-box.js';
 
-import { GoogleSignInService, safeRedirect } from '../application/google-sign-in.js';
+import {
+  googleOwnsEmail,
+  GoogleSignInService,
+  safeRedirect,
+} from '../application/google-sign-in.js';
 import { LoginHandler } from '../application/commands/auth.handlers.js';
 import { MfaService } from '../application/mfa.service.js';
 import type { GoogleOAuthClient, GoogleProfile } from '../application/ports/google-oauth.js';
@@ -12,6 +16,7 @@ import {
   GoogleSignInError,
   InvalidCredentialsError,
   MfaCodeInvalidError,
+  TooManyAttemptsError,
 } from '../domain/identity.errors.js';
 import { stepAt, totpAt } from '../domain/totp.js';
 import { User } from '../domain/user.js';
@@ -57,13 +62,14 @@ class FakeGoogle implements GoogleOAuthClient {
       email: 'lan@gmail.com',
       emailVerified: true,
       name: 'Lan Nguyễn',
+      hostedDomain: null,
       nonce: this.lastNonce,
       ...this.profile,
     };
   }
 }
 
-async function setup(enabled = true) {
+async function setup(enabled = true, callbackLimit = 20) {
   const users = new InMemoryUserRepository();
   const identities = new InMemoryExternalIdentityRepository();
   const sessionRepo = new InMemorySessionRepository();
@@ -90,6 +96,7 @@ async function setup(enabled = true) {
     sessions,
     mfa,
     new InMemoryAttemptLimiter(20, 60_000),
+    new InMemoryAttemptLimiter(callbackLimit, 60_000),
   );
   const login = new LoginHandler(
     users,
@@ -307,9 +314,108 @@ describe('Google sign-in', () => {
 
   it('keeps redirects inside the app', () => {
     expect(safeRedirect('/app/inbox?x=1')).toBe('/app/inbox?x=1');
-    expect(safeRedirect('//evil.example')).toBe('/app/analytics');
-    expect(safeRedirect('/\\evil.example')).toBe('/app/analytics');
-    expect(safeRedirect('https://evil.example')).toBe('/app/analytics');
-    expect(safeRedirect(undefined)).toBe('/app/analytics');
+    for (const target of [
+      '//evil.example',
+      '/\\evil.example',
+      '/app\\..\\evil',
+      'https://evil.example',
+      '/\t/evil.example',
+      '/\n/evil.example',
+      '/app/\u0000',
+      '/ /evil.example',
+      `/${'a'.repeat(500)}`,
+      undefined,
+    ])
+      expect(safeRedirect(target), JSON.stringify(target)).toBe('/app/analytics');
+  });
+
+  it('trusts Google for an address only for Gmail or a matching Workspace domain', () => {
+    expect(googleOwnsEmail('lan@gmail.com', null)).toBe(true);
+    expect(googleOwnsEmail('lan@shop.vn', 'shop.vn')).toBe(true);
+    expect(googleOwnsEmail('lan@shop.vn', 'SHOP.VN')).toBe(true);
+    expect(googleOwnsEmail('lan@shop.vn', null)).toBe(false);
+    expect(googleOwnsEmail('lan@shop.vn', 'other.vn')).toBe(false);
+    expect(googleOwnsEmail('lan@googlemail.com', null)).toBe(false);
+  });
+
+  it('refuses to link an existing account when Google is not authoritative for its address', async () => {
+    const s = await setup();
+    const existing = User.register({
+      email: 'lan@shop.vn',
+      name: 'Lan',
+      passwordHash: 'h:secret-pass',
+      emailVerifiedAt: new Date(),
+    });
+    await s.users.insert(existing);
+    s.google.profile = { email: 'lan@shop.vn', hostedDomain: null };
+    await expect(signIn(s)).rejects.toMatchObject({ reason: 'account_exists' });
+    s.google.profile = { email: 'lan@shop.vn', hostedDomain: 'other.vn' };
+    await expect(signIn(s)).rejects.toMatchObject({ reason: 'account_exists' });
+    expect(await s.identities.findUserId('google', 'google-sub-1')).toBeNull();
+    expect((await s.users.findById(existing.id))?.hasPassword).toBe(true);
+
+    // A Workspace account of the address's own domain is authoritative: link it.
+    s.google.profile = { email: 'lan@shop.vn', hostedDomain: 'shop.vn' };
+    const result = await signIn(s);
+    expect(result.kind === 'session' && result.issued.user.id).toBe(existing.id);
+    expect(await s.identities.findUserId('google', 'google-sub-1')).toBe(existing.id);
+  });
+
+  it('still creates a new user for a never-seen non-Gmail address', async () => {
+    const s = await setup();
+    s.google.profile = { email: 'new@shop.vn', hostedDomain: null };
+    const result = await signIn(s);
+    expect(result.kind === 'session' && result.issued.user.email).toBe('new@shop.vn');
+  });
+
+  it('links the Google account and claims an unverified address only after the second factor', async () => {
+    const s = await setup();
+    const user = User.register({ email: 'lan@gmail.com', name: 'Lan', passwordHash: 'h:p4ssword' });
+    await s.users.insert(user);
+    await s.sessions.start(user, meta);
+    const sessionId = [...s.sessionRepo.rows.values()][0]?.id ?? '';
+    const { secret } = await s.mfa.beginSetup(user.id, 'p4ssword');
+    await s.mfa.enable(user.id, totpAt(secret, stepAt(Date.now())), sessionId);
+
+    const result = await signIn(s);
+    if (result.kind !== 'mfa') throw new Error('expected mfa');
+    await expect(s.service.completeMfa(result.ticket, '000000', meta)).rejects.toBeInstanceOf(
+      MfaCodeInvalidError,
+    );
+    // Nothing changed while the second factor is missing or wrong.
+    expect(await s.identities.findUserId('google', 'google-sub-1')).toBeNull();
+    const before = await s.users.findById(user.id);
+    expect(before?.emailVerified).toBe(false);
+    expect(before?.hasPassword).toBe(true);
+
+    await s.service.completeMfa(result.ticket, totpAt(secret, stepAt(Date.now()) + 1), meta);
+    expect(await s.identities.findUserId('google', 'google-sub-1')).toBe(user.id);
+    const after = await s.users.findById(user.id);
+    expect(after?.emailVerified).toBe(true);
+    expect(after?.hasPassword).toBe(false);
+  });
+
+  it('throttles failed callbacks per IP, not forged ones or completed sign-ins', async () => {
+    const s = await setup(true, 2);
+    // Callbacks without a live flow never reach Google and cost nothing.
+    for (let i = 0; i < 5; i++) {
+      await expect(
+        s.service.callback({ code: 'c', state: 'x' }, undefined, meta),
+      ).rejects.toMatchObject({ reason: 'expired' });
+    }
+    // Completed sign-ins reset the counter.
+    for (let i = 0; i < 4; i++) expect((await signIn(s)).kind).toBe('session');
+    s.google.profile = { nonce: 'replayed' };
+    await expect(signIn(s)).rejects.toMatchObject({ reason: 'failed' });
+    await expect(signIn(s)).rejects.toMatchObject({ reason: 'failed' });
+    await expect(signIn(s)).rejects.toBeInstanceOf(TooManyAttemptsError);
+    // Another IP is not affected.
+    const { flow } = s.service.start('/app');
+    await expect(
+      s.service.callback({ code: 'c', state: s.google.lastRequest?.state }, flow, {
+        ...meta,
+        ip: '10.0.0.10',
+      }),
+    ).rejects.toMatchObject({ reason: 'failed' });
   });
 });
