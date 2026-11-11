@@ -235,7 +235,7 @@ describe('care outbox reader and the brain event', () => {
         payload: {},
       }),
     );
-    const rows = await read();
+    const rows = (await read()) ?? [];
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       type: 'brain.signals.updated.v1',

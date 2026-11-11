@@ -8,6 +8,7 @@ import {
 import type { WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
+import { BRAIN_FACADE, type BrainFacade } from '../../brain/api/index.js';
 import { COMMERCE_FACADE, type CommerceFacade } from '../../commerce/api/index.js';
 import { CONVERSATION_FACADE, type ConversationFacade } from '../../conversation/api/index.js';
 import { LODGING_FACADE, type LodgingFacade } from '../../lodging/api/index.js';
@@ -69,6 +70,7 @@ export class CareEnroller {
     @Inject(CARE_STORE) private readonly store: CareStore,
     @Inject(CareSettingsService) private readonly settings: CareSettingsService,
     @Inject(CONVERSATION_FACADE) private readonly conversations: ConversationFacade,
+    @Inject(BRAIN_FACADE) private readonly brain: BrainFacade,
     @Inject(COMMERCE_FACADE) @Optional() private readonly commerce?: CommerceFacade,
     @Inject(LODGING_FACADE) @Optional() private readonly lodging?: LodgingFacade,
   ) {}
@@ -205,6 +207,11 @@ export class CareEnroller {
     if (!facts || facts.status !== 'open' || !facts.lastInboundAt) return;
     const closes = windowClosesAt(facts.provider, facts.lastInboundAt);
     if (!closes) return;
+    // Only a judgement that read the customer's last message starts a cycle for it (an older
+    // signal read late, or a stage set by hand before new messages, is not about them).
+    const [signal] = await this.brain.signalsFor(ws, [conv]);
+    const covered = signal?.evaluatedUntil ? Date.parse(signal.evaluatedUntil) : Number.NaN;
+    if (!(covered >= Date.parse(facts.lastInboundAt))) return;
     const anchor = new Date(facts.lastInboundAt);
     const due = stepDue(template, 0, anchor);
     const at = due ? placeInWindow(due, closes) : null;

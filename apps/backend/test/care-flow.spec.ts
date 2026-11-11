@@ -109,7 +109,17 @@ function setup(dailyLimit?: number) {
       ids.flatMap((id) => {
         const s = signals.get(id);
         return s
-          ? [{ conversationId: id, stage: 'new', optOut: false, note: null, mood: 'neutral', ...s }]
+          ? [
+              {
+                conversationId: id,
+                stage: 'new',
+                optOut: false,
+                note: null,
+                mood: 'neutral',
+                evaluatedUntil: T0.toISOString(),
+                ...s,
+              },
+            ]
           : [];
       }),
     levelFor: async () => autonomy.level,
@@ -142,7 +152,7 @@ function setup(dailyLimit?: number) {
   const settings = new CareSettingsService(store, billing);
   const writer = new CareWriter(conversations, bots, model);
   const sender = new CareSender(store, conversations);
-  const enroller = new CareEnroller(events, store, settings, conversations, commerce);
+  const enroller = new CareEnroller(events, store, settings, conversations, brain, commerce);
   const step = new CareStep(store, settings, writer, sender, conversations, brain, commerce);
   const runner = new CareRunnerImpl(store, enroller, step);
   const approvals = new ApprovalService(
@@ -380,6 +390,30 @@ describe('care agent flow (act and report)', () => {
       skipReason: 'customer said no',
     });
     expect(h.channels.deliver).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('enrollment', () => {
+  it('starts no cycle from a judgement that did not read the last customer message', async () => {
+    const h = setup();
+    vi.setSystemTime(T0);
+    const c = await h.conversations.receive(ws, channelId, customer('in-x'));
+    h.signals.set(c.id, { stage: 'price_asked', evaluatedUntil: at(-1).toISOString() });
+    h.events.push({
+      workspaceId: ws,
+      type: 'brain.signals.updated.v1',
+      aggregateId: c.id,
+      payload: {
+        conversationId: c.id,
+        stage: 'price_asked',
+        optOut: false,
+        version: 1,
+        occurredAt: T0.toISOString(),
+      },
+      createdAt: T0,
+    });
+    await h.runner.tick(at(0.5));
+    expect(h.store.enrollments).toEqual([]);
   });
 });
 
