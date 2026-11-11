@@ -19,6 +19,8 @@ import { BILLING_RUNNER, type BillingRunner } from '../modules/billing/api/index
 import { BillingModule } from '../modules/billing/billing.module.js';
 import { CRM_TASK_RUNNER, type CrmTaskRunner } from '../modules/crm/api/index.js';
 import { CrmModule } from '../modules/crm/crm.module.js';
+import { BRAIN_RUNNER, type BrainRunner } from '../modules/brain/api/index.js';
+import { BrainModule } from '../modules/brain/brain.module.js';
 import { DEVELOPER_RUNNER, type DeveloperRunner } from '../modules/developer/api/index.js';
 import { DeveloperModule } from '../modules/developer/developer.module.js';
 import { DATAEXPORT_RUNNER, type DataExportRunner } from '../modules/dataexport/api/index.js';
@@ -48,6 +50,7 @@ import { SaasModule } from '../modules/saas/saas.module.js';
     AssistantModule,
     DataexportModule,
     CrmModule,
+    BrainModule,
   ],
 })
 class WorkerModule {}
@@ -192,6 +195,19 @@ const taskTimer = setInterval(() => {
       remindingTasks = false;
     });
 }, 30_000);
+// Business Brain (spec 2026-11-11): schedule idle evaluations from the outbox, run the due ones.
+const brain = ctx.get<BrainRunner>(BRAIN_RUNNER);
+let brainBusy = false;
+const brainTimer = setInterval(() => {
+  if (brainBusy) return;
+  brainBusy = true;
+  void brain
+    .tick()
+    .catch(() => logger.error('Brain signals tick failed'))
+    .finally(() => {
+      brainBusy = false;
+    });
+}, 15_000);
 let dailyRunning = false;
 const runDaily = () => {
   if (dailyRunning) return;
@@ -219,8 +235,9 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const)
     clearInterval(scheduleTimer);
     clearInterval(exportTimer);
     clearInterval(taskTimer);
+    clearInterval(brainTimer);
   });
 logger.info(
   { queues },
-  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks, notifications, assistant jobs, assistant schedules, task reminders; no queue processors registered yet)',
+  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks, notifications, assistant jobs, assistant schedules, task reminders, brain signals; no queue processors registered yet)',
 );

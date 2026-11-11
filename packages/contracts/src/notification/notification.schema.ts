@@ -15,6 +15,8 @@ export const NotificationType = z.enum([
   'dataexport.failed',
   /** A task assigned to the user reached its due time (CRM-04, spec 2026-11-11 §4). */
   'task.due',
+  /** An evaluation newly found a customer complaint (Business Brain, spec 2026-11-11 §6). */
+  'brain.complaint',
 ]);
 export type NotificationType = z.infer<typeof NotificationType>;
 

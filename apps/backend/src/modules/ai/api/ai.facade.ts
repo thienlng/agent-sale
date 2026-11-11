@@ -22,6 +22,14 @@ export interface AiFacade {
     botId: string,
     input: PlaygroundRequest,
   ): Promise<PlaygroundResponse>;
+  /**
+   * The stored rolling summary of a conversation's older messages (the Business Brain's first
+   * note, spec 2026-11-11 §3.3); null when none was written. `coveredUntil` is an ISO time.
+   */
+  conversationSummary(
+    workspaceId: WorkspaceId,
+    conversationId: string,
+  ): Promise<{ summary: string; coveredUntil: string } | null>;
 }
 
 export const AI_FACADE = Symbol('AI_FACADE');

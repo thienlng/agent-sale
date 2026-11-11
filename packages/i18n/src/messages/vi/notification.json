@@ -122,5 +122,11 @@
       "body": "{{business}}",
       "body_customer": "{{business}} · Khách {{customer}}"
     }
+  },
+  "brain": {
+    "complaint": {
+      "title": "{{customer}} đang phàn nàn",
+      "body": "{{business}} · {{reason}}"
+    }
   }
 }

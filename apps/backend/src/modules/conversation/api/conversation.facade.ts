@@ -121,6 +121,34 @@ export interface ConversationFacade {
    * and up to `limit` (≤ 200) ids, oldest first, for an alert fingerprint. No customer data.
    */
   awaitingReply(ws: WorkspaceId, q: { olderThan: Date; limit: number }): Promise<AwaitingReply>;
+  /**
+   * What the Business Brain evaluates (spec 2026-11-11 §3.3): the text messages after `after`
+   * (exclusive; all when null), at most the last 40 and 8 000 characters, oldest first, and the
+   * conversation's facts. Null when the conversation does not exist in the workspace.
+   */
+  signalContext(ws: WorkspaceId, id: string, after: Date | null): Promise<SignalContext | null>;
+}
+/** One message as the Business Brain reads it. */
+export interface SignalContextMessage {
+  sender: 'customer' | 'human' | 'bot';
+  text: string;
+  /** ISO time. */
+  at: string;
+}
+/** What `signalContext` returns. */
+export interface SignalContext {
+  messages: SignalContextMessage[];
+  facts: {
+    status: 'open' | 'resolved' | 'spam';
+    contactId: string | null;
+    assigneeId: string | null;
+    customerName: string;
+    awaitingSince: string | null;
+    lastInboundAt: string | null;
+    lastMessageSender: 'customer' | 'human' | 'bot';
+    /** Test or playground conversation: never evaluated. Inbox conversations are never tests. */
+    isTest: boolean;
+  };
 }
 /** What `awaitingReply` returns: counts and ids only (S3-R9). */
 export interface AwaitingReply {

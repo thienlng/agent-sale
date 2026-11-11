@@ -6,6 +6,8 @@ export {
   type BotQuickReplies,
   type ConversationFacade,
   type ConversationRunner,
+  type SignalContext,
+  type SignalContextMessage,
 } from './conversation.facade.js';
 export * from './conversation.events.js';
 export { CONVERSATION_EXPORT } from './conversation-export.js';

@@ -31,6 +31,7 @@ import type {
   BotAttachment,
   BotQuickReplies,
   ConversationFacade,
+  SignalContext,
 } from '../api/conversation.facade.js';
 import { ConversationError } from '../domain/conversation.errors.js';
 import { nextMessageId } from '../domain/message-id.js';
@@ -41,6 +42,7 @@ import { attachTags, tagConditions } from './conversation-tags.js';
 import { refreshCustomerProfile } from './customer-profile.js';
 import { addNote, assertAssignable, markRead, markUnread, setStarred } from './inbox-state.js';
 import { InboxAlerts } from './inbox-alerts.js';
+import { buildSignalContext } from './signal-context.js';
 import {
   CONVERSATION_STORE,
   type ConversationStore,
@@ -86,6 +88,13 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
   }
   awaitingReply(ws: WorkspaceId, q: { olderThan: Date; limit: number }): Promise<AwaitingReply> {
     return this.store.run(ws, (tx) => tx.awaitingReply(q));
+  }
+  signalContext(ws: WorkspaceId, id: string, after: Date | null): Promise<SignalContext | null> {
+    if (!isUuid(id)) return Promise.resolve(null);
+    return this.store.run(ws, async (tx) => {
+      const c = await tx.find(id);
+      return c ? buildSignalContext(c, await tx.messages(id), after) : null;
+    });
   }
   async list(ws: WorkspaceId, q: ConversationListQuery, viewerId?: string) {
     const filter = {

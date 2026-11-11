@@ -122,5 +122,11 @@
       "body": "{{business}}",
       "body_customer": "{{business}} · Customer {{customer}}"
     }
+  },
+  "brain": {
+    "complaint": {
+      "title": "{{customer}} is complaining",
+      "body": "{{business}} · {{reason}}"
+    }
   }
 }

@@ -11,7 +11,8 @@ export type NotificationType =
   | 'inbox.message'
   | 'dataexport.ready'
   | 'dataexport.failed'
-  | 'task.due';
+  | 'task.due'
+  | 'brain.complaint';
 export type NotificationChannelKind = 'email' | 'push';
 export type DeliveryStatus = 'queued' | 'sending' | 'sent' | 'failed' | 'skipped';
 

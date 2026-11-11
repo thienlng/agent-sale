@@ -211,6 +211,16 @@ export class PlaygroundService implements AiFacade {
       : undefined;
   }
 
+  async conversationSummary(
+    ws: WorkspaceId,
+    conversationId: string,
+  ): Promise<{ summary: string; coveredUntil: string } | null> {
+    const found = await this.summaries?.get(ws, conversationId);
+    return found
+      ? { summary: found.summary, coveredUntil: found.coveredUntil.toISOString() }
+      : null;
+  }
+
   async playground(
     ws: WorkspaceId,
     botId: string,
