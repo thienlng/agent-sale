@@ -71,10 +71,17 @@ per conversation per 24 h** and never between **21:00 and 08:00** (business time
 that would land in quiet hours moves to 08:00 if still inside the window, else becomes the
 "outside the window" path.
 
+Approved drafts follow the same rules (owner ruling, 2026-11-12, ADR-031 §7): approving in the
+quiet hours schedules the message for 08:00 (sent then only if the window is still open and the
+stop rules still pass), the per-conversation limit applies, and a draft cannot be approved while
+a person holds the conversation (it expires).
+
 ## 4. Writing the message
 
 - One `basic`-tier call per message, input: the Brain note + last 20 messages + bot persona and
   catalog grounding the bot already uses + the template's goal and the owner's instruction.
+- *Deferred (built as of 2026-11-12):* the writer gets the bot persona and profile facts but not
+  yet the product catalogue; catalogue grounding is a follow-up (ADR-031 Consequences).
 - Output: the message text (≤ 600 chars) or `skip` with a reason (e.g. "nothing useful to add").
 - Counts against a **separate daily cap** `care.messages.daily` (default 100 per business) so
   follow-ups never starve signal evaluation, with the same usage display as signals.
