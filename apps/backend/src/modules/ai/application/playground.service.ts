@@ -416,8 +416,8 @@ export class PlaygroundService implements AiFacade {
         products.forEach((p) => {
           seenProducts.add(p.id);
           seenNames.set(p.id, p.name);
-          shownable.set(p.id, p);
         }),
+      onListed: (products) => products.forEach((p) => shownable.set(p.id, p)),
       output,
       ...(options.sink ? { sink: options.sink } : {}),
       sendMessage: !isCommentReply,

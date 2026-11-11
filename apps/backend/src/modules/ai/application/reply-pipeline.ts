@@ -59,10 +59,12 @@ export function writeTools(
  * catalog returns make their pictures sendable.
  */
 export function turnTools(opts: {
-  catalog?: Omit<CatalogToolContext, 'onProducts'>;
+  catalog?: Omit<CatalogToolContext, 'onProducts' | 'onListed'>;
   allowlist: ImageAllowlist;
   /** Products whose details the model received (besides making their pictures sendable). */
   onProducts?(products: readonly ProductDto[]): void;
+  /** Every product the model saw a row of (website: the products it may show as cards). */
+  onListed?(products: readonly ProductDto[]): void;
   output: OutputState;
   sink?: MessageSink;
   sendMessage: boolean;
@@ -89,6 +91,7 @@ export function turnTools(opts: {
               allowlist.addProducts(products);
               opts.onProducts?.(products);
             },
+            ...(opts.onListed ? { onListed: opts.onListed } : {}),
           }),
         }
       : { definitions: [], runnable: [] },
