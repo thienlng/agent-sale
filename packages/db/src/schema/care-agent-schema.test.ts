@@ -86,6 +86,8 @@ describe('care agent migration', () => {
           'care_messages_draft_idx',
           'care_messages_sent_idx',
           'care_messages_open_idx',
+          'care_messages_scheduled_idx',
+          'care_messages_step_idx',
         ],
       ],
     ];

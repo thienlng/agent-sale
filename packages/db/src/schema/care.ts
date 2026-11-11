@@ -20,7 +20,7 @@ import type { AutonomyLevel } from './brain.js';
 import { conversations } from './conversation.js';
 import { tenantPolicies, workspaces } from './workspace.js';
 
-/** Tables of the `care` module (migration 0074, spec 2026-11-11 care agent, ADR-031). */
+/** Tables of the `care` module (migration 0075, spec 2026-11-11 care agent, ADR-031). */
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 const workspaceRef = () =>
   uuid('workspace_id')
@@ -32,6 +32,7 @@ export type CareTemplateKey = (typeof CARE_TEMPLATE_KEYS)[number];
 export type CareEnrollmentStatus = 'active' | 'done' | 'stopped';
 export const CARE_MESSAGE_STATUSES = [
   'draft',
+  'scheduled',
   'sending',
   'sent',
   'failed',
@@ -114,6 +115,7 @@ export const careMessages = pgTable(
     workspaceId: workspaceRef(),
     conversationId: uuid('conversation_id').notNull(),
     enrollmentId: uuid('enrollment_id'),
+    anchorAt: ts('anchor_at').notNull(),
     template: text('template').$type<CareTemplateKey>().notNull(),
     step: integer('step').notNull().default(0),
     level: text('level').$type<AutonomyLevel>().notNull(),
@@ -121,6 +123,7 @@ export const careMessages = pgTable(
     skipReason: text('skip_reason'),
     status: text('status').$type<CareMessageStatus>().notNull(),
     windowClosesAt: ts('window_closes_at'),
+    sendAt: ts('send_at'),
     sentMessageId: uuid('sent_message_id'),
     sentAt: ts('sent_at'),
     decidedBy: uuid('decided_by'),
@@ -144,7 +147,7 @@ export const careMessages = pgTable(
     check('care_messages_model_length', sql`char_length(${t.model}) <= 120`),
     check(
       'care_messages_status_check',
-      sql`${t.status} in ('draft','sending','sent','failed','expired','rejected','skipped')`,
+      sql`${t.status} in ('draft','scheduled','sending','sent','failed','expired','rejected','skipped')`,
     ),
     index('care_messages_conversation_idx').on(t.workspaceId, t.conversationId, t.createdAt.desc()),
     index('care_messages_draft_idx')
@@ -155,7 +158,13 @@ export const careMessages = pgTable(
       .where(sql`${t.status} = 'sent'`),
     index('care_messages_open_idx')
       .on(t.windowClosesAt)
-      .where(sql`${t.status} in ('draft','sending')`),
+      .where(sql`${t.status} in ('draft','scheduled','sending')`),
+    index('care_messages_scheduled_idx')
+      .on(t.sendAt)
+      .where(sql`${t.status} = 'scheduled'`),
+    uniqueIndex('care_messages_step_idx')
+      .on(t.workspaceId, t.enrollmentId, t.anchorAt, t.step)
+      .where(sql`${t.enrollmentId} is not null`),
     ...tenantPolicies('care_messages'),
   ],
 );

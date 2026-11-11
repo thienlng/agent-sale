@@ -1,4 +1,4 @@
--- 0074_care_agent: the care agent, autonomy levels and "Rapiz đã mang lại" (spec 2026-11-11
+-- 0075_care_agent: the care agent, autonomy levels and "Rapiz đã mang lại" (spec 2026-11-11
 -- care-agent-autonomy, ADR-031). The `brain` module owns the autonomy registry (autonomy_settings)
 -- and gains the opt-out signal; the new `care` module owns its templates, enrollments, messages,
 -- daily counter and its outbox position (care_checkpoints, global). Workspace-scoped tables use RLS
@@ -65,11 +65,15 @@ CREATE INDEX care_enrollments_after_sale_idx ON care_enrollments(workspace_id, n
   WHERE status = 'active' AND template = 'after_sale';
 
 -- Every message the agent wrote: a draft waiting for a person (suggest), or what it sent.
+-- `anchor_at` is the customer message the step was written for (a send is refused when the
+-- customer wrote after it); `send_at` is when an approved message goes out (`scheduled`: approved
+-- in the quiet hours, or queued by "Gửi tất cả").
 CREATE TABLE care_messages (
   id uuid PRIMARY KEY,
   workspace_id uuid NOT NULL REFERENCES workspaces(id),
   conversation_id uuid NOT NULL,
   enrollment_id uuid,
+  anchor_at timestamptz NOT NULL,
   template text NOT NULL CONSTRAINT care_messages_template_check
     CHECK (template IN ('silent','ready','after_sale')),
   step integer NOT NULL DEFAULT 0,
@@ -80,8 +84,9 @@ CREATE TABLE care_messages (
   skip_reason text CONSTRAINT care_messages_skip_reason_length
     CHECK (char_length(skip_reason) <= 200),
   status text NOT NULL CONSTRAINT care_messages_status_check
-    CHECK (status IN ('draft','sending','sent','failed','expired','rejected','skipped')),
+    CHECK (status IN ('draft','scheduled','sending','sent','failed','expired','rejected','skipped')),
   window_closes_at timestamptz,
+  send_at timestamptz,
   sent_message_id uuid,
   sent_at timestamptz,
   decided_by uuid,
@@ -103,7 +108,13 @@ CREATE INDEX care_messages_sent_idx ON care_messages(workspace_id, sent_at DESC)
   WHERE status = 'sent';
 -- The worker's expiry scan: drafts whose window closed, sends that never finished.
 CREATE INDEX care_messages_open_idx ON care_messages(window_closes_at)
-  WHERE status IN ('draft','sending');
+  WHERE status IN ('draft','scheduled','sending');
+-- The worker's scan for approved messages whose time came.
+CREATE INDEX care_messages_scheduled_idx ON care_messages(send_at)
+  WHERE status = 'scheduled';
+-- One message per step of a cycle (a crashed or doubled run never writes or sends a step twice).
+CREATE UNIQUE INDEX care_messages_step_idx ON care_messages(
+  workspace_id, enrollment_id, anchor_at, step) WHERE enrollment_id IS NOT NULL;
 
 -- Daily message counter per business (day in Asia/Ho_Chi_Minh), reserved before each model call.
 CREATE TABLE care_usage (

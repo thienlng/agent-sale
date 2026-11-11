@@ -19,7 +19,7 @@ import { contacts } from './crm.js';
 import { tenantPolicies, workspaces } from './workspace.js';
 
 /**
- * Tables of the `brain` module (migration 0072, spec 2026-11-11 Business Brain v1; 0074 adds the
+ * Tables of the `brain` module (migration 0073, spec 2026-11-11 Business Brain v1; 0075 adds the
  * opt-out signal and the autonomy registry).
  */
 const ts = (name: string) => timestamp(name, { withTimezone: true });
@@ -68,7 +68,7 @@ export const conversationSignals = pgTable(
     stageLocked: boolean('stage_locked').notNull().default(false),
     dismissedUntilMessageAfter: ts('dismissed_until_message_after'),
     version: integer('version').notNull().default(1),
-    /** The customer asked not to be contacted (0074): the care agent never enrolls them. */
+    /** The customer asked not to be contacted (0075): the care agent never enrolls them. */
     optOut: boolean('opt_out').notNull().default(false),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -219,7 +219,7 @@ export type AutonomyAction = (typeof AUTONOMY_ACTIONS)[number];
 export const AUTONOMY_LEVELS = ['suggest', 'act_and_report', 'auto'] as const;
 export type AutonomyLevel = (typeof AUTONOMY_LEVELS)[number];
 
-/** Autonomy level per business and action (0074, ADR-031); a missing row means the default. */
+/** Autonomy level per business and action (0075, ADR-031); a missing row means the default. */
 export const autonomySettings = pgTable(
   'autonomy_settings',
   {
