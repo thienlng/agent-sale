@@ -143,7 +143,15 @@ export function memoryFixture(over: Partial<AssistantMemoryDto> = {}): Assistant
         label: 'owner_profile',
         limit: 1400,
         used: 26,
-        entries: [{ id: 'e1', text: 'Thích trả lời ngắn gọn.', createdAt: STAMP }],
+        entries: [
+          {
+            id: 'e1',
+            text: 'Thích trả lời ngắn gọn.',
+            createdAt: STAMP,
+            origin: 'owner',
+            pending: false,
+          },
+        ],
       },
       { store: 'notes', label: 'notes', limit: 2200, used: 0, entries: [] },
       {
@@ -151,7 +159,15 @@ export function memoryFixture(over: Partial<AssistantMemoryDto> = {}): Assistant
         label: 'Shop An',
         limit: 1000,
         used: 30,
-        entries: [{ id: 'e2', text: 'Giao hàng trong ngày ở Hà Nội.', createdAt: STAMP }],
+        entries: [
+          {
+            id: 'e2',
+            text: 'Giao hàng trong ngày ở Hà Nội.',
+            createdAt: STAMP,
+            origin: 'assistant',
+            pending: false,
+          },
+        ],
       },
     ],
     ...over,

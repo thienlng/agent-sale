@@ -47,7 +47,12 @@ import { buildImportBlock } from './import-block.js';
 import { IMPORT_TOOL_DEFINITIONS, importTools } from './import-tools.js';
 import { isVisibleMessage } from './mappers.js';
 import { currentIndustry, industryOfBusiness } from './owner-access.js';
-import { MEMORY_TOOL_DEFINITION, memoryTool } from './memory-tools.js';
+import {
+  historyIsTainted,
+  MEMORY_TOOL_DEFINITION,
+  memoryTool,
+  taintOnToolOutput,
+} from './memory-tools.js';
 import { buildTurnMessage } from './prompt-builder.js';
 import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
 import { ROUTE_TOOL_DEFINITIONS, routeTools } from './route-tools.js';
@@ -390,7 +395,8 @@ export class ChatTurnService {
       scope.businessId,
       importBlock,
     );
-    const history = capHistory(stored).map((m) =>
+    const replayed = capHistory(stored);
+    const history = replayed.map((m) =>
       m.id === user.id ? { role: 'user' as const, content: turnText } : toChatMessage(m),
     );
 
@@ -418,6 +424,9 @@ export class ChatTurnService {
       authorization,
       Math.ceil(budgetMs / 1000) + DELEGATION_MARGIN_SECONDS,
     );
+    // Replayed tool data, an import block or a summary may carry planted instructions that the
+    // owner then confirms in this turn: the turn starts tainted (PR #173 review).
+    const turnTaint = { tainted: historyIsTainted(replayed) };
     try {
       result = await runAgentLoop({
         base: {
@@ -437,54 +446,58 @@ export class ChatTurnService {
         },
         // One output budget for the whole turn, shared by every tool and its validation errors.
         tools: withTurnOutputBudget(
-          [
-            ...coreTools(ctx),
-            memoryTool({ scope, repo: this.repo }),
-            // skill_manage as the chat actor; patches need a load_skill in this same turn.
-            ...skillTools({
-              scope,
-              skills: this.skills,
-              actor: 'assistant',
-              runId,
-              loadedSkills: new Set<string>(),
-            }),
-            ...routeTools({
-              scope,
-              repo: this.repo,
-              invoker: this.invoker,
-              catalog: this.catalog,
-              authorization: turnAuth,
-              threadId: thread.id,
-              runId,
-              proposalIds,
-              native,
-              ...(req.pageContext ? { page: req.pageContext } : {}),
-              ...(industry ? { industry } : {}),
-            }),
-            // Product import (T-173): previews read; a proposal waits for the owner.
-            ...importTools({
-              scope,
-              repo: this.repo,
-              invoker: this.invoker,
-              authorization: turnAuth,
-              threadId: thread.id,
-              runId,
-              proposalIds,
-              industryOf: (businessId) => industryOfBusiness(scope, businessId),
-            }),
-            ...(withSchedule
-              ? [
-                  scheduleTool({
-                    scope,
-                    repo: this.repo,
-                    schedules: this.schedules,
-                    threadId: thread.id,
-                    runId,
-                    proposalIds,
-                  }),
-                ]
-              : []),
-          ].filter((tool) => !off.has(tool.name)),
+          // Once a tool returned data this turn, memory writes wait for the owner's approval.
+          taintOnToolOutput(
+            [
+              ...coreTools(ctx),
+              memoryTool({ scope, repo: this.repo, tainted: () => turnTaint.tainted }),
+              // skill_manage as the chat actor; patches need a load_skill in this same turn.
+              ...skillTools({
+                scope,
+                skills: this.skills,
+                actor: 'assistant',
+                runId,
+                loadedSkills: new Set<string>(),
+              }),
+              ...routeTools({
+                scope,
+                repo: this.repo,
+                invoker: this.invoker,
+                catalog: this.catalog,
+                authorization: turnAuth,
+                threadId: thread.id,
+                runId,
+                proposalIds,
+                native,
+                ...(req.pageContext ? { page: req.pageContext } : {}),
+                ...(industry ? { industry } : {}),
+              }),
+              // Product import (T-173): previews read; a proposal waits for the owner.
+              ...importTools({
+                scope,
+                repo: this.repo,
+                invoker: this.invoker,
+                authorization: turnAuth,
+                threadId: thread.id,
+                runId,
+                proposalIds,
+                industryOf: (businessId) => industryOfBusiness(scope, businessId),
+              }),
+              ...(withSchedule
+                ? [
+                    scheduleTool({
+                      scope,
+                      repo: this.repo,
+                      schedules: this.schedules,
+                      threadId: thread.id,
+                      runId,
+                      proposalIds,
+                    }),
+                  ]
+                : []),
+            ].filter((tool) => !off.has(tool.name)),
+            turnTaint,
+          ),
         ),
         generate: (r) => this.gateway.generate(r),
         maxRounds: TURN_MAX_ROUNDS,

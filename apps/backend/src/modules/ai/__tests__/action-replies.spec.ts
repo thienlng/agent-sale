@@ -10,6 +10,7 @@ import type {
   PendingAction,
 } from '../../action/api/index.js';
 import type { BotFacade, BotView } from '../../bot/api/index.js';
+import type { CrmFacade } from '../../crm/api/index.js';
 import type { KnowledgeFacade } from '../../knowledge/api/index.js';
 import type { WorkspaceFacade } from '../../workspace/api/index.js';
 import type { LlmRuntime } from '../application/llm-runtime.js';
@@ -84,6 +85,8 @@ function build(
     actions?: BotActionView[] | null;
     outcome?: ActionOutcome;
     pending?: PendingAction | null;
+    /** The CRM contact behind `contactId` (server-filled params). */
+    contact?: { phone: string | null; email: string | null };
   } = {},
 ) {
   const queue = Array.isArray(script) ? [...script] : [];
@@ -153,6 +156,16 @@ function build(
     undefined,
     undefined,
     options.actions === null ? undefined : facade,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    options.contact
+      ? ({ getContact: async () => options.contact } as unknown as CrmFacade)
+      : undefined,
   );
   const conversationId = newId();
   const reply = (messages: PlaygroundRequest['messages']) =>
@@ -474,9 +487,9 @@ describe('bot API actions in the reply pipeline', () => {
     }
   });
 
-  it('keeps a fanpage comment reply away from the shared playground pending key', async () => {
-    const { svc, store, fake } = build(
-      [call(BOOK, { hour: 9 }), answer('Dạ em chưa đặt lịch được ở bình luận ạ')],
+  it('offers a fanpage comment reply no action tools and keeps it off the playground pending key', async () => {
+    const { svc, store, fake, invocations } = build(
+      [call(BOOK, { hour: 9 }), answer('Dạ anh nhắn riêng cho em để đặt lịch nhé ạ')],
       {
         pending: stored(),
       },
@@ -494,15 +507,80 @@ describe('bot API actions in the reply pipeline', () => {
       { conversationId: null, isTest: false },
     );
     expect(res.outcome).toBe('answered');
+    // A stranger's public comment never drives the shop's API.
+    expect(invocations).toEqual([]);
     expect(store.ids).toEqual([]);
     expect(store.pending).not.toBeNull();
     expect(store.cleared).toBe(0);
     expect(store.consumed).toBe(0);
     for (const req of reqs) {
-      expect(toolNames(req)).toEqual(['calculate', LOOKUP, BOOK]);
+      expect(toolNames(req)).toEqual(['calculate']);
       expect(lastMessage(req)).not.toContain('<pending_action>');
     }
-    expect(JSON.stringify(reqs[1]?.messages.at(-1))).toContain('confirmation_not_available');
+  });
+
+  it('fills a customer_phone param from the CRM contact, never from the model', async () => {
+    const callback: BotActionView = {
+      ...lookup,
+      id: 'act-callback',
+      name: 'Gọi lại',
+      method: 'POST',
+      params: [
+        {
+          name: 'phone',
+          type: 'string',
+          location: 'body',
+          required: true,
+          description: 'SĐT',
+          source: 'customer_phone',
+        },
+      ],
+    };
+    const { svc, invocations } = build(
+      [call(LOOKUP, { phone: '0999999999' }), answer('Dạ em đã hẹn gọi lại ạ')],
+      { actions: [callback], contact: { phone: '0912345678', email: null } },
+    );
+    await svc.reply(
+      ws,
+      botId,
+      { messages: [{ role: 'customer', content: 'gọi lại cho tôi số 0999999999' }] },
+      { conversationId: newId(), isTest: false, contactId: newId() },
+    );
+    expect(invocations.map((i) => i.args)).toEqual([{ phone: '0912345678' }]);
+  });
+
+  it('does not offer a customer_phone action when the conversation has no phone', async () => {
+    const callback: BotActionView = {
+      ...lookup,
+      params: [
+        {
+          name: 'phone',
+          type: 'string',
+          location: 'body',
+          required: true,
+          description: 'SĐT',
+          source: 'customer_phone',
+        },
+      ],
+    };
+    const { svc, fake, invocations } = build([answer('Dạ anh cho em xin số điện thoại ạ')], {
+      actions: [callback],
+      contact: { phone: null, email: null },
+    });
+    const reqs: GenerateRequest[] = [];
+    const orig = fake.generate.bind(fake);
+    fake.generate = (req, target) => {
+      reqs.push(req);
+      return orig(req, target);
+    };
+    await svc.reply(
+      ws,
+      botId,
+      { messages: [{ role: 'customer', content: 'gọi lại cho tôi' }] },
+      { conversationId: newId(), isTest: false, contactId: newId() },
+    );
+    expect(toolNames(reqs[0])).toEqual(['calculate']);
+    expect(invocations).toEqual([]);
   });
 
   it('flags a stored confirmation question so a caller that drops the answer can discard it', async () => {

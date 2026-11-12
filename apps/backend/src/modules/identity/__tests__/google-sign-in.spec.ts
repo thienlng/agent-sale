@@ -31,6 +31,7 @@ import {
   InMemoryUserRepository,
 } from '../infrastructure/persistence/identity.in-memory-repositories.js';
 import { InMemoryAttemptLimiter } from '../infrastructure/security/in-memory-attempt-limiter.js';
+import { InMemoryWindowCounter } from '../infrastructure/security/in-memory-window-counter.js';
 import { JoseAccessTokens } from '../infrastructure/security/jose-access-tokens.js';
 import { securityEvents } from './factories/security.js';
 
@@ -85,7 +86,11 @@ async function setup(enabled = true, callbackLimit = 20) {
   );
   const mailer = new LocalMailer('test');
   const events = securityEvents(users, mailer);
-  const codes = new EmailCodeService(new InMemoryEmailCodeRepository(), mailer);
+  const codes = new EmailCodeService(
+    new InMemoryEmailCodeRepository(),
+    mailer,
+    new InMemoryWindowCounter(),
+  );
   const box = SecretBox.insecureDevelopmentBox();
   const mfa = new MfaService(
     new InMemoryMfaRepository(),
@@ -116,6 +121,7 @@ async function setup(enabled = true, callbackLimit = 20) {
     new InMemoryAttemptLimiter(20, 60_000),
     sessions,
     mfa,
+    new InMemoryWindowCounter(),
   );
   return {
     users,

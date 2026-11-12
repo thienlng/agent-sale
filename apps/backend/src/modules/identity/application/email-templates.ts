@@ -94,3 +94,38 @@ export function securityNoticeEmail(input: {
 </div>`,
   };
 }
+
+function notice(to: string, subject: string, lines: string[]): EmailMessage {
+  const body = ['Xin chào,', '', ...lines, '', 'Rapiz'];
+  return {
+    to,
+    subject,
+    text: body.join('\n'),
+    html: `<div style="font-family:Arial,sans-serif;font-size:15px;color:#111;line-height:1.5">
+${body
+  .filter(Boolean)
+  .map((l) => `<p>${escapeHtml(l)}</p>`)
+  .join('\n')}
+</div>`,
+  };
+}
+
+/**
+ * Sent instead of a signup code when the address already has an account, so the signup answer
+ * never tells whether it does (no account enumeration).
+ */
+export function accountExistsEmail(input: { to: string }): EmailMessage {
+  return notice(input.to, 'Email này đã có tài khoản Rapiz', [
+    'Có người vừa yêu cầu mã đăng ký Rapiz cho email này, nhưng email đã có tài khoản.',
+    'Hãy đăng nhập. Nếu quên mật khẩu, chọn "Quên mật khẩu?" ở trang đăng nhập.',
+    'Nếu bạn không yêu cầu, hãy bỏ qua email này.',
+  ]);
+}
+
+/** Tells the owner that a password-reset code was killed by wrong guesses (at most once a day). */
+export function codeGuessAlertEmail(input: { to: string }): EmailMessage {
+  return notice(input.to, 'Cảnh báo bảo mật tài khoản Rapiz', [
+    'Mã đặt lại mật khẩu cho tài khoản Rapiz của bạn bị nhập sai quá nhiều lần nên đã bị hủy. Nếu bạn đang đặt lại mật khẩu, hãy yêu cầu một mã mới.',
+    'Nếu đó không phải bạn, mật khẩu hiện tại vẫn an toàn. Bạn nên bật xác thực hai lớp trong phần bảo mật tài khoản.',
+  ]);
+}

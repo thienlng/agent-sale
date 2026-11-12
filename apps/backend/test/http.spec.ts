@@ -1275,7 +1275,7 @@ describe('HTTP: sessions, step-up and the back office second factor', () => {
     });
     expect((await inject(a, { method: 'GET', url, headers: auth(token) })).statusCode).toBe(200);
 
-    // A session from before the second factor was recorded (e.g. before migration 0076).
+    // A session from before the second factor was recorded (e.g. before migration 0078).
     const sessions = a.get<SessionRepository>(SESSION_REPOSITORY) as InMemorySessionRepository;
     for (const row of sessions.rows.values()) row.mfa = false;
     const stale = await inject(a, { method: 'GET', url, headers: auth(token) });

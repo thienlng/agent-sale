@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import {
   and,
   asc,
@@ -32,6 +34,7 @@ import type {
 } from '../../domain/ports/security-event.repository.js';
 import type { SessionRecord, SessionRepository } from '../../domain/ports/session.repository.js';
 import type { UserRepository } from '../../domain/ports/user.repository.js';
+import type { TrialClaimRepository } from '../../domain/ports/trial-claim.repository.js';
 import { User } from '../../domain/user.js';
 
 type UserRow = typeof schema.users.$inferSelect;
@@ -482,5 +485,24 @@ export class DrizzleEmailCodeRepository implements EmailCodeRepository {
     await withSystem(this.systemDb, (tx) =>
       tx.delete(c).where(and(eq(c.email, email), eq(c.purpose, purpose))),
     );
+  }
+}
+
+/** Claims keyed by the sha256 of the canonical email (migration 0077). */
+export class DrizzleTrialClaimRepository implements TrialClaimRepository {
+  constructor(private readonly systemDb: Database) {}
+
+  claim(canonicalEmail: string, user: string): Promise<boolean> {
+    const t = schema.trialClaims;
+    const emailHash = createHash('sha256').update(canonicalEmail).digest('hex');
+    return withSystem(this.systemDb, async (tx) => {
+      await tx.insert(t).values({ emailHash, userId: user }).onConflictDoNothing();
+      const [row] = await tx
+        .select({ userId: t.userId })
+        .from(t)
+        .where(eq(t.emailHash, emailHash))
+        .limit(1);
+      return row?.userId === user;
+    });
   }
 }

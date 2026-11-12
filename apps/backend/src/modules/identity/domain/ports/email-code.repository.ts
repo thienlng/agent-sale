@@ -1,6 +1,6 @@
 /**
  * `signup`: proves the address before the account exists. `reset_password`: forgotten password.
- * `reauth`: step-up of a signed-in user without a password (migration 0076).
+ * `reauth`: step-up of a signed-in user without a password (migration 0078).
  */
 export type EmailCodePurpose = 'signup' | 'reset_password' | 'reauth';
 

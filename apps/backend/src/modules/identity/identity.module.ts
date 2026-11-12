@@ -40,7 +40,13 @@ import {
   API_RATE_LIMITER,
   IDEMPOTENCY_STORE,
 } from './application/ports/api-keys.js';
-import { ACCESS_TOKENS, ATTEMPT_LIMITER, PASSWORD_HASHER } from './application/ports/security.js';
+import {
+  ACCESS_TOKENS,
+  ATTEMPT_LIMITER,
+  AUTH_COUNTER,
+  PASSWORD_HASHER,
+  SIGNUP_TRIAL_OPTIONS,
+} from './application/ports/security.js';
 import { DelegatedAccessService } from './application/delegated-access.js';
 import { LinkedIdentityService } from './application/linked-identities.js';
 import { MfaService } from './application/mfa.service.js';
@@ -53,13 +59,16 @@ import { EXTERNAL_IDENTITY_REPOSITORY } from './domain/ports/external-identity.r
 import { MFA_REPOSITORY } from './domain/ports/mfa.repository.js';
 import { SECURITY_EVENT_REPOSITORY } from './domain/ports/security-event.repository.js';
 import { SESSION_REPOSITORY } from './domain/ports/session.repository.js';
+import { TRIAL_CLAIM_REPOSITORY } from './domain/ports/trial-claim.repository.js';
 import { USER_REPOSITORY } from './domain/ports/user.repository.js';
+import { parseBlockedDomains } from './domain/trial-identity.js';
 import {
   DrizzleEmailCodeRepository,
   DrizzleExternalIdentityRepository,
   DrizzleMfaRepository,
   DrizzleSecurityEventRepository,
   DrizzleSessionRepository,
+  DrizzleTrialClaimRepository,
   DrizzleUserRepository,
 } from './infrastructure/persistence/identity.drizzle-repositories.js';
 import {
@@ -68,6 +77,7 @@ import {
   InMemoryMfaRepository,
   InMemorySecurityEventRepository,
   InMemorySessionRepository,
+  InMemoryTrialClaimRepository,
   InMemoryUserRepository,
 } from './infrastructure/persistence/identity.in-memory-repositories.js';
 import {
@@ -81,7 +91,9 @@ import {
 import { Argon2PasswordHasher } from './infrastructure/security/argon2-password-hasher.js';
 import { InMemoryAttemptLimiter } from './infrastructure/security/in-memory-attempt-limiter.js';
 import { InMemoryApiRateLimiter } from './infrastructure/security/in-memory-rate-limiter.js';
+import { InMemoryWindowCounter } from './infrastructure/security/in-memory-window-counter.js';
 import { PostgresApiRateLimiter } from './infrastructure/security/postgres-rate-limiter.js';
+import { PostgresWindowCounter } from './infrastructure/security/postgres-window-counter.js';
 import { HttpGoogleOAuthClient } from './infrastructure/security/google-oauth.client.js';
 import { JoseAccessTokens } from './infrastructure/security/jose-access-tokens.js';
 import { AUTH_HTTP_OPTIONS } from './interface/http/auth-http.options.js';
@@ -195,6 +207,24 @@ import { IdempotencyInterceptor } from './interface/http/idempotency.interceptor
     },
     { provide: PASSWORD_HASHER, useFactory: () => new Argon2PasswordHasher() },
     { provide: ATTEMPT_LIMITER, useFactory: () => new InMemoryAttemptLimiter() },
+    {
+      provide: AUTH_COUNTER,
+      inject: [{ token: DB_SYSTEM, optional: true }],
+      useFactory: (db: Database | null | undefined) =>
+        db ? new PostgresWindowCounter(db) : new InMemoryWindowCounter(),
+    },
+    {
+      provide: TRIAL_CLAIM_REPOSITORY,
+      inject: [{ token: DB_SYSTEM, optional: true }],
+      useFactory: (db: Database | null | undefined) =>
+        db ? new DrizzleTrialClaimRepository(db) : new InMemoryTrialClaimRepository(),
+    },
+    {
+      provide: SIGNUP_TRIAL_OPTIONS,
+      useFactory: () => ({
+        blockedDomains: parseBlockedDomains(getEnv().TRIAL_BLOCKED_EMAIL_DOMAINS),
+      }),
+    },
     { provide: ACCESS_TOKENS, useFactory: () => JoseAccessTokens.create(getEnv()) },
     {
       provide: AUTH_HTTP_OPTIONS,

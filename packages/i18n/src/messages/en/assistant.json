@@ -155,7 +155,16 @@
     "confirmYes": "Forget",
     "confirmNo": "Keep",
     "forgotten": "Entry forgotten.",
-    "forgetError": "Could not delete it. Try again."
+    "forgetError": "Could not delete it. Try again.",
+    "pending": "Waiting for your approval",
+    "origin": {
+      "owner": "You added this",
+      "assistant": "Saved in a chat",
+      "review": "Learned after a chat"
+    },
+    "approve": "Approve",
+    "approved": "Approved. The assistant will use it.",
+    "approveError": "Could not approve it. Try again."
   },
   "showSkills": "Assistant skills",
   "showSettings": "Assistant settings",

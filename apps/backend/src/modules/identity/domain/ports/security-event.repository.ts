@@ -24,7 +24,7 @@ export interface SecurityEvent {
   createdAt: Date;
 }
 
-/** Append-only log of a user's security events (global table `user_security_events`, 0076). */
+/** Append-only log of a user's security events (global table `user_security_events`, 0078). */
 export interface SecurityEventRepository {
   append(event: SecurityEvent): Promise<void>;
   /** The user's events, newest first. */

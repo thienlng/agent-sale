@@ -14,7 +14,7 @@ export interface SessionRecord {
   revokedAt: Date | null;
   /**
    * When the user last proved a factor on this session family (login, signup, Google sign-in or
-   * step-up); copied on rotation. Null on sessions from before migration 0076.
+   * step-up); copied on rotation. Null on sessions from before migration 0078.
    */
   authenticatedAt: Date | null;
   /** The session passed the second factor (login code, Google + code, or a TOTP step-up). */

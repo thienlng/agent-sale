@@ -1,6 +1,6 @@
 # Runbook — platform admin two-step verification
 
-Since migration 0076 the back office (`/admin/*`, ADR-021 §6) refuses a platform admin who has not
+Since migration 0078 the back office (`/admin/*`, ADR-021 §6) refuses a platform admin who has not
 turned on two-step verification, and a sign-in that did not pass it (security audit #7). This
 runbook covers the rollout and the day-to-day cases.
 
@@ -20,7 +20,7 @@ Account security is a normal
 dashboard page, not an admin route, so an admin can always reach it to turn two-step on: nobody
 is locked out by the rollout itself.
 
-## Before deploying the release with migration 0076
+## Before deploying the release with migration 0078
 
 1. List the platform admins:
    `docker compose exec postgres psql -U rapiz_owner -d rapiz -c "select email from users where is_platform_admin"`
@@ -49,5 +49,5 @@ person's identity out of band. After a reset the admin must turn two-step on aga
 ## Rolling back
 
 There is no switch to turn the admin check off: it is part of the code. Rolling back means
-deploying the previous image; migration 0076 is additive, so the previous release runs on the
+deploying the previous image; migration 0078 is additive, so the previous release runs on the
 migrated schema unchanged (docs/10 §3).

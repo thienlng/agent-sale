@@ -21,6 +21,15 @@ import {
 } from '../src/modules/identity/domain/ports/user.repository.js';
 import { User } from '../src/modules/identity/domain/user.js';
 import { createHttpApp } from '../src/bootstrap.js';
+import { type LocalMailer, MAILER } from '../src/common/email/mailer.js';
+import {
+  AUTH_COUNTER,
+  type WindowCounter,
+} from '../src/modules/identity/application/ports/security.js';
+import {
+  TRIAL_CLAIM_REPOSITORY,
+  type TrialClaimRepository,
+} from '../src/modules/identity/domain/ports/trial-claim.repository.js';
 import { lastEmailedCode, signupCode, signUpVerified } from './support/signup.js';
 
 /** Full app on a real Postgres: Argon2, sessions table, membership guard via app_system. */
@@ -146,13 +155,18 @@ describe('identity on Postgres', () => {
       url: '/api/v1/auth/signup/code',
       payload: { email: 'minh@shop.vn' },
     });
-    expect(taken.statusCode).toBe(409);
+    // Same answer as a new address (no enumeration); the owner gets a sign-in hint, not a code.
+    expect(taken.statusCode).toBe(204);
+    const mailer = app.get<LocalMailer>(MAILER, { strict: false });
+    expect(mailer.sent.filter((m) => m.to === 'minh@shop.vn').at(-1)?.subject).toBe(
+      'Email này đã có tài khoản Rapiz',
+    );
     const dup = await inject({
       method: 'POST',
       url: '/api/v1/auth/signup',
       payload: { name: 'X', email: 'minh@shop.vn', password: 'another long password', code },
     });
-    expect(dup.statusCode).toBe(409);
+    expect(dup.statusCode).toBe(400);
 
     const login = await inject({
       method: 'POST',
@@ -294,7 +308,7 @@ describe('identity on Postgres', () => {
     expect(confirmed?.hasPassword).toBe(false);
   });
 
-  it('a reset revokes access tokens, removes Google links and records the event (migration 0076)', async () => {
+  it('a reset revokes access tokens, removes Google links and records the event (migration 0078)', async () => {
     const res = await signUpVerified(app, {
       name: 'Vy',
       email: 'vy@shop.vn',
@@ -340,5 +354,26 @@ describe('identity on Postgres', () => {
       expect.arrayContaining(['password.reset', 'identity.unlinked']),
     );
     expect(events.find((e) => e.action === 'password.reset')?.data).toMatchObject({ unlinked: 1 });
+  });
+
+  it('counts auth attempts and trial claims in shared Postgres tables', async () => {
+    const counter = app.get<WindowCounter>(AUTH_COUNTER);
+    expect((await counter.hit('it:key', 60_000)).count).toBe(1);
+    const second = await counter.hit('it:key', 60_000);
+    expect(second.count).toBe(2);
+    expect(second.retryAfterSeconds).toBeGreaterThan(0);
+    await counter.reset('it:key');
+    expect((await counter.hit('it:key', 60_000)).count).toBe(1);
+
+    const users = app.get<UserRepository>(USER_REPOSITORY);
+    const claims = app.get<TrialClaimRepository>(TRIAL_CLAIM_REPOSITORY);
+    const [a, b] = ['trial.a@gmail.com', 'trial.b@gmail.com'].map((email) =>
+      User.registerFromProvider({ email, name: 'T', emailVerifiedAt: new Date() }),
+    );
+    await users.insert(a!);
+    await users.insert(b!);
+    expect(await claims.claim('triala@gmail.com', a!.id)).toBe(true);
+    expect(await claims.claim('triala@gmail.com', a!.id)).toBe(true);
+    expect(await claims.claim('triala@gmail.com', b!.id)).toBe(false);
   });
 });

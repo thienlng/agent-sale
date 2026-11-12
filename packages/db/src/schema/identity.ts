@@ -44,11 +44,11 @@ export const sessions = pgTable(
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     rotatedAt: timestamp('rotated_at', { withTimezone: true }),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
-    /** When the user last proved a factor on this session; copied on rotation (migration 0076). */
+    /** When the user last proved a factor on this session; copied on rotation (migration 0078). */
     authenticatedAt: timestamp('authenticated_at', { withTimezone: true }),
-    /** The session passed the second factor (login code or TOTP step-up; migration 0076). */
+    /** The session passed the second factor (login code or TOTP step-up; migration 0078). */
     mfa: boolean('mfa').notNull().default(false),
-    /** The last explicit step-up (`POST /auth/reauth`); a sign-in never sets it (migration 0076). */
+    /** The last explicit step-up (`POST /auth/reauth`); a sign-in never sets it (migration 0078). */
     steppedUpAt: timestamp('stepped_up_at', { withTimezone: true }),
   },
   (t) => [index('sessions_user_idx').on(t.userId), index('sessions_family_idx').on(t.familyId)],
@@ -73,7 +73,7 @@ export const userMfa = pgTable('user_mfa', {
 
 /**
  * GLOBAL: emailed one-time codes, one live code per address and purpose (migration 0056; `reauth`
- * since 0076). app_system only.
+ * since 0078). app_system only.
  */
 export const emailCodes = pgTable(
   'email_codes',
@@ -111,7 +111,7 @@ export const userIdentities = pgTable(
 );
 
 /**
- * GLOBAL: account-level security events of a user (migration 0076): password reset, two-factor,
+ * GLOBAL: account-level security events of a user (migration 0078): password reset, two-factor,
  * linked sign-ins, session and API key changes. Append-only for app_system; never secrets.
  */
 export const userSecurityEvents = pgTable(
@@ -129,3 +129,27 @@ export const userSecurityEvents = pgTable(
   },
   (t) => [index('user_security_events_user_idx').on(t.userId, t.createdAt)],
 );
+
+/**
+ * GLOBAL: shared fixed-window auth counters (logins per account, code emails and checks per
+ * address; migration 0077). The key is a sha256. app_system only.
+ */
+export const authCounters = pgTable(
+  'auth_counters',
+  {
+    keyHash: text('key_hash').primaryKey(),
+    count: integer('count').notNull(),
+    windowEnd: timestamp('window_end', { withTimezone: true }).notNull(),
+  },
+  (t) => [index('auth_counters_window_end_idx').on(t.windowEnd)],
+);
+
+/**
+ * GLOBAL: who got the signup trial of a canonical email (sha256; migration 0077). The user id goes
+ * null when the user is deleted, and the claim stays. app_system only.
+ */
+export const trialClaims = pgTable('trial_claims', {
+  emailHash: text('email_hash').primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  claimedAt: timestamp('claimed_at', { withTimezone: true }).notNull().defaultNow(),
+});

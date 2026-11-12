@@ -1,4 +1,4 @@
--- 0076_session_assurance: how a session was authenticated, step-up codes and the user security log.
+-- 0078_session_assurance: how a session was authenticated, step-up codes and the user security log.
 -- Additive and backward compatible: the new columns are nullable or defaulted, so the code running
 -- before this migration keeps inserting sessions (they count as neither recent nor two-factor).
 --

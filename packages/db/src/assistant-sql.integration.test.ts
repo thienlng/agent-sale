@@ -584,6 +584,33 @@ describe('assistant SQL lane: visibility', () => {
     expect(await sqlstate(run([A1], 'set role app_tenant'))).toBe('42501');
   });
 
+  it('forging both scope GUCs inside the query reads nothing of the other account', async () => {
+    // Account A's model knows account B's ids (worst case) and rewrites both GUCs before reading,
+    // in a materialized CTE so the set_config calls run first.
+    const forged = `with s as materialized (
+        select set_config('app.account_id', '${accountB}', true) as a,
+               set_config('app.assistant_business_ids', '{${B1}}', true) as b)
+      select (select count(*) from s) as s,
+             (select count(*) from customers where business_id = '${B1}') as n`;
+    // The reader policies require the seal of bind_scope (0076): the rewritten GUCs carry none.
+    const r = await run([A1], forged);
+    expect(r.rows[0]?.[1]).toBe(0);
+  });
+
+  it('the query cannot bind the scope again, and unsealed scope GUCs read nothing (0076)', async () => {
+    expect(
+      await sqlstate(run([A1], `select assistant_sql.bind_scope('${accountB}', '{${B1}}')`)),
+    ).toBe('42501');
+    // The scope GUCs set by hand on the login, without bind_scope: no seal, no rows.
+    const rows = await lane.sql.begin('read only', async (tx) => {
+      await tx`select set_config('app.account_id', ${accountB}, true),
+        set_config('app.assistant_business_ids', ${`{${B1}}`}, true)`;
+      return tx`select count(*)::int as n, assistant_sql.scope_sealed() as sealed
+        from assistant_sql.customers`;
+    });
+    expect(rows[0]).toEqual({ n: 0, sealed: false });
+  });
+
   it('customers shows has_phone, never the phone; queries run in Asia/Ho_Chi_Minh', async () => {
     const r = await run(
       [A1],
