@@ -6,17 +6,22 @@ import type { FastifyInstance } from 'fastify';
 import { API_PREFIX } from '../../common/http/api-prefix.js';
 import { getEnv } from '../../common/config.js';
 import { DB_TENANT } from '../../common/db/db.module.js';
+import { sharedLimiter } from '../../common/limits/limiter.js';
 import { BotModule } from '../bot/bot.module.js';
 import { ChannelModule } from '../channel/channel.module.js';
 import { ConversationModule } from '../conversation/conversation.module.js';
 import { CrmModule } from '../crm/crm.module.js';
 import { WEBCHAT_FACADE } from './api/webchat.facade.js';
+import { WEBCHAT_RUNNER } from './api/webchat.runner.js';
+import { UploadPurgeRunner } from './application/jobs/upload-purge.runner.js';
 import { WEBCHAT_UPLOAD_STORAGE } from './application/ports/upload-storage.js';
 import { VISITOR_STORE } from './application/ports/visitor-store.js';
-import { InMemoryRateLimiter, RATE_LIMITER } from './application/rate-limiter.js';
+import { RATE_LIMITER } from './application/rate-limiter.js';
+import { WEBCHAT_OPTIONS, type WebchatOptions } from './application/ports/webchat-options.js';
 import { WebchatFacadeImpl } from './application/webchat.facade.impl.js';
 import { WidgetError } from './application/widget-error.js';
 import { WebchatService } from './application/webchat.service.js';
+import { TurnstileVerifier } from './infrastructure/captcha/turnstile-verifier.js';
 import { S3WebchatUploadStorage } from './infrastructure/media/s3-webchat-upload-storage.js';
 import {
   DrizzleVisitorStore,
@@ -55,11 +60,26 @@ const PREFLIGHT = new RegExp(`^/${API_PREFIX}/webchat/v1/sites/([^/?]+)(?:/[a-z]
         });
       },
     },
-    { provide: RATE_LIMITER, useFactory: () => new InMemoryRateLimiter() },
+    // Shared Redis counters when REDIS_URL is set, so limits hold across API processes (#17).
+    { provide: RATE_LIMITER, useFactory: () => sharedLimiter() },
+    {
+      provide: WEBCHAT_OPTIONS,
+      useFactory: (): WebchatOptions => {
+        const env = getEnv();
+        return {
+          uploadsPerSiteDay: env.WEBCHAT_UPLOADS_SITE_DAY,
+          captcha:
+            env.TURNSTILE_SITE_KEY && env.TURNSTILE_SECRET
+              ? new TurnstileVerifier(env.TURNSTILE_SITE_KEY, env.TURNSTILE_SECRET)
+              : null,
+        };
+      },
+    },
     WebchatService,
     { provide: WEBCHAT_FACADE, useClass: WebchatFacadeImpl },
+    { provide: WEBCHAT_RUNNER, useClass: UploadPurgeRunner },
   ],
-  exports: [WEBCHAT_FACADE],
+  exports: [WEBCHAT_FACADE, WEBCHAT_RUNNER],
 })
 export class WebchatModule implements OnModuleInit {
   constructor(

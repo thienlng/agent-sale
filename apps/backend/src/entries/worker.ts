@@ -33,6 +33,8 @@ import { NOTIFICATION_RUNNER, type NotificationRunner } from '../modules/notific
 import { NotificationModule } from '../modules/notification/notification.module.js';
 import { SAAS_RUNNER, type SaasRunner } from '../modules/saas/api/index.js';
 import { SaasModule } from '../modules/saas/saas.module.js';
+import { WEBCHAT_RUNNER, type WebchatRunner } from '../modules/webchat/api/index.js';
+import { WebchatModule } from '../modules/webchat/webchat.module.js';
 
 /**
  * Worker entry: boots an application context (no HTTP) and registers the
@@ -54,6 +56,7 @@ import { SaasModule } from '../modules/saas/saas.module.js';
     CrmModule,
     BrainModule,
     CareModule,
+    WebchatModule,
   ],
 })
 class WorkerModule {}
@@ -224,6 +227,20 @@ const careTimer = setInterval(() => {
       careBusy = false;
     });
 }, 15_000);
+// Website-chat uploads no message referenced within a day (security audit #17); the runner
+// throttles itself to one pass per hour.
+const webchat = ctx.get<WebchatRunner>(WEBCHAT_RUNNER);
+let purgingUploads = false;
+const uploadPurgeTimer = setInterval(() => {
+  if (purgingUploads) return;
+  purgingUploads = true;
+  void webchat
+    .tick()
+    .catch(() => logger.error('Website-chat upload purge tick failed'))
+    .finally(() => {
+      purgingUploads = false;
+    });
+}, 60_000);
 let dailyRunning = false;
 const runDaily = () => {
   if (dailyRunning) return;
@@ -253,8 +270,9 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const)
     clearInterval(taskTimer);
     clearInterval(brainTimer);
     clearInterval(careTimer);
+    clearInterval(uploadPurgeTimer);
   });
 logger.info(
   { queues },
-  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks, notifications, assistant jobs, assistant schedules, task reminders, brain signals, care agent; no queue processors registered yet)',
+  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks, notifications, assistant jobs, assistant schedules, task reminders, brain signals, care agent, website-chat upload purge; no queue processors registered yet)',
 );

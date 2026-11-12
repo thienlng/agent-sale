@@ -1,4 +1,11 @@
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  CopyObjectCommand,
+  DeleteObjectsCommand,
+  HeadObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 
 import type { WebchatUploadStorage } from '../../application/ports/upload-storage.js';
 import { WebchatStorageUnavailableError } from '../../domain/webchat.errors.js';
@@ -61,5 +68,60 @@ export class S3WebchatUploadStorage implements WebchatUploadStorage {
     } catch {
       throw new WebchatStorageUnavailableError();
     }
+  }
+
+  async promote(temporaryKey: string, key: string): Promise<string> {
+    const prefix = this.publicPrefix();
+    if (!this.#client || !prefix) throw new WebchatStorageUnavailableError();
+    try {
+      await this.#client.send(
+        new CopyObjectCommand({
+          Bucket: this.options.bucket,
+          CopySource: `${this.options.bucket}/${temporaryKey}`,
+          Key: key,
+          CacheControl: 'public, max-age=31536000, immutable',
+          MetadataDirective: 'COPY',
+        }),
+      );
+      return `${prefix}/${key}`;
+    } catch {
+      // A retried send after the temporary copy was purged: the permanent object is enough.
+      try {
+        await this.#client.send(new HeadObjectCommand({ Bucket: this.options.bucket, Key: key }));
+        return `${prefix}/${key}`;
+      } catch {
+        throw new WebchatStorageUnavailableError();
+      }
+    }
+  }
+
+  async purge(prefix: string, before: Date): Promise<number> {
+    if (!this.#client) return 0;
+    let deleted = 0;
+    let token: string | undefined;
+    do {
+      const page = await this.#client.send(
+        new ListObjectsV2Command({
+          Bucket: this.options.bucket,
+          Prefix: prefix,
+          ContinuationToken: token,
+          MaxKeys: 1000,
+        }),
+      );
+      const stale = (page.Contents ?? [])
+        .filter((o) => o.Key && o.LastModified && o.LastModified < before)
+        .map((o) => ({ Key: o.Key as string }));
+      if (stale.length > 0) {
+        await this.#client.send(
+          new DeleteObjectsCommand({
+            Bucket: this.options.bucket,
+            Delete: { Objects: stale, Quiet: true },
+          }),
+        );
+        deleted += stale.length;
+      }
+      token = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (token);
+    return deleted;
   }
 }

@@ -25,7 +25,13 @@ let conversationExists = true;
 let upsertLead: ReturnType<typeof vi.fn>;
 let upsertLeadByEmail: ReturnType<typeof vi.fn>;
 let linkLead: ReturnType<typeof vi.fn>;
-let storage: WebchatUploadStorage & { put: ReturnType<typeof vi.fn> };
+let storage: WebchatUploadStorage & {
+  put: ReturnType<typeof vi.fn>;
+  promote: ReturnType<typeof vi.fn>;
+  purge: ReturnType<typeof vi.fn>;
+};
+/** Earlier messages the conversation returns for the visitor (lead scan). */
+let history: { role: 'customer' | 'agent'; text: string }[];
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -69,11 +75,12 @@ beforeEach(() => {
     hasPendingCustomerEvent: vi.fn(async () => true),
   } as unknown as ChannelFacade;
   conversationExists = true;
+  history = [];
   linkLead = vi.fn(async () => undefined);
   const conversations = {
     listForVisitor: vi.fn(async () => ({
       conversationId: conversationExists ? '018d0000-0000-7000-8000-000000000009' : null,
-      messages: [],
+      messages: history,
     })),
     linkLead,
   } as unknown as ConversationFacade;
@@ -92,6 +99,8 @@ beforeEach(() => {
     available: () => true,
     publicPrefix: () => 'https://cdn.test',
     put: vi.fn(async (key: string) => `https://cdn.test/${key}`),
+    promote: vi.fn(async (_tmp: string, key: string) => `https://cdn.test/${key}`),
+    purge: vi.fn(async () => 0),
   };
   service = new WebchatService(
     channels,
@@ -293,11 +302,73 @@ describe('WebchatService upload', () => {
   async function auth() {
     return `Visitor ${(await service.send(call(), body())).visitorToken}`;
   }
-  it('stores a valid image under the connection prefix and returns the public URL', async () => {
+  it('stores a valid image under the temporary connection prefix and returns the public URL', async () => {
     const { url } = await service.upload(call({ authorization: await auth() }), async () => png);
     expect(url).toMatch(
-      new RegExp(`^https://cdn\\.test/webchat/${ws}/${site.connectionId}/[0-9a-f-]{36}\\.png$`),
+      new RegExp(`^https://cdn\\.test/webchat-tmp/${ws}/${site.connectionId}/[0-9a-f-]{36}\\.png$`),
     );
+  });
+  it('moves a temporary upload to the permanent prefix when a message references it', async () => {
+    const a = await auth();
+    const { url } = await service.upload(call({ authorization: a }), async () => png);
+    const name = url.split('/').pop() as string;
+    const sent = await service.send(
+      call({ authorization: a }),
+      body({ text: undefined, attachmentUrl: url }),
+    );
+    const permanent = `https://cdn.test/webchat/${ws}/${site.connectionId}/${name}`;
+    expect(storage.promote).toHaveBeenCalledWith(
+      `webchat-tmp/${ws}/${site.connectionId}/${name}`,
+      `webchat/${ws}/${site.connectionId}/${name}`,
+    );
+    expect(sent.message.imageUrl).toBe(permanent);
+    expect(enqueue.mock.calls.at(-1)?.[1].attachments).toEqual([{ type: 'image', url: permanent }]);
+  });
+  it('rejects a temporary upload of another site or one that no longer exists', async () => {
+    const a = await auth();
+    const other = `https://cdn.test/webchat-tmp/${ws}/018d0000-0000-7000-8000-0000000000cc/018d0000-0000-7000-8000-0000000000aa.png`;
+    expect(
+      (
+        await failure(
+          service.send(call({ authorization: a }), body({ text: undefined, attachmentUrl: other })),
+        )
+      )?.code,
+    ).toBe('INVALID_ATTACHMENT');
+    const { WebchatStorageUnavailableError } = await import('../domain/webchat.errors.js');
+    storage.promote.mockRejectedValueOnce(new WebchatStorageUnavailableError());
+    const gone = `https://cdn.test/webchat-tmp/${ws}/${site.connectionId}/018d0000-0000-7000-8000-0000000000aa.png`;
+    expect(
+      (
+        await failure(
+          service.send(call({ authorization: a }), body({ text: undefined, attachmentUrl: gone })),
+        )
+      )?.code,
+    ).toBe('INVALID_ATTACHMENT');
+  });
+  it('purges temporary uploads older than a day', async () => {
+    await service.purgeTemporaryUploads(new Date('2026-10-27T10:00:00Z'));
+    expect(storage.purge).toHaveBeenCalledWith('webchat-tmp/', new Date('2026-10-26T10:00:00Z'));
+  });
+  it('caps the uploads of one site per day, all visitors together', async () => {
+    service = new WebchatService(
+      (service as unknown as { channels: ChannelFacade }).channels,
+      (service as unknown as { conversations: ConversationFacade }).conversations,
+      (service as unknown as { bots: BotFacade }).bots,
+      (service as unknown as { crm: CrmFacade }).crm,
+      visitors,
+      storage,
+      new InMemoryRateLimiter(),
+      { uploadsPerSiteDay: 3, captcha: null },
+    );
+    for (let i = 0; i < 3; i++)
+      await service.upload(call({ authorization: await auth() }), async () => png);
+    const e = await failure(service.upload(call({ authorization: await auth() }), async () => png));
+    expect(e).toMatchObject({ status: 429, code: 'RATE_LIMITED' });
+    // A rejected file does not use up the day.
+    vi.advanceTimersByTime(24 * 60 * 60 * 1000);
+    await expect(
+      service.upload(call({ authorization: await auth() }), async () => png),
+    ).resolves.toBeDefined();
   });
   it('rejects non-images by magic bytes and oversized files, and a bad token', async () => {
     const a = await auth();
@@ -438,10 +509,21 @@ describe('WebchatService lead capture', () => {
       (await failure(service.phone(call({ authorization: a }), { phone: '0912345679' })))?.status,
     ).toBe(429);
   });
-  it('captures a number typed in a message and still enqueues it', async () => {
-    await service.send(call(), body({ text: 'em sdt 0912 345 679 nhé' }));
+  it('captures a number typed in a later message and still enqueues it', async () => {
+    const a = await auth();
+    await service.send(call({ authorization: a }), body({ text: 'em sdt 0912 345 679 nhé' }));
     expect(upsertLead).toHaveBeenCalledOnce();
+    expect(enqueue).toHaveBeenCalledTimes(2);
+    expect([...visitors.rows.values()][0]?.phoneE164).toBe('+84912345679');
+  });
+  it("never creates a lead from a visitor's first message alone, but picks it up on the second", async () => {
+    const first = await service.send(call(), body({ text: 'em sdt 0912 345 679 nhé' }));
+    expect(upsertLead).not.toHaveBeenCalled();
+    expect(upsertLeadByEmail).not.toHaveBeenCalled();
     expect(enqueue).toHaveBeenCalledOnce();
+    history = [{ role: 'customer', text: 'em sdt 0912 345 679 nhé' }];
+    await service.send(call({ authorization: `Visitor ${first.visitorToken}` }), body());
+    expect(upsertLead).toHaveBeenCalledOnce();
     expect([...visitors.rows.values()][0]?.phoneE164).toBe('+84912345679');
   });
   it('does not capture placeholder numbers or plain text', async () => {
@@ -450,10 +532,11 @@ describe('WebchatService lead capture', () => {
   });
   it('links the lead lazily when the conversation appears after the capture', async () => {
     conversationExists = false;
-    const first = await service.send(call(), body({ text: 'sdt 0912345679' }));
+    const a = await auth();
+    await service.send(call({ authorization: a }), body({ text: 'sdt 0912345679' }));
     conversationExists = true;
     expect(linkLead).not.toHaveBeenCalled();
-    await service.poll(call({ authorization: `Visitor ${first.visitorToken}` }), undefined);
+    await service.poll(call({ authorization: a }), undefined);
     expect(linkLead).toHaveBeenCalledWith(
       ws,
       conversationId,
@@ -470,7 +553,11 @@ describe('WebchatService lead capture', () => {
     expect([...visitors.rows.values()][0]?.conversationId).toBe(conversationId);
   });
   it('captures an email typed in a message as a lead of its own', async () => {
-    await service.send(call(), body({ text: 'Gửi báo giá qua Lan.Nguyen@Shop.vn giúp mình' }));
+    const a = await auth();
+    await service.send(
+      call({ authorization: a }),
+      body({ text: 'Gửi báo giá qua Lan.Nguyen@Shop.vn giúp mình' }),
+    );
     expect(upsertLead).not.toHaveBeenCalled();
     expect(upsertLeadByEmail).toHaveBeenCalledWith(ws, {
       email: 'lan.nguyen@shop.vn',
@@ -489,10 +576,11 @@ describe('WebchatService lead capture', () => {
       email: 'lan.nguyen@shop.vn',
       capturedAt: expect.any(String),
     });
-    expect(enqueue).toHaveBeenCalledOnce();
+    expect(enqueue).toHaveBeenCalledTimes(2);
   });
   it('puts a phone and an email of one visitor on one customer', async () => {
     const a = await auth({ text: 'sdt 0912345679' });
+    history = [{ role: 'customer', text: 'sdt 0912345679' }];
     await service.send(call({ authorization: a }), body({ text: 'email: lan@shop.vn' }));
     expect(upsertLeadByEmail).toHaveBeenCalledWith(ws, expect.objectContaining({ contactId }));
     expect([...visitors.rows.values()][0]).toMatchObject({
@@ -508,7 +596,8 @@ describe('WebchatService lead capture', () => {
     });
   });
   it('captures the phone first when one message carries both', async () => {
-    await service.send(call(), body({ text: '0912345679 hoặc lan@shop.vn' }));
+    const a = await auth();
+    await service.send(call({ authorization: a }), body({ text: '0912345679 hoặc lan@shop.vn' }));
     expect(upsertLead).toHaveBeenCalledOnce();
     expect(upsertLeadByEmail).toHaveBeenCalledWith(ws, expect.objectContaining({ contactId }));
   });
@@ -520,9 +609,10 @@ describe('WebchatService lead capture', () => {
   });
   it('relinks a visitor with only an email on the next poll', async () => {
     conversationExists = false;
-    const first = await service.send(call(), body({ text: 'lan@shop.vn' }));
+    const a = await auth();
+    await service.send(call({ authorization: a }), body({ text: 'lan@shop.vn' }));
     conversationExists = true;
-    await service.poll(call({ authorization: `Visitor ${first.visitorToken}` }), undefined);
+    await service.poll(call({ authorization: a }), undefined);
     expect(linkLead).toHaveBeenCalledWith(
       ws,
       conversationId,
@@ -702,5 +792,63 @@ describe('WebchatService hardening (T-100 review)', () => {
     }
     expect(ok).toBe(2400);
     expect(limited).toBe(100);
+  });
+});
+
+describe('WebchatService Turnstile challenge (off unless configured)', () => {
+  const png = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    Buffer.alloc(32),
+  ]);
+  let verify: ReturnType<typeof vi.fn<(token: string) => Promise<boolean>>>;
+  beforeEach(() => {
+    verify = vi.fn(async (token: string) => token === 'good');
+    const s = service as unknown as {
+      channels: ChannelFacade;
+      conversations: ConversationFacade;
+      bots: BotFacade;
+      crm: CrmFacade;
+    };
+    service = new WebchatService(
+      s.channels,
+      s.conversations,
+      s.bots,
+      s.crm,
+      visitors,
+      storage,
+      new InMemoryRateLimiter(),
+      { uploadsPerSiteDay: 0, captcha: { siteKey: '0x4AAAAAAA-site-key', verify } },
+    );
+  });
+
+  it('names the site key in the public config', async () => {
+    expect((await service.config(call())).turnstileSiteKey).toBe('0x4AAAAAAA-site-key');
+  });
+  it("requires a valid token on a new visitor's first message, not afterwards", async () => {
+    expect(await failure(service.send(call(), body()))).toMatchObject({
+      status: 403,
+      code: 'CHALLENGE_REQUIRED',
+    });
+    expect(await failure(service.send(call(), body({ turnstileToken: 'bad' })))).toMatchObject({
+      status: 403,
+    });
+    expect(enqueue).not.toHaveBeenCalled();
+    const first = await service.send(call(), body({ turnstileToken: 'good' }));
+    await service.send(call({ authorization: `Visitor ${first.visitorToken}` }), body());
+    expect(verify).toHaveBeenCalledTimes(2);
+    expect(enqueue).toHaveBeenCalledTimes(2);
+  });
+  it('requires the token on a token-less first upload', async () => {
+    expect((await failure(service.upload(call(), async () => png)))?.status).toBe(403);
+    await expect(
+      service.upload(call(), async () => png, { turnstileToken: 'good' }),
+    ).resolves.toMatchObject({ visitorToken: expect.any(String) });
+  });
+});
+
+describe('WebchatService without Turnstile', () => {
+  it('leaves the site key out of the config and asks no token', async () => {
+    expect((await service.config(call())).turnstileSiteKey).toBeUndefined();
+    await expect(service.send(call(), body())).resolves.toBeDefined();
   });
 });
