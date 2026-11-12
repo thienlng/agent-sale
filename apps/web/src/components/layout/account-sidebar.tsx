@@ -1,5 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router';
-import { LayoutDashboard, Plus, Store } from 'lucide-react';
+import { LayoutDashboard, Plus, Sparkles, Store } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { ADMIN_NAV } from '@/components/layout/admin-nav';
@@ -19,9 +19,10 @@ import {
 } from '@/components/ui/sidebar';
 import { usePreferences } from '@/lib/preferences/preferences';
 import { useSession } from '@/lib/session';
+import { useIsAccountOwner } from '@/lib/use-is-account-owner';
 
 /** Paths that belong to the account layer, above any single business. */
-export { ACCOUNT_PATHS } from '@/lib/account-paths';
+export { ACCOUNT_PATHS, ACCOUNT_SIDEBAR_PATHS } from '@/lib/account-paths';
 
 /**
  * Sidebar of the account layer, above any single business: the overview, the gallery of all the
@@ -37,6 +38,8 @@ export function AccountSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const close = () => isMobile && setOpenMobile(false);
   const count = session?.memberships.length ?? 0;
+  // The owner assistant works for the whole account (ADR-024): it lives here, owners only.
+  const isOwner = useIsAccountOwner();
   return (
     <Sidebar variant={prefs.sidebar_variant} collapsible={prefs.sidebar_collapsible}>
       <SidebarHeader>
@@ -71,6 +74,20 @@ export function AccountSidebar() {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              {isOwner ? (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={t('nav.assistant')}
+                    isActive={pathname === '/app/assistant'}
+                  >
+                    <Link to="/app/assistant" onClick={close}>
+                      <Sparkles />
+                      <span>{t('nav.assistant')}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ) : null}
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild

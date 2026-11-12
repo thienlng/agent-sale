@@ -1910,7 +1910,13 @@
       "clear": "Xóa bộ lọc",
       "open": "Mở business {{name}}",
       "createdOn": "Tạo ngày {{date}}",
-      "otherAccount": "Thuộc tài khoản {{name}}"
+      "otherAccount": "Thuộc tài khoản {{name}}",
+      "view": "Kiểu hiển thị",
+      "views": {
+        "list": "Danh sách",
+        "grid": "Lưới"
+      },
+      "loading": "Đang tải danh sách business…"
     }
   },
   "account": {

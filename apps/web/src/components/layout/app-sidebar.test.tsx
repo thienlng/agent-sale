@@ -243,19 +243,10 @@ describe('AppSidebar', () => {
     expect(within(nav).queryByRole('link', { name: 'Tích hợp PMS' })).toBeNull();
   });
 
-  it('hides the assistant page from members who do not own the account', async () => {
+  it('never lists the assistant: it belongs to the account sidebar', async () => {
+    owner.value = true;
     renderAt('/app/orders');
     expect(await screen.findByRole('link', { name: 'Thống kê' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Trợ lý' })).toBeNull();
-  });
-
-  it('lists the assistant page for an account owner, right after statistics', async () => {
-    owner.value = true;
-    renderAt('/app/assistant');
-    const link = await screen.findByRole('link', { name: 'Trợ lý' });
-    expect(link).toHaveAttribute('href', '/app/assistant');
-    expect(link).toHaveAttribute('data-active', 'true');
-    const links = screen.getAllByRole('link').map((l) => l.textContent);
-    expect(links.indexOf('Trợ lý')).toBe(links.indexOf('Thống kê') + 1);
   });
 });

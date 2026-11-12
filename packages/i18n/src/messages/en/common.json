@@ -1918,7 +1918,13 @@
       "clear": "Clear filters",
       "open": "Open business {{name}}",
       "createdOn": "Created {{date}}",
-      "otherAccount": "In the {{name}} account"
+      "otherAccount": "In the {{name}} account",
+      "view": "View",
+      "views": {
+        "list": "List",
+        "grid": "Grid"
+      },
+      "loading": "Loading businesses…"
     }
   },
   "account": {
