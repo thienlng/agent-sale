@@ -1,13 +1,13 @@
 import type { TodayItem, TodayResponse } from '@agent-sales/contracts';
-import { AlertTriangle, Info, Loader2, RefreshCw } from 'lucide-react';
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, CircleCheck, Info, Loader2, RefreshCw } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCan } from '@/lib/permissions';
-import { cn } from '@/lib/utils';
+import { useSession } from '@/lib/session';
 
 import { useRefreshToday, useToday } from '../api/brain';
 import { draftExpired } from '../api/care';
@@ -54,13 +54,31 @@ export function visibleQueues(today: TodayResponse, now: number): TodayResponse[
   ];
 }
 
+/** A queue with nothing in it: listed on one muted line instead of an empty card. */
+function isIdle(queue: TodayResponse['queues'][number]): boolean {
+  return queue.count === 0 && queue.items.length === 0;
+}
+
+/** Section headings of the statistics page ("Việc hôm nay", "Báo cáo") share this style. */
+export const SECTION_TITLE = 'text-lg font-semibold tracking-tight';
+
 /**
- * Hôm nay (spec 2026-11-11 §5): what needs doing today, queue by queue, with the actions on each
- * customer. "Làm mới" evaluates the conversations with new customer messages within the day's
- * evaluations; when they run out a banner says the queues use the data already there.
+ * The statistics page with Today on top (spec 2026-11-11 §5; one screen since 2026-11-12): the
+ * page header (business, date, "Làm mới"), the cap and manual-mode banners, "Rapiz đã mang lại",
+ * then "Việc hôm nay" — what needs doing today, queue by queue, with the actions on each customer.
+ * Queues with nothing in them collapse into one muted line. `children` (the route passes the
+ * figures section) follows. "Làm mới" evaluates the conversations with new customer messages
+ * within the day's evaluations; when they run out a banner says the queues use the data already
+ * there.
  */
-export function TodayPage({ bookings = false }: { bookings?: boolean } = {}) {
+export function TodayPage({
+  bookings = false,
+  title,
+  children,
+}: { bookings?: boolean; title?: string; children?: ReactNode } = {}) {
   const { t, i18n } = useTranslation('brain');
+  const session = useSession();
+  const business = session?.memberships.find((m) => m.workspaceId === session.workspaceId);
   const today = useToday();
   const refresh = useRefreshToday();
   const actions = useItemActions();
@@ -73,9 +91,16 @@ export function TodayPage({ bookings = false }: { bookings?: boolean } = {}) {
   const now = useNow();
   const data = today.data;
   const queues = useMemo(() => (data ? visibleQueues(data, now) : []), [data, now]);
+  const active = queues.filter((q) => !isIdle(q));
+  const idle = queues.filter(isIdle);
+  // The cards beside "Chờ duyệt" (which spans the row on its own), two to a row on wide screens.
+  const cards = active.filter((q) => q.key !== 'approval');
   const usage = data?.usage;
   const left = usage && usage.limit !== null ? Math.max(0, usage.limit - usage.used) : null;
   const capped = left === 0;
+  const subtitle = [business?.workspaceName, todayLabel(i18n.language, new Date(now))]
+    .filter(Boolean)
+    .join(' · ');
 
   const handlers = {
     onDraft: actions.draftReply,
@@ -106,13 +131,14 @@ export function TodayPage({ bookings = false }: { bookings?: boolean } = {}) {
   }
 
   return (
-    <section className="flex flex-col gap-5">
+    <section className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end gap-x-4 gap-y-3">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight">{t('today.title')}</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground first-letter:uppercase">
-            {todayLabel(i18n.language, new Date(now))}
-          </p>
+        {/* On a phone the title takes the row and "Làm mới" goes under it. */}
+        <div className="w-full min-w-0 sm:w-auto sm:flex-1">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {title ?? t('analytics.title', { ns: 'common' })}
+          </h1>
+          <p className="mt-1.5 text-sm text-muted-foreground first-letter:uppercase">{subtitle}</p>
         </div>
         {canAct ? (
           <Button
@@ -135,69 +161,115 @@ export function TodayPage({ bookings = false }: { bookings?: boolean } = {}) {
         ) : null}
       </header>
 
-      {capped ? (
-        <p
-          role="status"
-          className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning-soft px-3 py-2 text-sm text-warning"
-        >
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
-          {t('today.capBanner')}
-        </p>
-      ) : null}
-      {data?.mode === 'manual' ? (
-        <p className="flex items-start gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-          <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
-          {t('today.manualHint')}
-        </p>
+      {capped || data?.mode === 'manual' || canSeeImpact ? (
+        <div className="flex flex-col gap-3">
+          {capped ? (
+            <p
+              role="status"
+              className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning-soft px-3 py-2 text-sm text-warning"
+            >
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+              {t('today.capBanner')}
+            </p>
+          ) : null}
+          {data?.mode === 'manual' ? (
+            <p className="flex items-start gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+              <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
+              {t('today.manualHint')}
+            </p>
+          ) : null}
+          {canSeeImpact ? <ImpactStrip bookings={bookings} /> : null}
+        </div>
       ) : null}
 
-      {canSeeImpact ? <ImpactStrip bookings={bookings} /> : null}
-
-      {data ? (
-        <>
-          <nav aria-label={t('today.summary')} className="-mx-1 flex gap-2 overflow-x-auto px-1">
-            {queues.map((q) => (
-              <a
-                key={q.key}
-                href={`#queue-${q.key}`}
-                className={cn(
-                  'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium whitespace-nowrap hover:bg-muted',
-                  q.count === 0 && 'text-muted-foreground',
-                )}
+      <section aria-labelledby="today-work-title" className="flex flex-col gap-4">
+        <h2 id="today-work-title" className={SECTION_TITLE}>
+          {t('today.section')}
+        </h2>
+        {data ? (
+          active.length === 0 ? (
+            <>
+              <p className="flex items-center gap-2 rounded-xl border bg-card px-4 py-3 text-sm text-muted-foreground">
+                <CircleCheck className="size-4 shrink-0 text-success" aria-hidden />
+                {t('today.allClear')}
+              </p>
+              <AiDoneSection />
+            </>
+          ) : (
+            <>
+              <nav
+                aria-label={t('today.summary')}
+                className="-mx-1 flex gap-2 overflow-x-auto px-1"
               >
-                {t(`queues.${q.key}.title`)}
-                <span className="tabular-nums">{q.count}</span>
-              </a>
-            ))}
-          </nav>
-          <div className="grid gap-4 lg:grid-cols-2">
-            {queues.map((q) =>
-              q.key === 'approval' ? (
-                <Fragment key={q.key}>
-                  <ApprovalQueue queue={q} now={now} canAct={canAct} />
-                  {/* What the AI already sent today, right under what waits for a person. */}
-                  <AiDoneSection />
-                </Fragment>
-              ) : (
-                <TodayQueue key={q.key} queue={q} handlers={handlers} now={now} />
-              ),
-            )}
+                {queues.map((q) => {
+                  const chip = (
+                    <>
+                      {t(`queues.${q.key}.title`)}
+                      <span className="tabular-nums">{q.count}</span>
+                    </>
+                  );
+                  const shape =
+                    'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium whitespace-nowrap';
+                  // Nothing to jump to: an empty queue has no card, so its chip is plain text.
+                  return isIdle(q) ? (
+                    <span
+                      key={q.key}
+                      className={`${shape} border-transparent font-normal text-muted-foreground`}
+                    >
+                      {chip}
+                    </span>
+                  ) : (
+                    <a key={q.key} href={`#queue-${q.key}`} className={`${shape} hover:bg-muted`}>
+                      {chip}
+                    </a>
+                  );
+                })}
+              </nav>
+              <div className="grid gap-4 lg:grid-cols-2">
+                {active[0]?.key === 'approval' ? (
+                  <ApprovalQueue queue={active[0]} now={now} canAct={canAct} />
+                ) : null}
+                {/* What the AI already sent today, right under what waits for a person. */}
+                <AiDoneSection />
+                {cards.map((q, i) => (
+                  <TodayQueue
+                    key={q.key}
+                    queue={q}
+                    handlers={handlers}
+                    now={now}
+                    // An odd last card takes the whole row instead of leaving a hole beside it.
+                    className={
+                      i === cards.length - 1 && cards.length % 2 === 1 ? 'lg:col-span-2' : undefined
+                    }
+                  />
+                ))}
+              </div>
+              {idle.length > 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {t('today.noneLine', {
+                    list: idle.map((q) => t(`queues.${q.key}.title`)).join(' · '),
+                  })}
+                </p>
+              ) : null}
+            </>
+          )
+        ) : today.isError ? (
+          <div className="flex flex-col items-start gap-3 rounded-xl border p-6">
+            <p className="text-sm text-muted-foreground">{t('today.loadError')}</p>
+            <Button variant="outline" size="sm" onClick={() => void today.refetch()}>
+              {t('today.retry')}
+            </Button>
           </div>
-        </>
-      ) : today.isError ? (
-        <div className="flex flex-col items-start gap-3 rounded-xl border p-6">
-          <p className="text-sm text-muted-foreground">{t('today.loadError')}</p>
-          <Button variant="outline" size="sm" onClick={() => void today.refetch()}>
-            {t('today.retry')}
-          </Button>
-        </div>
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-2" aria-busy>
-          {Array.from({ length: 4 }, (_, i) => (
-            <Skeleton key={i} className="h-40 rounded-xl" />
-          ))}
-        </div>
-      )}
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2" aria-busy>
+            {Array.from({ length: 4 }, (_, i) => (
+              <Skeleton key={i} className="h-40 rounded-xl" />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {children}
       <TaskDialog subject={task} onOpenChange={(open) => !open && setTask(null)} />
     </section>
   );

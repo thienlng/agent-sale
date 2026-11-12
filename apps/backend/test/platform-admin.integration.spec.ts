@@ -452,3 +452,18 @@ describe('accounts', () => {
     expect(await subscription(await accountOf(other.ownWorkspace))).toBeUndefined();
   });
 });
+
+describe('signup trial abuse (migration 0077)', () => {
+  it('gives one signup trial per person: Gmail dots, +tags and disposable inboxes', async () => {
+    await putSettings({ trialEnabled: true, trialPlanCode: 'sales_pro', trialDays: 14 });
+    const first = await hx.user('hoa.tran@gmail.com', 'Hoa');
+    expect(await subscription(await accountOf(first.ownWorkspace))).toMatchObject({
+      status: 'trialing',
+    });
+    // Same Gmail inbox, other spelling: the account works, the trial is not given again.
+    const again = await hx.user('HoaTran+2@googlemail.com', 'Hoa');
+    expect(await subscription(await accountOf(again.ownWorkspace))).toBeFalsy();
+    const burner = await hx.user('hoa@mailinator.com', 'Hoa');
+    expect(await subscription(await accountOf(burner.ownWorkspace))).toBeFalsy();
+  });
+});

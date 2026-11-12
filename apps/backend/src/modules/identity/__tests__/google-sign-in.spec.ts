@@ -27,6 +27,7 @@ import {
   InMemoryUserRepository,
 } from '../infrastructure/persistence/identity.in-memory-repositories.js';
 import { InMemoryAttemptLimiter } from '../infrastructure/security/in-memory-attempt-limiter.js';
+import { InMemoryWindowCounter } from '../infrastructure/security/in-memory-window-counter.js';
 import { JoseAccessTokens } from '../infrastructure/security/jose-access-tokens.js';
 
 const hasher: PasswordHasher = {
@@ -104,6 +105,7 @@ async function setup(enabled = true, callbackLimit = 20) {
     new InMemoryAttemptLimiter(20, 60_000),
     sessions,
     mfa,
+    new InMemoryWindowCounter(),
   );
   return { users, identities, sessionRepo, sessions, mfa, google, service, login };
 }

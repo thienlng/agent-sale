@@ -61,6 +61,44 @@ describe('AssistantMemory', () => {
     expect(toast.success).toHaveBeenCalledWith('Đã quên mục này.');
   });
 
+  it('marks an entry waiting for approval with its origin and approves it', async () => {
+    const pendingEntry = (pending: boolean) =>
+      memoryFixture({
+        stores: memoryFixture().stores.map((s) =>
+          s.store === BUSINESS_STORE
+            ? {
+                ...s,
+                entries: s.entries.map((e) => ({ ...e, origin: 'review' as const, pending })),
+              }
+            : s,
+        ),
+      });
+    const approveKey = `POST /assistant/memory/${encodeURIComponent(BUSINESS_STORE)}/entries/e2/approve`;
+    const { fetchStub, calls } = stubFetch({
+      'GET /assistant/memory': { status: 200, body: pendingEntry(true) },
+      [approveKey]: { status: 200, body: pendingEntry(false) },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithProviders(<AssistantMemory />);
+    const user = userEvent.setup();
+
+    const shop = await screen.findByRole('region', { name: 'Shop An' });
+    expect(within(shop).getByText('Chờ anh/chị duyệt')).toBeInTheDocument();
+    expect(within(shop).getByText('Học được sau cuộc trò chuyện')).toBeInTheDocument();
+    // An approved entry has no badge and no approve button.
+    const profile = screen.getByRole('region', { name: 'Về anh/chị' });
+    expect(within(profile).queryByRole('button', { name: 'Duyệt' })).not.toBeInTheDocument();
+    expect(within(profile).getByText('Anh/chị tự thêm')).toBeInTheDocument();
+
+    await user.click(within(shop).getByRole('button', { name: 'Duyệt' }));
+    await waitFor(() =>
+      expect(within(shop).queryByText('Chờ anh/chị duyệt')).not.toBeInTheDocument(),
+    );
+    expect(within(shop).queryByRole('button', { name: 'Duyệt' })).not.toBeInTheDocument();
+    expect(calls.filter((c) => c.key === approveKey)).toHaveLength(1);
+    expect(toast.success).toHaveBeenCalledWith('Đã duyệt. Trợ lý sẽ dùng mục này.');
+  });
+
   it('keeps the entry and says so when the delete fails', async () => {
     const { fetchStub } = stubFetch({
       'GET /assistant/memory': { status: 200, body: memoryFixture() },

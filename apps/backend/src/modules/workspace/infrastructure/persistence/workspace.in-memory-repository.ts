@@ -17,6 +17,14 @@ export class InMemoryWorkspaceRepository implements WorkspaceRepository {
     this.#rows.set(workspace.id, workspace.snapshot());
   }
 
+  async restoreWithinWindow(id: WorkspaceId, now: Date): Promise<boolean> {
+    const row = this.#rows.get(id);
+    if (row?.status !== 'pending_deletion' || !row.purgeAfter) return false;
+    if (row.purgeAfter.getTime() <= now.getTime()) return false;
+    this.#rows.set(id, { ...row, status: 'active', deletedAt: null, purgeAfter: null });
+    return true;
+  }
+
   /** Every stored workspace (DB-less admin reads). */
   all(): Workspace[] {
     return [...this.#rows.values()].map((row) => Workspace.rehydrate({ ...row }));

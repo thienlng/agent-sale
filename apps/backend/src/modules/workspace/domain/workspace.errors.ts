@@ -50,6 +50,49 @@ export class LogoRejectedError extends DomainError {
   }
 }
 
+/** Deleting and restoring a business is for its owner only (ADR-033). */
+export class NotBusinessOwnerError extends DomainError {
+  readonly code = 'FORBIDDEN';
+  constructor() {
+    super('Only the owner can delete or restore this business', { reason: 'owner_only' });
+  }
+}
+
+/** The typed confirmation is not the business name. */
+export class BusinessNameMismatchError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor() {
+    super('Type the business name exactly to delete it', {
+      field: 'confirmName',
+      reason: 'name_mismatch',
+    });
+  }
+}
+
+/** Only an active business can be deleted (it is already deleted or not in service). */
+export class BusinessNotActiveError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor(status: string) {
+    super('This business cannot be deleted now', { reason: 'not_active', status });
+  }
+}
+
+/** Restore asked for a business that is not waiting for its purge. */
+export class BusinessNotDeletedError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor() {
+    super('This business is not deleted', { reason: 'not_deleted' });
+  }
+}
+
+/** The 30-day restore window ended; the purge removes (or removed) the data. */
+export class RestoreWindowClosedError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor() {
+    super('The restore window of this business has ended', { reason: 'restore_window_closed' });
+  }
+}
+
 export class LogoNotFoundError extends DomainError {
   readonly code = 'NOT_FOUND';
   constructor() {

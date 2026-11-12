@@ -2,6 +2,7 @@ import {
   and,
   asc,
   type Database,
+  desc,
   eq,
   inArray,
   isNull,
@@ -16,7 +17,11 @@ import type {
   WorkspaceMember,
   WorkspaceMembership,
 } from '../api/workspace.facade.js';
-import type { WorkspaceDirectory } from '../application/ports/workspace-directory.js';
+import type {
+  DeletedBusiness,
+  DeletionTarget,
+  WorkspaceDirectory,
+} from '../application/ports/workspace-directory.js';
 import type { InMemoryWorkspaceUnitOfWork } from './workspace.unit-of-work.js';
 
 /** System-role lookups (membership checks happen before any tenant context exists). */
@@ -102,6 +107,74 @@ export class DrizzleWorkspaceDirectory implements WorkspaceDirectory {
     });
   }
 
+  isActive(ws: WorkspaceId): Promise<boolean> {
+    return withSystem(this.systemDb, async (tx) => {
+      const w = schema.workspaces;
+      const [row] = await tx
+        .select({ id: w.id })
+        .from(w)
+        .where(and(eq(w.id, ws), eq(w.status, 'active'), isNull(w.deletedAt)))
+        .limit(1);
+      return row !== undefined;
+    });
+  }
+
+  deletionTarget(ws: WorkspaceId, user: UserId): Promise<DeletionTarget | null> {
+    return withSystem(this.systemDb, async (tx) => {
+      const [row] = await tx
+        .select({ role: schema.members.role, status: schema.workspaces.status })
+        .from(schema.members)
+        .innerJoin(schema.workspaces, eq(schema.workspaces.id, schema.members.workspaceId))
+        .where(
+          and(
+            eq(schema.members.workspaceId, ws),
+            eq(schema.members.userId, user),
+            eq(schema.members.status, 'active'),
+          ),
+        )
+        .limit(1);
+      return row ?? null;
+    });
+  }
+
+  listDeletedOwnedBy(user: UserId): Promise<DeletedBusiness[]> {
+    return withSystem(this.systemDb, async (tx) => {
+      const w = schema.workspaces;
+      const rows = await tx
+        .select({
+          workspaceId: w.id,
+          name: w.name,
+          industry: w.industry,
+          icon: w.icon,
+          deletedAt: w.deletedAt,
+          purgeAfter: w.purgeAfter,
+        })
+        .from(schema.members)
+        .innerJoin(w, eq(w.id, schema.members.workspaceId))
+        .where(
+          and(
+            eq(schema.members.userId, user),
+            eq(schema.members.status, 'active'),
+            eq(schema.members.role, 'owner'),
+            eq(w.status, 'pending_deletion'),
+          ),
+        )
+        .orderBy(desc(w.deletedAt));
+      return rows.flatMap((r) =>
+        r.deletedAt && r.purgeAfter
+          ? [
+              {
+                ...r,
+                workspaceId: workspaceId(r.workspaceId),
+                deletedAt: r.deletedAt,
+                purgeAfter: r.purgeAfter,
+              },
+            ]
+          : [],
+      );
+    });
+  }
+
   private query(user: UserId, ws?: WorkspaceId): Promise<WorkspaceMembership[]> {
     return withSystem(this.systemDb, async (tx) => {
       const rows = await tx
@@ -164,7 +237,7 @@ export class InMemoryWorkspaceDirectory implements WorkspaceDirectory {
     return this.store.workspaces
       .all()
       .map((w) => w.snapshot())
-      .filter((s) => s.accountId !== null && accountIds.includes(s.accountId))
+      .filter((s) => s.accountId !== null && accountIds.includes(s.accountId) && !s.deletedAt)
       .map((s) => ({
         workspaceId: s.id,
         accountId: s.accountId ?? '',
@@ -178,6 +251,45 @@ export class InMemoryWorkspaceDirectory implements WorkspaceDirectory {
       }));
   }
 
+  async isActive(ws: WorkspaceId): Promise<boolean> {
+    const s = (await this.store.workspaces.findById(ws))?.snapshot();
+    return s?.status === 'active' && !s.deletedAt;
+  }
+
+  async deletionTarget(ws: WorkspaceId, user: UserId): Promise<DeletionTarget | null> {
+    const m = this.store.members.rows.find(
+      (r) => r.workspaceId === ws && r.userId === user && r.status === 'active',
+    );
+    const s = (await this.store.workspaces.findById(ws))?.snapshot();
+    return m && s ? { role: m.role, status: s.status } : null;
+  }
+
+  async listDeletedOwnedBy(user: UserId): Promise<DeletedBusiness[]> {
+    const owned = new Set(
+      this.store.members.rows
+        .filter((m) => m.userId === user && m.status === 'active' && m.role === 'owner')
+        .map((m) => m.workspaceId),
+    );
+    return this.store.workspaces
+      .all()
+      .map((w) => w.snapshot())
+      .flatMap((s) =>
+        owned.has(s.id) && s.status === 'pending_deletion' && s.deletedAt && s.purgeAfter
+          ? [
+              {
+                workspaceId: s.id,
+                name: s.name,
+                industry: s.industry,
+                icon: 'building',
+                deletedAt: s.deletedAt,
+                purgeAfter: s.purgeAfter,
+              },
+            ]
+          : [],
+      )
+      .sort((a, b) => b.deletedAt.getTime() - a.deletedAt.getTime());
+  }
+
   async listMemberships(user: UserId): Promise<WorkspaceMembership[]> {
     const out: WorkspaceMembership[] = [];
     for (const m of this.store.members.rows) {
@@ -185,6 +297,7 @@ export class InMemoryWorkspaceDirectory implements WorkspaceDirectory {
       const w = await this.store.workspaces.findById(m.workspaceId);
       if (!w) continue;
       const s = w.snapshot();
+      if (s.deletedAt) continue;
       out.push({
         workspaceId: m.workspaceId,
         workspaceName: s.name,

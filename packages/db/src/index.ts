@@ -10,6 +10,14 @@ export {
   type ExportTable as DbExportTable,
 } from './export.js';
 export * from './platform-audit.js';
+export {
+  deleteOrder,
+  purgeWorkspaceRows,
+  PURGE_RETAINED_TABLES,
+  workspacePurgeOrder,
+  type PurgeReport,
+  type PurgeTable,
+} from './purge.js';
 export { backfillAccounts, type AccountBackfillReport } from './account-backfill.js';
 export {
   backfillAccountSubscriptions,

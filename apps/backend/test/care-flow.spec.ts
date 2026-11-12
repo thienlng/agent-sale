@@ -386,6 +386,32 @@ describe('care agent flow (act and report)', () => {
     expect(h.store.enrollments[0]).toMatchObject({ status: 'stopped', stopReason: 'capped' });
   });
 
+  it('turns an automatic send with an invented price into a draft the owner approves', async () => {
+    const h = setup();
+    h.autonomy.level = 'auto';
+    h.model.replies.push(
+      JSON.stringify({ action: 'send', text: 'Dạ áo khoác hôm nay chỉ còn 199k ạ', reason: '' }),
+    );
+    await pricedConversation(h);
+    vi.setSystemTime(at(2));
+    await h.runner.tick(at(2));
+    expect(h.store.messages[0]).toMatchObject({ status: 'draft', level: 'auto' });
+    // Only the bot's own answer went out; the follow-up waits for approval.
+    expect(h.channels.deliver).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends automatically when the price comes from what the shop already said', async () => {
+    const h = setup();
+    h.autonomy.level = 'auto';
+    h.model.replies.push(
+      JSON.stringify({ action: 'send', text: 'Dạ áo khoác 450k vẫn còn size M ạ', reason: '' }),
+    );
+    await pricedConversation(h);
+    vi.setSystemTime(at(2));
+    await h.runner.tick(at(2));
+    expect(h.store.messages[0]).toMatchObject({ status: 'sent' });
+  });
+
   it('skips when the model says so', async () => {
     const h = setup();
     h.autonomy.level = 'auto';

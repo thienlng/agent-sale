@@ -67,6 +67,14 @@ export const TagRemovedV1 = z.object({
   scope: z.enum(['contact', 'conversation']),
 });
 
+/**
+ * The customer was deleted on request (docs/09 §10): profile, notes, history, tags, tasks and
+ * conversations are gone; orders and stay bookings stay anonymized. Ids only.
+ */
+export const ContactDeletedV1 = z.object({
+  type: z.literal('crm.contact.deleted.v1'),
+  ...base,
+});
 export const CrmEvents = z.discriminatedUnion('type', [
   ContactCreatedV1,
   ContactUpdatedV1,
@@ -75,5 +83,6 @@ export const CrmEvents = z.discriminatedUnion('type', [
   ContactInitialStatusV1,
   TagAssignedV1,
   TagRemovedV1,
+  ContactDeletedV1,
 ]);
 export type CrmEvent = z.infer<typeof CrmEvents>;

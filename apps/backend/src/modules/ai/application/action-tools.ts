@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { INVALID_JSON_INPUT_KEY, type ToolCall, type ToolDefinition } from '@agent-sales/ai-core';
+import type { ActionParam, ActionParamSource } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import { z } from 'zod';
 
@@ -98,9 +99,46 @@ export function safeJson(value: unknown): string {
   return (JSON.stringify(value) ?? 'null').replaceAll('<', '\\u003c');
 }
 
-const inputSchema = (action: BotActionView): z.ZodObject => {
+/**
+ * What the server fills into params bound to the conversation's customer (`source` other than
+ * `model`, docs/actions.md). `null`: the dashboard playground, where the owner is the customer and
+ * the model fills every param so the flow can be tried.
+ */
+export type CustomerBinding = Partial<Record<Exclude<ActionParamSource, 'model'>, string>>;
+
+/** The binding of a CRM contact: its stored phone and email (absent values stay unknown). */
+export function customerBindingFrom(contact: {
+  phone?: string | null;
+  email?: string | null;
+}): CustomerBinding {
+  return {
+    ...(contact.phone ? { customer_phone: contact.phone } : {}),
+    ...(contact.email ? { customer_email: contact.email } : {}),
+  };
+}
+
+const isBound = (p: ActionParam): p is ActionParam & { source: keyof CustomerBinding } =>
+  p.source !== undefined && p.source !== 'model';
+
+/** The params the model fills: all of them in the playground, else only the `model` ones. */
+const modelParams = (action: BotActionView, binding: CustomerBinding | null): ActionParam[] =>
+  binding === null ? action.params : action.params.filter((p) => !isBound(p));
+
+/** The server-filled values of a call; null when a required one is missing from the record. */
+function boundArgs(action: BotActionView, binding: CustomerBinding | null): ActionArgs | null {
+  if (binding === null) return {};
+  const out: ActionArgs = {};
+  for (const p of action.params.filter(isBound)) {
+    const value = binding[p.source]?.trim();
+    if (value) out[p.name] = value;
+    else if (p.required) return null;
+  }
+  return out;
+}
+
+const inputSchema = (action: BotActionView, binding: CustomerBinding | null): z.ZodObject => {
   const shape: Record<string, z.ZodType> = {};
-  for (const p of action.params) {
+  for (const p of modelParams(action, binding)) {
     const base = p.type === 'number' ? z.number() : p.type === 'boolean' ? z.boolean() : z.string();
     shape[p.name] = p.required ? base : base.optional();
   }
@@ -109,22 +147,27 @@ const inputSchema = (action: BotActionView): z.ZodObject => {
 
 /**
  * Tools of the owner's actions: `action_1..action_n` in the order of `actions` (the name→action map
- * stays server-side), plus confirm/cancel only while a call is pending. The model never sees a URL.
+ * stays server-side), plus confirm/cancel only while a call is pending. The model never sees a URL,
+ * nor a param the server fills from the customer record; an action whose required server-filled
+ * param has no value on the record (no phone yet) is not offered.
  */
 export function actionTools(
   actions: readonly BotActionView[],
   pending: PendingAction | null,
+  binding: CustomerBinding | null = null,
 ): { definitions: ToolDefinition[]; byName: Map<string, BotActionView> } {
   const byName = new Map<string, BotActionView>();
-  const definitions: ToolDefinition[] = actions.map((action, i) => {
-    const name = `action_${i + 1}`;
+  const definitions: ToolDefinition[] = [];
+  for (const action of actions) {
+    if (boundArgs(action, binding) === null) continue;
+    const name = `action_${definitions.length + 1}`;
     byName.set(name, action);
-    return {
+    definitions.push({
       name,
       description: `${action.name}: ${action.description}${action.requiresConfirm ? ' (asks the customer to confirm first)' : ''}`,
-      input: inputSchema(action),
-    };
-  });
+      input: inputSchema(action, binding),
+    });
+  }
   if (pending) {
     definitions.push(
       {
@@ -163,6 +206,8 @@ export interface ActionToolContext {
    * a confirm-required action is refused instead of stored under a key shared with other customers.
    */
   confirmationAvailable?: boolean;
+  /** Values of the server-filled params; null or absent (playground): the model fills every param. */
+  binding?: CustomerBinding | null;
 }
 
 export interface ActionToolResult {
@@ -215,16 +260,25 @@ export async function runActionTool(
     action = ctx.byName.get(call.name);
     if (!action) return result({ error: 'unknown_tool' });
     if (isInvalidJson(call.input)) return result({ error: 'invalid_arguments' });
-    const parsed = inputSchema(action).safeParse(call.input);
+    const binding = ctx.binding ?? null;
+    const parsed = inputSchema(action, binding).safeParse(call.input);
     if (!parsed.success) return result({ error: 'invalid_arguments' });
-    args = parsed.data as ActionArgs;
+    // Server-filled values only: z.object already stripped anything the model put under their
+    // names. A record that lost its value since the tools were built is refused.
+    const bound = boundArgs(action, binding);
+    if (bound === null) return result({ error: 'invalid_arguments' });
+    args = { ...(parsed.data as ActionArgs), ...bound };
     if (action.requiresConfirm) {
       if (ctx.confirmationAvailable === false)
         return result({ error: 'confirmation_not_available' });
       await facade.setPending(ws, conversationId, { actionId: action.id, args });
       state.askedConfirmation = true;
       state.stored = true;
-      state.readback = vouchedValues(args, [...ctx.customerTexts, ...state.results]);
+      state.readback = [
+        ...vouchedValues(args, [...ctx.customerTexts, ...state.results]),
+        // The customer's own phone or email from the record may be read back too.
+        ...Object.values(boundArgs(action, ctx.binding ?? null) ?? {}).map(String),
+      ];
       return result({ status: 'awaiting_customer_confirmation', readBack: args });
     }
   }

@@ -1,5 +1,5 @@
 import type { ScheduleDraft, ScheduleDto } from '@agent-sales/contracts';
-import { ChevronDown, Pencil, Play, Plus, Trash2 } from 'lucide-react';
+import { CalendarClock, ChevronDown, Pencil, Play, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -34,6 +34,7 @@ import { useAccountBusinesses, useBusinessName } from '../hooks/use-businesses';
 import { useAssistantUi } from '../stores/assistant-ui.store';
 import { cadenceText } from '../utils/cadence-text';
 import { defaultTemplate, ScheduleEditor } from './schedule-editor';
+import { ViewHeader } from './view-header';
 
 /** The last runs of one schedule, newest first. */
 function ScheduleRuns({ scheduleId }: { scheduleId: string }) {
@@ -239,21 +240,19 @@ export function AssistantSchedules() {
 
   const full = list.data ? list.data.used >= list.data.limit : true;
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
-      <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <h3 className="font-medium">{t('schedules.title')}</h3>
-          {list.data ? (
-            <p className="text-xs text-muted-foreground">
-              {t('schedules.used', { used: list.data.used, limit: list.data.limit })}
-            </p>
-          ) : null}
-        </div>
-        <Button size="sm" disabled={full} onClick={() => setEditing({ draft: {} })}>
-          <Plus aria-hidden />
-          {t('schedules.add')}
-        </Button>
-      </div>
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
+      <ViewHeader
+        title={t('schedules.title')}
+        hint={
+          list.data ? t('schedules.used', { used: list.data.used, limit: list.data.limit }) : null
+        }
+        action={
+          <Button size="sm" disabled={full} onClick={() => setEditing({ draft: {} })}>
+            <Plus aria-hidden />
+            {t('schedules.add')}
+          </Button>
+        }
+      />
       {list.isPending ? (
         <div className="flex flex-col gap-2" aria-label={t('schedules.loading')}>
           <Skeleton className="h-24" />
@@ -262,7 +261,12 @@ export function AssistantSchedules() {
       ) : list.isError ? (
         <p className="text-sm text-destructive">{t('schedules.loadError')}</p>
       ) : list.data.items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t(emptyHint)}</p>
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed px-6 py-10 text-center">
+          <span className="grid size-10 place-items-center rounded-full bg-primary-soft text-brand-text">
+            <CalendarClock className="size-5" aria-hidden />
+          </span>
+          <p className="max-w-sm text-sm text-pretty text-muted-foreground">{t(emptyHint)}</p>
+        </div>
       ) : (
         <ul className="flex flex-col gap-2">
           {list.data.items.map((s) => (

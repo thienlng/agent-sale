@@ -1,5 +1,6 @@
 import {
   AssignTagRequest,
+  type ContactDeletionResult,
   type ContactDto,
   ContactHistoryQuery,
   type ContactListResponse,
@@ -15,6 +16,7 @@ import type { WorkspaceId } from '@agent-sales/shared';
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Inject,
@@ -34,6 +36,7 @@ import {
   WorkspaceScoped,
 } from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
+import { ContactDeletionService } from '../../application/contact-deletion.service.js';
 import { ContactService } from '../../application/contact.service.js';
 import { TagAssignmentService } from '../../application/tag-assignment.service.js';
 
@@ -46,6 +49,7 @@ export class ContactsController {
   constructor(
     @Inject(ContactService) private readonly contacts: ContactService,
     @Inject(TagAssignmentService) private readonly tags: TagAssignmentService,
+    @Inject(ContactDeletionService) private readonly deletion: ContactDeletionService,
   ) {}
 
   @RequireCapability('contacts.edit')
@@ -92,6 +96,17 @@ export class ContactsController {
     return this.contacts.update(ws, id, body, viewer(user));
   }
 
+  /** Erasure on the customer's request (docs/09 §10): owners and admins only. */
+  @RequireCapability('contacts.delete')
+  @Delete('contacts/:contactId')
+  remove(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() user: AuthState,
+    @Param('contactId') id: string,
+  ): Promise<ContactDeletionResult> {
+    return this.deletion.delete(ws, id, viewer(user));
+  }
+
   @RequireCapability('contacts.view')
   @Get('contacts/:contactId/notes')
   async notes(
@@ -124,6 +139,18 @@ export class ContactsController {
     @Body(new ZodValidationPipe(UpdateContactNoteRequest)) body: unknown,
   ) {
     return this.contacts.editNote(ws, id, noteId, body, viewer(user));
+  }
+
+  @RequireCapability('contacts.edit')
+  @Delete('contacts/:contactId/notes/:noteId')
+  @HttpCode(204)
+  async deleteNote(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() user: AuthState,
+    @Param('contactId') id: string,
+    @Param('noteId') noteId: string,
+  ): Promise<void> {
+    await this.contacts.deleteNote(ws, id, noteId, viewer(user));
   }
 
   @RequireCapability('contacts.view')

@@ -39,6 +39,18 @@ export class AssistantBusyError extends DomainError {
 }
 
 /**
+ * The thread cannot be deleted while it is answering: a run of the thread is running (younger
+ * than the busy window) or one of its proposals is executing. 409 CONFLICT,
+ * `details.reason = thread_running`.
+ */
+export class AssistantThreadRunningError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor() {
+    super('The assistant is still working in this thread', { reason: 'thread_running' });
+  }
+}
+
+/**
  * The client turn id is already the id of a run the owner does not have (another owner's, or
  * another account's, invisible under RLS): 409 CONFLICT, never a 500.
  */

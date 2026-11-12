@@ -177,6 +177,13 @@ export interface LodgingTx {
   insertProperty(p: PropertyRecord): Promise<void>;
   /** The caller bumps `version`. */
   updateProperty(p: PropertyRecord): Promise<void>;
+  /** Whether any booking or block of the property exists, in any status (past ones included). */
+  propertyHasBookings(propertyId: string): Promise<boolean>;
+  /**
+   * Hard-deletes the property; its units, packages, rates, night notes, bot links and bot hold
+   * drafts cascade. A booking inserted concurrently (23503) → CONFLICT `property_has_bookings`.
+   */
+  deleteProperty(propertyId: string): Promise<void>;
   units(propertyIds: string[]): Promise<UnitRecord[]>;
   /** Upserts by id and deletes missing units; a deleted unit holding nights → CONFLICT. */
   replaceUnits(propertyId: string, units: UnitRecord[]): Promise<void>;

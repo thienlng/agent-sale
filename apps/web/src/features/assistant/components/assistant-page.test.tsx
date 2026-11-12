@@ -132,7 +132,7 @@ describe('AssistantPage', () => {
     );
     // The page replaces the sheet and the launcher.
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Hỏi Thỏ Rapiz' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Hỏi Rapiz Agent' })).toBeNull();
 
     await user.click(within(page).getByRole('button', { name: 'Thu gọn về bảng bên phải' }));
     await waitFor(() => expect(router.state.location.href).toBe('/app/orders?status=new'));
@@ -160,7 +160,7 @@ describe('AssistantPage', () => {
     const user = userEvent.setup();
 
     const page = await screen.findByTestId('assistant-page');
-    const box = await within(page).findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' });
+    const box = await within(page).findByRole('textbox', { name: 'Hỏi Rapiz Agent…' });
     await user.type(box, 'mở trang sản phẩm{Enter}');
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/app/products'));
@@ -182,7 +182,7 @@ describe('AssistantPage', () => {
       'aria-selected',
       'true',
     );
-    expect(within(page).queryByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' })).toBeNull();
+    expect(within(page).queryByRole('textbox', { name: 'Hỏi Rapiz Agent…' })).toBeNull();
   });
 
   it('keeps the sheet shut when the answer points at a control on the page it opened', async () => {
@@ -208,7 +208,7 @@ describe('AssistantPage', () => {
 
     const page = await screen.findByTestId('assistant-page');
     await user.type(
-      await within(page).findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }),
+      await within(page).findByRole('textbox', { name: 'Hỏi Rapiz Agent…' }),
       'tạo đơn ở đâu{Enter}',
     );
 
@@ -228,12 +228,12 @@ describe('AssistantPage', () => {
     const user = userEvent.setup();
 
     const sheet = await screen.findByRole('dialog');
-    await user.type(within(sheet).getByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }), 'doanh thu');
+    await user.type(within(sheet).getByRole('textbox', { name: 'Hỏi Rapiz Agent…' }), 'doanh thu');
     await user.click(within(sheet).getByRole('button', { name: 'Mở rộng toàn màn hình' }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/app/assistant'));
     const page = await screen.findByTestId('assistant-page');
-    expect(await within(page).findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' })).toHaveValue(
+    expect(await within(page).findByRole('textbox', { name: 'Hỏi Rapiz Agent…' })).toHaveValue(
       'doanh thu',
     );
   });

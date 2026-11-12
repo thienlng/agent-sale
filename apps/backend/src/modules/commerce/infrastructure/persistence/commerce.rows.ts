@@ -23,6 +23,7 @@ export const inv = schema.inventory;
 export const o = schema.orders;
 export const oi = schema.orderItems;
 export const h = schema.orderStatusHistory;
+export const sr = schema.stayRequests;
 
 export const pgCode = (e: unknown): string | undefined =>
   (e as { cause?: { code?: string }; code?: string }).cause?.code ?? (e as { code?: string }).code;

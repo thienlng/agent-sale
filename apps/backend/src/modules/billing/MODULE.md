@@ -7,6 +7,7 @@
 **Public API (`api/`):**
 
 - `BILLING_FACADE` → `entitlements(workspaceId)` → `EntitlementsDto` (e.g. `members.max`). HTTP: `GET /billing/entitlements` (any member).
+- A business its owner deleted (`WorkspaceFacade.isActive` false, ADR-033) resolves to no entitlements at all: every limit 0 (incl. `brain.evaluations.daily`, `care.messages.daily`), every feature off, an allowance of 0, `reserveReply` refused (`account_suspended`). This is the gate that stops bots, care, Brain and webhooks of a deleted business.
 - `usage(workspaceId)` → `MessageUsageDto` (used / limit / cycle of the account's allowance). HTTP: `GET /billing/usage` (any member).
 - `reserveReply(workspaceId, { idempotencyKey, conversationId, botId })` → `ReserveOutcome`, then `captureReply` (delivered) or `releaseReply` (not delivered). Used by the conversation module around every AI reply.
 - `startSignupTrial(accountId)` → `boolean`: called by `identity` after signup; idempotent (an account that already has a subscription keeps it); off when the trial setting is off.

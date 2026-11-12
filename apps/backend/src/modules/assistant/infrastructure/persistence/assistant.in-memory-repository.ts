@@ -256,6 +256,44 @@ export class InMemoryAssistantRepository implements AssistantRepository {
     return this.#publicThread(t);
   }
 
+  async deleteThread(s: OwnerScope, threadId: string): Promise<'deleted' | 'running'> {
+    this.#thread(s, threadId);
+    const now = this.#now().getTime();
+    const busy =
+      [...this.runs.values()].some(
+        (x) =>
+          mine(s, x) &&
+          x.threadId === threadId &&
+          x.status === 'running' &&
+          now - x.createdAt.getTime() < RUN_BUSY_WINDOW_MS,
+      ) ||
+      [...this.proposals.values()].some(
+        (p) => mine(s, p) && p.threadId === threadId && p.status === 'executing',
+      );
+    if (busy) return 'running';
+    // Mirrors the foreign keys: CASCADE everywhere but schedule runs (SET NULL).
+    this.threads.delete(threadId);
+    const removeWhere = <T>(rows: T[], drop: (row: T) => boolean) => {
+      for (let i = rows.length - 1; i >= 0; i--) if (drop(rows[i] as T)) rows.splice(i, 1);
+    };
+    removeWhere(this.messages, (m) => m.threadId === threadId);
+    const runIds = new Set<string>();
+    for (const [id, r] of this.runs) {
+      if (r.threadId === threadId) {
+        runIds.add(id);
+        this.runs.delete(id);
+      }
+    }
+    removeWhere(this.steps, (st) => runIds.has(st.runId));
+    for (const [id, p] of this.proposals) if (p.threadId === threadId) this.proposals.delete(id);
+    for (const [id, b] of this.importBatches) {
+      if (b.threadId === threadId) this.importBatches.delete(id);
+    }
+    for (const [id, j] of this.jobs) if (j.threadId === threadId) this.jobs.delete(id);
+    for (const r of this.scheduleRuns.values()) if (r.threadId === threadId) r.threadId = null;
+    return 'deleted';
+  }
+
   async listMessages(
     s: OwnerScope,
     threadId: string,

@@ -1,18 +1,15 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 
-import { TodayPage } from '@/features/brain/components/today-page';
-import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
-import { industryGroup } from '@/features/workspace/utils/industry-group';
-import { loadNamespace } from '@/lib/i18n';
-
-/** Hôm nay (BRN-05): what needs doing today across every conversation of the business. */
+/**
+ * The old Today address (BRN-05): "Việc hôm nay" is now the top of the statistics page. Kept so
+ * notification links already sent (briefing, task reminders) still open it, hash included.
+ */
 export const Route = createFileRoute('/app/today')({
-  loader: () => loadNamespace('brain').then(() => undefined),
-  component: TodayRoute,
+  beforeLoad: ({ location }) => {
+    throw redirect({
+      to: '/app/analytics',
+      ...(location.hash ? { hash: location.hash } : {}),
+      replace: true,
+    });
+  },
 });
-
-function TodayRoute() {
-  const workspace = useCurrentWorkspace();
-  // A hotel's sales are stay bookings: "Rapiz đã mang lại" counts them as such.
-  return <TodayPage bookings={industryGroup(workspace.data?.industry) === 'hotel'} />;
-}

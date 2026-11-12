@@ -8,6 +8,7 @@ import {
   AssistantLearningFeed,
   AssistantLearningQuery,
   AssistantMemoryDto,
+  AssistantMemoryEntryDto,
   AssistantMessageDto,
   AssistantPageContext,
   AssistantPageForm,
@@ -105,6 +106,7 @@ describe('assistantRoutes', () => {
       'get /assistant/threads',
       'post /assistant/threads',
       'patch /assistant/threads/{threadId}',
+      'delete /assistant/threads/{threadId}',
       'get /assistant/threads/{threadId}/messages',
       'post /assistant/threads/{threadId}/messages',
       'get /assistant/runs/{runId}',
@@ -112,6 +114,7 @@ describe('assistantRoutes', () => {
       'get /assistant/learning',
       'delete /assistant/memory/{store}/entries/{entryId}',
       'post /assistant/memory/{store}/entries/{entryId}/undo',
+      'post /assistant/memory/{store}/entries/{entryId}/approve',
       'get /assistant/threads/{threadId}/proposals',
       'post /assistant/proposals/{proposalId}/approve',
       'post /assistant/proposals/{proposalId}/reject',
@@ -325,6 +328,19 @@ describe('proposal and memory DTOs', () => {
         ],
       }).success,
     ).toBe(true);
+  });
+
+  it('defaults a memory entry to an approved assistant entry and refuses an unknown origin', () => {
+    const entry = { id: 'e1', text: 'Shop nghỉ Chủ nhật', createdAt: now };
+    expect(AssistantMemoryEntryDto.parse(entry)).toEqual({
+      ...entry,
+      origin: 'assistant',
+      pending: false,
+    });
+    expect(
+      AssistantMemoryEntryDto.parse({ ...entry, origin: 'review', pending: true }),
+    ).toMatchObject({ origin: 'review', pending: true });
+    expect(AssistantMemoryEntryDto.safeParse({ ...entry, origin: 'customer' }).success).toBe(false);
   });
 });
 

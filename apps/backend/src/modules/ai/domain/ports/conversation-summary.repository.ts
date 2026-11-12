@@ -9,6 +9,8 @@ export interface ConversationSummaryValue {
 export interface ConversationSummaryRepository {
   get(ws: WorkspaceId, conversationId: string): Promise<ConversationSummaryValue | null>;
   put(ws: WorkspaceId, conversationId: string, value: ConversationSummaryValue): Promise<void>;
+  /** Drops the summaries of these conversations (customer deletion, docs/09 §10). */
+  deleteFor(ws: WorkspaceId, conversationIds: readonly string[]): Promise<void>;
 }
 
 export const CONVERSATION_SUMMARY_REPOSITORY = Symbol('CONVERSATION_SUMMARY_REPOSITORY');

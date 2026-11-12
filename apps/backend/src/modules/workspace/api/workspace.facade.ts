@@ -64,6 +64,11 @@ export interface WorkspaceFacade {
    * scans such as the morning briefing). Ids only.
    */
   listActiveIds(q: { afterId: WorkspaceId | null; limit: number }): Promise<WorkspaceId[]>;
+  /**
+   * False once the owner deleted the business (pending deletion or purged) or when it does not
+   * exist. The gate the billing entitlements use to stop bots, care, Brain and webhooks (ADR-033).
+   */
+  isActive(workspaceId: WorkspaceId): Promise<boolean>;
   /** Businesses of an account (platform admin), oldest first. */
   listByAccounts(accountIds: readonly string[]): Promise<AccountBusiness[]>;
   /** Active membership of `userId` in `workspaceId`, or null (used by the auth guard). */

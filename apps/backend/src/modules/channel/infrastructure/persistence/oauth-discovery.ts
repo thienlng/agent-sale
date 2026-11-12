@@ -80,6 +80,7 @@ export function selectDiscoveredAccounts(
                 status: 'connected',
                 name: a.name,
                 expiresAt: a.expiresAt ? new Date(a.expiresAt) : null,
+                metaUserHash: a.metaUserHash ?? null,
               },
               setWhere: eq(c.workspaceId, ws),
             })

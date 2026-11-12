@@ -115,6 +115,45 @@ export function useSaveProduct() {
 }
 
 /**
+ * Hard delete of a product no order uses; 409 `details.reason` is `product_in_orders` (archive
+ * it instead) or `product_synced` (a KiotViet product).
+ */
+export function useDeleteProduct() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api(`/products/${id}`, z.null(), { method: 'DELETE' }),
+    onSuccess: (_data, id) => {
+      qc.removeQueries({ queryKey: queryKeys.product(ws, id) });
+      void qc.invalidateQueries({ queryKey: queryKeys.products(ws) });
+      void qc.invalidateQueries({ queryKey: queryKeys.variants(ws) });
+    },
+  });
+}
+
+/** The stored product as a full PUT body with only its status changed (archive in one click). */
+export function withStatus(p: ProductDto, status: 'active' | 'archived'): UpsertProductRequest {
+  return {
+    code: p.code,
+    name: p.name,
+    description: p.description,
+    category: p.category,
+    visibleToBot: p.visibleToBot,
+    botInstructions: p.botInstructions,
+    imageUrls: p.imageUrls,
+    status,
+    variants: p.variants.map((v) => ({
+      id: v.id,
+      sku: v.sku,
+      name: v.name,
+      price: v.price,
+      cost: v.cost,
+      weightGram: v.weightGram,
+    })),
+  };
+}
+
+/**
  * Saves only the bot's fields. A KiotViet-linked product saves through this, never the full PUT:
  * its other fields are read-only and may not pass the form's rules (e.g. a code with a space).
  */

@@ -1,6 +1,8 @@
 {
   "today": {
-    "title": "Hôm nay",
+    "section": "Việc hôm nay",
+    "noneLine": "Không có: {{list}}",
+    "allClear": "Hôm nay chưa có việc nào cần làm",
     "refresh": "Làm mới (còn {{count}} lượt)",
     "refreshUnlimited": "Làm mới",
     "refreshing": "Đang đánh giá…",

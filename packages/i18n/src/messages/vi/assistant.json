@@ -1,5 +1,5 @@
 {
-  "title": "Thỏ Rapiz",
+  "title": "Rapiz Agent",
   "subtitle": "Trợ lý riêng của chủ shop",
   "threads": "Cuộc trò chuyện",
   "showThreads": "Xem các cuộc trò chuyện",
@@ -12,9 +12,7 @@
   "noThreads": "Chưa có cuộc trò chuyện nào.",
   "noResults": "Không tìm thấy cuộc trò chuyện phù hợp.",
   "loadError": "Không tải được dữ liệu. Thử lại sau.",
-  "emptyTitle": "Mình là Thỏ Rapiz",
-  "emptyBody": "Hỏi mình cách dùng Rapiz, mình sẽ chỉ đúng chỗ cần bấm.",
-  "placeholder": "Hỏi Thỏ Rapiz…",
+  "placeholder": "Hỏi Rapiz Agent…",
   "send": "Gửi",
   "thinking": "Đang tra cứu…",
   "showSteps": "Xem các bước",
@@ -32,15 +30,15 @@
     "budget": "Hết ngân sách lượt"
   },
   "ms": "{{ms}} ms",
-  "busy": "Thỏ Rapiz đang trả lời câu trước, anh/chị đợi chút nhé.",
-  "unavailable": "Thỏ Rapiz tạm thời không trả lời được. Thử lại sau ít phút.",
+  "busy": "Rapiz Agent đang trả lời câu trước, anh/chị đợi chút nhé.",
+  "unavailable": "Rapiz Agent tạm thời không trả lời được. Thử lại sau ít phút.",
   "sendError": "Không gửi được tin nhắn. Thử lại.",
   "spotlightDismiss": "Bấm bất kỳ đâu hoặc nhấn Esc để đóng",
   "showMemory": "Trợ lý nhớ gì",
   "fill": {
-    "notOnPage": "Biểu mẫu Thỏ Rapiz định điền không có trên trang này. Mở đúng trang rồi hỏi lại nhé.",
+    "notOnPage": "Biểu mẫu Rapiz Agent định điền không có trên trang này. Mở đúng trang rồi hỏi lại nhé.",
     "reviewHint": "Mình đã điền sẵn. Anh/chị kiểm tra lại rồi bấm Lưu nhé.",
-    "busyEditing": "Anh/chị đang sửa một mục nên Thỏ Rapiz không điền đè. Lưu hoặc đóng hộp thoại rồi nhờ lại nhé."
+    "busyEditing": "Anh/chị đang sửa một mục nên Rapiz Agent không điền đè. Lưu hoặc đóng hộp thoại rồi nhờ lại nhé."
   },
   "proposals": {
     "label": "Đề xuất thay đổi",
@@ -136,14 +134,14 @@
       "expired": "Đã hết hạn"
     },
     "notPending": "Đề xuất này đã được xử lý rồi.",
-    "expired": "Đề xuất này đã hết hạn. Hỏi lại Thỏ Rapiz nếu vẫn cần.",
+    "expired": "Đề xuất này đã hết hạn. Hỏi lại Rapiz Agent nếu vẫn cần.",
     "decideError": "Không thực hiện được. Thử lại.",
     "openAction": "Mở để nhập khoá",
     "actionDisabled": "Đang tắt — bật sau khi thử gọi"
   },
   "memory": {
     "title": "Trợ lý nhớ gì",
-    "hint": "Thỏ Rapiz ghi nhớ những điều này để trả lời đúng ý anh/chị hơn. Mục nào không đúng thì xoá đi.",
+    "hint": "Rapiz Agent ghi nhớ những điều này để trả lời đúng ý anh/chị hơn. Mục nào không đúng thì xoá đi.",
     "stores": {
       "owner_profile": "Về anh/chị",
       "notes": "Ghi chú chung"
@@ -155,7 +153,16 @@
     "confirmYes": "Quên",
     "confirmNo": "Giữ lại",
     "forgotten": "Đã quên mục này.",
-    "forgetError": "Không xoá được. Thử lại."
+    "forgetError": "Không xoá được. Thử lại.",
+    "pending": "Chờ anh/chị duyệt",
+    "origin": {
+      "owner": "Anh/chị tự thêm",
+      "assistant": "Lưu trong lúc trò chuyện",
+      "review": "Học được sau cuộc trò chuyện"
+    },
+    "approve": "Duyệt",
+    "approved": "Đã duyệt. Trợ lý sẽ dùng mục này.",
+    "approveError": "Không duyệt được. Thử lại."
   },
   "showSkills": "Kỹ năng của trợ lý",
   "showSettings": "Cài đặt trợ lý",
@@ -189,7 +196,7 @@
   },
   "skills": {
     "title": "Kỹ năng",
-    "hint": "Những cách làm Thỏ Rapiz dùng để giúp anh/chị. Mọi thay đổi đều có thể hoàn tác.",
+    "hint": "Những cách làm Rapiz Agent dùng để giúp anh/chị. Mọi thay đổi đều có thể hoàn tác.",
     "sections": {
       "pending": "Đang chờ duyệt",
       "owner": "Của anh/chị",
@@ -197,7 +204,7 @@
       "platform": "Có sẵn",
       "archived": "Lưu trữ"
     },
-    "ownerEmpty": "Chưa có. Dặn Thỏ Rapiz ghi nhớ một cách làm, nó sẽ hiện ở đây.",
+    "ownerEmpty": "Chưa có. Dặn Rapiz Agent ghi nhớ một cách làm, nó sẽ hiện ở đây.",
     "showBody": "Xem nội dung",
     "hideBody": "Ẩn nội dung",
     "approve": "Duyệt",
@@ -316,8 +323,8 @@
       "mixed": "Gửi tệp Excel/CSV và ảnh ở hai lần khác nhau.",
       "upload": "Không tải được ảnh lên. Thử lại.",
       "unreadableImage": "Không đọc được ảnh này.",
-      "batch": "Không gửi được tệp cho Thỏ Rapiz. Thử lại.",
-      "busy": "Thỏ Rapiz đang trả lời câu trước, đợi chút rồi gửi lại nhé.",
+      "batch": "Không gửi được tệp cho Rapiz Agent. Thử lại.",
+      "busy": "Rapiz Agent đang trả lời câu trước, đợi chút rồi gửi lại nhé.",
       "notReady": "Đợi tải xong rồi gửi nhé."
     },
     "card": {
@@ -384,8 +391,8 @@
     "title": "Lịch báo cáo",
     "used": "Đã dùng {{used}}/{{limit}} lịch",
     "add": "Thêm lịch",
-    "empty": "Chưa có lịch nào. Bấm Thêm lịch, hoặc nhắn Thỏ Rapiz: \"mỗi sáng 8h gửi doanh thu hôm qua\".",
-    "emptyRequests": "Chưa có lịch nào. Bấm Thêm lịch, hoặc nhắn Thỏ Rapiz: \"mỗi sáng 8h báo các yêu cầu mới của khách\".",
+    "empty": "Chưa có lịch nào. Bấm Thêm lịch, hoặc nhắn Rapiz Agent: \"mỗi sáng 8h gửi doanh thu hôm qua\".",
+    "emptyRequests": "Chưa có lịch nào. Bấm Thêm lịch, hoặc nhắn Rapiz Agent: \"mỗi sáng 8h báo các yêu cầu mới của khách\".",
     "loading": "Đang tải lịch",
     "loadError": "Không tải được lịch. Thử lại sau.",
     "newTitle": "Lịch mới",
@@ -605,5 +612,76 @@
     "skills": "Kỹ năng",
     "memory": "Bộ nhớ",
     "settings": "Cài đặt"
+  },
+  "threadGroups": {
+    "pinned": "Đã ghim",
+    "today": "Hôm nay",
+    "yesterday": "Hôm qua",
+    "week": "7 ngày qua",
+    "month": "30 ngày qua",
+    "older": "Cũ hơn"
+  },
+  "threadMenu": {
+    "open": "Tuỳ chọn cho “{{title}}”",
+    "rename": "Đổi tên",
+    "renameLabel": "Tên cuộc trò chuyện",
+    "pin": "Ghim",
+    "unpin": "Bỏ ghim",
+    "archive": "Lưu trữ",
+    "unarchive": "Bỏ lưu trữ",
+    "delete": "Xoá",
+    "deleteTitle": "Xoá cuộc trò chuyện?",
+    "deleteBody": "“{{title}}” cùng mọi tin nhắn và đề xuất trong đó sẽ bị xoá vĩnh viễn. Không thể hoàn tác.",
+    "cancel": "Huỷ",
+    "showArchived": "Đã lưu trữ",
+    "hideArchived": "Quay lại cuộc trò chuyện",
+    "noArchived": "Chưa có cuộc trò chuyện nào được lưu trữ.",
+    "archived": "Đã lưu trữ cuộc trò chuyện",
+    "unarchived": "Đã đưa cuộc trò chuyện trở lại danh sách",
+    "deleted": "Đã xoá cuộc trò chuyện",
+    "running": "Trợ lý đang trả lời trong cuộc trò chuyện này. Thử lại khi xong nhé.",
+    "error": "Không thực hiện được. Thử lại sau."
+  },
+  "starters": {
+    "title": "Rapiz Agent — trợ lý vận hành cho chủ doanh nghiệp",
+    "body": "Nắm toàn bộ dữ liệu và cấu hình của các business trong tài khoản. Mọi thay đổi dữ liệu đều chờ anh/chị phê duyệt.",
+    "groupsLabel": "Nhóm tính năng của Rapiz Agent",
+    "groups": {
+      "setup": {
+        "title": "Hướng dẫn và thiết lập",
+        "items": {
+          "a": "Biết anh/chị đang ở trang nào",
+          "b": "Chỉ đúng nút, điền sẵn biểu mẫu",
+          "c": "Nhập sản phẩm từ Excel, CSV, ảnh",
+          "d": "Kết nối Facebook, Instagram, website"
+        }
+      },
+      "insights": {
+        "title": "Phân tích và báo cáo",
+        "items": {
+          "a": "Doanh thu từng shop và tổng thể",
+          "b": "So sánh theo kỳ, vẽ biểu đồ",
+          "c": "Báo cáo định kỳ qua push, email",
+          "d": "Cảnh báo hết hàng, khách chờ lâu"
+        }
+      },
+      "bots": {
+        "title": "Quản lý và giám sát bot",
+        "items": {
+          "a": "Cấu hình kịch bản, lời chào, FAQ",
+          "b": "Thiết lập tích hợp API cho bot",
+          "c": "Đọc nhật ký, tìm lỗi, đề xuất sửa",
+          "d": "Theo dõi mức sẵn sàng của bot"
+        }
+      }
+    },
+    "learning": "Tự ghi nhớ quy tắc của doanh nghiệp và học kỹ năng mới sau mỗi cuộc trò chuyện; xem lại ở tab Kỹ năng và Bộ nhớ.",
+    "label": "Câu hỏi gợi ý",
+    "items": {
+      "setup": "Hướng dẫn tôi kết nối Fanpage và cấu hình bot",
+      "revenue": "Doanh thu từng shop tháng này so với tháng trước?",
+      "bot": "Vì sao bot trả lời sai về phí giao hàng?",
+      "alert": "Báo tôi khi có khách chờ trả lời quá 15 phút"
+    }
   }
 }

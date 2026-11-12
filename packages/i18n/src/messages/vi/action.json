@@ -64,6 +64,13 @@
     "paramLocation": "Vị trí",
     "paramRequired": "Bắt buộc",
     "paramDescription": "Mô tả",
+    "paramSource": "Nguồn giá trị",
+    "paramSourceHint": "Giá trị lấy từ hồ sơ khách do hệ thống điền, bot không tự đặt hay đổi được trong lúc chat, nên khách không thể bắt bot dùng SĐT/email khác. Giá trị trong hồ sơ có thể do chính khách nhập trước đó, nên không chứng minh khách là chủ SĐT/email. Nếu khách chưa có SĐT/email trong hồ sơ, bot sẽ không dùng hành động này. Trong khung chat thử, bot tự điền để bạn kiểm tra.",
+    "sources": {
+      "model": "Bot chọn từ cuộc trò chuyện",
+      "customer_phone": "SĐT của khách trong hồ sơ",
+      "customer_email": "Email của khách trong hồ sơ"
+    },
     "types": {
       "string": "Chuỗi",
       "number": "Số",
@@ -110,6 +117,7 @@
     "statusCode": "Mã từ 100 đến 599",
     "hostPlaceholder": "Tên miền không được chứa {param}",
     "secretMoved": "Nhập lại khóa: khóa chỉ được gửi tới đúng địa chỉ và kiểu xác thực đã lưu",
+    "sourceType": "Tham số lấy từ hồ sơ khách phải có kiểu chuỗi",
     "invalid": "Giá trị không hợp lệ"
   },
   "test": {

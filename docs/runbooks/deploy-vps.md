@@ -51,6 +51,12 @@ The server follows `/opt/infra/README.md` on the host: apps live in `/opt/apps/<
    - Forward: scheme `http`, host `rapiz-edge`, port `80`.
    - Turn on *Websockets support* and *Block common exploits*.
    - SSL tab: request a Let's Encrypt certificate, then turn on *Force SSL* and *HTTP/2*.
+   - Advanced tab, custom Nginx configuration: overwrite the client address so a value the browser sends is never passed on:
+     ```nginx
+     proxy_set_header X-Forwarded-For $remote_addr;
+     proxy_set_header X-Real-IP $remote_addr;
+     ```
+     NPM's default appends to the incoming header (`$proxy_add_x_forwarded_for`), so without this line the leftmost entries are client-written. The chain is NPM → Caddy (`rapiz-edge`) → api: Caddy accepts `X-Forwarded-For` only from private-range peers (`trusted_proxies static private_ranges` + `trusted_proxies_strict` in `infra/deploy/Caddyfile`), and the api and webhook trust it only from `TRUST_PROXY` (unset in production = loopback, link-local and private ranges; `true` or a hop count is refused at startup). Check after a deploy: `curl -H 'X-Forwarded-For: 1.2.3.4' https://<host>/...` must not make the logs or per-IP limits see `1.2.3.4`. If NPM ever runs outside a private network, set `TRUST_PROXY` to its exact address.
 6. **GitHub (repo admin).** Create the environment Settings → Environments → `production`:
    - *Deployment branches and tags*: selected branches, `main` only.
    - *Required reviewers*: the maintainer (each deploy then waits for an approval), and *Prevent self-review* off only if the maintainer is the sole reviewer.

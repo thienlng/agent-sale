@@ -23,9 +23,10 @@ export type AssistantPageView = (typeof PAGE_TABS)[number]['view'];
  * scroll areas stay full width (the measured parts are marked `data-measure`).
  */
 const PAGE_MEASURE = cn(
-  '[&_[data-measure]]:mx-auto [&_[data-measure]]:w-full [&_[data-measure]]:max-w-3xl',
+  '[&_[data-measure]]:mx-auto [&_[data-measure]]:w-full [&_[data-measure]]:max-w-4xl',
   // The composer sits as a card above the bottom edge instead of a full-width bar.
-  '[&_form[data-measure]]:mb-4 [&_form[data-measure]]:rounded-2xl [&_form[data-measure]]:border [&_form[data-measure]]:bg-background [&_form[data-measure]]:shadow-xs',
+  // Inset like the messages (p-4), so the box lines up with them at any width.
+  '[&_form[data-measure]]:mb-4 [&_form[data-measure]]:w-[calc(100%-2rem)] [&_form[data-measure]]:max-w-[calc(56rem-2rem)]',
 );
 
 interface DropHandlers {
@@ -45,6 +46,7 @@ export function AssistantPageLayout({
   onView,
   onPickThread,
   onNewThread,
+  onCurrentRemoved,
   onCollapse,
   dropHandlers,
   children,
@@ -54,6 +56,8 @@ export function AssistantPageLayout({
   onView: (view: AssistantPageView) => void;
   onPickThread: (threadId: string) => void;
   onNewThread: () => void;
+  /** The conversation on screen was archived or deleted from the list. */
+  onCurrentRemoved: () => void;
   onCollapse: () => void;
   dropHandlers: DropHandlers;
   children: ReactNode;
@@ -79,7 +83,11 @@ export function AssistantPageLayout({
     <div className="flex h-full min-h-0 min-w-0 flex-1">
       <aside aria-label={t('threads')} className="hidden w-72 shrink-0 flex-col border-r lg:flex">
         <div className="p-3">{newButton}</div>
-        <AssistantThreadList currentId={threadId} onPick={pick} />
+        <AssistantThreadList
+          currentId={threadId}
+          onPick={pick}
+          onCurrentRemoved={onCurrentRemoved}
+        />
       </aside>
       <Sheet open={drawer} onOpenChange={setDrawer}>
         <SheetContent side="left" className="gap-0 p-0">
@@ -89,11 +97,16 @@ export function AssistantPageLayout({
             <SheetDescription className="sr-only">{t('subtitle')}</SheetDescription>
             {newButton}
           </div>
-          <AssistantThreadList currentId={threadId} onPick={pick} />
+          <AssistantThreadList
+            currentId={threadId}
+            onPick={pick}
+            onCurrentRemoved={onCurrentRemoved}
+          />
         </SheetContent>
       </Sheet>
       <section
         aria-label={t('title')}
+        data-assistant-page
         className={cn('relative flex min-w-0 flex-1 flex-col', PAGE_MEASURE)}
         {...dropHandlers}
       >
@@ -142,6 +155,8 @@ export function AssistantPageLayout({
           <Button
             variant="ghost"
             size="icon"
+            // Phones: the sheet is full width anyway, and the tabs need the room.
+            className="max-sm:hidden"
             aria-label={t('collapse')}
             title={t('collapse')}
             onClick={onCollapse}
@@ -153,11 +168,20 @@ export function AssistantPageLayout({
           id="assistant-tabpanel"
           role="tabpanel"
           aria-labelledby={`assistant-tab-${view}`}
-          // The views scroll themselves; on the page they keep the reading width.
-          {...(view === 'chat' ? {} : { 'data-measure': true })}
           className="flex min-h-0 flex-1 flex-col"
         >
-          {children}
+          {view === 'chat' ? (
+            children
+          ) : (
+            // The views scroll here, full width, so the scrollbar sits at the edge; their content
+            // keeps a reading width. Their own scroll box and padding (sized for the side sheet)
+            // give way to the page's.
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-8 sm:py-8 [&>*]:overflow-visible [&>*]:p-0">
+                {children}
+              </div>
+            </div>
+          )}
         </div>
       </section>
     </div>

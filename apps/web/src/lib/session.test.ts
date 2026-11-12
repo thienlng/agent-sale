@@ -8,6 +8,7 @@ import {
   logout,
   onSessionExpired,
   onWorkspaceLost,
+  reloadSession,
   selectWorkspace,
   syncMembership,
 } from './session';
@@ -98,6 +99,21 @@ describe('business selection', () => {
     expect(getSession()?.workspaceId).toBeNull();
     await authenticate(undefined, [both[1]!]);
     expect(getSession()?.workspaceId).toBe(B);
+  });
+  it('never lands on a deleted business: the reload drops it and the overview asks again', async () => {
+    const C = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d23';
+    const three = [...both, { workspaceId: C, workspaceName: 'Business C', role: 'owner' }];
+    await authenticate(A, three);
+    expect(getSession()?.workspaceId).toBe(A);
+    // The owner deleted A: the server no longer lists it.
+    memberships = three.filter((m) => m.workspaceId !== A);
+    await reloadSession();
+    expect(getSession()?.workspaceId).toBeNull();
+    expect(getWorkspaceId()).toBeNull();
+    expect(getSession()?.memberships.map((m) => m.workspaceId)).toEqual([B, C]);
+    // The remembered choice is stale; it is ignored on the next sign-in too.
+    await authenticate(A, memberships);
+    expect(getSession()?.workspaceId).toBeNull();
   });
   it('reloads the session and reports a lost current business once', async () => {
     await authenticate(A);

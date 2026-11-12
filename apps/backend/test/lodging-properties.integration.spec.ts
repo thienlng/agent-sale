@@ -10,8 +10,10 @@ import {
 import {
   createDb,
   ensureLoginRoles,
+  eq,
   migrate,
   schema,
+  sql,
   withCredentials,
   type Database,
 } from '@agent-sales/db';
@@ -648,5 +650,75 @@ describe('lodging v2 properties over HTTP', () => {
     expect((await call(o.headers, 'GET', `/lodging/bots/${newId()}/properties`)).statusCode).toBe(
       404,
     );
+  });
+
+  it('deletes a property without bookings with its rooms, notes and bot links, and audits it', async () => {
+    const o = await signup();
+    const keep = await create(o.headers, villa('K1'));
+    const gone = await create(o.headers, villa('D1'));
+    const bot = await call(o.headers, 'POST', '/bots', { name: 'Bot', industry: 'hotel' });
+    const botId = BotDto.parse(bot.json()).id;
+    const put = await call(o.headers, 'PUT', `/lodging/bots/${botId}/properties`, {
+      propertyIds: [keep.id, gone.id],
+    });
+    expect(put.statusCode, put.body).toBe(200);
+    const note = await call(o.headers, 'PUT', `/lodging/properties/${gone.id}/notes`, {
+      unitId: null,
+      night: addNights(localToday(new Date()), 3),
+      text: 'Synthetic note',
+    });
+    expect(note.statusCode, note.body).toBe(200);
+
+    const analyst = await member(o.ws, 'analyst');
+    expect((await call(analyst, 'DELETE', `/lodging/properties/${gone.id}`)).statusCode).toBe(403);
+    const stranger = await signup();
+    expect(
+      (await call(stranger.headers, 'DELETE', `/lodging/properties/${gone.id}`)).statusCode,
+    ).toBe(404);
+    expect(
+      (await call(stranger.in(o.ws), 'DELETE', `/lodging/properties/${gone.id}`)).statusCode,
+    ).toBe(404);
+
+    const r = await call(o.headers, 'DELETE', `/lodging/properties/${gone.id}`);
+    expect(r.statusCode, r.body).toBe(204);
+    expect((await call(o.headers, 'GET', `/lodging/properties/${gone.id}`)).statusCode).toBe(404);
+    expect((await call(o.headers, 'DELETE', `/lodging/properties/${gone.id}`)).statusCode).toBe(
+      404,
+    );
+    const list = PropertyList.parse((await call(o.headers, 'GET', '/lodging/properties')).json());
+    expect(list.data.map((p) => p.id)).toEqual([keep.id]);
+    const links = await call(o.headers, 'GET', `/lodging/bots/${botId}/properties`);
+    expect(BotPropertiesDto.parse(links.json()).propertyIds).toEqual([keep.id]);
+    for (const table of ['lodging_units', 'lodging_night_notes', 'lodging_bot_properties']) {
+      const rows = (await owner.db.execute(
+        sql.raw(`select count(*)::int as n from ${table} where property_id = '${gone.id}'`),
+      )) as unknown as { n: number }[];
+      expect(rows[0]?.n, table).toBe(0);
+    }
+    const audit = await owner.db
+      .select()
+      .from(schema.auditEvents)
+      .where(eq(schema.auditEvents.targetId, gone.id));
+    expect(audit.map((a) => a.action)).toContain('lodging.property.deleted');
+  });
+
+  it('refuses to delete a property that has any booking, even a cancelled one', async () => {
+    const o = await signup();
+    const p = await create(o.headers, villa());
+    const today = localToday(new Date());
+    await seedBooking(
+      o.ws,
+      booking(p.id, [p.units[0]?.id ?? ''], addNights(today, -10), addNights(today, -8)),
+    );
+    await owner.db
+      .update(schema.lodgingBookings)
+      .set({ status: 'cancelled' })
+      .where(eq(schema.lodgingBookings.propertyId, p.id));
+    const r = await call(o.headers, 'DELETE', `/lodging/properties/${p.id}`);
+    expect(r.statusCode, r.body).toBe(409);
+    expect(r.json()).toMatchObject({
+      error: { code: 'CONFLICT', details: { reason: 'property_has_bookings' } },
+    });
+    expect((await call(o.headers, 'GET', `/lodging/properties/${p.id}`)).statusCode).toBe(200);
   });
 });

@@ -4,6 +4,7 @@ import {
   AssignmentPolicyList,
   type AssignTagRequest,
   type PutAssignmentPolicyRequest,
+  ContactDeletionResult,
   ContactDto,
   type ContactHistoryType,
   ContactHistoryList,
@@ -122,6 +123,34 @@ export function useEditNote(contactId: string) {
         body: { body: v.body, expectedVersion: v.expectedVersion },
       }),
     onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.contact(ws, contactId) }),
+  });
+}
+
+/** Deletes a note for good (its author, or an owner or admin). */
+export function useDeleteNote(contactId: string) {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (noteId: string) =>
+      api(`/contacts/${contactId}/notes/${noteId}`, z.null(), { method: 'DELETE' }),
+    onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.contact(ws, contactId) }),
+  });
+}
+
+/**
+ * Deletes a customer on request (docs/09 §10): their conversations go too, orders and bookings stay
+ * anonymized, so every workspace list may have changed.
+ */
+export function useDeleteContact() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (contactId: string) =>
+      api(`/contacts/${contactId}`, ContactDeletionResult, { method: 'DELETE' }),
+    onSuccess: (r) => {
+      qc.removeQueries({ queryKey: queryKeys.contact(ws, r.contactId) });
+      void qc.invalidateQueries({ queryKey: ['ws', ws] });
+    },
   });
 }
 

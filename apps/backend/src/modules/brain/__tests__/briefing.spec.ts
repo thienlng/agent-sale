@@ -47,7 +47,7 @@ describe('morning briefing', () => {
     expect(n).toMatchObject({
       type: 'today.briefing',
       title: 'Hôm nay: 1 chưa trả lời, 1 sắp chốt',
-      target: { kind: 'path', path: '/app/today' },
+      target: { kind: 'path', path: '/app/analytics' },
       channels: ['in_app', 'push'],
       workspaceId: WS,
     });

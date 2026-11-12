@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { ChevronLeft, CircleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,7 @@ import { useCan } from '@/lib/permissions';
 
 import { useProperty } from '../api/properties';
 import type { GalleryImageUpload } from '../lib/gallery-model';
+import { DeletePropertySection } from './delete-property';
 import { LeaveGuard, UnsavedMark, useDirtyTabs } from './editor-shell';
 import { GalleryTab } from './gallery-tab';
 import { InfoTab } from './info-tab';
@@ -46,6 +47,7 @@ export function PropertyEditor({
   const { t } = useTranslation('lodging');
   const property = useProperty(propertyId);
   const canEdit = useCan('catalog.manage');
+  const navigate = useNavigate();
   const [tab, setTab] = useState<TabKey>(folderId ? 'gallery' : (initialTab ?? 'info'));
   const { dirtyTabs, reporter } = useDirtyTabs<TabKey>();
 
@@ -109,6 +111,13 @@ export function PropertyEditor({
             className="pt-4 data-[state=inactive]:hidden"
           >
             {key === 'info' && <InfoTab {...shared} onDirtyChange={reporter('info')} />}
+            {key === 'info' && canEdit && (
+              <DeletePropertySection
+                property={p}
+                // The property is gone: its unsaved edits have nothing to be saved to.
+                onDeleted={() => void navigate({ to: '/app/properties', ignoreBlocker: true })}
+              />
+            )}
             {key === 'rooms' && <RoomsTab {...shared} />}
             {key === 'rates' && <RatesTab {...shared} onDirtyChange={reporter('rates')} />}
             {key === 'policies' && <PoliciesTab {...shared} onDirtyChange={reporter('policies')} />}

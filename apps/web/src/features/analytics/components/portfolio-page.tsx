@@ -141,26 +141,27 @@ export function PortfolioPage({
             .map(([date, value]) => ({ date, values: { 'conversations.opened': value } }))}
         />
       ) : null}
-      <section className="rounded-lg border p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <section className="rounded-lg border">
+        {/* A rule under the heading separates it from the list of businesses. */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
           <h2 className="font-semibold">{t('analytics.overview.businesses')}</h2>
           <Button asChild variant="outline" size="sm">
             <Link to="/app/businesses/new">{t('nav.newBusiness')}</Link>
           </Button>
         </div>
         {!session?.memberships.length ? (
-          <p className="mt-3 text-sm text-muted-foreground">
+          <p className="px-4 py-4 text-sm text-muted-foreground">
             {t('analytics.overview.noBusinesses')}
           </p>
         ) : null}
-        <div className="mt-2 divide-y">
+        <div className="divide-y">
           {session?.memberships.map((business) => {
             const row = rows.find((r) => r.business.workspaceId === business.workspaceId);
             const conversations = row && result(row, 'conversations.opened');
             return (
               <div
                 key={business.workspaceId}
-                className="flex min-w-0 flex-wrap items-center justify-between gap-3 py-4"
+                className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-4"
               >
                 <BusinessAvatar
                   workspaceId={business.workspaceId}

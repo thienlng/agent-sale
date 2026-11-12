@@ -95,6 +95,16 @@ export class AssistantController {
     return this.facade.updateThread(actor(user, ws), threadId, body);
   }
 
+  @Delete('threads/:threadId')
+  @HttpCode(204)
+  async deleteThread(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('threadId') threadId: string,
+  ): Promise<void> {
+    await this.facade.deleteThread(actor(user, ws), threadId);
+  }
+
   @Get('threads/:threadId/messages')
   listMessages(
     @CurrentUser() user: AuthState,
@@ -225,6 +235,17 @@ export class AssistantController {
     @Param('entryId') entryId: string,
   ): Promise<AssistantMemoryDto> {
     return this.facade.undoLearnedMemory(actor(user, ws), store, entryId);
+  }
+
+  @Post('memory/:store/entries/:entryId/approve')
+  @HttpCode(200)
+  approveMemoryEntry(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('store') store: string,
+    @Param('entryId') entryId: string,
+  ): Promise<AssistantMemoryDto> {
+    return this.facade.approveMemoryEntry(actor(user, ws), store, entryId);
   }
 
   // ─── Skills (1c) ───

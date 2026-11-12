@@ -1,7 +1,9 @@
 import 'reflect-metadata';
 
 import { randomUUID } from 'node:crypto';
+import { isIP } from 'node:net';
 
+import { parseTrustProxy } from '@agent-sales/shared';
 import fastifyCookie from '@fastify/cookie';
 import fastifyMultipart from '@fastify/multipart';
 import { type INestApplication, RequestMethod, type Type } from '@nestjs/common';
@@ -32,7 +34,9 @@ export async function createHttpApp(
   const env = configureEnv(envSource ?? process.env);
   const logger = createLogger(env.LOG_LEVEL);
   const adapter = new FastifyAdapter({
-    trustProxy: true,
+    // Only the deploy's own proxy hops (TRUST_PROXY): `req.ip` feeds every per-IP limit, so a
+    // client-written X-Forwarded-For must never become it.
+    trustProxy: parseTrustProxy(env.TRUST_PROXY, env.NODE_ENV, isIP),
     // Accept a well-formed upstream X-Request-Id (CDN/LB), otherwise generate one.
     genReqId: (req: RawRequestDefaultExpression) => {
       const incoming = req.headers['x-request-id'];

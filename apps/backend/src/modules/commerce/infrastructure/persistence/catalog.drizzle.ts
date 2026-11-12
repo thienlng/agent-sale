@@ -22,6 +22,7 @@ import type {
 import {
   BotNotFoundError,
   DuplicateCodeError,
+  ProductNotDeletableError,
   ProductNotFoundError,
 } from '../../domain/commerce.errors.js';
 import {
@@ -29,8 +30,10 @@ import {
   contains,
   inv,
   n,
+  oi,
   p,
   pgCode,
+  sr,
   toProduct,
   toVariant,
   toWarehouse,
@@ -371,6 +374,29 @@ export function catalogTx(
       async archiveVariants(ids) {
         if (ids.length)
           await tx.update(v).set({ archivedAt: new Date() }).where(inArray(v.id, ids));
+      },
+      async usedByOrders(productId) {
+        const [line] = await tx
+          .select({ x: sql`1` })
+          .from(oi)
+          .innerJoin(v, and(eq(v.workspaceId, oi.workspaceId), eq(v.id, oi.variantId)))
+          .where(and(eq(oi.workspaceId, ws), eq(v.productId, productId)))
+          .limit(1);
+        if (line) return true;
+        const [stay] = await tx
+          .select({ x: sql`1` })
+          .from(sr)
+          .where(and(eq(sr.workspaceId, ws), eq(sr.propertyId, productId)))
+          .limit(1);
+        return Boolean(stay);
+      },
+      async remove(productId) {
+        try {
+          await tx.delete(p).where(and(eq(p.workspaceId, ws), eq(p.id, productId)));
+        } catch (e) {
+          if (pgCode(e) === '23503') throw new ProductNotDeletableError('product_in_orders');
+          throw e;
+        }
       },
       async variantsByIds(ids) {
         if (!ids.length) return [];

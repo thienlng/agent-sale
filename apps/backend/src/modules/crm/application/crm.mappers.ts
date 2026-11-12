@@ -85,6 +85,7 @@ export function toContactDto(c: ContactRecord, tags: AssignmentRecord[]): Contac
 export const toNoteDto = (n: NoteRecord): ContactNoteDto => ({
   id: n.id,
   body: n.body,
+  authorUserId: n.authorUserId,
   authorName: n.authorName,
   createdAt: n.createdAt.toISOString(),
   editedAt: iso(n.editedAt),

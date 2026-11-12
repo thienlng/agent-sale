@@ -13,10 +13,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { type AssistantFormField, useAssistantForm } from '@/lib/assistant-context';
 import { errorMessage } from '@/lib/errors';
+import { useCan } from '@/lib/permissions';
 import { productSaveErrorMessage } from '../hooks/lodging-errors';
 import { cn } from '@/lib/utils';
 
 import { useSaveProduct, useSaveProductBotSettings } from '../api/commerce';
+import { DeleteProductSection } from './delete-product';
 import { FieldLabel, LOCKED_FIELD, LockedHint } from './locked-field';
 import { ProductImagesEditor } from './product-images-editor';
 import {
@@ -80,6 +82,7 @@ export function ProductForm({
   const save = useSaveProduct();
   const saveBot = useSaveProductBotSettings(product?.id ?? '');
   const locked = Boolean(product?.external);
+  const canManage = useCan('catalog.manage');
   const retailer = pmsLink?.retailer ?? null;
   const saving = save.isPending || saveBot.isPending;
   /** Props for a read-only field described by the section's hint. */
@@ -578,6 +581,15 @@ export function ProductForm({
         <StockEditor
           product={product}
           lockedHint={locked ? <LockedHint id="ps-locked-hint" retailer={retailer} /> : undefined}
+        />
+      ) : null}
+
+      {/* A KiotViet product is removed in KiotViet: a delete here would come back on the next sync. */}
+      {product && !locked && canManage ? (
+        <DeleteProductSection
+          product={product}
+          onDeleted={() => void navigate({ to: '/app/products' })}
+          onArchived={() => setArchived(true)}
         />
       ) : null}
     </div>

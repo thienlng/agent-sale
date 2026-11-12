@@ -18,8 +18,8 @@ const BATCH = 100;
  * such tasks would hold the queue.
  */
 export const MAX_REMINDER_FAILURES = 20;
-/** Where a reminder opens: the Today screen lists the user's tasks. */
-export const TASK_DUE_PATH = '/app/today';
+/** Where a reminder opens: "Việc hôm nay" on the statistics page lists the user's tasks. */
+export const TASK_DUE_PATH = '/app/analytics';
 
 const fill = (template: string, vars: Record<string, string>) =>
   template.replace(/\{\{(\w+)\}\}/g, (_, k: string) => vars[k] ?? '');

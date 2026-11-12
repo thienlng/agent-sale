@@ -20,7 +20,9 @@ import type {
   AssistantRepository,
   MemoryEntry,
   MemoryOrigin,
+  MessageRecord,
 } from '../domain/ports/assistant.repository.js';
+import { IMPORT_BLOCK_PREFIX } from './import-block.js';
 
 export const MEMORY_TOOL = 'memory';
 /** After this many failed memory calls in one turn, every further call answers `stop_retrying`. */
@@ -56,6 +58,57 @@ export interface MemoryToolContext {
   repo: AssistantRepository;
   /** Who writes: the chat turn (`assistant`, the default) or the background review. */
   origin?: Extract<MemoryOrigin, 'assistant' | 'review'>;
+  /**
+   * True once the turn received tool output (see `taintOnToolOutput`): a new or rewritten
+   * entry then waits for the owner's approval. A review write always waits.
+   */
+  tainted?: () => boolean;
+}
+
+/** Tools whose results carry no data from outside the owner's own words (UI actions only). */
+const NO_DATA_TOOLS = new Set(['ui_navigate', 'ui_spotlight', 'ui_fill_form']);
+
+/**
+ * Sets `state.tainted` once any tool other than `memory` and the UI-only tools returned in this
+ * turn: route reads, SQL, skills, session search and imports bring text the owner did not type
+ * (customer messages, product names, documents), which may carry injected instructions. The
+ * memory tool reads the flag, so a fact saved after such output waits for the owner's approval.
+ */
+export function taintOnToolOutput(
+  tools: readonly RunnableTool[],
+  state: { tainted: boolean },
+): RunnableTool[] {
+  return tools.map((tool) =>
+    tool.name === MEMORY_TOOL || NO_DATA_TOOLS.has(tool.name)
+      ? tool
+      : {
+          ...tool,
+          async run(input) {
+            try {
+              return await tool.run(input);
+            } finally {
+              state.tainted = true;
+            }
+          },
+        },
+  );
+}
+
+/**
+ * True when the replayed history already carries text the owner did not type: a data tool's
+ * result from an earlier turn, an `<import_batch>` block, or a compaction summary (which may
+ * restate such results). A turn starts tainted then, so "ok, save it" in turn N+1 cannot store
+ * an instruction that a tool result planted in turn N as an approved memory (PR #173 review).
+ */
+export function historyIsTainted(
+  history: readonly Pick<MessageRecord, 'role' | 'toolName' | 'content' | 'isSummary'>[],
+): boolean {
+  return history.some(
+    (m) =>
+      m.isSummary ||
+      (m.role === 'tool' && !NO_DATA_TOOLS.has(m.toolName ?? '')) ||
+      (m.role === 'user' && IMPORT_BLOCK_PREFIX.test(m.content)),
+  );
 }
 
 /** `<` is escaped so a result cannot open or close a prompt tag. */
@@ -65,27 +118,43 @@ const json = (value: unknown): string => JSON.stringify(value).replaceAll('<', '
 const clean = (text: string): string => text.replace(/\s+/g, ' ').trim();
 
 /**
- * A replaced entry. A review rewrite keeps the text and origin it replaced (the first ones,
- * across repeated review rewrites), so undo gives the owner their text back; any other write
- * drops them.
+ * A replaced entry. A write waiting for approval (every review rewrite) keeps the last approved
+ * text and origin it replaced (across repeated rewrites while still waiting), so the prompt keeps
+ * the approved text and undo gives it back; an approved write drops them.
  */
 function replaced(
   e: MemoryEntry,
   text: string,
   origin: MemoryOrigin,
   updatedAt: string,
+  pending: boolean,
 ): MemoryEntry {
-  const { previousText, previousOrigin, ...rest } = e;
-  if (origin !== 'review') return { ...rest, text, origin, updatedAt };
+  const { previousText, previousOrigin, previousPending, pending: _wasPending, ...rest } = e;
+  if (!pending) return { ...rest, text, origin, updatedAt };
   const keep =
-    e.origin === 'review' && previousText !== undefined
-      ? { previousText, previousOrigin: previousOrigin ?? 'assistant' }
-      : { previousText: e.text, previousOrigin: e.origin };
-  return { ...rest, text, origin, updatedAt, ...keep };
+    e.pending && previousText !== undefined
+      ? {
+          previousText,
+          previousOrigin: previousOrigin ?? 'assistant',
+          ...(previousPending ? { previousPending } : {}),
+        }
+      : {
+          previousText: e.text,
+          previousOrigin: e.origin,
+          ...(e.pending ? { previousPending: true as const } : {}),
+        };
+  return { ...rest, text, origin, updatedAt, ...keep, pending: true };
 }
 
 type Outcome =
-  | { ok: true; message: string; used: number; limit: number; replaced?: string }
+  | {
+      ok: true;
+      message: string;
+      used: number;
+      limit: number;
+      replaced?: string;
+      awaitingOwnerApproval?: true;
+    }
   | {
       ok: false;
       errorCode: string;
@@ -100,7 +169,10 @@ type Outcome =
  * new text scanned (`unsafe:<issues>`), `match` must hit exactly one entry. A full store answers
  * `store_full` with the entries and a consolidate hint. After 3 failed calls in the turn the tool
  * answers `stop_retrying`. A new or replaced entry takes the context's `origin` (a replace also
- * stamps `updatedAt`; a review replace keeps the previous text for undo). The text is stored; it never reaches the logs.
+ * stamps `updatedAt`; a review replace keeps the previous text for undo). A write by the review,
+ * or by a chat turn that already read tool output (`tainted`), is stored `pending`: it waits for
+ * the owner's approval and stays out of every prompt until then (security audit #12). The text
+ * is stored; it never reaches the logs.
  */
 export function memoryTool(ctx: MemoryToolContext): RunnableTool {
   let failures = 0;
@@ -175,16 +247,32 @@ export function memoryTool(ctx: MemoryToolContext): RunnableTool {
       };
     }
 
+    // Text that may come from tool output (or the review) never reaches a prompt unapproved.
+    const pending = origin === 'review' || ctx.tainted?.() === true;
+    // A rewrite of an entry that still waits keeps waiting: only the owner's approval endpoint
+    // approves, never a later untainted chat write (PR #173 review).
+    const stillPending = pending || target?.pending === true;
     let next: MemoryEntry[];
     if (action === 'remove') {
       next = entries.filter((e) => e !== target);
     } else if (!text) {
       return { ok: false, errorCode: 'missing_text' }; // checked above; narrows the type
     } else if (action === 'add') {
-      next = [...entries, { id: newId(), text, origin, createdAt: new Date().toISOString() }];
+      next = [
+        ...entries,
+        {
+          id: newId(),
+          text,
+          origin,
+          createdAt: new Date().toISOString(),
+          ...(pending ? { pending: true as const } : {}),
+        },
+      ];
     } else {
       const updatedAt = new Date().toISOString();
-      next = entries.map((e) => (e === target ? replaced(e, text, origin, updatedAt) : e));
+      next = entries.map((e) =>
+        e === target ? replaced(e, text, origin, updatedAt, stillPending) : e,
+      );
     }
 
     const used = memoryUsed(next);
@@ -204,9 +292,13 @@ export function memoryTool(ctx: MemoryToolContext): RunnableTool {
         : undefined;
     await ctx.repo.saveMemoryStore(ctx.scope, store, next, tombstones);
     const verb = action === 'add' ? 'Saved' : action === 'replace' ? 'Replaced' : 'Removed';
+    const waits = stillPending && action !== 'remove';
     return {
       ok: true,
-      message: `${verb} in ${store} (${used}/${limit}).`,
+      message: waits
+        ? `${verb} in ${store} (${used}/${limit}), awaiting the owner's approval in Memory: it is not used until approved.`
+        : `${verb} in ${store} (${used}/${limit}).`,
+      ...(waits ? { awaitingOwnerApproval: true as const } : {}),
       used,
       limit,
       // What a replace overwrote, so a wrong target is visible and can be added back.

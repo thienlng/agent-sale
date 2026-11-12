@@ -54,4 +54,12 @@ describe('dashboard map', () => {
     expect(paths('saas')).not.toContain('/app/products');
     expect(purposeOf('saas', '/app/contacts')).toBe('customers (CRM)');
   });
+
+  it('opens Today inside the statistics page, with no page of its own', () => {
+    for (const industry of ['retail', 'hotel', 'saas', 'education']) {
+      expect(paths(industry)).not.toContain('/app/today');
+      expect(purposeOf(industry, '/app/analytics')).toContain('what needs doing today');
+      expect(purposeOf(industry, '/app/analytics')).toContain('statistics');
+    }
+  });
 });

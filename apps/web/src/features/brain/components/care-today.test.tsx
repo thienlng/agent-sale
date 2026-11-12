@@ -144,7 +144,7 @@ function renderApp() {
   });
   const page = createRoute({
     getParentRoute: () => root,
-    path: '/app/today',
+    path: '/app/analytics',
     component: TodayPage,
   });
   const inbox = createRoute({
@@ -154,7 +154,7 @@ function renderApp() {
   });
   const router = createRouter({
     routeTree: root.addChildren([page, inbox]),
-    history: createMemoryHistory({ initialEntries: ['/app/today'] }),
+    history: createMemoryHistory({ initialEntries: ['/app/analytics'] }),
   });
   renderWithProviders(<RouterProvider router={router} />);
 }
@@ -212,7 +212,8 @@ describe('Today: "Chờ duyệt"', () => {
     expect(within(queue).getByText('còn 3 giờ')).toBeInTheDocument();
     expect(within(queue).getByText('còn 40 phút')).toBeInTheDocument();
     // First among the queues and among the chips.
-    expect(screen.getAllByRole('region')[1]).toBe(queue);
+    const queueCards = screen.getAllByRole('region').filter((r) => r.id.startsWith('queue-'));
+    expect(queueCards[0]).toBe(queue);
     const chips = within(screen.getByRole('navigation', { name: 'Tóm tắt các hàng' }));
     expect(chips.getAllByRole('link')[0]).toHaveTextContent('Chờ duyệt2');
   });
@@ -260,7 +261,8 @@ describe('Today: "Chờ duyệt"', () => {
     const user = userEvent.setup();
     const queue = await screen.findByRole('region', { name: 'Chờ duyệt' }, { timeout: 5000 });
     await user.click(within(queue).getByRole('button', { name: 'Gửi tin cho Chị Lan' }));
-    await waitFor(() => expect(within(queue).queryByText('Chị Lan')).toBeNull());
+    // The only draft left: the card leaves with it.
+    await waitFor(() => expect(screen.queryByText('Chị Lan')).toBeNull());
     net.release();
     expect(
       await screen.findByText('Tin chưa gửi được — kênh báo lỗi, thử lại sau'),
@@ -330,14 +332,19 @@ describe('Today: "Chờ duyệt"', () => {
     holdToday = true;
     await user.click(within(queue).getByRole('button', { name: 'Gửi tin cho Chị Lan' }));
     await user.click(within(queue).getByRole('button', { name: 'Gửi tin cho Anh Minh' }));
-    await waitFor(() => expect(within(queue).queryByText('Anh Minh')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Anh Minh')).toBeNull());
     // Lan's request fails while Minh's is still on its way.
     lan.release();
     expect(
       await screen.findByText('Nhân viên đang giữ hội thoại này nên tin đã được bỏ'),
     ).toBeInTheDocument();
-    await waitFor(() => expect(within(queue).getByText('Chị Lan')).toBeInTheDocument());
-    expect(within(queue).queryByText('Anh Minh')).toBeNull();
+    // Both rows left, so the queue's card did too: it comes back with Lan's draft alone.
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('region', { name: 'Chờ duyệt' })).getByText('Chị Lan'),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('Anh Minh')).toBeNull();
     holdToday = false;
     minh.release();
     lan.release();
@@ -430,7 +437,8 @@ describe('Today: "Chờ duyệt"', () => {
     const user = userEvent.setup();
     const queue = await screen.findByRole('region', { name: 'Chờ duyệt' }, { timeout: 5000 });
     await user.click(within(queue).getByRole('button', { name: 'Gửi tin cho Chị Lan' }));
-    await waitFor(() => expect(within(queue).queryByText('Chị Lan')).toBeNull());
+    // The only draft left: the card leaves with it.
+    await waitFor(() => expect(screen.queryByText('Chị Lan')).toBeNull());
     net.release();
     expect(
       await screen.findByText('Tin này không còn gửi được — đã có người xử lý hoặc đã hết 24 giờ'),
@@ -460,8 +468,10 @@ describe('Today: "Chờ duyệt"', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60_000);
     });
-    await waitFor(() => expect(within(queue).queryByText('Anh Minh')).toBeNull());
-    expect(within(queue).getByText('Không có tin chăm sóc nào chờ duyệt.')).toBeInTheDocument();
+    // The last draft expired: nothing is left to do, so the card gives way to the empty state.
+    await waitFor(() => expect(screen.queryByText('Anh Minh')).toBeNull());
+    expect(queue).not.toBeInTheDocument();
+    expect(screen.getByText('Hôm nay chưa có việc nào cần làm')).toBeInTheDocument();
   });
 
   it('shows read-only roles the drafts without any write action', async () => {
@@ -574,7 +584,7 @@ describe('Today: "AI đã làm" and "Rapiz đã mang lại"', () => {
     const stub = stubFetch(routes(today([])));
     vi.stubGlobal('fetch', stub.fetchStub);
     renderApp();
-    await screen.findByRole('region', { name: 'Chờ duyệt' }, { timeout: 5000 });
+    await screen.findByText('Hôm nay chưa có việc nào cần làm', {}, { timeout: 5000 });
     expect(screen.queryByRole('radio', { name: '30 ngày' })).toBeNull();
     expect(stub.calls.some((c) => c.key.startsWith('GET /brain/impact'))).toBe(false);
   });

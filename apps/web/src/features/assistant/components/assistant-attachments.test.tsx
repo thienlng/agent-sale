@@ -141,7 +141,7 @@ describe('assistant attachments', { timeout: 20_000 }, () => {
     expect(upload?.body).toEqual({ mimeType: 'image/jpeg', base64: 'QkFTRQ==' });
     expect(upload?.headers['X-Workspace-Id']).toBe(WS);
 
-    await user.type(screen.getByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }), 'Giá 200k cả hai');
+    await user.type(screen.getByRole('textbox', { name: 'Hỏi Rapiz Agent…' }), 'Giá 200k cả hai');
     await waitFor(() => expect(screen.getByRole('button', { name: 'Gửi' })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: 'Gửi' }));
     await waitFor(() => expect(calls.some((c) => c.key === MESSAGES)).toBe(true));
@@ -172,7 +172,7 @@ describe('assistant attachments', { timeout: 20_000 }, () => {
       expect(calls.filter((c) => c.key === 'POST /products/images')).toHaveLength(6),
     );
     await user.click(screen.getByRole('radio', { name: 'Tất cả là một sản phẩm' }));
-    const box = screen.getByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' });
+    const box = screen.getByRole('textbox', { name: 'Hỏi Rapiz Agent…' });
     await user.type(box, 'Một bộ váy');
     await user.click(screen.getByRole('button', { name: 'Gửi' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('tối đa 5 ảnh');

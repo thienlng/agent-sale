@@ -9,6 +9,19 @@ import type {
 export class MemoryVisitorStore implements VisitorStore {
   readonly rows = new Map<string, VisitorRecord>();
 
+  async forget(_ws: WorkspaceId, contactId: string, conversationIds: readonly string[]) {
+    let n = 0;
+    for (const [id, r] of this.rows)
+      if (
+        r.contactId === contactId ||
+        (r.conversationId !== null && conversationIds.includes(r.conversationId))
+      ) {
+        this.rows.delete(id);
+        n += 1;
+      }
+    return n;
+  }
+
   async recordMessage(
     ws: WorkspaceId,
     connectionId: string,

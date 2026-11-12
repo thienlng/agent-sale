@@ -43,7 +43,7 @@ const PAGES = [
   ['crm distribution', '/app/crm-settings/distribution', 'Cài đặt khách hàng'],
   ['members', '/app/members', 'Thành viên & quyền truy cập'],
   ['statistics', '/app/analytics', 'Khách hàng mới'],
-  // A queue heading: "Hôm nay" alone also names the sidebar entry.
+  // The old Today address opens the statistics page, queues on top.
   ['today', '/app/today', 'Phàn nàn / cần người'],
   ['ai settings', '/app/settings/brain', 'Chăm sóc tự động'],
   ['business profile', '/app/settings/profile', 'Thông tin business'],

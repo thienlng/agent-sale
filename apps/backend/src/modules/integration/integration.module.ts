@@ -6,11 +6,13 @@ import { DB_SYSTEM, DB_TENANT } from '../../common/db/db.module.js';
 import { SECRET_BOX, SecretBox } from '../../common/security/secret-box.js';
 import { CommerceModule } from '../commerce/commerce.module.js';
 import { CrmModule } from '../crm/crm.module.js';
+import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { INTEGRATION_FACADE } from './api/integration.facade.js';
 import { INTEGRATION_RUNNER } from './api/integration.runner.js';
 import { CatalogImport } from './application/catalog-import.js';
 import { CatalogWriter } from './application/catalog-writer.js';
 import { ConnectionService } from './application/connection.service.js';
+import { OnWorkspaceDeletionRequested } from './application/event-handlers/on-workspace-deletion-requested.handler.js';
 import { ContactPusher } from './application/contact-push.js';
 import { CustomerSync } from './application/customer-sync.js';
 import { IntegrationFacadeImpl } from './application/integration.facade.impl.js';
@@ -29,7 +31,7 @@ import { IntegrationController } from './interface/http/integration.controller.j
 
 /** Bind ports to adapters here. Export ONLY what api/ declares. */
 @Module({
-  imports: [CommerceModule, CrmModule],
+  imports: [CommerceModule, CrmModule, WorkspaceModule],
   controllers: [IntegrationController],
   providers: [
     { provide: INTEGRATION_FACADE, useClass: IntegrationFacadeImpl },
@@ -56,6 +58,7 @@ import { IntegrationController } from './interface/http/integration.controller.j
     },
     WebhookSet,
     ConnectionService,
+    OnWorkspaceDeletionRequested,
     CatalogWriter,
     CatalogImport,
     CustomerSync,

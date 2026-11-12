@@ -761,5 +761,20 @@
       "packages": "Package {{names}}",
       "call": "Call {{phone}}"
     }
+  },
+  "delete": {
+    "title": "Delete property",
+    "hint": "Only a property that has never had a booking can be deleted. Pause a property with bookings instead.",
+    "action": "Delete property",
+    "confirmTitle": "Delete property {{name}}?",
+    "confirmBody": "The property, its rooms, rates, night notes and media list are deleted for good, and the bot stops offering it. This cannot be undone.",
+    "confirm": "Delete for good",
+    "deleting": "Deleting…",
+    "cancel": "Cancel",
+    "deleted": "Property {{name}} deleted.",
+    "hasBookings": "This property has bookings, so it cannot be deleted (its booking history is kept). Pause it: the bot stops offering it and past bookings stay.",
+    "hasBookingsPaused": "This property has bookings, so it cannot be deleted (its booking history is kept). It is paused, so the bot no longer offers it.",
+    "pauseInstead": "Pause property",
+    "paused": "Property {{name}} paused."
   }
 }

@@ -53,6 +53,11 @@ export interface AssistantFacade {
     threadId: string,
     patch: UpdateAssistantThreadRequest,
   ): Promise<AssistantThreadDto>;
+  /**
+   * Deletes the thread with its messages, runs, proposals and import batches. CONFLICT
+   * `thread_running` while the assistant is answering in it or one of its proposals is executing.
+   */
+  deleteThread(actor: AssistantActor, threadId: string): Promise<void>;
   /** Visible messages only (user, assistant, event); tool rows never leave the backend. */
   listMessages(actor: AssistantActor, threadId: string): Promise<AssistantMessageList>;
   /**
@@ -84,6 +89,16 @@ export interface AssistantFacade {
    * (and origin) back, an entry it added is forgotten. NOT_FOUND for an unknown store or entry.
    */
   undoLearnedMemory(
+    actor: AssistantActor,
+    store: string,
+    entryId: string,
+  ): Promise<AssistantMemoryDto>;
+  /**
+   * The owner approves a memory entry waiting for approval (saved by the review, or by a chat turn
+   * after it read tool output), so the assistant uses it from the next prompt on. Approving an
+   * approved entry is a no-op; NOT_FOUND for an unknown store or entry. Rejecting is `deleteMemoryEntry`.
+   */
+  approveMemoryEntry(
     actor: AssistantActor,
     store: string,
     entryId: string,

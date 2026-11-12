@@ -50,7 +50,8 @@ export const Route = createFileRoute('/app')({
       useBookingReviewCount({
         enabled: workspace.data?.industry === 'hotel' && canViewBookings,
       }).data?.pending ?? 0;
-    // Today's badge: the counts only (`GET /today/counts`, every 3 minutes and on focus).
+    // Today's badge on "Thống kê", which opens with "Việc hôm nay": the counts only
+    // (`GET /today/counts`, every 3 minutes and on focus).
     const todayCount = useTodayCount({ enabled: Boolean(workspace.data) });
     return (
       <AppShell
@@ -67,7 +68,10 @@ export const Route = createFileRoute('/app')({
         // instead of flashing retail ones; without a business (or on error) it falls back to retail.
         industry={workspace.data?.industry ?? (workspace.isLoading ? undefined : '')}
         navCounts={{
-          '/app/today': { count: todayCount, label: t('nav.todayWaiting', { count: todayCount }) },
+          '/app/analytics': {
+            count: todayCount,
+            label: t('nav.analyticsWaiting', { count: todayCount }),
+          },
           '/app/bookings': {
             count: pendingHolds,
             label: t('nav.pendingBotHolds', { count: pendingHolds }),
