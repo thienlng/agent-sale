@@ -25,13 +25,15 @@ export const Route = createFileRoute('/app/analytics')({
     const group = industryGroup(workspace.data?.industry);
     // One period for the page (MS-23, TM-12): "Rapiz đã mang lại" follows the report's dates,
     // and a range it cannot count (custom dates) shows its 30 days, which its text names.
+    // While the business loads its group is unknown: an empty strip waits instead of flashing
+    // the shop's "Chưa có đơn nào…" to a spa or school (MS2-9).
     const impactRange = impactRangeOf(resolveFilters(search)) ?? '30d';
     return (
       // A hotel's sales are stay bookings: "Rapiz đã mang lại" counts them as such.
       <TodayPage
         title={t('analytics.title')}
         bookings={group === 'hotel'}
-        service={group === 'service'}
+        service={group === 'service' || group === undefined}
         impactRange={impactRange}
       >
         <StatisticsReport

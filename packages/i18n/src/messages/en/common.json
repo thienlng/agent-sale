@@ -1012,7 +1012,7 @@
       "title": "Service details",
       "hint": "The bot uses these details to advise customers. Services have no stock.",
       "retail": "This is a retail product",
-      "retailHint": "Turn on for goods with stock, such as cosmetics or textbooks. The bot then sells it as a regular product.",
+      "retailHint": "Turn on for goods with stock, such as cosmetics, books or tools. The bot then sells it as a regular product.",
       "durationMinutes": "Length per session (minutes)",
       "sessions": "Sessions",
       "period": "Total length",

@@ -108,6 +108,9 @@ export function ProductOfferingEditor({
   const label = tr;
   // A spa service has no level; it stays visible only when one was already saved.
   const showLevel = kind === 'course' || Boolean(value.level.trim());
+  // A spa service happens at the venue: only courses offer online or hybrid (MS2-9), unless a
+  // stored service already says so.
+  const formats = FORMATS.filter((f) => kind === 'course' || f === 'offline' || f === value.format);
   const set = (patch: Partial<OfferingDraft>) => onChange({ ...value, ...patch });
   const text = (
     key: 'period' | 'level' | 'audience' | 'priceNote',
@@ -184,7 +187,7 @@ export function ProductOfferingEditor({
               value={value.format ?? NO_FORMAT}
               onValueChange={(v) => set({ format: v === NO_FORMAT ? null : (v as Format) })}
             >
-              {[NO_FORMAT, ...FORMATS].map((f) => (
+              {[NO_FORMAT, ...formats].map((f) => (
                 <label key={f} className="flex items-center gap-2 text-sm">
                   <RadioGroupItem value={f} />
                   {tr(`formats.${f}`)}

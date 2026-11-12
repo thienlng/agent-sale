@@ -95,6 +95,18 @@ describe('ProductsList', () => {
     expect(row).not.toHaveTextContent('KiotViet');
   });
 
+  it("shows a service's package count only from two packages (MS2-9)", async () => {
+    const one = { ...product('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f21', 'DV21', 'Gội đầu', false) };
+    const { fetchStub } = stubFetch({
+      'GET /products?status=active&page=1&pageSize=20': page([one]),
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <ProductsList offeringKind="service" />);
+    await screen.findByText('Gội đầu');
+    expect(screen.queryByRole('columnheader', { name: 'Số gói' })).toBeNull();
+    expect(screen.queryByText(/gói$/)).toBeNull();
+  });
+
   it('shows the length and sessions of a course or service instead of its stock', async () => {
     const offering = (o: Record<string, unknown>) => ({
       kind: 'service',
@@ -168,8 +180,9 @@ describe('ProductsList', () => {
     });
     vi.stubGlobal('fetch', fetchStub);
     renderWithRouter(() => <ProductsList offeringKind="course" />);
+    // Every course has a single package here, so the package column is hidden (MS2-9).
     const price = (name: string) =>
-      within(screen.getByText(name).closest('tr') as HTMLElement).getAllByRole('cell')[3];
+      within(screen.getByText(name).closest('tr') as HTMLElement).getAllByRole('cell')[2];
     await screen.findByText('Starters');
     expect(price('Starters')).toHaveTextContent(/^Liên hệ$/);
     expect(price('Movers')).toHaveTextContent(/^theo lộ trình$/);

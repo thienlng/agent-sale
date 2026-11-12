@@ -154,6 +154,15 @@ export function ProductsList({
       ? `${t('products.col.available')} / ${t('commerce.offering.col')}`
       : t('products.col.available');
   const isMobile = useIsMobile();
+  // A service with one package says nothing about packages (MS2-9): the count shows from two,
+  // and the column only when a listed service has several.
+  const packages = (p: ProductDto) =>
+    offeringKind && p.variants.length <= 1
+      ? null
+      : t(catalogKey(offeringKind, 'variantsCount', 'products.variantsCount'), {
+          count: p.variants.length,
+        });
+  const showPackages = !offeringKind || (data?.data.some((p) => p.variants.length > 1) ?? false);
   const stockCell = (p: ProductDto) =>
     p.offering || offeringKind ? (p.offering ? offeringLength(p.offering, t) : '—') : null;
   const openProduct = (id: string) =>
@@ -251,10 +260,7 @@ export function ProductsList({
                           {p.name}
                         </span>
                         <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                          {p.code} ·{' '}
-                          {t(catalogKey(offeringKind, 'variantsCount', 'products.variantsCount'), {
-                            count: p.variants.length,
-                          })}
+                          {[p.code, packages(p)].filter(Boolean).join(' · ')}
                         </span>
                       </span>
                       <span className="flex max-w-[55%] shrink-0 flex-col items-end text-right">
@@ -294,7 +300,9 @@ export function ProductsList({
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
                   <TableHead>{t('products.col.code')}</TableHead>
                   <TableHead>{word('colName', 'products.col.name')}</TableHead>
-                  <TableHead>{word('colVariants', 'products.col.variants')}</TableHead>
+                  {showPackages ? (
+                    <TableHead>{word('colVariants', 'products.col.variants')}</TableHead>
+                  ) : null}
                   <TableHead className="text-right">{t('products.col.price')}</TableHead>
                   <TableHead className="text-right">{stockHeader}</TableHead>
                 </TableRow>
@@ -332,11 +340,9 @@ export function ProductsList({
                             ) : null}
                           </span>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {t(catalogKey(offeringKind, 'variantsCount', 'products.variantsCount'), {
-                            count: p.variants.length,
-                          })}
-                        </TableCell>
+                        {showPackages ? (
+                          <TableCell className="text-muted-foreground">{packages(p)}</TableCell>
+                        ) : null}
                         <TableCell className="text-right tabular-nums">
                           {priceLabel(p, Boolean(offeringKind), t)}
                         </TableCell>

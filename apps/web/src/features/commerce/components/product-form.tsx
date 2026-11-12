@@ -229,7 +229,8 @@ export function ProductForm({
               name: 'format',
               label: offeringLabel('format'),
               type: 'select',
-              options: [...FORMATS],
+              // A spa service happens at the venue (MS2-9).
+              options: offeringKey === 'course' ? [...FORMATS] : ['offline'],
               empty: !offering.format,
             },
             ...(offeringKey === 'course'
