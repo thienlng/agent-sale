@@ -20,6 +20,10 @@ const SNAP = {
 };
 // 07:05 UTC = 14:05 in Asia/Ho_Chi_Minh, on 2026-11-02.
 const AT = new Date('2026-11-02T07:05:00.000Z');
+/** `<current_time>` of AT: 14:05 on Monday 2 November in Asia/Ho_Chi_Minh (AS-4). */
+const NOW =
+  '<current_time>2026-11-02 14:05 Monday (Asia/Ho_Chi_Minh, +07:00); this week 2026-11-02..2026-11-08; ' +
+  'next week 2026-11-09..2026-11-15; this month 2026-11-01..2026-11-30</current_time>';
 
 const entry = (text: string) => ({
   id: text,
@@ -218,7 +222,7 @@ describe('buildTurnMessage', () => {
       ),
     ).toBe(
       '<page_context>{"route":"/app/products","targets":["products.import"]}</page_context>\n' +
-        '<current_time>14:05</current_time>\n' +
+        `${NOW}\n` +
         'Có mấy sản phẩm chưa có ảnh?',
     );
   });
@@ -273,13 +277,11 @@ describe('buildTurnMessage', () => {
     expect(buildTurnMessage('Chào em', { route: '/app' }, AT, B1)).toBe(
       '<page_context>{"route":"/app"}</page_context>\n' +
         `<current_business>${B1}</current_business>\n` +
-        '<current_time>14:05</current_time>\nChào em',
+        `${NOW}\nChào em`,
     );
   });
 
   it('leaves the page context line out when there is none', () => {
-    expect(buildTurnMessage('Chào em', undefined, AT)).toBe(
-      '<current_time>14:05</current_time>\nChào em',
-    );
+    expect(buildTurnMessage('Chào em', undefined, AT)).toBe(`${NOW}\nChào em`);
   });
 });

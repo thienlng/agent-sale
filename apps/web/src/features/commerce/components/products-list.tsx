@@ -1,4 +1,4 @@
-import type { OfferingDetails } from '@agent-sales/contracts';
+import type { OfferingDetails, ProductDto } from '@agent-sales/contracts';
 import { Link, useNavigate } from '@tanstack/react-router';
 import type { TFunction } from 'i18next';
 import { ChevronLeft, ChevronRight, Package, Plus, RefreshCw, Search, X } from 'lucide-react';
@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { formatNumber, formatRelativeTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useCan } from '@/lib/permissions';
@@ -145,6 +146,18 @@ export function ProductsList({
   const data = products.data;
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   const anyOffering = data?.data.some((p) => p.offering) ?? false;
+  // A course or service has a length, not a stock: an education or spa business never reads
+  // "Có thể bán" (MS-24); a shop that also sells a few offerings reads both.
+  const stockHeader = offeringKind
+    ? t('commerce.offering.col')
+    : anyOffering
+      ? `${t('products.col.available')} / ${t('commerce.offering.col')}`
+      : t('products.col.available');
+  const isMobile = useIsMobile();
+  const stockCell = (p: ProductDto) =>
+    p.offering || offeringKind ? (p.offering ? offeringLength(p.offering, t) : '—') : null;
+  const openProduct = (id: string) =>
+    void navigate({ to: '/app/products/$productId', params: { productId: id } });
 
   return (
     <section className="flex flex-col gap-5">
@@ -214,96 +227,150 @@ export function ProductsList({
         ) : null}
       </div>
 
-      <div className="overflow-hidden rounded-xl border">
-        <div className="overflow-x-auto">
-          <Table className="min-w-[720px]">
-            <TableHeader>
-              <TableRow className="bg-muted/40 hover:bg-muted/40">
-                <TableHead>{t('products.col.code')}</TableHead>
-                <TableHead>{word('colName', 'products.col.name')}</TableHead>
-                <TableHead>{t('products.col.variants')}</TableHead>
-                <TableHead className="text-right">{t('products.col.price')}</TableHead>
-                <TableHead className="text-right">
-                  {anyOffering
-                    ? `${t('products.col.available')} / ${t('commerce.offering.col')}`
-                    : t('products.col.available')}
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {products.isPending
-                ? Array.from({ length: 5 }, (_, i) => (
-                    <TableRow key={i}>
-                      <TableCell colSpan={5}>
-                        <Skeleton className="h-8" />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                : data?.data.map((p) => (
-                    <TableRow
-                      key={p.id}
-                      className="cursor-pointer"
-                      onClick={() =>
-                        void navigate({
-                          to: '/app/products/$productId',
-                          params: { productId: p.id },
-                        })
-                      }
+      {isMobile ? (
+        // On a phone the table would hide the price behind a sideways scroll (MS-29): one card
+        // per product with its name, code, price and stock or length.
+        <ul className="flex flex-col divide-y overflow-hidden rounded-xl border">
+          {products.isPending
+            ? Array.from({ length: 5 }, (_, i) => (
+                <li key={i} className="p-3">
+                  <Skeleton className="h-10" />
+                </li>
+              ))
+            : data?.data.map((p) => {
+                const stock = stockCell(p);
+                return (
+                  <li key={p.id}>
+                    <Link
+                      to="/app/products/$productId"
+                      params={{ productId: p.id }}
+                      className="flex min-h-14 items-start gap-3 px-3 py-2.5 hover:bg-muted/40"
                     >
-                      <TableCell className="font-medium tabular-nums">
-                        <Link
-                          to="/app/products/$productId"
-                          params={{ productId: p.id }}
-                          className="text-brand-text hover:underline"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {p.code}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="max-w-80">
-                        <span className="flex items-center gap-2">
-                          <span className="truncate">{p.name}</span>
-                          {p.external ? (
-                            <Badge variant="outline">{t('products.sourceKiotviet')}</Badge>
-                          ) : null}
+                      <span className="min-w-0 flex-1">
+                        <span className="line-clamp-2 text-sm font-medium break-words">
+                          {p.name}
                         </span>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {t('products.variantsCount', { count: p.variants.length })}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {priceLabel(p, Boolean(offeringKind), t)}
-                      </TableCell>
-                      {p.offering || offeringKind ? (
-                        <TableCell className="text-right text-muted-foreground tabular-nums">
-                          {p.offering ? offeringLength(p.offering, t) : '—'}
-                        </TableCell>
-                      ) : (
-                        <TableCell
-                          className={cn(
-                            'text-right tabular-nums',
-                            p.available <= 0 && 'text-destructive',
-                          )}
-                        >
-                          {formatNumber(p.available)}
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-              {data && !data.data.length ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={5} className="py-14 text-center text-muted-foreground">
-                    <Package className="mx-auto mb-3 size-8 text-brand-text" aria-hidden />
-                    {q || status === 'archived' || (pmsLink && source !== 'all')
-                      ? word('empty', 'products.empty')
-                      : word('emptyStart', 'products.emptyStart')}
-                  </TableCell>
+                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                          {p.code} ·{' '}
+                          {t(catalogKey(offeringKind, 'variantsCount', 'products.variantsCount'), {
+                            count: p.variants.length,
+                          })}
+                        </span>
+                      </span>
+                      <span className="flex max-w-[55%] shrink-0 flex-col items-end text-right">
+                        <span className="text-sm font-medium tabular-nums">
+                          {priceLabel(p, Boolean(offeringKind), t)}
+                        </span>
+                        {stock === '—' ? null : (
+                          <span
+                            className={cn(
+                              'text-xs text-muted-foreground tabular-nums',
+                              stock === null && p.available <= 0 && 'text-destructive',
+                            )}
+                          >
+                            {stock ??
+                              `${t('products.col.available')}: ${formatNumber(p.available)}`}
+                          </span>
+                        )}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+          {data && !data.data.length ? (
+            <li className="py-14 text-center text-sm text-muted-foreground">
+              <Package className="mx-auto mb-3 size-8 text-brand-text" aria-hidden />
+              {q || status === 'archived' || (pmsLink && source !== 'all')
+                ? word('empty', 'products.empty')
+                : word('emptyStart', 'products.emptyStart')}
+            </li>
+          ) : null}
+        </ul>
+      ) : (
+        <div className="overflow-hidden rounded-xl border">
+          <div className="overflow-x-auto">
+            <Table className="min-w-[720px]">
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead>{t('products.col.code')}</TableHead>
+                  <TableHead>{word('colName', 'products.col.name')}</TableHead>
+                  <TableHead>{word('colVariants', 'products.col.variants')}</TableHead>
+                  <TableHead className="text-right">{t('products.col.price')}</TableHead>
+                  <TableHead className="text-right">{stockHeader}</TableHead>
                 </TableRow>
-              ) : null}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {products.isPending
+                  ? Array.from({ length: 5 }, (_, i) => (
+                      <TableRow key={i}>
+                        <TableCell colSpan={5}>
+                          <Skeleton className="h-8" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  : data?.data.map((p) => (
+                      <TableRow
+                        key={p.id}
+                        className="cursor-pointer"
+                        onClick={() => openProduct(p.id)}
+                      >
+                        <TableCell className="font-medium tabular-nums">
+                          <Link
+                            to="/app/products/$productId"
+                            params={{ productId: p.id }}
+                            className="text-brand-text hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {p.code}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="max-w-80">
+                          <span className="flex items-center gap-2">
+                            <span className="truncate">{p.name}</span>
+                            {p.external ? (
+                              <Badge variant="outline">{t('products.sourceKiotviet')}</Badge>
+                            ) : null}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {t(catalogKey(offeringKind, 'variantsCount', 'products.variantsCount'), {
+                            count: p.variants.length,
+                          })}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {priceLabel(p, Boolean(offeringKind), t)}
+                        </TableCell>
+                        {stockCell(p) !== null ? (
+                          <TableCell className="text-right text-muted-foreground tabular-nums">
+                            {stockCell(p)}
+                          </TableCell>
+                        ) : (
+                          <TableCell
+                            className={cn(
+                              'text-right tabular-nums',
+                              p.available <= 0 && 'text-destructive',
+                            )}
+                          >
+                            {formatNumber(p.available)}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                {data && !data.data.length ? (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={5} className="py-14 text-center text-muted-foreground">
+                      <Package className="mx-auto mb-3 size-8 text-brand-text" aria-hidden />
+                      {q || status === 'archived' || (pmsLink && source !== 'all')
+                        ? word('empty', 'products.empty')
+                        : word('emptyStart', 'products.emptyStart')}
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
+          </div>
         </div>
-      </div>
+      )}
 
       {data && data.total > data.pageSize ? (
         <div className="flex items-center justify-end gap-2">

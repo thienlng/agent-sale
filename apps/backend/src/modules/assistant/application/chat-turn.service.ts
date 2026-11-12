@@ -44,6 +44,7 @@ import { ASSISTANT_SQL_RUNNER, type SqlRunner } from '../domain/ports/sql-runner
 import { CompactionService, threadCacheKey } from './compaction.service.js';
 import { CORE_TOOL_DEFINITIONS, coreTools, type ToolContext } from './core-tools.js';
 import { DELEGATION_MARGIN_SECONDS, delegatedAuthorization } from './delegated-authorization.js';
+import { withLocalTimes } from './local-time-tools.js';
 import { buildImportBlock } from './import-block.js';
 import { IMPORT_TOOL_DEFINITIONS, importTools } from './import-tools.js';
 import { isVisibleMessage } from './mappers.js';
@@ -448,7 +449,8 @@ export class ChatTurnService {
         tools: withTurnOutputBudget(
           // Once a tool returned data this turn, memory writes wait for the owner's approval.
           taintOnToolOutput(
-            [
+            // Instants in every tool result read on the owner's clock (AS-3).
+            withLocalTimes([
               ...coreTools(ctx),
               memoryTool({ scope, repo: this.repo, tainted: () => turnTaint.tainted }),
               // skill_manage as the chat actor; patches need a load_skill in this same turn.
@@ -495,7 +497,7 @@ export class ChatTurnService {
                     }),
                   ]
                 : []),
-            ].filter((tool) => !off.has(tool.name)),
+            ]).filter((tool) => !off.has(tool.name)),
             turnTaint,
           ),
         ),

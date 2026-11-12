@@ -8,6 +8,7 @@ import { type AssistantPageContext, SECRET_IN_DRAFT } from '@agent-sales/contrac
 import { newId } from '@agent-sales/shared';
 import { z } from 'zod';
 
+import { utcInstants } from '../domain/local-time.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
 import type { AssistantRepository } from '../domain/ports/assistant.repository.js';
 import type { RouteInvoker } from '../domain/ports/route-invoker.port.js';
@@ -206,7 +207,8 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
     }
     let query: Record<string, string | string[]> | undefined;
     if (entry.query) {
-      query = queryStrings(input.query ?? {});
+      // The model reads instants on the owner's clock (+07:00, AS-3); routes take UTC.
+      query = utcInstants(queryStrings(input.query ?? {})) as Record<string, string | string[]>;
       const parsed = entry.query.safeParse(query);
       if (!parsed.success) {
         return { ok: false, errorCode: 'invalid_input', extra: { issues: issuesOf(parsed.error) } };
@@ -216,7 +218,7 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
     // proposal (a narrowed, strict schema rejects them; others strip them).
     let body: unknown;
     if (entry.body) {
-      const parsed = entry.body.safeParse(input.body);
+      const parsed = entry.body.safeParse(utcInstants(input.body));
       if (!parsed.success) {
         const errorCode = parsed.error.issues.some((i) => i.message === SECRET_IN_DRAFT)
           ? SECRET_IN_DRAFT

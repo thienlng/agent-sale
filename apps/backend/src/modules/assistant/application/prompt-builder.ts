@@ -7,6 +7,7 @@ import {
 import { AssistantPageContext } from '@agent-sales/contracts';
 
 import { renderDashboardMap } from '../domain/dashboard-map.js';
+import { describeNow } from '../domain/local-time.js';
 import { compareStores, memoryLimit, memoryUsed } from '../domain/memory-store.js';
 import type { MemoryEntry, MemoryStoreRecord } from '../domain/ports/assistant.repository.js';
 
@@ -32,12 +33,6 @@ const DAY = new Intl.DateTimeFormat('en-CA', {
   day: '2-digit',
 });
 
-const CLOCK = new Intl.DateTimeFormat('en-GB', {
-  timeZone: 'Asia/Ho_Chi_Minh',
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-});
 const PAGE_KEYS = Object.keys(AssistantPageContext.shape) as (keyof AssistantPageContext)[];
 
 /** The frozen tier of the prompt: the skills index and the memory snapshot. */
@@ -127,7 +122,8 @@ export function loadThreadTemplate(promptVersion: string): Promise<string> {
 /**
  * What the model sees as the owner's latest message: the page they are on (JSON, keys in the
  * schema's order), the business the owner is on now (`<current_business>` id), the local time
- * (Asia/Ho_Chi_Minh, HH:mm), then their text. A message that carries a product import gets its
+ * (`describeNow`: date, time, weekday and the week and month ranges in Asia/Ho_Chi_Minh, AS-4),
+ * then their text. A message that carries a product import gets its
  * `<import_batch>` block (already escaped) right after `<current_business>`. Only the last
  * user message gets this; history keeps the raw text, so earlier turns stay cache-stable. Pure.
  */
@@ -148,6 +144,6 @@ export function buildTurnMessage(
   }
   if (currentBusinessId) lines.push(`<current_business>${currentBusinessId}</current_business>`);
   if (importBlock) lines.push(importBlock);
-  lines.push(`<current_time>${CLOCK.format(now)}</current_time>`, text);
+  lines.push(`<current_time>${describeNow(now)}</current_time>`, text);
   return lines.join('\n');
 }

@@ -2,7 +2,12 @@ import { newId, userId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import { ROUTE_CATALOG, type RouteCatalog, searchCatalog } from '../application/route-catalog.js';
+import {
+  type CatalogEntry,
+  ROUTE_CATALOG,
+  type RouteCatalog,
+  searchCatalog,
+} from '../application/route-catalog.js';
 import {
   FORBIDDEN_MESSAGE,
   MAX_PENDING_PROPOSALS,
@@ -437,6 +442,45 @@ describe('tool_call', () => {
       preview: { body: PRODUCT, query: null },
     });
     expect(stored?.expiresAt.getTime()).toBe(NOW.getTime() + PROPOSAL_TTL_MS);
+  });
+
+  it('turns the local instants the model writes back into UTC (AS-3)', async () => {
+    const write: CatalogEntry = {
+      key: 'POST /holds',
+      use: 'write',
+      summary: 'Extend a hold',
+      when: 'extend a hold',
+      method: 'post',
+      path: '/holds',
+      pathParams: [],
+      body: z.object({ holdExpiresAt: z.iso.datetime() }),
+    };
+    const read: CatalogEntry = {
+      key: 'GET /holds',
+      use: 'read',
+      summary: 'Holds',
+      when: 'list holds',
+      method: 'get',
+      path: '/holds',
+      pathParams: [],
+      query: z.object({ from: z.iso.datetime().optional() }),
+    };
+    const catalog: RouteCatalog = {
+      ...ROUTE_CATALOG,
+      entries: [write, read],
+      get: (key) => [write, read].find((e) => e.key === key),
+      readerOf: () => undefined,
+    };
+    const t = await setup(undefined, undefined, catalog);
+    await t.call({
+      key: 'POST /holds',
+      body: { holdExpiresAt: '2026-11-13T03:05:39+07:00' },
+      summary: 'Gia hạn giữ chỗ',
+    });
+    const [stored] = await t.repo.listProposals(t.scope, t.thread.id);
+    expect(stored?.body).toEqual({ holdExpiresAt: '2026-11-12T20:05:39.000Z' });
+    await t.call({ key: 'GET /holds', query: { from: '2026-11-16T00:00:00+07:00' } });
+    expect(t.invoke.mock.calls[0]?.[0].query).toEqual({ from: '2026-11-15T17:00:00.000Z' });
   });
 
   it('stores the parsed body of every write: unknown keys never reach the proposal', async () => {
