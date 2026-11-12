@@ -265,3 +265,18 @@ export function useForgetAssistantMemory() {
     onSuccess: (memory) => queryClient.setQueryData(assistantKeys.memory(ws), memory),
   });
 }
+
+/** Approve an entry waiting for approval, so the assistant uses it; answers with the memory. */
+export function useApproveAssistantMemory() {
+  const ws = useWorkspaceId();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ store, entryId }: { store: string; entryId: string }) =>
+      api(
+        `/assistant/memory/${encodeURIComponent(store)}/entries/${encodeURIComponent(entryId)}/approve`,
+        AssistantMemoryDto,
+        { method: 'POST', body: {}, workspaceId: ws },
+      ),
+    onSuccess: (memory) => queryClient.setQueryData(assistantKeys.memory(ws), memory),
+  });
+}

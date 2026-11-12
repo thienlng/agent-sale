@@ -155,7 +155,16 @@
     "confirmYes": "Quên",
     "confirmNo": "Giữ lại",
     "forgotten": "Đã quên mục này.",
-    "forgetError": "Không xoá được. Thử lại."
+    "forgetError": "Không xoá được. Thử lại.",
+    "pending": "Chờ anh/chị duyệt",
+    "origin": {
+      "owner": "Anh/chị tự thêm",
+      "assistant": "Lưu trong lúc trò chuyện",
+      "review": "Học được sau cuộc trò chuyện"
+    },
+    "approve": "Duyệt",
+    "approved": "Đã duyệt. Trợ lý sẽ dùng mục này.",
+    "approveError": "Không duyệt được. Thử lại."
   },
   "showSkills": "Kỹ năng của trợ lý",
   "showSettings": "Cài đặt trợ lý",

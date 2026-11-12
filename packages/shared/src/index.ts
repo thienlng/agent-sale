@@ -9,3 +9,4 @@ export * from './order-amounts.js';
 export * from './local-time.js';
 export * from './reply-split.js';
 export * from './vi-date.js';
+export * from './figures.js';

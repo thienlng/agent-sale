@@ -1,3 +1,4 @@
+import { ungroundedFigures } from '@agent-sales/shared';
 import { z } from 'zod';
 
 import { CARE_MESSAGE_MAX_CHARS, type MessageTemplate } from './care.js';
@@ -69,12 +70,15 @@ const HCM_OFFSET_MS = 7 * 3_600_000;
 const localTime = (iso: string) =>
   new Date(Date.parse(iso) + HCM_OFFSET_MS).toISOString().slice(0, 16).replace('T', ' ');
 
-/** One line inside a data fence: whitespace collapsed, fence marks broken up. */
+/**
+ * One line inside a data fence: whitespace collapsed, `<` escaped (no fence open, no tag that
+ * looks like the system's) and `>>>` broken up, so customer text cannot leave the fence.
+ */
 export function fenceSafe(text: string): string {
   return text
     .replace(/\s+/g, ' ')
     .trim()
-    .replace(/<{3,}/g, (m) => m.split('').join(' '))
+    .replaceAll('<', '&lt;')
     .replace(/>{3,}/g, (m) => m.split('').join(' '));
 }
 
@@ -119,4 +123,28 @@ export function buildWriterInput(input: {
     `NOTE:\n<<<\n${input.note ? fenceSafe(input.note) : '(none)'}\n>>>`,
     `MESSAGES (oldest first):\n<<<\n${lines.join('\n')}\n>>>`,
   ].join('\n\n');
+}
+
+/**
+ * The figures of a written follow-up that no trusted text vouches for (docs/06 §3.3): the shop's
+ * facts, the owner's instruction and what the shop already said (staff and bot messages). The
+ * customer's messages vouch only for non-money figures; the Brain's note (model text) for none.
+ * Only money and bare numbers ≥ 1000 count. A non-empty result turns an automatic send into a
+ * draft the owner approves.
+ */
+export function careUngroundedFigures(
+  text: string,
+  input: {
+    instruction: string;
+    facts: readonly { label: string; value: string }[];
+    messages: readonly { sender: 'customer' | 'human' | 'bot'; text: string }[];
+  },
+): string[] {
+  const trusted = [
+    input.instruction,
+    ...input.facts.map((f) => `${f.label}: ${f.value}`),
+    ...input.messages.filter((m) => m.sender !== 'customer').map((m) => m.text),
+  ];
+  const customer = input.messages.filter((m) => m.sender === 'customer').map((m) => m.text);
+  return ungroundedFigures(text, trusted, customer, { risky: true });
 }

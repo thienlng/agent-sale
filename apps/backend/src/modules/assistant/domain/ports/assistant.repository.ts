@@ -165,6 +165,14 @@ export interface MemoryEntry {
    */
   previousText?: string;
   previousOrigin?: MemoryOrigin;
+  /** The previous text was itself still waiting for the owner's approval. */
+  previousPending?: true;
+  /**
+   * Waiting for the owner's approval: written by the background review, or by a chat turn that
+   * had already read tool output (data that may carry injected text). Shown in the memory UI,
+   * counted in the store's use, never rendered into a prompt until approved.
+   */
+  pending?: true;
 }
 
 /**
