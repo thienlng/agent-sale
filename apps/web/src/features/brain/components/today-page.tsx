@@ -1,4 +1,4 @@
-import type { TodayItem, TodayResponse } from '@agent-sales/contracts';
+import type { ImpactRange, TodayItem, TodayResponse } from '@agent-sales/contracts';
 import { AlertTriangle, CircleCheck, Info, Loader2, RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -73,9 +73,19 @@ export const SECTION_TITLE = 'text-lg font-semibold tracking-tight';
  */
 export function TodayPage({
   bookings = false,
+  service = false,
+  impactRange,
   title,
   children,
-}: { bookings?: boolean; title?: string; children?: ReactNode } = {}) {
+}: {
+  bookings?: boolean;
+  /** An education or spa business: "Rapiz đã mang lại" shows only once there is something. */
+  service?: boolean;
+  /** The period of the figures below, which "Rapiz đã mang lại" follows. */
+  impactRange?: ImpactRange | undefined;
+  title?: string;
+  children?: ReactNode;
+} = {}) {
   const { t, i18n } = useTranslation('brain');
   const session = useSession();
   const business = session?.memberships.find((m) => m.workspaceId === session.workspaceId);
@@ -178,7 +188,9 @@ export function TodayPage({
               {t('today.manualHint')}
             </p>
           ) : null}
-          {canSeeImpact ? <ImpactStrip bookings={bookings} /> : null}
+          {canSeeImpact ? (
+            <ImpactStrip bookings={bookings} range={impactRange} hideWhenEmpty={service} />
+          ) : null}
         </div>
       ) : null}
 

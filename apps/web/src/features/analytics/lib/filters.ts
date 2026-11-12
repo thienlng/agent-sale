@@ -116,3 +116,18 @@ export function toSearch(f: Filters, today = new Date()): FiltersSearch {
     ...(f.pages.length ? { pages: f.pages } : {}),
   };
 }
+
+/**
+ * The "Rapiz đã mang lại" period that matches the report's dates: today, the last 7 or the last
+ * 30 days (the presets); null for any other range. The statistics page has one period (MS-23).
+ */
+export function impactRangeOf(
+  f: Pick<Filters, 'from' | 'to'>,
+  today = new Date(),
+): 'today' | '7d' | '30d' | null {
+  if (f.to !== isoDate(today)) return null;
+  if (f.from === f.to) return 'today';
+  if (f.from === daysAgo(6, today)) return '7d';
+  if (f.from === daysAgo(29, today)) return '30d';
+  return null;
+}

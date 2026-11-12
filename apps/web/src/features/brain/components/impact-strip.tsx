@@ -35,15 +35,26 @@ function isEmpty(r: ImpactResponse): boolean {
  * AI alone vs AI + staff, for today / 7 days / 30 days. Whole-business figures, so only roles
  * with `analytics.view` and `contacts.view_all` see it (the page decides). Nothing yet: a short
  * explainer instead of zeros; follow-ups but no sale yet: the follow-ups lead. A hotel's sales
- * are stay bookings (`bookings`).
+ * are stay bookings (`bookings`). On the statistics page the period is the report's (`range`).
  */
-export function ImpactStrip({ bookings = false }: { bookings?: boolean }) {
+export function ImpactStrip({
+  bookings = false,
+  range: fixedRange,
+  hideWhenEmpty = false,
+}: {
+  bookings?: boolean;
+  /** The page's period: the strip follows it and offers no picker of its own (MS-23, TM-12). */
+  range?: ImpactRange | undefined;
+  /** An education or spa business records requests, not orders: an empty strip says nothing. */
+  hideWhenEmpty?: boolean;
+}) {
   const { t } = useTranslation('brain');
-  const [range, setRange] = useState<ImpactRange>('30d');
+  const [ownRange, setRange] = useState<ImpactRange>('30d');
+  const range = fixedRange ?? ownRange;
   const impact = useImpact(range);
   const money = useMoney();
   const r = impact.data;
-  if (impact.isError) return null;
+  if (impact.isError || (hideWhenEmpty && r && isEmpty(r))) return null;
   const orders = r ? r.ai.orders + r.aiStaff.orders : 0;
   const unit = bookings ? 'bookings' : 'orders';
   return (
@@ -93,21 +104,23 @@ export function ImpactStrip({ bookings = false }: { bookings?: boolean }) {
           )}
         </div>
       </div>
-      <ToggleGroup
-        type="single"
-        variant="outline"
-        size="sm"
-        className="ml-11 shrink-0 self-start sm:ml-0 sm:self-center"
-        value={range}
-        onValueChange={(v) => v && setRange(v as ImpactRange)}
-        aria-label={t('impact.range')}
-      >
-        {RANGES.map((k) => (
-          <ToggleGroupItem key={k} value={k}>
-            {t(`impact.ranges.${k}`)}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+      {fixedRange ? null : (
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          className="ml-11 shrink-0 self-start sm:ml-0 sm:self-center"
+          value={range}
+          onValueChange={(v) => v && setRange(v as ImpactRange)}
+          aria-label={t('impact.range')}
+        >
+          {RANGES.map((k) => (
+            <ToggleGroupItem key={k} value={k}>
+              {t(`impact.ranges.${k}`)}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      )}
     </section>
   );
 }
