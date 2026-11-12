@@ -8,8 +8,6 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useSession } from '@/lib/session';
-
 import { Button } from '@/components/ui/button';
 import { ApiClientError } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format';
@@ -65,16 +63,23 @@ const EVENT_METRICS: readonly MetricKey[] = [
   'messages.outbound',
 ];
 
-export function StatisticsPage({
+/**
+ * "Báo cáo", the figures of the statistics page: filters (kept in the URL by the route), the four
+ * primary numbers, the daily chart, "Phân tích chi tiết" and how fresh the data is. A section of
+ * the page, not a page: the route puts it under "Việc hôm nay". Renders nothing without
+ * `analytics.view` (and asks nothing).
+ */
+export function StatisticsReport({
   search,
   onSearch,
+  titleClassName = 'text-lg font-semibold tracking-tight',
 }: {
   search: FiltersSearch;
   onSearch: (next: FiltersSearch) => void;
+  /** The heading style, shared with the page's other sections. */
+  titleClassName?: string;
 }) {
   const { t } = useTranslation();
-  const session = useSession();
-  const business = session?.memberships.find((m) => m.workspaceId === session.workspaceId);
   const allowed = useCan('analytics.view');
   const canPickSales = useCan('contacts.view_all');
   const filters = resolveFilters(search);
@@ -117,14 +122,7 @@ export function StatisticsPage({
         : (pages.data?.find((x) => x.id === id)?.name ?? t('analytics.breakdowns.unknownPage')),
   };
 
-  if (!allowed) {
-    return (
-      <section className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">{t('analytics.title')}</h1>
-        <p className="text-muted-foreground">{t('analytics.states.forbidden')}</p>
-      </section>
-    );
-  }
+  if (!allowed) return null;
 
   const stateOf = (m: MetricKey): CardState => {
     if (defOf(m)?.availability === 'pending_source' || m === 'comments.received') {
@@ -194,11 +192,10 @@ export function StatisticsPage({
   const busy = [people, tagStatus, conversations].some((q) => q.isPlaceholderData);
 
   return (
-    <section className="flex flex-col gap-5">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{t('analytics.title')}</h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">{business?.workspaceName}</p>
-      </div>
+    <section aria-labelledby="analytics-figures-title" className="flex flex-col gap-4">
+      <h2 id="analytics-figures-title" className={titleClassName}>
+        {t('analytics.section')}
+      </h2>
 
       <FilterBar
         value={filters}

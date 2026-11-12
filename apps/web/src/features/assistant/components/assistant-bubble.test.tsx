@@ -55,21 +55,21 @@ describe('AssistantBubble launcher', () => {
   it('shows the launcher to an owner of the account that owns the business', async () => {
     state.session = sessionWith('owner', ACCOUNT);
     renderPage();
-    expect(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' })).toBeInTheDocument();
   });
 
   it('hides the launcher from a billing member of the account', async () => {
     state.session = sessionWith('billing', ACCOUNT);
     renderPage();
     await screen.findByText('page');
-    expect(screen.queryByRole('button', { name: 'Hỏi Thỏ Rapiz' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Hỏi Rapiz Agent' })).not.toBeInTheDocument();
   });
 
   it('hides the launcher when the business belongs to another account', async () => {
     state.session = sessionWith('owner', OTHER_ACCOUNT);
     renderPage();
     await screen.findByText('page');
-    expect(screen.queryByRole('button', { name: 'Hỏi Thỏ Rapiz' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Hỏi Rapiz Agent' })).not.toBeInTheDocument();
   });
 });
 
@@ -105,7 +105,7 @@ describe('AssistantBubble placement', () => {
       width: 380,
       height: 60,
     });
-    const launcher = await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' });
+    const launcher = await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' });
     // Above the composer's top edge, with a gap.
     await waitFor(() => expect(launcher.style.bottom).toBe('68px'));
   });
@@ -113,7 +113,7 @@ describe('AssistantBubble placement', () => {
   it('stays at rest when the marked control is elsewhere', async () => {
     const vh = window.innerHeight;
     await renderWith({ left: 0, right: 300, top: vh - 60, bottom: vh, width: 300, height: 60 });
-    const launcher = await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' });
+    const launcher = await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' });
     await new Promise((resolve) => requestAnimationFrame(resolve));
     expect(launcher.style.bottom).toBe('16px');
   });
@@ -121,7 +121,7 @@ describe('AssistantBubble placement', () => {
   it('reserves room under a padded page so its last button stays reachable', async () => {
     state.session = sessionWith('owner', ACCOUNT);
     renderPage();
-    await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' });
+    await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' });
     const spacer = document.querySelector('[data-assistant-spacer]');
     expect(spacer).toHaveClass('h-20');
     expect(spacer).toHaveAttribute('aria-hidden');
@@ -143,7 +143,7 @@ describe('AssistantBubble open requests', () => {
     });
     vi.stubGlobal('fetch', fetchStub);
     renderPage();
-    await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' });
+    await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' });
     act(() => requestAssistantOpen({ reportRunId: RUN }));
     await waitFor(() =>
       expect(useAssistantUi.getState()).toMatchObject({ open: true, threadId: thread.id }),
@@ -163,7 +163,7 @@ describe('AssistantBubble open requests', () => {
     });
     vi.stubGlobal('fetch', fetchStub);
     renderPage();
-    await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' });
+    await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' });
     act(() =>
       requestAssistantOpen({
         reportRunId: RUN,
@@ -198,7 +198,7 @@ describe('AssistantBubble dragging', () => {
 
   /** The launcher, laid out at its default place (jsdom has no layout). */
   async function launcher() {
-    const button = await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' });
+    const button = await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' });
     vi.spyOn(button, 'getBoundingClientRect').mockImplementation(() => {
       const right = vw() - (Number.parseFloat(button.style.right) || 16);
       const bottom = vh() - (Number.parseFloat(button.style.bottom) || 16);
@@ -247,7 +247,7 @@ describe('AssistantBubble dragging', () => {
 
     useAssistantUi.setState({ open: false });
     renderWithRouter(() => <AssistantBubble />);
-    const again = await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' });
+    const again = await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' });
     expect(again.style.right).toBe('116px');
     expect(again.style.bottom).toBe('216px');
   });

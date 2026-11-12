@@ -14,7 +14,7 @@ import type { MemoryEntry, MemoryStoreRecord } from '../domain/ports/assistant.r
  * The pinned assistant prompt for new threads (`packages/ai-core/prompts/assistant@2.md`).
  * `assistant@1.md` stays for threads created before it: a thread's prompt is frozen.
  */
-export const ASSISTANT_PROMPT = { name: 'assistant', version: 3 } as const satisfies PromptRef;
+export const ASSISTANT_PROMPT = { name: 'assistant', version: 4 } as const satisfies PromptRef;
 
 /** What the stable system prompt says about the account; nothing that changes per turn. */
 export interface AccountSnapshot {

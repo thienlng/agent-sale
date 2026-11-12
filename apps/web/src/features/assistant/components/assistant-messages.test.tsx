@@ -1,4 +1,5 @@
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { loadNamespace } from '@/lib/i18n';
@@ -43,5 +44,40 @@ describe('AssistantMessages charts', () => {
       await screen.findByText('Doanh thu theo ngày', undefined, { timeout: 10_000 }),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Xem bảng' })).toBeInTheDocument();
+  });
+});
+
+describe('AssistantMessages empty conversation', () => {
+  it('offers starter questions that send on click', async () => {
+    const onStarter = vi.fn();
+    renderWithProviders(
+      <AssistantMessages
+        messages={[]}
+        loading={false}
+        pendingTurn={null}
+        unavailable={false}
+        onStarter={onStarter}
+      />,
+    );
+    expect(
+      screen.getByText('Rapiz Agent — trợ lý vận hành cho chủ doanh nghiệp'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('list', { name: 'Nhóm tính năng của Rapiz Agent' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Quản lý và giám sát bot')).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Doanh thu từng shop tháng này so với tháng trước?',
+      }),
+    );
+    expect(onStarter).toHaveBeenCalledWith('Doanh thu từng shop tháng này so với tháng trước?');
+  });
+
+  it('disables the starters while a message is on its way', () => {
+    renderWithProviders(
+      <AssistantMessages messages={[]} loading={false} pendingTurn={null} unavailable={false} />,
+    );
+    for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled();
   });
 });

@@ -1,14 +1,14 @@
 {
   "app": {
     "name": "Rapiz",
-    "assistantLauncher": "Hỏi Thỏ Rapiz",
-    "assistantLauncherHint": "Hỏi Thỏ Rapiz · kéo để đổi chỗ",
+    "assistantLauncher": "Hỏi Rapiz Agent",
+    "assistantLauncherHint": "Hỏi Rapiz Agent · kéo để đổi chỗ",
     "assistantAskSample": "Nhờ trợ lý điền mẫu",
     "notifications": "Thông báo",
     "notificationsUnread": "Thông báo, {{count}} chưa đọc",
     "reportThreadError": "Không mở được báo cáo trong trợ lý. Thử lại.",
     "reportScheduleDeleted": "Lịch này đã bị xoá",
-    "assistantOwnersOnly": "Trợ lý Thỏ Rapiz chỉ dành cho chủ tài khoản."
+    "assistantOwnersOnly": "Trợ lý Rapiz Agent chỉ dành cho chủ tài khoản."
   },
   "nav": {
     "bots": "Đào tạo Bot",
@@ -56,9 +56,8 @@
     "accountOverview": "Tổng quan các business",
     "newBusiness": "Tạo business mới",
     "services": "Dịch vụ",
-    "assistant": "Trợ lý",
-    "today": "Hôm nay",
-    "todayWaiting_other": "{{count}} việc cần làm hôm nay"
+    "assistant": "Trợ lý cá nhân",
+    "analyticsWaiting_other": "{{count}} việc đang chờ"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -1634,6 +1633,7 @@
   },
   "analytics": {
     "title": "Thống kê",
+    "section": "Báo cáo",
     "subtitle": "Số liệu khách hàng, nhãn, trạng thái và hội thoại. Mỗi con số có định nghĩa rõ ràng — bấm vào dấu (i) để xem.",
     "filters": {
       "from": "Từ ngày",
@@ -1910,7 +1910,13 @@
       "clear": "Xóa bộ lọc",
       "open": "Mở business {{name}}",
       "createdOn": "Tạo ngày {{date}}",
-      "otherAccount": "Thuộc tài khoản {{name}}"
+      "otherAccount": "Thuộc tài khoản {{name}}",
+      "view": "Kiểu hiển thị",
+      "views": {
+        "list": "Danh sách",
+        "grid": "Lưới"
+      },
+      "loading": "Đang tải danh sách business…"
     }
   },
   "account": {

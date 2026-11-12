@@ -39,12 +39,11 @@ export const DASHBOARD_PAGES: readonly DashboardPage[] = [
     audience: 'all',
   },
   {
-    path: '/app/today',
+    path: '/app/analytics',
     purpose:
-      "what needs doing today: follow-up drafts awaiting approval, complaints, unanswered customers, ready to buy, price asked then silent, follow-ups, the user's due tasks; what the AI sent today; orders Rapiz brought in",
+      "statistics and what needs doing today (one page): follow-up drafts awaiting approval, complaints, unanswered customers, ready to buy, price asked then silent, follow-ups, the user's due tasks; what the AI sent today; orders Rapiz brought in; then the figures (new customers, conversations, phones, messages, tags and statuses) with date and channel filters",
     audience: 'all',
   },
-  { path: '/app/analytics', purpose: 'statistics', audience: 'all' },
   {
     path: '/app/inbox',
     purpose: 'conversations with customers (bot and staff)',

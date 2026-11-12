@@ -69,9 +69,9 @@ export function briefingTitle(
 /**
  * The morning briefing (spec §6), run by the worker's brain tick once a minute: for each business
  * whose briefing is on, during its local (Asia/Ho_Chi_Minh) `briefing_hour`, once a day, the owner
- * and the admins get Today's counts (in-app + push, to `/app/today`). Counts only, no model call;
- * a recipient whose counts are all zero gets nothing. The counts include the care agent's drafts
- * waiting for approval, and on a local Monday the body adds the 7-day "Rapiz đã mang lại" line
+ * and the admins get Today's counts (in-app + push, to `/app/analytics`, which holds "Việc hôm
+ * nay"). Counts only, no model call; a recipient whose counts are all zero gets nothing. The
+ * counts include the care agent's drafts waiting for approval, and on a local Monday the body adds the 7-day "Rapiz đã mang lại" line
  * (care module, ADR-031), which alone is reason enough to send. Each recipient is notified on their own (one
  * failing does not stop the others) and the day is taken only once every recipient was handled;
  * until then the next tick of the hour tries again, and the per-user dedup key keeps anyone from
@@ -172,7 +172,7 @@ export class Briefing {
           },
           title: briefingTitle(strings, counts, locale),
           body: (weekly ? `${body}\n${weekly}` : body).slice(0, 4000),
-          target: { kind: 'path', path: '/app/today' },
+          target: { kind: 'path', path: '/app/analytics' },
           channels: ['in_app', 'push'],
           dedupKey: `today.briefing:${ws}:${day}`,
         });

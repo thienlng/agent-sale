@@ -36,6 +36,12 @@ export const PREFERENCES = {
     defaultValue: 'sticky',
     attribute: 'data-navbar-style',
   },
+  /** "My businesses" (`/app/businesses`): rows or cards. */
+  business_view: {
+    values: ['list', 'grid'],
+    defaultValue: 'list',
+    attribute: 'data-business-view',
+  },
 } as const;
 
 export type PreferenceKey = keyof typeof PREFERENCES;

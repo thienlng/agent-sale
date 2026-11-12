@@ -14,6 +14,7 @@ import {
   useAssistantMemory,
   useForgetAssistantMemory,
 } from '../api/assistant';
+import { ViewHeader } from './view-header';
 
 /** `owner_profile` and `notes` have translated names; a business store carries its name. */
 function useStoreLabel(store: AssistantMemoryStoreDto): string {
@@ -29,7 +30,7 @@ function MemoryEntry({ store, entry }: { store: string; entry: AssistantMemoryEn
   const forget = useForgetAssistantMemory();
   const approve = useApproveAssistantMemory();
   return (
-    <li className="flex flex-col gap-2 rounded-lg border px-3 py-2">
+    <li className="flex flex-col gap-2 rounded-xl border bg-card px-4 py-3">
       <div className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p className="text-sm break-words whitespace-pre-line">{entry.text}</p>
@@ -145,8 +146,7 @@ export function AssistantMemory() {
   const memory = useAssistantMemory();
   return (
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
-      <h2 className="font-semibold">{t('memory.title')}</h2>
-      <p className="mt-1 text-sm text-muted-foreground">{t('memory.hint')}</p>
+      <ViewHeader title={t('memory.title')} hint={t('memory.hint')} />
       {memory.isPending ? (
         <div className="mt-4 flex flex-col gap-3">
           <Skeleton className="h-16" />
@@ -157,7 +157,7 @@ export function AssistantMemory() {
           {t('loadError')}
         </p>
       ) : (
-        <div className="mt-4 flex flex-col gap-5">
+        <div className="mt-6 flex flex-col gap-6">
           {memory.data.stores.map((store) => (
             <MemoryStore key={store.store} store={store} />
           ))}
