@@ -1,5 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router';
-import { LayoutDashboard, Plus, Sparkles, Store } from 'lucide-react';
+import { BrainCircuit, LayoutDashboard, Plus, Store } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { ADMIN_NAV } from '@/components/layout/admin-nav';
@@ -82,7 +82,7 @@ export function AccountSidebar() {
                     isActive={pathname === '/app/assistant'}
                   >
                     <Link to="/app/assistant" onClick={close}>
-                      <Sparkles />
+                      <BrainCircuit />
                       <span>{t('nav.assistant')}</span>
                     </Link>
                   </SidebarMenuButton>

@@ -247,6 +247,6 @@ describe('AppSidebar', () => {
     owner.value = true;
     renderAt('/app/orders');
     expect(await screen.findByRole('link', { name: 'Thống kê' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Trợ lý' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Trợ lý cá nhân' })).toBeNull();
   });
 });

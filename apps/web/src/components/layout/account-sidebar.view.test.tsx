@@ -110,16 +110,16 @@ describe('AccountSidebar', () => {
   it('hides the owner assistant from members who do not own the account', async () => {
     renderAt('/app/overview');
     expect(await screen.findByRole('link', { name: 'Tổng quan các business' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Trợ lý' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Trợ lý cá nhân' })).toBeNull();
   });
 
   it('marks the assistant page for an account owner', async () => {
     owner.value = true;
     renderAt('/app/assistant');
-    const link = await screen.findByRole('link', { name: 'Trợ lý' });
+    const link = await screen.findByRole('link', { name: 'Trợ lý cá nhân' });
     expect(link).toHaveAttribute('href', '/app/assistant');
     expect(link).toHaveAttribute('data-active', 'true');
     const links = screen.getAllByRole('link').map((l) => l.textContent);
-    expect(links.indexOf('Trợ lý')).toBe(links.indexOf('Tổng quan các business') + 1);
+    expect(links.indexOf('Trợ lý cá nhân')).toBe(links.indexOf('Tổng quan các business') + 1);
   });
 });
