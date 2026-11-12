@@ -680,6 +680,17 @@ export class DrizzleAssistantRepository implements AssistantRepository {
     });
   }
 
+  deleteRunMessages(s: OwnerScope, threadId: string, runId: string): Promise<number> {
+    return this.#in(s, async (tx) => {
+      await this.#ownThread(tx, s, threadId, true);
+      const rows = await tx
+        .delete(m)
+        .where(and(eq(m.threadId, threadId), ownsMessage(s), eq(m.runId, runId)))
+        .returning({ id: m.id });
+      return rows.length;
+    });
+  }
+
   searchMessages(s: OwnerScope, query: string, limit: number): Promise<SearchHit[]> {
     const text = query.trim();
     if (!text) return Promise.resolve([]);

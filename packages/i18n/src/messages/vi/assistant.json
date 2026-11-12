@@ -29,6 +29,7 @@
   "ms": "{{ms}} ms",
   "busy": "Rapiz Agent đang trả lời câu trước, anh/chị đợi chút nhé.",
   "unavailable": "Rapiz Agent tạm thời không trả lời được. Thử lại sau ít phút.",
+  "retry": "Thử lại",
   "sendError": "Không gửi được tin nhắn. Thử lại.",
   "spotlightDismiss": "Bấm bất kỳ đâu hoặc nhấn Esc để đóng",
   "showMemory": "Trợ lý nhớ gì",

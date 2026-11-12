@@ -426,7 +426,14 @@ describe('assistant repository on Postgres', () => {
       await expect(repo.finishRun(s, runId, { status: 'failed' })).rejects.toBeInstanceOf(
         AssistantNotFoundError,
       );
+      await expect(repo.deleteRunMessages(s, thread.id, runId)).rejects.toBeInstanceOf(
+        AssistantNotFoundError,
+      );
     }
+    // A retried failed turn drops its messages; the run and its steps stay (AS-1).
+    expect(await repo.deleteRunMessages(scope, thread.id, runId)).toBe(3);
+    expect(await repo.listMessages(scope, thread.id)).toEqual([]);
+    expect((await repo.getRun(scope, runId))?.steps).toHaveLength(2);
     // Hoa's run id cannot be reused by another owner of the account, nor by another account
     // (where RLS hides the row and only the primary key collides): 409, never a 500.
     for (const s of [sameAccount, otherAccount]) {
@@ -1072,7 +1079,10 @@ describe('assistant route tools and proposals on Postgres (1b)', () => {
     expect(toolRows).toHaveLength(1);
     const read = JSON.parse(toolRows[0]?.content ?? '{}') as { status: number; body: unknown };
     expect(read.status).toBe(200);
-    expect(ProductListResponse.parse(read.body).data.map((p) => p.name)).toEqual(['Áo thun trắng']);
+    const readBody = read.body as { data: { name: string; createdAt: string }[] };
+    expect(readBody.data.map((p) => p.name)).toEqual(['Áo thun trắng']);
+    // The model reads every instant on the owner's clock (AS-3).
+    expect(readBody.data[0]?.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+07:00$/);
 
     // A write only makes a pending proposal; nothing changed yet.
     await turn(mai, thread.id, 'Thêm áo khoác', [

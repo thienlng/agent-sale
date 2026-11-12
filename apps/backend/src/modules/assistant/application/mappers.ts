@@ -65,9 +65,16 @@ export function toMessageDtos(
       ? { runMeta: runMeta(runs.get(msg.runId)) }
       : {}),
     feedback: msg.feedback,
+    ...(runs && msg.role === 'assistant' && msg.runId && failedOnModel(runs.get(msg.runId))
+      ? { retryable: true }
+      : {}),
     createdAt: msg.createdAt.toISOString(),
   }));
 }
+
+/** The run could not reach the model (busy, rate-limited, down): its answer is the busy reply. */
+const failedOnModel = (run: RunRecord | undefined): boolean =>
+  run?.status === 'failed' && run.guardrail === 'model_error';
 
 function runMeta(run: RunRecord | undefined): AssistantMessageDto['runMeta'] {
   if (!run) return null;

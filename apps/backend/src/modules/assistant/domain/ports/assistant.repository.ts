@@ -707,6 +707,11 @@ export interface AssistantRepository {
   ): Promise<MessageRecord[]>;
   /** Assigns seq = max+1…, bumps last_message_at. */
   appendMessages(s: OwnerScope, threadId: string, msgs: NewMessage[]): Promise<MessageRecord[]>;
+  /**
+   * Deletes the thread's messages of one run (a failed turn the owner retries, AS-1); the run
+   * and its steps stay. Returns how many rows went.
+   */
+  deleteRunMessages(s: OwnerScope, threadId: string, runId: string): Promise<number>;
   /** Accent-insensitive full text (fallback: substring) over user/assistant rows; schedule and review threads last. */
   searchMessages(s: OwnerScope, query: string, limit: number): Promise<SearchHit[]>;
   /**

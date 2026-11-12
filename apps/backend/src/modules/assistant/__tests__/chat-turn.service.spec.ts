@@ -4,6 +4,7 @@ import { DomainError, newId, userId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  BUSY_REPLY,
   ChatTurnService,
   FALLBACK_REPLY,
   capHistory,
@@ -314,13 +315,15 @@ describe('ChatTurnService', () => {
     ]);
   });
 
-  it('answers with an apology and fails the run when the model throws', async () => {
-    const { service, scope, thread } = await setup([new Error('provider down')]);
+  it('answers that the AI is busy and fails the run when the model throws', async () => {
+    const { service, scope, thread, generate } = await setup([new Error('provider down')]);
     const out = await service.send(scope, thread.id, { turnId: newId(), text: 'Chào em' }, AUTH);
     expect(out.messages.map((m) => [m.role, m.content])).toEqual([
       ['user', 'Chào em'],
-      ['assistant', FALLBACK_REPLY],
+      ['assistant', BUSY_REPLY],
     ]);
+    // A busy model is retried only briefly (AS-1).
+    expect(generate.mock.calls[0]?.[0]).toMatchObject({ maxRetryWaitMs: 10_000 });
     expect(out.run).toMatchObject({ status: 'failed', guardrail: 'model_error' });
     expect(out.run.finishedAt).toBeInstanceOf(Date);
     expect(out.run.steps.map((st) => [st.kind, st.ok, st.errorCode])).toEqual([
@@ -330,6 +333,36 @@ describe('ChatTurnService', () => {
     expect(
       (await service.send(scope, thread.id, { turnId: newId(), text: 'Lại' }, AUTH)).run.status,
     ).toBe('done');
+  });
+
+  it('keeps one copy of a question the owner retries after a model failure (AS-1)', async () => {
+    const down = new AiProviderFailedError('rate_limit');
+    const { service, scope, thread, repo } = await setup([down, down, ANSWER]);
+    const ask = (text: string) => service.send(scope, thread.id, { turnId: newId(), text }, AUTH);
+    const first = await ask('doanh thu tuần này');
+    const dtos = toMessageDtos(
+      await repo.listMessages(scope, thread.id),
+      new Map([[first.run.id, first.run]]),
+    );
+    expect(dtos.at(-1)).toMatchObject({ content: BUSY_REPLY, retryable: true });
+    await ask('doanh thu tuần này');
+    const done = await ask('doanh thu tuần này');
+    expect(done.run.status).toBe('done');
+    const all = await repo.listMessages(scope, thread.id);
+    expect(all.filter((m) => m.role === 'user').map((m) => m.content)).toEqual([
+      'doanh thu tuần này',
+    ]);
+    expect(all.some((m) => m.content === BUSY_REPLY)).toBe(false);
+    // The failed runs keep their trace.
+    expect((await repo.getRun(scope, first.run.id))?.status).toBe('failed');
+  });
+
+  it('keeps the failed question when the owner asks something else', async () => {
+    const { service, scope, thread, repo } = await setup([new Error('down'), ANSWER]);
+    await service.send(scope, thread.id, { turnId: newId(), text: 'Câu một' }, AUTH);
+    await service.send(scope, thread.id, { turnId: newId(), text: 'Câu hai' }, AUTH);
+    const users = (await repo.listMessages(scope, thread.id)).filter((m) => m.role === 'user');
+    expect(users.map((m) => m.content)).toEqual(['Câu một', 'Câu hai']);
   });
 
   it('apologises when the loop ends without a usable answer', async () => {
@@ -502,7 +535,7 @@ describe('ChatTurnService', () => {
       AUTH,
     );
     expect(a.run).toMatchObject({ status: 'failed', guardrail: 'model_error' });
-    expect(a.messages.at(-1)).toMatchObject({ content: FALLBACK_REPLY, uiActions: [] });
+    expect(a.messages.at(-1)).toMatchObject({ content: BUSY_REPLY, uiActions: [] });
 
     // The loop hit the round limit.
     const loop = await setup(Array.from({ length: 30 }, () => NAVIGATE));
@@ -732,7 +765,7 @@ describe('ChatTurnService', () => {
     });
     expect(await repo.listProposals(scope, thread.id)).toHaveLength(1);
 
-    // Without a proposal the apology stays.
+    // Without a proposal the owner hears that the AI is busy (AS-1).
     const plain = await setup([new Error('bridge 502')]);
     const failed = await plain.service.send(
       plain.scope,
@@ -740,7 +773,7 @@ describe('ChatTurnService', () => {
       { turnId: newId(), text: 'Chào' },
       AUTH,
     );
-    expect(failed.messages.at(-1)?.content).toBe(FALLBACK_REPLY);
+    expect(failed.messages.at(-1)?.content).toBe(BUSY_REPLY);
   });
 
   it('shares one 40 000-char tool output budget across route reads and every other tool', async () => {
@@ -1003,7 +1036,7 @@ describe('ChatTurnService with the SQL lane', () => {
       { turnId: newId(), text: 'Vẽ' },
       AUTH,
     );
-    expect(bad.messages.at(-1)).toMatchObject({ content: FALLBACK_REPLY, uiActions: [] });
+    expect(bad.messages.at(-1)).toMatchObject({ content: BUSY_REPLY, uiActions: [] });
   });
 
   it('loads the answer-data-questions platform skill in a turn', async () => {

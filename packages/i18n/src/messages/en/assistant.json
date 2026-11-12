@@ -29,6 +29,7 @@
   "ms": "{{ms}} ms",
   "busy": "Rapiz Agent is still answering your last question, please wait.",
   "unavailable": "Rapiz Agent can't answer right now. Try again in a few minutes.",
+  "retry": "Try again",
   "sendError": "Could not send the message. Try again.",
   "spotlightDismiss": "Click anywhere or press Esc to close",
   "showMemory": "What the assistant remembers",

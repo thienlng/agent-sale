@@ -373,6 +373,7 @@ export function AssistantPanel() {
         pendingTurn={pendingTurn}
         unavailable={unavailable}
         onStarter={sending ? undefined : (text) => void send(text)}
+        onRetry={sending ? undefined : (text) => void send(text)}
         roomy={onPage}
       />
       <AssistantSuggestions />

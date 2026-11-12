@@ -337,6 +337,19 @@ export class InMemoryAssistantRepository implements AssistantRepository {
     return added.map((m) => this.#publicMessage(m));
   }
 
+  async deleteRunMessages(s: OwnerScope, threadId: string, runId: string): Promise<number> {
+    this.#thread(s, threadId);
+    let n = 0;
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      const m = this.messages[i] as StoredMessage;
+      if (mine(s, m) && m.threadId === threadId && m.runId === runId) {
+        this.messages.splice(i, 1);
+        n++;
+      }
+    }
+    return n;
+  }
+
   async searchMessages(s: OwnerScope, query: string, limit: number): Promise<SearchHit[]> {
     const words = foldText(query).split(/\s+/).filter(Boolean);
     if (!words.length) return [];

@@ -73,10 +73,21 @@ export const TURN_TIER = 'pro' as const;
 export const TURN_MAX_ROUNDS = 25;
 export const TURN_BUDGET_MS = 90_000;
 export const TURN_CALL_TIMEOUT_MS = 60_000;
+/**
+ * The longest one model call of a turn waits between retries (AS-1): a busy model (429) gets one
+ * or two quick retries, then the owner hears it is busy instead of waiting most of a minute.
+ */
+export const TURN_RETRY_WAIT_MS = 10_000;
 /** An untitled thread takes this many characters of its first message as its title. */
 export const TITLE_CHARS = 60;
 /** Said when the turn ends without a usable answer, or the model failed. */
 export const FALLBACK_REPLY = 'Dạ em chưa trả lời được lúc này, anh/chị thử lại giúp em nhé.';
+/**
+ * The answer when the model itself failed (busy, rate-limited or down, AS-1): it says why, and
+ * the app offers "Thử lại" under it (`retryable` on the message).
+ */
+export const BUSY_REPLY =
+  'Dạ hệ thống AI đang bận nên em chưa trả lời được câu này. Anh/chị bấm “Thử lại” sau ít giây giúp em nhé.';
 /** The fallback when the turn drafted a proposal before the model failed (QA TinyMind N5). */
 export const PROPOSAL_FALLBACK_REPLY =
   'Dạ em đã soạn đề xuất bên dưới, anh/chị xem và duyệt giúp em nhé.';
@@ -233,8 +244,8 @@ export function finalUiActions(actions: AssistantUiAction[]): AssistantUiAction[
 const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof e);
 
 /** A turn with no answer: point at the proposal card it drafted, else apologise. */
-const fallback = (proposalIds: readonly string[]): string =>
-  proposalIds.length > 0 ? PROPOSAL_FALLBACK_REPLY : FALLBACK_REPLY;
+const fallback = (proposalIds: readonly string[], text = FALLBACK_REPLY): string =>
+  proposalIds.length > 0 ? PROPOSAL_FALLBACK_REPLY : text;
 
 /**
  * One chat turn of the owner assistant: start the run (one at a time per owner, idempotent by
@@ -375,6 +386,7 @@ export class ChatTurnService {
     // The import block is stored with the owner's text, so later turns replay it unchanged;
     // the web never sees it (`toMessageDtos`).
     const content = importBlock ? `${importBlock}\n${text}` : text;
+    await this.#dropFailedAttempt(scope, thread.id, content);
     const [user] = await this.repo.appendMessages(scope, thread.id, [
       row({ role: 'user', content, pageContext: req.pageContext ?? null, runId }),
     ]);
@@ -444,6 +456,7 @@ export class ChatTurnService {
           promptCacheKey:
             threadCacheKey(scope, thread) + toolsetCacheSuffix(settings.disabledToolsets),
           timeoutMs: TURN_CALL_TIMEOUT_MS,
+          maxRetryWaitMs: TURN_RETRY_WAIT_MS,
         },
         // One output budget for the whole turn, shared by every tool and its validation errors.
         tools: withTurnOutputBudget(
@@ -549,7 +562,7 @@ export class ChatTurnService {
         });
       const [answer] = await this.repo.appendMessages(scope, thread.id, [
         // No answer, so no UI action: the owner sees the apology, or the drafted card.
-        row({ role: 'assistant', content: fallback(proposalIds), runId }),
+        row({ role: 'assistant', content: fallback(proposalIds, BUSY_REPLY), runId }),
       ]);
       await this.repo.finishRun(scope, runId, {
         status: 'failed',
@@ -621,6 +634,33 @@ export class ChatTurnService {
       if (plan.delayMs === 0) await this.repo.resetReviewCounters(scope, thread.id);
     } catch (error) {
       this.#log.warn(`assistant thread ${thread.id}: review not scheduled (${errorClass(error)})`);
+    }
+  }
+
+  /**
+   * A retry is not a second question (AS-1): when the thread ends with the same owner text whose
+   * turn failed on the model (`guardrail = model_error`), that attempt's messages are removed
+   * before the retry stores the text again, so the thread and the model's history hold it once.
+   * The failed run and its steps stay. Any error here keeps the old messages.
+   */
+  async #dropFailedAttempt(scope: OwnerScope, threadId: string, content: string): Promise<void> {
+    try {
+      const last = (await this.repo.listMessages(scope, threadId, { activeOnly: true })).slice(-2);
+      const [question, answer] = last;
+      if (
+        !question?.runId ||
+        question.role !== 'user' ||
+        question.content !== content ||
+        answer?.role !== 'assistant' ||
+        answer.runId !== question.runId
+      ) {
+        return;
+      }
+      const [run] = await this.repo.listRuns(scope, [question.runId]);
+      if (run?.status !== 'failed' || run.guardrail !== 'model_error') return;
+      await this.repo.deleteRunMessages(scope, threadId, question.runId);
+    } catch (error) {
+      this.#log.warn(`assistant thread ${threadId}: failed attempt kept (${errorClass(error)})`);
     }
   }
 
