@@ -9,9 +9,9 @@ Decision: [ADR-028](../adr/ADR-028-backup-and-disaster-recovery-single-vps.md). 
 | PostgreSQL | WAL-G: every WAL segment is uploaded (at least once a minute while the database writes) + a base backup each night at 19:00 UTC | ≤ 1 min | 30 base backups → point-in-time recovery over 30 days |
 | Pictures and files (bucket `rapiz`) | `rclone sync` to an encrypted rclone `crypt` remote each night; replaced or deleted objects go to `media:deleted/<UTC date>` | ≤ 24 h | live copy + 30 days of deleted/replaced objects |
 | `.env`, `compose.yml` | tar → `age` (public key only on the server) each night | ≤ 24 h | 30 archives |
-| Local dump `backups/rapiz-*.dump` | `backup.sh` daily at 03:15 UTC and by `deploy.sh` before every deploy | 24 h | same disk; 7 days once off-site backups are on, 14 days before |
+| Local dump `backups/rapiz-*.dump.age` (`rapiz-*.dump` while `BACKUP_AGE_RECIPIENT` is unset) | `backup.sh` daily at 03:15 UTC and by `deploy.sh` before every deploy; encrypted to the kit's age key, mode 600 | 24 h | same disk; 7 days once off-site backups are on, 14 days before |
 
-Not backed up: Redis (queues and caches; rebuilt by outbox and reconcile jobs), the `hermes` volume (test-only ChatGPT login), Caddy volumes.
+Not backed up: Redis (queues and caches; rebuilt by outbox and reconcile jobs), the `hermes` volume (test-only ChatGPT login). The edge (Caddy) keeps no state.
 
 Off-site bucket layout: `wal-g/` (WAL-G), `media/` (encrypted names and content: `current/`, `deleted/<date>/`), `config/<timestamp>.tar.gz.age`, `drills/<date>.json` (drill results, no data).
 
@@ -26,12 +26,25 @@ Off-site bucket layout: `wal-g/` (WAL-G), `media/` (encrypted names and content:
 
 ## Switching it on (once)
 
-1. Create a bucket with any S3-compatible provider (Cloudflare R2, Backblaze B2, MinIO on another host…). Turn on versioning or Object Lock if the provider has it. Create an access key limited to that bucket.
+1. Create a bucket with any S3-compatible provider (Cloudflare R2, Backblaze B2, MinIO on another host…) and protect it as in [Protect the off-site copy](#protect-the-off-site-copy): versioning, Object Lock and a key that cannot destroy versions.
 2. `./backup-keys.sh`: generates the WAL-G key, the rclone crypt password and salt, and an age key pair. It writes the public values to `.env` and prints the **break-glass kit** once. Put the kit in the owner's password manager **now**: without it nobody can read the backups. The age private key is only in the kit.
 3. Fill `BACKUP_S3_ENDPOINT`, `BACKUP_S3_REGION` (`auto` for R2), `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY`, `BACKUP_S3_SECRET_KEY` and `BACKUP_ALERT_EMAIL` in `.env`. Alerts are sent with the existing `RESEND_API_KEY`.
 4. `RAPIZ_SKIP_PULL=1 ./deploy.sh "$(cat .deployed-tag)"` (the images are already on the server; CI logs out of GHCR after each deploy). Postgres restarts with the new settings (about 10 s).
 5. `./backup-nightly.sh` and then `./restore-drill.sh`. Both must end without `FAILED`.
 6. Put the kit's age key in a file on your own machine and decrypt the newest config archive once (section D), to prove the kit works.
+
+### Protect the off-site copy
+
+The server holds the off-site key, so whoever takes over the server holds it too. The bucket, not the server, must decide what can be destroyed:
+
+1. **Versioning on.** A delete or overwrite then only adds a new version or a delete marker; the old version stays.
+2. **Object Lock** with a default retention of at least 30 days (governance or compliance mode), where the provider has it (AWS S3, Backblaze B2, MinIO, Wasabi). Locked versions cannot be removed before the retention ends, whatever key asks.
+3. **An append-only key for the server.** Allowed: list, read, write, and plain deletes (`s3:DeleteObject`, which only adds delete markers under versioning). Denied: deleting versions (`s3:DeleteObjectVersion`), bypassing governance retention, and changing the bucket's versioning, lock, lifecycle or policy. Keep a separate admin key off the server (password manager) for restores of old versions and for policy changes.
+4. **Lifecycle rules** do the real expiry: delete noncurrent versions 30 days after they became noncurrent, and remove expired delete markers.
+
+With that set-up the nightly `retain` (WAL-G) and `prune` steps stay on: their deletes only add delete markers, and the lifecycle rule frees the space once the lock ends. If the provider cannot issue a key that may add delete markers (deletes are refused outright), set `BACKUP_OBJECT_LOCK=1` in `.env`: the nightly job then skips `retain` and `prune` and the server deletes nothing off-site itself. Expire `wal-g/` and `config/` with lifecycle rules by age instead (35 days keeps 30 days of point-in-time recovery). `media/` names are encrypted, so `media:deleted/` cannot be targeted by prefix; run `rapiz-backup prune` from a trusted machine with the admin key when it grows. `BACKUP_OBJECT_LOCK` is off by default.
+
+Check the result from your own machine with the admin key (bucket versioning status, lock configuration, lifecycle rules) and, with the server key, that deleting a version is refused.
 
 ## A. Undo a mistake (rows deleted or changed by error)
 
@@ -118,4 +131,4 @@ age -d -i age-key.txt 20261108T190000Z.tar.gz.age | tar -xzO .env
 
 ## Testing changes to the scripts
 
-`bash infra/deploy/test/backup-e2e.sh` (Docker needed, about 3 minutes) runs the real compose file and scripts against a second SeaweedFS as the off-site bucket: keys, WAL archiving, nightly, drill, point-in-time restore, alerts, unconfigured mode. Run it and `shellcheck` before changing anything in `infra/deploy` that touches backups.
+`bash infra/deploy/test/backup-e2e.sh` (Docker needed, about 3 minutes) runs the real compose file and scripts against a second SeaweedFS as the off-site bucket: keys, WAL archiving, nightly, the encrypted local dump, `BACKUP_OBJECT_LOCK`, drill, point-in-time restore, alerts, unconfigured mode. Run it and `shellcheck` before changing anything in `infra/deploy` that touches backups.
