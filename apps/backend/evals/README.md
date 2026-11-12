@@ -172,7 +172,7 @@ the injection case uses `not_contains`.
 ## Add a case
 
 1. Pick the group folder (`profile-facts`, `unknown`, `safety`, `handoff`, `catalog`, `multi-turn`,
-   `calculator`, `orders`, `requests`, or a new one).
+   `calculator`, `orders`, `requests`, `language`, or a new one).
 2. Copy a similar file, change `id`, the fixtures, the conversation and `expect`. Use synthetic data only.
 3. Write realistic `fake_turns` (the tool calls a good model would make, then its answer); run `pnpm --filter @agent-sales/backend test -- evals` (fake mode must pass).
 4. Tag it `critical` when a failure would be a trust problem: invented facts for an empty profile

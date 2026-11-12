@@ -68,8 +68,8 @@ describe('renderMemoryBlock', () => {
 });
 
 describe('buildSystemPrompt', () => {
-  it('uses assistant@4 for new threads', () => {
-    expect(ASSISTANT_PROMPT).toEqual({ name: 'assistant', version: 4 });
+  it('uses assistant@5 for new threads', () => {
+    expect(ASSISTANT_PROMPT).toEqual({ name: 'assistant', version: 5 });
   });
 
   it('renders the same inputs to a byte-identical prompt with skills and memory', async () => {
@@ -105,7 +105,7 @@ describe('buildSystemPrompt', () => {
     expect(a).toContain('never from adding up rows yourself');
     // Customer contact data never comes out (QA Villas #3).
     expect(a).toContain("Never write a customer's phone number, e-mail address or home address");
-    expect(a).toContain('Today is 2026-11-02 (Asia/Ho_Chi_Minh).');
+    expect(a).toContain('This conversation started on 2026-11-02 (Asia/Ho_Chi_Minh);');
     expect(a).not.toContain('{{');
   });
 
@@ -164,7 +164,7 @@ describe('buildSystemPrompt', () => {
   it('leaves the memory section empty when nothing is remembered', async () => {
     const template = await loadAssistantTemplate();
     const out = buildSystemPrompt(template, SNAP, AT, { skillsIndex: SKILLS_INDEX, memory: [] });
-    expect(out).toContain('Memory:\n\n\nToday is');
+    expect(out).toContain('Memory:\n\n\nThis conversation started on');
   });
 });
 

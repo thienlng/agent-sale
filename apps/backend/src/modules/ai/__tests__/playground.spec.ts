@@ -396,14 +396,14 @@ describe('sales-agent prompt and handoff reply', () => {
     expect(system).toContain('Greet only when the conversation is a single <customer> block');
     expect(system).toContain('never start with a greeting');
     expect(system).toContain('Answer every question in the last <customer> block');
-    expect(system).toContain('Promise no follow-up');
+    expect(system).toContain('is answered in their language from the same blocks and tools');
     expect(system).toContain('Answer each question you can, even when another one cannot');
     expect(system).toContain('State only facts that appear in the blocks or in tool results');
     expect(system).toContain('Never add inferred conclusions');
     expect(system).toContain('never announce that you are about to answer');
     expect(system).toContain('repeating the number exactly as written');
     expect(system).toContain('then call handoff');
-    expect(system).toContain('language other than Vietnamese');
+    expect(system).toContain('writes in another language than Vietnamese');
     // Tool guidance of prompt @13 (spec §6).
     expect(system).toContain('Look things up before you answer');
     expect(system).toContain('Never promise to check, look something up or come back later');

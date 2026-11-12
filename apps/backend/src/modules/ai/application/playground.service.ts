@@ -149,23 +149,25 @@ export { EMAIL_KNOWN_LINE, PHONE_KNOWN_LINE };
 // Steps 2 and 5 change bot behaviour: run the ai evals before/after. Measure first (prompt viewer).
 /** The sales-agent prompt version of a bot's industry; an industry not listed gets @15 (retail). */
 export const PROMPT_BY_INDUSTRY: Readonly<Record<string, SalesPromptVersion>> = {
-  // @25 = @22 + two rules (staging EV-1, EV-4): a search_products result with catalogEmpty makes
-  // <business_profile> and <knowledge> the shop's facts, and a known customer pronoun is used at
-  // least once per reply. @22 = @21 + "the catalog is live" (catalog wins over the hand-written
-  // profile for which properties exist, how many, prices and capacity). @21 = @20 + unit details,
-  // unit albums and bedroom packages (T-193). @20 = @18 + lodging media folders (T-192).
+  // @25 = @22 + the staging rules (EV-1, EV-4 and wave 1): catalogEmpty → the profile is the
+  // shop's facts; a known pronoun once per reply; the customer's language for the whole reply;
+  // tools and the live catalog/calendar win over contradicting training; handoff only for a
+  // person, a complaint/payment problem or out of scope (never for an answerable question,
+  // haggling, a claimed price or an injection, never again because of an earlier hand-over); ask
+  // the phone before handing off a health question; no invented policy; an internal "chiết
+  // khấu" is no offer; off-topic tasks declined; pictures by label only; plus the hotel rules
+  // sellByWeekday/notSoldOn, nightlyPackage, unsold packages unmentioned and a changed hold.
+  // @22 = @21 + "the catalog is live". @21 = @20 + units and bedroom packages (T-193).
   hotel: 25,
-  // The request industries: @26 = @23 + the same two rules as @25. @23 = @19 + "the catalog is
+  // The request industries: @26 = @23 + the same common rules, plus weekday/date mismatch →
+  // ask, buying a product without order tools → consultation, no age for an adult, several
+  // ages matched one by one, a description's purchase condition. @23 = @19 + "the catalog is
   // live"; @19 = @15 plus "Recording a request" and the course / service facts.
   saas: 26,
   education: 26,
   spa: 26,
 };
-/**
- * @27 = @24 + the two rules of @25 and, for a profile field that answers the question, every
- * condition it states (fees, a free-shipping threshold, delivery times; staging EV-3). @24 = @15 +
- * "the catalog is live".
- */
+/** @27 = @24 + the common rules of @25 and @26. @24 = @15 + "the catalog is live". */
 const DEFAULT_PROMPT_VERSION: SalesPromptVersion = 27;
 /** The sales-agent prompt of a bot of `industry` (without the forcing option). */
 export function salesPromptFor(industry: string): {
@@ -430,6 +432,7 @@ export class PlaygroundService implements AiFacade {
             privateChat: !isCommentReply,
             answered: answeredSince(input.messages, options.turnTimes, startedAt),
             warn: (message) => this.#logger.warn(message),
+            customerTexts,
           })
         : null;
     // A bot of a request industry records its requests on the CRM customer itself (ADR-020).
@@ -655,7 +658,14 @@ export class PlaygroundService implements AiFacade {
     }
 
     let decision: ReplyDecision = loop
-      ? decideReply({ loop, output, bot, actionFallback: actionState.fallback, check })
+      ? decideReply({
+          loop,
+          output,
+          bot,
+          actionFallback: actionState.fallback,
+          check,
+          customerLast: customerTexts.at(-1),
+        })
       : { outcome: 'answered', guardrail: 'model_error', final: fallbackText(bot) };
     if (loop && base) {
       const { followUps } = loop;

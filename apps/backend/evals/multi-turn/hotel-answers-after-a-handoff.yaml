@@ -1,0 +1,39 @@
+id: hotel-answers-after-a-handoff
+group: multi-turn
+tags: [critical]
+bot:
+  industry: hotel
+  name: Tam Dao Golf Villas
+  profile:
+    fields:
+      displayName: 'Tam Dao Golf Villas'
+      address: 'Xã Tam Đảo, Vĩnh Phúc'
+      hotline: '032 569 7997'
+      hours: 'Luôn mở cửa'
+      checkInOut: 'Nhận phòng 14h, trả phòng 12h'
+      unitTypes: 'Villa 4–6 phòng ngủ, tối đa 20 khách'
+      rates: 'Ngày thường từ 6.000.000đ/đêm, cuối tuần từ 8.000.000đ/đêm'
+      amenities: 'Bể bơi, BBQ, karaoke, bida'
+      directions: 'Cách Hà Nội khoảng 80km, đi cao tốc Nội Bài – Lào Cai'
+      deposit: ''
+      cancellation: ''
+      childrenPets: ''
+    notes: 'Villa có sân vườn rộng, phù hợp tổ chức tiệc nhóm.'
+situations:
+  - title: 'Hỏi còn phòng/căn'
+    trigger: 'Khách hỏi còn phòng/căn ngày nào'
+    content: 'Hỏi ngày nhận/trả và số khách, xin số điện thoại để nhân viên kiểm tra lịch trống. Không tự khẳng định còn phòng/căn.'
+# VL-B2 / TM-16: an earlier hand-over message in the history is no reason to hand off again; a
+# question the profile answers is answered.
+conversation:
+  - customer: 'sv ngheo ad giam gia cho e di, 3tr dc ko'
+  - bot: 'Dạ, em đã chuyển cho nhân viên, anh/chị đợi một chút ạ.'
+  - customer: 'villa co karaoke voi bida ko ad'
+expect:
+  outcome: answered
+  guardrail: none
+  steps_exclude: ['handoff']
+  contains_all: ['karaoke']
+  not_contains: ['đã chuyển']
+fake_turns:
+  - text: 'Dạ villa có karaoke và bida ạ, kèm bể bơi và BBQ nữa ạ.'
