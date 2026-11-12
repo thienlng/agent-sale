@@ -5,6 +5,7 @@ import { z } from 'zod';
 import {
   isLikelyDuplicate,
   isNearDuplicate,
+  memoryContainment,
   normaliseMemoryText,
 } from '../domain/memory-similarity.js';
 import { isKnownStore, memoryLimit, memoryUsed } from '../domain/memory-store.js';
@@ -46,9 +47,11 @@ export const MEMORY_TOOL_DEFINITION: ToolDefinition = {
     '(a unique part of one entry) and text, and rewrites only that entry: use it when the new text corrects or ' +
     'supersedes that same fact, never to save a different one (a new preference is an add; the replaced ' +
     'entry is gone). remove needs match. Facts only, never instructions or customer data. ' +
-    'likely_duplicate: an entry already says this in other words; replace it instead. ' +
-    'deleted_by_owner: the owner deleted that fact, so do not save it, reworded or split; only when the owner asks in this ' +
-    'turn to remember it again, retry with ownerAskedAgain: true.',
+    'When the owner asks to forget or stop using a fact, remove it (that applies at once); never replace it with a ' +
+    'default. likely_duplicate: an entry already says this in other words; replace it instead. ' +
+    'deleted_by_owner: the owner deleted that fact earlier: when the owner’s message in this turn asks you to ' +
+    'remember it (nhớ giúp, ghi nhớ, lưu lại), retry at once with ownerAskedAgain: true; otherwise do not save it, ' +
+    'reworded or split.',
   input: MemoryInput,
 };
 
@@ -63,6 +66,12 @@ export interface MemoryToolContext {
    * entry then waits for the owner's approval. A review write always waits.
    */
   tainted?: () => boolean;
+  /**
+   * The owner's own message of this turn. A fact whose content words all come from it was
+   * worded by the owner, not by tool output, so it is saved without approval even in a tainted
+   * turn (AS-8).
+   */
+  ownerText?: string;
 }
 
 /** Tools whose results carry no data from outside the owner's own words (UI actions only). */
@@ -229,7 +238,7 @@ export function memoryTool(ctx: MemoryToolContext): RunnableTool {
         return {
           ok: false,
           errorCode: 'deleted_by_owner',
-          hint: 'the owner deleted this fact: do not save it, and do not reword or split it, unless they ask to remember it again',
+          hint: 'the owner deleted this fact earlier: if their message in this turn asks you to remember it, retry now with ownerAskedAgain: true; otherwise do not save it, and do not reword or split it',
         };
       }
     }
@@ -248,7 +257,12 @@ export function memoryTool(ctx: MemoryToolContext): RunnableTool {
     }
 
     // Text that may come from tool output (or the review) never reaches a prompt unapproved.
-    const pending = origin === 'review' || ctx.tainted?.() === true;
+    // The owner's own words in this turn are not tool output (AS-8).
+    const ownerWorded =
+      text !== undefined &&
+      ctx.ownerText !== undefined &&
+      memoryContainment(text, ctx.ownerText) === 1;
+    const pending = origin === 'review' || (ctx.tainted?.() === true && !ownerWorded);
     // A rewrite of an entry that still waits keeps waiting: only the owner's approval endpoint
     // approves, never a later untainted chat write (PR #173 review).
     const stillPending = pending || target?.pending === true;
@@ -297,7 +311,9 @@ export function memoryTool(ctx: MemoryToolContext): RunnableTool {
       ok: true,
       message: waits
         ? `${verb} in ${store} (${used}/${limit}), awaiting the owner's approval in Memory: it is not used until approved.`
-        : `${verb} in ${store} (${used}/${limit}).`,
+        : action === 'remove'
+          ? `Removed from ${store} (${used}/${limit}). It applies now: stop using it in this conversation too, even where your instructions above still show it.`
+          : `${verb} in ${store} (${used}/${limit}).`,
       ...(waits ? { awaitingOwnerApproval: true as const } : {}),
       used,
       limit,

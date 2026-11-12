@@ -212,6 +212,19 @@ describe('assistant@4 read-by-id rule (QA LOOKUP-m)', () => {
   });
 });
 
+describe('assistant@5 rules (staging wave 1)', () => {
+  it('navigates only when asked, promises nothing later, and reads times on the owner clock', async () => {
+    const template = await loadAssistantTemplate();
+    // AS-10, AS-12, AS-3/AS-4, AS-11, AS-16, AS-2.
+    expect(template).toContain('Use ui_navigate to open a page only when the owner asks');
+    expect(template).toContain('Never promise a later step on your own');
+    expect(template).toContain('Times in tool results are already on the owner');
+    expect(template).toContain('it belongs to another account');
+    expect(template).toContain('tell the owner it looks suspicious');
+    expect(template).toContain('Never ask the owner for data you can read with a tool');
+  });
+});
+
 describe('buildTurnMessage', () => {
   it('puts the page context and the local time before the owner text', () => {
     expect(

@@ -465,7 +465,12 @@ export class ChatTurnService {
             // Instants in every tool result read on the owner's clock (AS-3).
             withLocalTimes([
               ...coreTools(ctx),
-              memoryTool({ scope, repo: this.repo, tainted: () => turnTaint.tainted }),
+              memoryTool({
+                scope,
+                repo: this.repo,
+                tainted: () => turnTaint.tainted,
+                ownerText: text,
+              }),
               // skill_manage as the chat actor; patches need a load_skill in this same turn.
               ...skillTools({
                 scope,
@@ -473,6 +478,8 @@ export class ChatTurnService {
                 actor: 'assistant',
                 runId,
                 loadedSkills: new Set<string>(),
+                // The SQL lane is off (not configured or turned off): its skill says so (AS-5).
+                unavailableToolsets: new Set(native.length > 0 ? [] : [SQL_TOOLSET]),
               }),
               ...routeTools({
                 scope,

@@ -1055,6 +1055,35 @@ describe('ChatTurnService with the SQL lane', () => {
     expect(catalog.get('read-revenue')).toMatchObject({ version: 3, toolsets: ['sql', 'routes'] });
   });
 
+  it('says the data skill is unavailable when the SQL lane is off (AS-5)', async () => {
+    const catalog = await SkillCatalog.load();
+    const t = await setup(
+      [call('c1', 'load_skill', { name: 'answer-data-questions' }), ANSWER],
+      null,
+      catalog,
+    );
+    await t.service.send(t.scope, t.thread.id, { turnId: newId(), text: 'Bán chạy?' }, AUTH);
+    expect(toolResult(t.generate)).toMatchObject({
+      ok: false,
+      errorCode: 'toolset_unavailable',
+      toolsets: ['sql'],
+      guidance: expect.stringContaining('Do not search for them') as unknown,
+    });
+    // A skill that also has other tools still loads.
+    const revenue = await setup(
+      [call('c1', 'load_skill', { name: 'read-revenue' }), ANSWER],
+      null,
+      catalog,
+    );
+    await revenue.service.send(
+      revenue.scope,
+      revenue.thread.id,
+      { turnId: newId(), text: 'Doanh thu?' },
+      AUTH,
+    );
+    expect(toolResult(revenue.generate)).toMatchObject({ ok: true, name: 'read-revenue' });
+  });
+
   it('has no SQL tools without a runner', async () => {
     const t = await setup([SQL_CALL, ANSWER]);
     await t.service.send(t.scope, t.thread.id, { turnId: newId(), text: 'Bao nhiêu đơn?' }, AUTH);
