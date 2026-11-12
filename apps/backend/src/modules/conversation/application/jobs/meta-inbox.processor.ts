@@ -37,6 +37,11 @@ import {
   type Turn,
 } from './reply-resume.js';
 
+/** A held message is answered at most this long after it was sent (the reply window is 24 h). */
+const MAX_DEFER_MS = 23 * 3_600_000;
+/** A held event is claimed just after the takeover ends, never before. */
+const RESUME_GRACE_MS = 2_000;
+
 /** Invoked exclusively by the agent entry; API never starts background inference. */
 @Injectable()
 export class MetaInboxProcessor {
@@ -109,8 +114,10 @@ export class MetaInboxProcessor {
         if (job !== latest) await this.channels.completeEvent(job.id, job.claimToken);
       if (!(await this.channels.renewEvent(latest.id, latest.claimToken))) continue;
       try {
-        if ((await this.process(latest)) === 'requeue')
-          await this.channels.requeueEvent(latest.id, latest.claimToken);
+        const outcome = await this.process(latest);
+        if (outcome === 'requeue') await this.channels.requeueEvent(latest.id, latest.claimToken);
+        else if (outcome instanceof Date)
+          await this.channels.deferEvent(latest.id, latest.claimToken, outcome);
         else await this.channels.completeEvent(latest.id, latest.claimToken);
       } catch {
         this.resumes.take(latest.workspaceId, conversationId);
@@ -170,13 +177,25 @@ export class MetaInboxProcessor {
       .releaseEvent(job.id, job.claimToken, job.attempt <= 1 ? 20_000 : 60_000)
       .catch(() => undefined);
   }
-  async process(job: PendingMetaEvent): Promise<'requeue' | void> {
-    const c = await this.inbox.receive(job.workspaceId, job.connectionId, job.event);
+  /** `Date`: held until then (the conversation is paused until the bot resumes, LM2-2). */
+  async process(job: PendingMetaEvent): Promise<'requeue' | Date | void> {
+    let c = await this.inbox.receive(job.workspaceId, job.connectionId, job.event);
     // An echo (e.g. of the interrupted run's own send) leaves the pending re-run alone.
     if (job.event.type !== 'message' || !isCustomerContent(job.event))
       return this.skip(job, 'not a customer message');
     // Taken now so every skip below drops it: a later, unrelated turn must not inherit it.
     const taken = this.resumes.take(job.workspaceId, c.id);
+    // Staff hold the conversation for a while (a takeover or a hand-off): the message waits for the
+    // bot to resume, and is answered then unless staff replied meanwhile (LM2-2).
+    if (c.mode === 'human' && c.status === 'open' && c.takeover === 'temporary' && c.autoResumeAt) {
+      const resumeAt = new Date(c.autoResumeAt);
+      if (resumeAt.getTime() > Date.now()) {
+        if (resumeAt.getTime() - job.event.occurredAt.getTime() < MAX_DEFER_MS) {
+          this.skip(job, `paused until ${c.autoResumeAt}, held for the bot`);
+          return new Date(resumeAt.getTime() + RESUME_GRACE_MS);
+        }
+      } else c = (await this.inbox.resumeIfDue(job.workspaceId, c.id)) ?? c;
+    }
     if (c.mode !== 'bot' || c.status !== 'open') return this.skip(job, 'conversation not on bot');
     const channel = await this.channels.getConnection(job.workspaceId, job.connectionId);
     // Re-auth pending: the message is stored for staff, but the bot cannot send.

@@ -268,6 +268,42 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
     await this.alerts?.raise(ws, handed, 'handoff');
     return handed;
   }
+  async resumeIfDue(ws: WorkspaceId, id: string): Promise<ConversationView | null> {
+    const channelId = await this.store.run(
+      ws,
+      async (tx) => (await requireConversation(tx, id)).channelId,
+    );
+    const bot = await this.channelBot(ws, channelId);
+    if (!bot?.isActive) return null;
+    return this.store.run(ws, async (tx) => {
+      const c = await requireConversation(tx, id);
+      const due =
+        c.mode === 'human' &&
+        c.status === 'open' &&
+        c.takeover === 'temporary' &&
+        c.autoResumeAt !== null &&
+        Date.parse(c.autoResumeAt) <= Date.now() &&
+        c.awaitingSince !== null &&
+        c.lastMessageSender === 'customer';
+      if (!due) return null;
+      const updated = {
+        ...c,
+        mode: 'bot' as const,
+        takeover: null,
+        autoResumeAt: null,
+        revision: c.revision + 1,
+      };
+      await tx.save(updated);
+      await tx.audit(id, 'conversation.control.updated.v1', {
+        actorId: 'system',
+        mode: updated.mode,
+        status: updated.status,
+        assigneeId: updated.assigneeId,
+        revision: updated.revision,
+      });
+      return updated;
+    });
+  }
   private async tagged(ws: WorkspaceId, c: ConversationView): Promise<ConversationView> {
     return (await attachTags(this.crm, ws, [c]))[0] ?? c;
   }

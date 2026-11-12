@@ -410,6 +410,9 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
   requeueEvent(id: string, claimToken: string) {
     return this.store.requeueEvent(id, claimToken);
   }
+  deferEvent(id: string, claimToken: string, until: Date) {
+    return this.store.deferEvent(id, claimToken, until);
+  }
   hasNewerCustomerEvent(connectionId: string, senderExternalId: string, afterEventId: string) {
     return this.store.hasNewerCustomerEvent(connectionId, senderExternalId, afterEventId);
   }
