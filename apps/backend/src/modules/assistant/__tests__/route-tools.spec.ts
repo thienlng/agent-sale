@@ -10,6 +10,7 @@ import {
 } from '../application/route-catalog.js';
 import {
   FORBIDDEN_MESSAGE,
+  LIST_DESCRIPTION_CUT,
   MAX_PENDING_PROPOSALS,
   MAX_PROPOSAL_BODY_CHARS,
   MAX_ROUTE_RESULT_CHARS,
@@ -442,6 +443,30 @@ describe('tool_call', () => {
       preview: { body: PRODUCT, query: null },
     });
     expect(stored?.expiresAt.getTime()).toBe(NOW.getTime() + PROPOSAL_TTL_MS);
+  });
+
+  it('cuts long product descriptions in a list read, never in a read by id (NEW-3)', async () => {
+    const long = 'Gỗ thông tự nhiên. '.repeat(40);
+    const product = {
+      id: newId(),
+      name: 'Xương rồng gỗ',
+      description: long,
+      variants: [{ price: 460_000 }],
+    };
+    const t = await setup((i) =>
+      i.path === '/products'
+        ? { status: 200, body: { data: [product], total: 1 } }
+        : { status: 200, body: product },
+    );
+    const list = await t.call({ key: 'GET /products', query: { q: 'xương rồng' } });
+    const row = (list.json.body as { data: { description: string; variants: unknown }[] }).data[0]!;
+    expect(row.description).toBe(long.slice(0, 200) + LIST_DESCRIPTION_CUT);
+    expect(row.variants).toEqual([{ price: 460_000 }]);
+    const one = await t.call({
+      key: 'GET /products/{productId}',
+      params: { productId: product.id },
+    });
+    expect((one.json.body as { description: string }).description).toBe(long);
   });
 
   it('accepts a concrete path for a templated key (AS-14)', async () => {

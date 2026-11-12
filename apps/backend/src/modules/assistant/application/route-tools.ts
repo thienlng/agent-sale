@@ -196,6 +196,34 @@ export function resolveRouteKey(
   return undefined;
 }
 
+const PRODUCT_LIST_KEY = 'GET /products';
+/** A product description in a list read is cut to this many characters (NEW-3). */
+export const LIST_DESCRIPTION_CHARS = 200;
+export const LIST_DESCRIPTION_CUT = '…[cut: GET /products/{productId} has the full text]';
+
+/**
+ * A product list as the model reads it (NEW-3): each description cut to 200 chars, so a few
+ * long descriptions do not push the names, prices and stock past the turn's read budget. A
+ * write never starts from a list: the full product is `GET /products/{productId}`, which is
+ * also what a proposal shows as the current state.
+ */
+export function compactProductList(body: unknown): unknown {
+  const data = (body as { data?: unknown } | null)?.data;
+  if (!Array.isArray(data)) return body;
+  return {
+    ...(body as object),
+    data: data.map((item: unknown) => {
+      const d = (item as { description?: unknown } | null)?.description;
+      return typeof d === 'string' && d.length > LIST_DESCRIPTION_CHARS
+        ? {
+            ...(item as object),
+            description: d.slice(0, LIST_DESCRIPTION_CHARS) + LIST_DESCRIPTION_CUT,
+          }
+        : item;
+    }),
+  };
+}
+
 /** tool_search, tool_describe and tool_call for one turn (spec §6). */
 export function routeTools(ctx: RouteToolContext): RunnableTool[] {
   const now = ctx.now ?? (() => new Date());
@@ -294,7 +322,8 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
       readChars += out.content.length;
       return out;
     }
-    const body = BUSINESS_OWNED_READS.has(p.entry.key) ? res.body : redactPii(res.body);
+    const shown = BUSINESS_OWNED_READS.has(p.entry.key) ? res.body : redactPii(res.body);
+    const body = p.entry.key === PRODUCT_LIST_KEY ? compactProductList(shown) : shown;
     const content = cut(json({ status: res.status, body }), room);
     readChars += content.length;
     return { content };
