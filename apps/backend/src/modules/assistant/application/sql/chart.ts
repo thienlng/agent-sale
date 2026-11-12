@@ -170,33 +170,40 @@ const DAY_MS = 86_400_000;
  * with the missing months added too. Anything else is returned as is. Rows stay in date order.
  */
 export function dateSeries(rows: ChartRow[], x: string, ys: readonly string[]): ChartRow[] {
-  const days = rows.map((r) => DAY_RE.exec(String(r[x] ?? '')));
-  if (rows.length < 2 || days.some((d) => !d)) return rows;
-  const at = days.map((d) => Date.UTC(Number(d![1]), Number(d![2]) - 1, Number(d![3])));
+  const parts: { at: number; first: boolean }[] = [];
+  for (const r of rows) {
+    const d = DAY_RE.exec(String(r[x] ?? ''));
+    if (!d) return rows;
+    parts.push({
+      at: Date.UTC(Number(d[1]), Number(d[2]) - 1, Number(d[3])),
+      first: d[3] === '01',
+    });
+  }
+  if (rows.length < 2) return rows;
   const byKey = new Map<number, ChartRow>();
-  rows.forEach((r, i) => byKey.set(at[i]!, r));
-  const zero = (key: number, xValue: string): ChartRow => {
+  rows.forEach((r, i) => byKey.set(parts[i]?.at ?? 0, r));
+  const point = (key: number, xValue: string): ChartRow => {
     const found = byKey.get(key);
     const out: ChartRow = { [x]: xValue };
     for (const y of ys) out[y] = found ? (found[y] ?? null) : 0;
     return out;
   };
-  const first = Math.min(...at);
-  const last = Math.max(...at);
-  const monthly = days.every((d) => d![3] === '01');
+  const times = parts.map((p) => p.at);
+  const first = Math.min(...times);
+  const last = Math.max(...times);
   const out: ChartRow[] = [];
-  if (monthly) {
+  if (parts.every((p) => p.first)) {
     const start = new Date(first);
     for (let m = 0; out.length <= MAX_CHART_ROWS; m++) {
       const key = Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + m, 1);
       if (key > last) break;
       const d = new Date(key);
-      out.push(zero(key, `Tháng ${d.getUTCMonth() + 1}/${d.getUTCFullYear()}`));
+      out.push(point(key, `Tháng ${d.getUTCMonth() + 1}/${d.getUTCFullYear()}`));
     }
     return out;
   }
   for (let key = first; key <= last && out.length <= MAX_CHART_ROWS; key += DAY_MS) {
-    out.push(zero(key, new Date(key).toISOString().slice(0, 10)));
+    out.push(point(key, new Date(key).toISOString().slice(0, 10)));
   }
   return out;
 }
