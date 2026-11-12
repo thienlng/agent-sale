@@ -614,13 +614,40 @@
   },
   "starters": {
     "title": "Hôm nay anh/chị cần mình giúp gì?",
-    "body": "Hỏi số liệu, nhờ sửa bot, lập lịch báo cáo hay nhập sản phẩm — mình làm và chỉ đúng chỗ cần bấm.",
-    "label": "Gợi ý để bắt đầu",
+    "body": "Rapiz Agent làm việc trên dữ liệu thật của shop. Việc nào thay đổi dữ liệu, mình đều đưa anh/chị duyệt trước.",
+    "capabilitiesLabel": "Rapiz Agent làm được",
+    "capabilities": {
+      "numbers": {
+        "title": "Trả lời số liệu, vẽ biểu đồ",
+        "body": "Doanh thu, đơn hàng, khách hàng theo ngày, tuần, tháng"
+      },
+      "bot": {
+        "title": "Dạy và sửa bot",
+        "body": "Lời chào, câu hỏi thường gặp, tìm vì sao bot trả lời sai"
+      },
+      "catalog": {
+        "title": "Sản phẩm và đơn hàng",
+        "body": "Thêm, sửa sản phẩm; nhập hàng loạt từ Excel hoặc ảnh; xử lý đơn"
+      },
+      "channels": {
+        "title": "Kết nối kênh chat",
+        "body": "Fanpage, Instagram và chat trên website"
+      },
+      "reports": {
+        "title": "Báo cáo theo lịch",
+        "body": "Gửi báo cáo, cảnh báo định kỳ cho anh/chị"
+      },
+      "guide": {
+        "title": "Làm cùng trên màn hình",
+        "body": "Mở đúng trang, điền sẵn biểu mẫu, nhớ cách làm của shop"
+      }
+    },
+    "label": "Thử hỏi",
     "items": {
-      "sales": "Tuần này shop bán được bao nhiêu đơn?",
-      "care": "Khách nào đang cần chăm sóc hôm nay?",
-      "report": "Mỗi sáng 8h gửi mình doanh thu hôm qua",
-      "bot": "Bot trả lời chưa đúng, giúp mình sửa"
+      "revenue": "So sánh doanh thu 7 ngày qua với tuần trước",
+      "chart": "Vẽ biểu đồ số đơn theo ngày trong tháng này",
+      "report": "Mỗi sáng 8h gửi mình doanh thu và số đơn hôm qua",
+      "bot": "Vì sao bot trả lời sai câu hỏi về phí ship?"
     }
   }
 }

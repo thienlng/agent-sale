@@ -619,13 +619,40 @@
   },
   "starters": {
     "title": "What can I help you with today?",
-    "body": "Ask for numbers, fix the bot, schedule a report or import products — I do it and point to exactly where to click.",
-    "label": "Ideas to start with",
+    "body": "Rapiz Agent works on your shop's real data. Anything that changes data comes to you for approval first.",
+    "capabilitiesLabel": "What Rapiz Agent can do",
+    "capabilities": {
+      "numbers": {
+        "title": "Answer with numbers and charts",
+        "body": "Revenue, orders and customers by day, week or month"
+      },
+      "bot": {
+        "title": "Teach and fix the bot",
+        "body": "Greetings, FAQs, and why the bot answered wrong"
+      },
+      "catalog": {
+        "title": "Products and orders",
+        "body": "Add or edit products, bulk import from Excel or photos, handle orders"
+      },
+      "channels": {
+        "title": "Connect chat channels",
+        "body": "Facebook Pages, Instagram and website chat"
+      },
+      "reports": {
+        "title": "Scheduled reports",
+        "body": "Reports and alerts sent to you on a schedule"
+      },
+      "guide": {
+        "title": "Work with you on screen",
+        "body": "Open the right page, prefill forms, remember the shop's way"
+      }
+    },
+    "label": "Try asking",
     "items": {
-      "sales": "How many orders did the shop get this week?",
-      "care": "Which customers need follow-up today?",
-      "report": "Send me yesterday's revenue every morning at 8",
-      "bot": "The bot answered wrong, help me fix it"
+      "revenue": "Compare revenue for the last 7 days with the week before",
+      "chart": "Chart the number of orders per day this month",
+      "report": "Every morning at 8, send me yesterday's revenue and orders",
+      "bot": "Why did the bot answer the shipping-fee question wrong?"
     }
   }
 }

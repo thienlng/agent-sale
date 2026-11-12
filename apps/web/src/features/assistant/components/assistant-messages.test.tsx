@@ -60,10 +60,12 @@ describe('AssistantMessages empty conversation', () => {
       />,
     );
     expect(screen.getByText('Hôm nay anh/chị cần mình giúp gì?')).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Rapiz Agent làm được' })).toBeInTheDocument();
+    expect(screen.getByText('Dạy và sửa bot')).toBeInTheDocument();
     await userEvent.click(
-      screen.getByRole('button', { name: 'Tuần này shop bán được bao nhiêu đơn?' }),
+      screen.getByRole('button', { name: 'So sánh doanh thu 7 ngày qua với tuần trước' }),
     );
-    expect(onStarter).toHaveBeenCalledWith('Tuần này shop bán được bao nhiêu đơn?');
+    expect(onStarter).toHaveBeenCalledWith('So sánh doanh thu 7 ngày qua với tuần trước');
   });
 
   it('disables the starters while a message is on its way', () => {

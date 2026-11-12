@@ -1,5 +1,16 @@
 import type { AssistantMessageDto, AssistantProposalDto } from '@agent-sales/contracts';
-import { ChevronDown, Loader2, ThumbsDown, ThumbsUp } from 'lucide-react';
+import {
+  BarChart3,
+  Bot,
+  CalendarClock,
+  ChevronDown,
+  Loader2,
+  MousePointerClick,
+  Package,
+  Plug,
+  ThumbsDown,
+  ThumbsUp,
+} from 'lucide-react';
 import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -14,8 +25,17 @@ import { AssistantMarkdown } from './assistant-markdown';
 import { AssistantProposal } from './assistant-proposals';
 import { AssistantStepList, AssistantSteps } from './assistant-steps';
 
-/** Starter questions of the empty conversation, one per thing the assistant is good at. */
-const STARTERS = ['sales', 'care', 'report', 'bot'] as const;
+/** What the assistant can do, shown on an empty conversation (its toolsets, in plain words). */
+const CAPABILITIES = [
+  { key: 'numbers', Icon: BarChart3 },
+  { key: 'bot', Icon: Bot },
+  { key: 'catalog', Icon: Package },
+  { key: 'channels', Icon: Plug },
+  { key: 'reports', Icon: CalendarClock },
+  { key: 'guide', Icon: MousePointerClick },
+] as const;
+/** Starter questions of the empty conversation: concrete asks that send on click. */
+const STARTERS = ['revenue', 'chart', 'report', 'bot'] as const;
 
 /** Lazy, so recharts loads only when an answer has a chart (docs/16). */
 const AssistantChart = lazy(() => import('./assistant-chart'));
@@ -182,7 +202,7 @@ export function AssistantMessages({
           data-measure
           className={cn(
             'flex flex-col px-4',
-            roomy ? 'min-h-full justify-center py-10 sm:px-8' : 'py-8',
+            roomy ? 'min-h-full justify-center py-10 sm:px-8' : 'py-6',
           )}
         >
           <p
@@ -197,8 +217,29 @@ export function AssistantMessages({
             {t('starters.body')}
           </p>
           <ul
+            aria-label={t('starters.capabilitiesLabel')}
+            className={cn('mt-6 grid gap-x-6 gap-y-4', roomy && 'sm:grid-cols-2')}
+          >
+            {CAPABILITIES.map(({ key, Icon }) => (
+              <li key={key} className="flex items-start gap-3">
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-brand-text">
+                  <Icon className="size-4" aria-hidden />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium">
+                    {t(`starters.capabilities.${key}.title`)}
+                  </span>
+                  <span className="block text-xs text-pretty text-muted-foreground">
+                    {t(`starters.capabilities.${key}.body`)}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-7 text-xs font-medium text-muted-foreground">{t('starters.label')}</p>
+          <ul
             aria-label={t('starters.label')}
-            className={cn('mt-6 grid gap-2', roomy && 'sm:grid-cols-2')}
+            className={cn('mt-2 grid gap-2', roomy && 'sm:grid-cols-2')}
           >
             {STARTERS.map((key) => (
               <li key={key}>
