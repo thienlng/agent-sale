@@ -21,13 +21,21 @@ export function formatCompactVnd(amount: number): string {
   );
 }
 
+/** "01:05 13/11/2026": the year in full, like `formatDay`, so one screen has one date form (AS-23). */
 export function formatDateTime(iso: string): string {
-  return new Intl.DateTimeFormat(locale(), { dateStyle: 'short', timeStyle: 'short' }).format(
-    new Date(iso),
-  );
+  return new Intl.DateTimeFormat(locale(), {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(iso));
 }
 
+/** A yyyy-mm-dd day without its year: "07/11" (vi; Intl's vi-VN pattern prints "07-11"). */
 export function formatDate(iso: string): string {
+  if (locale() === 'vi-VN') return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
   return new Intl.DateTimeFormat(locale(), { day: '2-digit', month: '2-digit' }).format(
     new Date(`${iso}T00:00:00`),
   );

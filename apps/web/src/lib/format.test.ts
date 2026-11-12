@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatPhone, formatRelativeTime, formatShortDate } from './format';
+import {
+  formatDate,
+  formatDateTime,
+  formatPhone,
+  formatRelativeTime,
+  formatShortDate,
+} from './format';
 
 describe('formatRelativeTime', () => {
   const now = Date.parse('2026-11-01T10:00:00.000Z');
@@ -33,5 +39,12 @@ describe('formatPhone', () => {
   it('keeps other numbers as stored', () => {
     expect(formatPhone('+14155550123')).toBe('+14155550123');
     expect(formatPhone('1900')).toBe('1900');
+  });
+});
+
+describe('date formats (AS-23)', () => {
+  it('writes days as dd/mm and times with the full year', () => {
+    expect(formatDate('2026-11-07')).toBe('07/11');
+    expect(formatDateTime('2026-11-13T01:05:00')).toMatch(/01:05.*13\/11\/2026/);
   });
 });
