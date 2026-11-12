@@ -75,6 +75,23 @@ interface ChannelAdapter {
 - Old conversation sync: Conversations API from a user-chosen point in time (Preny has a "Đồng bộ" (Sync) screen).
 - **Conversions API**: when an order moves to `confirmed/delivered` → send a `Purchase` event (event_id = order id for dedup, with page_id/ctwa/psid per the business messaging spec). P1.
 
+### Data deletion callback (built)
+
+Meta requires apps that use Facebook Login to answer data deletion requests ([Data Deletion Request Callback](https://developers.facebook.com/docs/development/create-an-app/app-dashboard/data-deletion-callback), checked 2026-11-12). Owners log in with Facebook to connect Pages, so a Facebook user who removes the app (or asks Meta) triggers a callback.
+
+| Item | Value |
+|---|---|
+| URL to enter in the Meta app dashboard (App settings → Basic → **Data deletion request URL**, "Data deletion callback URL") | `https://<webhook host>/meta/data-deletion` — the `apps/webhook` ingress, e.g. `https://hooks.rapiz.io/meta/data-deletion`; same host as `/webhooks/facebook` |
+| Request | `POST`, form `signed_request=<base64url HMAC-SHA256 signature>.<base64url JSON payload>` (a JSON body `{ "signed_request": … }` is accepted too), signed with `META_APP_SECRET`; payload `{ algorithm: "HMAC-SHA256", issued_at, expires, user_id }` |
+| Checks | Constant-time HMAC over the encoded payload; `algorithm` must be `HMAC-SHA256`; `user_id` must be numeric; ≤ 4 KB. Anything else → `400 { error: "invalid signed_request" }` (`parseSignedRequest` in `packages/channels`) |
+| Response | `200 { "url": "${APP_PUBLIC_URL}/data-deletion?code=<code>", "confirmation_code": "<code>" }`; the code is 24 upper-case hex characters. The same person asking again while the request is pending gets the same code |
+| Stored | `meta_data_deletion_requests` (global, app_system only, migration 0076): code, status `pending`/`completed`, attempts, timestamps, count of pages removed, and the user hash only while pending. Never the user id, the signed request or a name |
+| Effect | The worker (`MetaDataDeletionRunner`, every minute) finds the live connections whose `meta_user_hash` (`sha256("facebook:" + user_id)`, recorded when the person connected the Page; `GET /me?fields=id` during the OAuth exchange) matches, in every business: Graph unsubscribe with the old token (best effort), then the connection becomes `removed` with its sealed token wiped, bot unbound and hash cleared, and a `channel.removed` audit event (`data.reason = "meta_data_deletion"`) in that business. The request completes and forgets the hash. Businesses, conversations, customers and orders are not deleted: they belong to the business (end customers are deleted through `DELETE /contacts/{id}`, [09 §10](09-security-and-compliance.md#10-data-subject-rights--data-lifecycle)). Discovery flows that still hold page tokens expire after 10 minutes and are not matched |
+| Status | `GET /api/v1/meta/data-deletion/{code}` (public) → `{ confirmationCode, status, requestedAt, completedAt, connectionsRemoved }`, 404 for an unknown code; the web page `/data-deletion?code=…` shows it in Vietnamese or English |
+| Config | `META_APP_SECRET` and `APP_PUBLIC_URL` (https) on the webhook service; without either the route is not registered (404). The worker needs the database and `SECRETS_ENCRYPTION_KEY` (already required for channels) |
+
+Limits (not built): Pages connected before migration 0076 have no recorded grantor, so a request matches nothing for them (the status says 0 Pages); reconnecting records it. Instagram Login (a separate app secret and user id) has no callback yet.
+
 ## 4. Zalo OA
 
 - Register an app at Zalo for Developers; OAuth v4 grants OA permissions (short-lived access token + refresh token; the refresh token is single-use → **the new token must be saved immediately within the transaction**, with a per-connection lock during refresh so two workers refreshing at once do not lose the token).
@@ -131,7 +148,7 @@ Decision record: [ADR-011](adr/ADR-011-website-widget-shadow-dom-and-polling.md)
 
 | Step | Work |
 |---|---|
-| Week 1 | Create the Meta App and Zalo App, apply for Business Verification, prepare Privacy Policy/ToS/Data deletion URL (required by Meta) |
+| Week 1 | Create the Meta App and Zalo App, apply for Business Verification, prepare Privacy Policy/ToS/Data deletion URL (required by Meta; the callback is built, see §3 "Data deletion callback") |
 | In parallel | Write adapters + a **real webhook fixture** set (record/replay) to test without real channels |
 | Before go-live | Pass Meta App Review; run a 72h soak test on an internal page; per-connector error monitoring |
 

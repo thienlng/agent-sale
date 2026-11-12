@@ -17,6 +17,7 @@ export function connection(r: typeof schema.channelConnections.$inferSelect): Co
     expiresAt: r.expiresAt?.toISOString() ?? null,
     settings: r.provider === 'website' ? readSettings(r.settings) : null,
     createdAt: r.createdAt.toISOString(),
+    metaUserHash: r.metaUserHash,
   };
 }
 export function flow(r: typeof schema.channelOauthFlows.$inferSelect): OAuthFlow {

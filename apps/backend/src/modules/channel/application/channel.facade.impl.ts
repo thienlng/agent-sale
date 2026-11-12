@@ -1,5 +1,10 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { MetaAdapter, MetaRequestError, type NormalizedEvent } from '@agent-sales/channels';
+import {
+  MetaAdapter,
+  MetaRequestError,
+  metaUserHash,
+  type NormalizedEvent,
+} from '@agent-sales/channels';
 import {
   ChannelConnectionDto,
   type CreateWebsiteRequest,
@@ -30,6 +35,7 @@ const GrantedAccounts = z.array(
     name: z.string(),
     token: z.string(),
     expiresAt: z.string().nullable(),
+    grantorId: z.string().nullable().optional(),
   }),
 );
 export const hash = (v: string): string => createHash('sha256').update(v).digest('hex');
@@ -242,6 +248,7 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
       expiresAt: a.expiresAt,
       settings: null,
       createdAt: new Date().toISOString(),
+      metaUserHash: a.grantorId ? metaUserHash(a.grantorId) : null,
     }));
     return { data: (await this.store.select(ws, userId, id, records)).map(publicConnection) };
   }

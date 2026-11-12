@@ -67,6 +67,18 @@ export class MemoryChannelStore implements ChannelStore {
   async forgetCustomerEvents() {
     return 0;
   }
+  async connectionsOfMetaUser(userHash: string) {
+    return [...this.records.values()].filter(
+      (c) => c.metaUserHash === userHash && c.status !== 'removed',
+    );
+  }
+  async claimDataDeletions() {
+    return [];
+  }
+  async completeDataDeletion() {}
+  async dataDeletion() {
+    return null;
+  }
   async unbindBot(ws: WorkspaceId, botId: string) {
     let n = 0;
     for (const [id, c] of this.records)

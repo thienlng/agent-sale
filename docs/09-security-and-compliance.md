@@ -130,7 +130,7 @@ Mandatory events: login/2FA, permission changes/inviting/removing members, conne
 | Regulations against spam messages and spam email (Decree 91/2020/ND-CP on anti-spam and amending documents) | Campaigns must have opt-in/opt-out, frequency limits, sending time windows, content identifying the sender |
 | Law on Electronic Transactions (Luật Giao dịch điện tử), Decree 123/2020/ND-CP on invoices | E-invoices for subscriptions/credit |
 | E-commerce | Register/notify the e-commerce website if applicable; clear terms of service, payment policy, refund policy |
-| Platform policies (Meta, Zalo, TikTok) | Privacy policy URL, data deletion callback (Meta), comply with messaging policies to avoid having the app blocked — **the biggest business risk** |
+| Platform policies (Meta, Zalo, TikTok) | Privacy policy URL, data deletion callback (Meta — built: [07 §3](07-channel-integrations.md#data-deletion-callback-built)), comply with messaging policies to avoid having the app blocked — **the biggest business risk** |
 
 Preny has weak legal documentation (policies dated before the company's founding date, terms still containing placeholders) → we do it cleanly from the start: ToS, Privacy, DPA, Acceptable Use, SLA, versioned, with a stored acceptance history for each workspace.
 
