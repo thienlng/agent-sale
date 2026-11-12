@@ -33,6 +33,8 @@ export const PUBLIC_EVENT_DATA = {
     fromUserId: z.uuid().nullable(),
     toUserId: z.uuid().nullable(),
   }),
+  /** Ids only: the customer and their conversations no longer exist (docs/09 §10). */
+  'crm.contact.deleted': z.object(contact),
   'crm.tag.assigned': z.object(tag),
   'crm.tag.removed': z.object(tag),
   'lodging.booking.created': z.object({
@@ -87,6 +89,7 @@ export const PUBLIC_EVENT_SOURCES = {
   'crm.contact.updated': 'crm.contact.updated.v1',
   'crm.contact.status_changed': 'crm.contact.status_changed.v1',
   'crm.contact.assigned': 'crm.contact.assigned.v1',
+  'crm.contact.deleted': 'crm.contact.deleted.v1',
   'crm.tag.assigned': 'crm.tag.assigned.v1',
   'crm.tag.removed': 'crm.tag.removed.v1',
   'lodging.booking.created': 'lodging.booking.created.v1',

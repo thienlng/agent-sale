@@ -64,6 +64,9 @@ export class MemoryChannelStore implements ChannelStore {
   async hasPendingCustomerEvent(connectionId: string, sender: string) {
     return this.events.some((e) => e.connectionId === connectionId && e.sender === sender);
   }
+  async forgetCustomerEvents() {
+    return 0;
+  }
   async unbindBot(ws: WorkspaceId, botId: string) {
     let n = 0;
     for (const [id, c] of this.records)

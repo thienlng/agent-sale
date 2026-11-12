@@ -59,6 +59,12 @@ export interface ChannelStore {
   hasPendingCustomerEvent(connectionId: string, senderExternalId: string): Promise<boolean>;
   /** Clears the bot binding of every connection pointing at `botId`; returns how many changed. */
   unbindBot(ws: WorkspaceId, botId: string): Promise<number>;
+  /** Deletes the processed events of one sender on one connection; returns how many. */
+  forgetCustomerEvents(
+    ws: WorkspaceId,
+    connectionId: string,
+    senderExternalId: string,
+  ): Promise<number>;
   createFlow(flow: OAuthFlow): Promise<void>;
   consumeState(
     provider: MetaProvider,

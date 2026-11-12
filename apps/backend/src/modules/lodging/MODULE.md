@@ -4,7 +4,9 @@
 
 **Layout:** `domain/` pure rules (nights, rate rules and packages — `assertRateCoverage`, `assertPackages`, `assertRatePackage`, `fullPackage`, `priceFull` —, `quoteStay` with `stayTargets` / `singlePackageTarget`, booking status machine). `application/` services (`PropertyService`, `RatesService`, `LodgingSettingsService`, `BookingService`, `CalendarService`, `NightNotesService`), the bot catalog (`bot-catalog.ts` + pure mapping `bot-product.ts`), the bot holds (`bot-hold.service.ts` + `bot-hold-support.ts`; free-option search shared with the calendar in `availability.ts`) and the store port `ports/lodging-store.ts` (`LODGING_STORE`). `infrastructure/persistence/` Drizzle adapter. `interface/http/` three controllers under `@Controller('lodging')`.
 
-**Depends on:** `workspace` (`WORKSPACE_FACADE`, industry check) and `bot` (`BOT_FACADE`). Never on `commerce` or any other tier-2 module.
+**Depends on:** `workspace` (`WORKSPACE_FACADE`, industry check) and `bot` (`BOT_FACADE`), and on crm only to register on `CONTACT_LIFECYCLE`. Never on `commerce` or any other tier-2 facade.
+
+**Customer deletion (docs/09 §10):** `BookingErasure` (`detach` step): stay bookings linked to the customer (`contact_id`), to one of its conversations or with its phone (digits only) keep their dates and money but get `guest_name = DELETED_CUSTOMER_NAME`, an empty phone and no customer link (version bumped; blocks untouched); the bot's hold drafts of the customer or those conversations are deleted. Store: `BOOKING_ERASURE_STORE`.
 
 **Owned tables** (migrations 0041, 0042, 0043, 0066, 0067 and 0068, schema `packages/db/src/schema/lodging.ts`): `lodging_properties`, `lodging_units`, `lodging_packages`, `lodging_rates`, `lodging_settings`, `lodging_bookings`, `lodging_booking_units`, `lodging_unit_nights`, `lodging_bot_properties`, `lodging_night_notes`, `lodging_bot_hold_drafts`. Also writes `audit_events` (targets `lodging_property`, `lodging_booking`, `lodging_settings`, `bot`) and `outbox_events`.
 

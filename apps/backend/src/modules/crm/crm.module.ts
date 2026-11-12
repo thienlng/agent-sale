@@ -5,11 +5,13 @@ import { DB_SYSTEM, DB_TENANT } from '../../common/db/db.module.js';
 import { IdentityModule } from '../identity/identity.module.js';
 import { NotificationModule } from '../notification/notification.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
+import { CONTACT_LIFECYCLE, ContactLifecycle } from './api/contact-lifecycle.js';
 import { CONTACT_SYNC_FACADE } from './api/contact-sync.facade.js';
 import { CRM_EXPORT } from './api/crm-export.js';
 import { CRM_FACADE } from './api/crm.facade.js';
 import { CRM_TASK_RUNNER } from './api/crm-task.runner.js';
 import { ConversationTagsService } from './application/conversation-tags.service.js';
+import { ContactDeletionService } from './application/contact-deletion.service.js';
 import { ContactService } from './application/contact.service.js';
 import { ContactSyncService } from './application/contact-sync.service.js';
 import { CrmFacadeImpl } from './application/crm.facade.impl.js';
@@ -56,7 +58,9 @@ import { TasksController } from './interface/http/tasks.controller.js';
       inject: [{ token: DB_TENANT, optional: true }],
       useFactory: (db: Database | null | undefined) => new CrmExportSource(db ?? null),
     },
+    { provide: CONTACT_LIFECYCLE, useValue: new ContactLifecycle() },
     ContactService,
+    ContactDeletionService,
     CustomerRequestService,
     CrmSettingsService,
     DistributionService,
@@ -77,6 +81,6 @@ import { TasksController } from './interface/http/tasks.controller.js';
     ContactSyncService,
     { provide: CONTACT_SYNC_FACADE, useExisting: ContactSyncService },
   ],
-  exports: [CRM_FACADE, CONTACT_SYNC_FACADE, CRM_EXPORT, CRM_TASK_RUNNER],
+  exports: [CRM_FACADE, CONTACT_SYNC_FACADE, CRM_EXPORT, CRM_TASK_RUNNER, CONTACT_LIFECYCLE],
 })
 export class CrmModule {}

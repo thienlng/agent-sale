@@ -98,6 +98,23 @@ export class DrizzleChannelStore implements ChannelStore {
       return rows.length;
     });
   }
+  forgetCustomerEvents(ws: WorkspaceId, connectionId: string, senderExternalId: string) {
+    return withTenant(this.db, ws, async (tx) => {
+      // Unprocessed events stay: the agent is about to handle them (a new message starts afresh).
+      const rows = await tx
+        .delete(e)
+        .where(
+          and(
+            eq(e.workspaceId, ws),
+            eq(e.connectionId, connectionId),
+            sql`${e.payload}->>'senderExternalId' = ${senderExternalId}`,
+            sql`${e.processedAt} is not null`,
+          ),
+        )
+        .returning({ id: e.id });
+      return rows.length;
+    });
+  }
   async createFlow(rec: OAuthFlow) {
     await withTenant(this.db, rec.workspaceId, async (tx) => {
       await tx.insert(f).values(rec);
@@ -294,6 +311,9 @@ export class UnavailableChannelStore implements ChannelStore {
     return Promise.resolve(false);
   }
   unbindBot(): Promise<number> {
+    return Promise.resolve(0);
+  }
+  forgetCustomerEvents(): Promise<number> {
     return Promise.resolve(0);
   }
   createFlow(): Promise<void> {

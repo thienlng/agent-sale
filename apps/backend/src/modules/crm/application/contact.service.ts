@@ -12,6 +12,7 @@ import {
   CreateContactRequest,
   isRequestIndustry,
   memberRoleOf,
+  roleCan,
   UpdateContactNoteRequest,
   UpdateContactRequest,
 } from '@agent-sales/contracts';
@@ -32,6 +33,7 @@ import {
   ContactNotFoundError,
   DuplicateContactRequestError,
   InvalidContactError,
+  NoteDeleteNotAllowedError,
   NoteNotFoundError,
   StaleVersionError,
 } from '../domain/crm.errors.js';
@@ -655,6 +657,33 @@ export class ContactService {
         { noteId },
       );
       return toNoteDto(next);
+    });
+  }
+
+  /**
+   * Deletes a note for good: its author, or a member who sees every customer (owner, admin; the
+   * route needs `contacts.edit`). The body also leaves the earlier `note.added` / `note.edited`
+   * entries, and a `note.deleted` entry (no body) records who did it. A note already gone is 404.
+   */
+  async deleteNote(
+    ws: WorkspaceId,
+    contactId: string,
+    noteId: string,
+    viewer: Viewer,
+  ): Promise<void> {
+    const actor = viewer.userId;
+    const actorName = await this.identity.displayName(userId(actor));
+    await this.store.run(ws, async (tx) => {
+      const contact = await this.#contact(tx, contactId, undefined, viewer);
+      const note = isUuid(noteId) ? await tx.notes.find(noteId, { forUpdate: true }) : null;
+      if (!note || note.contactId !== contactId) throw new NoteNotFoundError(noteId);
+      if (note.authorUserId !== actor && !roleCan(viewer.role, 'contacts.view_all'))
+        throw new NoteDeleteNotAllowedError(noteId);
+      await tx.notes.delete(noteId);
+      await tx.history.redactNote(contactId, noteId);
+      await this.#record(tx, ws, contact, 'note.deleted', {}, actor, actorName, new Date(), {
+        noteId,
+      });
     });
   }
 

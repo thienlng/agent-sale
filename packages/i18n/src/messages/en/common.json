@@ -1216,7 +1216,12 @@
       "noTags": "No tags yet.",
       "filesSoon": "Customer files come once storage (S3) is enabled.",
       "createdBy": "Created {{at}}",
-      "close": "Close"
+      "close": "Close",
+      "deleteNote": "Delete note",
+      "deleteNoteTitle": "Delete this note?",
+      "deleteNoteBody": "The note is removed for good, its text in the history too. This cannot be undone.",
+      "noteDeleted": "Note deleted",
+      "confirmDeleteNote": "Delete note"
     },
     "history": {
       "allTypes": "All changes",
@@ -1234,7 +1239,8 @@
         "tag.updated": "Tag details edited",
         "tag.removed": "Tag removed",
         "contact.request_recorded": "New request",
-        "contact.request_updated": "Request updated"
+        "contact.request_updated": "Request updated",
+        "note.deleted": "Note deleted"
       },
       "empty_value": "empty"
     },
@@ -1355,6 +1361,23 @@
       "loading": "Loading requests…",
       "loadError": "Could not load the requests.",
       "retry": "Retry"
+    },
+    "delete": {
+      "zoneTitle": "Delete customer",
+      "zoneHint": "Use this when the customer asks for their personal data to be deleted. This cannot be undone.",
+      "action": "Delete customer",
+      "title": "Delete {{name}} for good?",
+      "intro": "This cannot be undone.",
+      "removedTitle": "Deleted",
+      "removedProfile": "The profile, notes, history, tags and tasks of the customer",
+      "removedConversations": "Conversations with the customer and all their messages",
+      "removedFiles": "Pictures the customer sent through website chat",
+      "keptTitle": "Kept, but anonymized",
+      "kept": "Orders and stay bookings: the name becomes “Khách đã xoá” and the phone, email and address are removed.",
+      "confirm": "Delete for good",
+      "deleting": "Deleting…",
+      "cancel": "Cancel",
+      "done": "Customer and {{conversations}} conversations deleted; {{orders}} orders and {{bookings}} bookings anonymized."
     }
   },
   "team": {

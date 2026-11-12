@@ -10,6 +10,8 @@
 
 **Events published (outbox, aggregate `order`, same transaction as the change; ADR-022 §7):** `commerce.order.created.v1` (staff and bot orders) and `commerce.order.status_changed.v1` (staff status changes and a PMS cancellation; a bot-order approval is not a status change). Payloads carry ids, code, statuses, total and quantity only — no customer name, phone or address (`application/order-events.ts`). Public API: list, read, create, edit and status change of orders and product writes are marked `apiKey` in the contracts; product reads are not (they have no capability guard).
 
+**Customer deletion (docs/09 §10):** `OrderErasure` registers a `detach` step on crm's `CONTACT_LIFECYCLE`: the bot order drafts of the customer's conversations are deleted; orders of those conversations, or whose customer phone (digits only, `0…`/`84…` alike) is the customer's, keep only `customer = { name: DELETED_CUSTOMER_NAME }`; the recipient becomes the same when it is the same person (`domain/order-anonymize.ts`: same phone or name, or no phone), a gift recipient stays; `search_text` is rebuilt. Store: `ORDER_ERASURE_STORE`. No event is written (orders keep their ids, totals and statuses).
+
 **Events consumed:** none. Uses the `identity` facade (name snapshots), the `workspace` facade (time zone), the `bot` facade (a bot's catalog mode for bot orders) and the `crm` facade (`upsertLeadByPhone` after a bot order).
 
 **Invariants:**

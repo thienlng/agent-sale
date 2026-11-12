@@ -1210,7 +1210,12 @@
       "noTags": "Chưa gắn tag nào.",
       "filesSoon": "Lưu file của khách hàng sẽ có khi bật kho lưu trữ (S3).",
       "createdBy": "Tạo lúc {{at}}",
-      "close": "Đóng"
+      "close": "Đóng",
+      "deleteNote": "Xoá ghi chú",
+      "deleteNoteTitle": "Xoá ghi chú này?",
+      "deleteNoteBody": "Ghi chú bị xoá hẳn, kể cả nội dung trong lịch sử. Không thể hoàn tác.",
+      "noteDeleted": "Đã xoá ghi chú",
+      "confirmDeleteNote": "Xoá ghi chú"
     },
     "history": {
       "allTypes": "Mọi thay đổi",
@@ -1228,7 +1233,8 @@
         "tag.updated": "Sửa thông tin tag",
         "tag.removed": "Gỡ tag",
         "contact.request_recorded": "Yêu cầu mới",
-        "contact.request_updated": "Cập nhật yêu cầu"
+        "contact.request_updated": "Cập nhật yêu cầu",
+        "note.deleted": "Xoá ghi chú"
       },
       "empty_value": "trống"
     },
@@ -1349,6 +1355,23 @@
       "loading": "Đang tải yêu cầu…",
       "loadError": "Không tải được yêu cầu.",
       "retry": "Thử lại"
+    },
+    "delete": {
+      "zoneTitle": "Xoá khách hàng",
+      "zoneHint": "Dùng khi khách yêu cầu xoá dữ liệu cá nhân của họ. Không thể hoàn tác.",
+      "action": "Xoá khách hàng",
+      "title": "Xoá vĩnh viễn {{name}}?",
+      "intro": "Thao tác này không thể hoàn tác.",
+      "removedTitle": "Bị xoá hẳn",
+      "removedProfile": "Hồ sơ, ghi chú, lịch sử, tag và công việc của khách",
+      "removedConversations": "Các hội thoại với khách và toàn bộ tin nhắn",
+      "removedFiles": "Ảnh khách gửi qua chat website",
+      "keptTitle": "Giữ lại nhưng ẩn danh",
+      "kept": "Đơn hàng và đặt phòng: tên khách đổi thành “Khách đã xoá”, số điện thoại, email và địa chỉ bị xoá.",
+      "confirm": "Xoá vĩnh viễn",
+      "deleting": "Đang xoá…",
+      "cancel": "Huỷ",
+      "done": "Đã xoá khách hàng và {{conversations}} hội thoại; {{orders}} đơn hàng, {{bookings}} đặt phòng được ẩn danh."
     }
   },
   "team": {

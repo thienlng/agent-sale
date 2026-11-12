@@ -94,6 +94,15 @@ export interface ChannelFacade {
   ): Promise<CustomerProfile | null>;
   /** Detaches a bot from every page that uses it, so conversations there fall back to staff. */
   unbindBot(ws: WorkspaceId, botId: string): Promise<number>;
+  /**
+   * Deletes the stored raw events (message text included) this customer sent to the connection
+   * once they were processed (customer deletion, docs/09 §10); returns how many.
+   */
+  forgetCustomerEvents(
+    ws: WorkspaceId,
+    connectionId: string,
+    senderExternalId: string,
+  ): Promise<number>;
   claimEvents(limit: number): Promise<PendingMetaEvent[]>;
   renewEvent(id: string, claimToken: string): Promise<boolean>;
   completeEvent(id: string, claimToken: string): Promise<void>;

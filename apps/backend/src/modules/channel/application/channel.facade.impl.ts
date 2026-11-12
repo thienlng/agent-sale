@@ -151,6 +151,13 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
   unbindBot(ws: WorkspaceId, botId: string): Promise<number> {
     return this.store.unbindBot(ws, botId);
   }
+  forgetCustomerEvents(
+    ws: WorkspaceId,
+    connectionId: string,
+    senderExternalId: string,
+  ): Promise<number> {
+    return this.store.forgetCustomerEvents(ws, connectionId, senderExternalId);
+  }
   async list(ws: WorkspaceId, opts: { includeRemoved?: boolean } = {}) {
     return {
       data: (await this.store.list(ws, opts)).map(publicConnection),
