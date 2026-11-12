@@ -7,6 +7,8 @@
 stock and customers into Rapiz. KiotViet is the first provider; for linked records the PMS is the source of
 truth (ADR-017, spec `docs/superpowers/specs/2026-11-01-pms-kiotviet-design.md`).
 
+**Business deletion (ADR-032):** `application/event-handlers/on-workspace-deletion-requested.handler.ts` registers on `WORKSPACE_LIFECYCLE`: a deleted business's live KiotViet connection is disconnected at once (`disconnect`).
+
 **Owned tables:** `integration_connections`, `integration_jobs`, `integration_webhook_events`,
 `integration_image_cache`, `integration_sync_log` (migration 0040, forced RLS; schema in
 `packages/db/src/schema/integration.ts`; columns in `docs/05-data-model.md` §6), behind

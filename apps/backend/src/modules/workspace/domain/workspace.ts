@@ -6,7 +6,13 @@ import {
   workspaceId,
 } from '@agent-sales/shared';
 
-import { InvalidWorkspaceError } from './workspace.errors.js';
+import {
+  BusinessNameMismatchError,
+  BusinessNotActiveError,
+  BusinessNotDeletedError,
+  InvalidWorkspaceError,
+  RestoreWindowClosedError,
+} from './workspace.errors.js';
 
 export interface WorkspaceProps {
   id: WorkspaceId;
@@ -16,9 +22,23 @@ export interface WorkspaceProps {
   ownerUserId: UserId;
   /** Owning account (ADR-012). Null only for rows the account backfill has not reached. */
   accountId: string | null;
-  status: 'active' | 'suspended' | 'deleted';
+  status: WorkspaceStatus;
   createdAt: Date;
+  /** When the owner asked to delete it (ADR-032); null while active. */
+  deletedAt?: Date | null;
+  /** End of the restore window; the purge runs after it. */
+  purgeAfter?: Date | null;
 }
+
+/**
+ * `active` → `pending_deletion` (owner deleted it; restorable until `purgeAfter`) → `deleted`
+ * (purged tombstone, written by the purge). `suspended` is reserved; nothing writes it today.
+ */
+export type WorkspaceStatus = 'active' | 'suspended' | 'pending_deletion' | 'deleted';
+
+/** How long a deleted business can be restored (docs/09 §10). */
+export const RESTORE_WINDOW_DAYS = 30;
+const DAY_MS = 86_400_000;
 
 /**
  * Aggregate root. Always valid: construct through `Workspace.create` or
@@ -79,6 +99,37 @@ export class Workspace extends AggregateRoot {
     if (trimmed.length < 1 || trimmed.length > 120)
       throw new InvalidWorkspaceError('name must be 1–120 characters');
     this.props = { ...this.props, name: trimmed };
+  }
+
+  /**
+   * The owner deletes the business (ADR-032). `confirmName` must equal the name (both trimmed,
+   * case-sensitive): the typed name is the guard against deleting the wrong business.
+   */
+  requestDeletion(input: { confirmName: string; actorUserId: UserId; now: Date }): void {
+    if (this.props.status !== 'active') throw new BusinessNotActiveError(this.props.status);
+    if (input.confirmName.trim() !== this.props.name.trim()) throw new BusinessNameMismatchError();
+    const purgeAfter = new Date(input.now.getTime() + RESTORE_WINDOW_DAYS * DAY_MS);
+    this.props = { ...this.props, status: 'pending_deletion', deletedAt: input.now, purgeAfter };
+    this.raise({
+      name: 'workspace.deletion_requested',
+      workspaceId: this.props.id,
+      occurredAt: input.now,
+      payload: { actorUserId: input.actorUserId, purgeAfter: purgeAfter.toISOString() },
+    });
+  }
+
+  /** Back to active before the purge; channels stay disconnected (the owner reconnects them). */
+  restore(input: { actorUserId: UserId; now: Date }): void {
+    if (this.props.status !== 'pending_deletion') throw new BusinessNotDeletedError();
+    if (!this.props.purgeAfter || this.props.purgeAfter.getTime() <= input.now.getTime())
+      throw new RestoreWindowClosedError();
+    this.props = { ...this.props, status: 'active', deletedAt: null, purgeAfter: null };
+    this.raise({
+      name: 'workspace.restored',
+      workspaceId: this.props.id,
+      occurredAt: input.now,
+      payload: { actorUserId: input.actorUserId },
+    });
   }
 
   get id(): WorkspaceId {
