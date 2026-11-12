@@ -70,4 +70,10 @@ describe('client address (TRUST_PROXY)', () => {
       createHttpApp(WhoAmIModule, { ...production, TRUST_PROXY: 'true' }),
     ).rejects.toThrow(/TRUST_PROXY/);
   });
+
+  it('refuses a malformed address or prefix at start-up, naming it', async () => {
+    await expect(
+      createHttpApp(WhoAmIModule, { ...production, TRUST_PROXY: '10.0.0.0/8,10.0.0.0/33' }),
+    ).rejects.toThrow(/10\.0\.0\.0\/33/);
+  });
 });

@@ -1,26 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  canonicalTrialEmail,
-  isDisposableEmail,
-  parseBlockedDomains,
-} from '../domain/trial-identity.js';
+import { canonicalMailbox } from '../domain/mailbox.js';
+import { isDisposableEmail, parseBlockedDomains } from '../domain/trial-identity.js';
 import { InMemoryWindowCounter } from '../infrastructure/security/in-memory-window-counter.js';
 
-describe('canonicalTrialEmail', () => {
+describe('canonicalMailbox', () => {
   it.each([
     ['Lan.Nguyen+shop@Gmail.com', 'lannguyen@gmail.com'],
     ['l.a.n.nguyen@googlemail.com', 'lannguyen@gmail.com'],
     ['lan.nguyen+a+b@shop.vn', 'lan.nguyen@shop.vn'],
     [' LAN@shop.vn ', 'lan@shop.vn'],
   ])('maps %j to %j', (address, canonical) => {
-    expect(canonicalTrialEmail(address)).toBe(canonical);
+    expect(canonicalMailbox(address)).toBe(canonical);
   });
 
   it('keeps dots outside Gmail, where they may name another mailbox', () => {
-    expect(canonicalTrialEmail('lan.nguyen@shop.vn')).not.toBe(
-      canonicalTrialEmail('lannguyen@shop.vn'),
-    );
+    expect(canonicalMailbox('lan.nguyen@shop.vn')).not.toBe(canonicalMailbox('lannguyen@shop.vn'));
   });
 });
 

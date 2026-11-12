@@ -4,6 +4,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { type EmailMessage, MAILER, type Mailer } from '../../../common/email/mailer.js';
 import { EmailCodeError, TooManyAttemptsError } from '../domain/identity.errors.js';
+import { canonicalMailbox } from '../domain/mailbox.js';
 import {
   EMAIL_CODE_REPOSITORY,
   type EmailCodePurpose,
@@ -17,8 +18,11 @@ export const CODE_TTL_MINUTES = 15;
 /** A new code for the same address and purpose waits this long after the previous one. */
 export const RESEND_COOLDOWN_SECONDS = 60;
 /**
- * Wrong guesses a code survives; the next one kills it. A new code starts again at 0, so the
- * per-day cap on checks (`AUTH_LIMITS.codeChecksPerDay`) is what bounds guessing across resends.
+ * Checks one code survives: after this many wrong guesses it is dead, even for the right code.
+ * The budget is per code: a new code starts again at 0, and the per-purpose email caps
+ * (`AUTH_LIMITS.emailsPerDay`) bound how many codes, so how many guesses, a day can bring. Per code
+ * on purpose: a cap per address across codes would let anyone who knows the address block its
+ * owner's password reset for a day.
  */
 export const MAX_CODE_ATTEMPTS = 5;
 
@@ -29,8 +33,9 @@ function hashCode(email: string, purpose: EmailCodePurpose, code: string): strin
 const normalize = (email: string): string => email.trim().toLowerCase();
 
 /**
- * Emailed 6-digit one-time codes (ACC-01): one live code per address and purpose. Every email to
- * an address counts against `AUTH_LIMITS.emailsPerHour` / `emailsPerDay` on the shared counter.
+ * Emailed 6-digit one-time codes (ACC-01): one live code per address and purpose. Every email
+ * counts against `AUTH_LIMITS.emailsPerHour` / `emailsPerDay` of its purpose, on the shared counter
+ * and per inbox (`canonicalMailbox`); the code rows stay keyed on the exact address.
  */
 @Injectable()
 export class EmailCodeService {
@@ -68,9 +73,12 @@ export class EmailCodeService {
   }
 
   /**
-   * Checks and uses up the code; throws `EmailCodeError` when it is wrong, used up or expired, and
-   * `TooManyAttemptsError` once the address had `AUTH_LIMITS.codeChecksPerDay` checks (the right
-   * code included). The first refusal of a password reset warns the account owner by email.
+   * Checks and uses up the code; throws `EmailCodeError` when it is wrong, used up or expired.
+   * A code allows `MAX_CODE_ATTEMPTS` wrong guesses, then it is dead (`code_expired`) and only a
+   * new code helps. Each check first takes a slot of the code's budget on the shared counter, so
+   * parallel guesses cannot all slip in before the count goes up; the right code takes one too,
+   * which costs nothing since it ends the code. The wrong guess that kills a password-reset code
+   * warns the account owner by email (once a day).
    */
   async consume(
     address: string,
@@ -81,17 +89,19 @@ export class EmailCodeService {
     const email = normalize(address);
     const row = await this.codes.find(email, purpose);
     if (!row) throw new EmailCodeError('code_invalid');
-    const { max, windowMs } = AUTH_LIMITS.codeChecksPerDay;
-    const checks = await this.counter.hit(`code-check:${purpose}:${email}`, windowMs);
-    if (checks.count > max) {
-      if (checks.count === max + 1 && purpose === 'reset_password') await this.#alert(email);
-      throw new TooManyAttemptsError(Math.max(1, checks.retryAfterSeconds));
-    }
     if (row.expiresAt <= now || row.attempts >= MAX_CODE_ATTEMPTS) {
       throw new EmailCodeError('code_expired');
     }
+    const checks = await this.counter.hit(
+      `code-check:${purpose}:${email}:${row.codeHash}`,
+      CODE_TTL_MINUTES * 60_000,
+    );
+    if (checks.count > MAX_CODE_ATTEMPTS) throw new EmailCodeError('code_expired');
     if (row.codeHash !== hashCode(email, purpose, code)) {
       await this.codes.addAttempt(email, purpose);
+      if (checks.count === MAX_CODE_ATTEMPTS && purpose === 'reset_password') {
+        await this.#alert(email);
+      }
       throw new EmailCodeError('code_invalid');
     }
     await this.codes.delete(email, purpose);
@@ -111,7 +121,7 @@ export class EmailCodeService {
       );
       if (wait > 0) throw new TooManyAttemptsError(wait);
     }
-    await this.#reserveEmail(email);
+    await this.#reserveEmail(email, purpose);
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
     await this.codes.put({
       email,
@@ -124,19 +134,23 @@ export class EmailCodeService {
     await this.mailer.send(message(email, code));
   }
 
-  async #reserveEmail(email: string): Promise<void> {
+  /** Counts one email of `purpose` to the inbox; `TooManyAttemptsError` over either cap. */
+  async #reserveEmail(email: string, purpose: EmailCodePurpose): Promise<void> {
+    const inbox = canonicalMailbox(email);
     for (const [window, limit] of [
       ['h', AUTH_LIMITS.emailsPerHour],
       ['d', AUTH_LIMITS.emailsPerDay],
     ] as const) {
-      const wait = await overLimit(this.counter, `email-send:${window}:${email}`, limit);
+      const wait = await overLimit(this.counter, `email-send:${purpose}:${window}:${inbox}`, limit);
       if (wait > 0) throw new TooManyAttemptsError(wait);
     }
   }
 
-  /** Best effort: a failed warning must not change the answer the guesser gets. */
+  /** Best effort, at most one a day per inbox: a failed warning must not change the answer. */
   async #alert(email: string): Promise<void> {
     try {
+      const key = `code-alert:${canonicalMailbox(email)}`;
+      if ((await overLimit(this.counter, key, AUTH_LIMITS.codeGuessAlertsPerDay)) > 0) return;
       await this.mailer.send(codeGuessAlertEmail({ to: email }));
     } catch (e) {
       this.#log.warn(`Code-guess warning email failed: ${(e as Error).name}`);

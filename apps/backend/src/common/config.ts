@@ -1,3 +1,5 @@
+import { isIP } from 'node:net';
+
 import { parseTrustProxy } from '@agent-sales/shared';
 import { z } from 'zod';
 
@@ -154,10 +156,9 @@ export const EnvSchema = z
      */
     TRIAL_BLOCKED_EMAIL_DOMAINS: z.string().max(5000).optional(),
   })
-  .refine((env) => trustProxyValid(env.TRUST_PROXY, env.NODE_ENV), {
-    message:
-      'TRUST_PROXY must be false or comma-separated addresses/CIDRs (not true or a hop count)',
-    path: ['TRUST_PROXY'],
+  .superRefine((env, ctx) => {
+    const error = trustProxyError(env.TRUST_PROXY, env.NODE_ENV);
+    if (error) ctx.addIssue({ code: 'custom', message: error, path: ['TRUST_PROXY'] });
   })
   .refine((env) => !env.GOOGLE_CLIENT_ID === !env.GOOGLE_CLIENT_SECRET, {
     message: 'Set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, or neither',
@@ -173,12 +174,13 @@ export const EnvSchema = z
   });
 export type Env = z.infer<typeof EnvSchema>;
 
-function trustProxyValid(raw: string | undefined, nodeEnv: string): boolean {
+/** The startup error for a bad `TRUST_PROXY` (it names the bad entry), or null when it is valid. */
+function trustProxyError(raw: string | undefined, nodeEnv: string): string | null {
   try {
-    parseTrustProxy(raw, nodeEnv);
-    return true;
-  } catch {
-    return false;
+    parseTrustProxy(raw, nodeEnv, isIP);
+    return null;
+  } catch (e) {
+    return (e as Error).message;
   }
 }
 

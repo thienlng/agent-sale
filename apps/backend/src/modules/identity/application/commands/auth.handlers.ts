@@ -29,7 +29,8 @@ import {
   type TrialClaimRepository,
 } from '../../domain/ports/trial-claim.repository.js';
 import { USER_REPOSITORY, type UserRepository } from '../../domain/ports/user.repository.js';
-import { canonicalTrialEmail, isDisposableEmail } from '../../domain/trial-identity.js';
+import { canonicalMailbox } from '../../domain/mailbox.js';
+import { isDisposableEmail } from '../../domain/trial-identity.js';
 import { assertPasswordAcceptable, User } from '../../domain/user.js';
 import { AUTH_LIMITS, overLimit } from '../auth-limits.js';
 import {
@@ -101,7 +102,7 @@ export class SignupHandler {
  * The two writes are in different transactions on purpose: a failed trial never blocks the
  * business, and an operator can start it from /admin. One trial per person: none for a
  * disposable-inbox domain, nor when another user already claimed the same canonical email
- * (`canonicalTrialEmail`: Gmail dots and `+tags` do not make a new person).
+ * (`canonicalMailbox`: Gmail dots and `+tags` do not make a new person).
  */
 @Injectable()
 export class SignupBusinessHandler {
@@ -134,19 +135,28 @@ export class SignupBusinessHandler {
 
   /** The signup trial (ADR-021 §6) never blocks the first business: an operator can start it from /admin. */
   async #startTrial(ws: string, owner: UserId, email: string): Promise<void> {
+    let claimed = false;
     try {
       if (isDisposableEmail(email, this.trial.blockedDomains)) {
         this.#log.log(`Workspace ${ws}: no signup trial (disposable email domain)`);
         return;
       }
-      if (!(await this.claims.claim(canonicalTrialEmail(email), owner))) {
+      if (!(await this.claims.claim(canonicalMailbox(email), owner))) {
         this.#log.log(`Workspace ${ws}: no signup trial (the email already had one)`);
         return;
       }
+      claimed = true;
       const accountId = await this.workspaces.accountOf(workspaceId(ws));
       if (accountId) await this.billing.startSignupTrial(accountId);
     } catch {
-      this.#log.error(`Workspace ${ws}: signup trial failed`);
+      if (claimed) {
+        // The claim stays: this user's trial is now used up without a trial. Start it from /admin.
+        this.#log.warn(
+          `Workspace ${ws}: trial claimed for user ${owner} but the signup trial failed; start it from /admin`,
+        );
+      } else {
+        this.#log.error(`Workspace ${ws}: signup trial failed`);
+      }
     }
   }
 }
@@ -176,7 +186,8 @@ export class PasswordResetHandler {
       const { email, name } = user.snapshot();
       await this.codes.send({ email, name }, 'reset_password');
     } catch (e) {
-      // Within the cooldown the earlier code still works; answering differently would tell
+      // Within the cooldown or over the reset caps (their own, apart from signup codes) nothing
+      // is sent, and the codes already in the inbox still work. Answering differently would tell
       // that the address has an account.
       if (!(e instanceof TooManyAttemptsError)) throw e;
     }
@@ -213,7 +224,9 @@ export class LoginHandler {
   /**
    * Two limits: per IP + address (in process, a burst guard), and per address from any IP on the
    * shared counter (`AUTH_LIMITS.loginPerAccount`): over it the account is locked until the window
-   * ends, or until a password reset. Unknown addresses are counted the same way.
+   * ends, or until a password reset. Unknown addresses are counted the same way. The lock never
+   * touches the reset path: its codes have their own email caps and a guess budget per code.
+   * Google sign-in does not end the lock.
    */
   async execute(input: LoginRequest, meta: ClientMeta): Promise<IssuedSession> {
     const email = input.email.trim().toLowerCase();

@@ -11,11 +11,16 @@ const DAY = 24 * HOUR;
 export const AUTH_LIMITS = {
   /** Password logins of one address from any IP; over it the account is locked for the window. */
   loginPerAccount: { max: 20, windowMs: HOUR },
-  /** Code emails (and "you already have an account" notices) to one address. */
+  /**
+   * Code emails to one inbox (`canonicalMailbox`: `+tags`, Gmail dots and googlemail.com count as
+   * the same one), counted per purpose: signup codes (with the "you already have an account"
+   * notices) and password-reset codes have separate caps, so filling one never blocks the other.
+   * Each code allows `MAX_CODE_ATTEMPTS` wrong guesses, so these caps also bound guessing.
+   */
   emailsPerHour: { max: 3, windowMs: HOUR },
   emailsPerDay: { max: 5, windowMs: DAY },
-  /** Code checks for one address and purpose, across resends; over it every check is refused. */
-  codeChecksPerDay: { max: 20, windowMs: DAY },
+  /** At most one "someone is guessing your reset code" warning per inbox per day. */
+  codeGuessAlertsPerDay: { max: 1, windowMs: DAY },
 } as const;
 
 /** Seconds to wait when `key` is over `limit` (this event counted), else 0. */

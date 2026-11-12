@@ -17,17 +17,22 @@ export const PRODUCTION_TRUSTED_PROXIES: readonly string[] = [
   'uniquelocal',
 ];
 
-const ENTRY = /^(loopback|linklocal|uniquelocal|[0-9a-f.:]+(\/\d{1,3})?)$/;
+const NAMED_RANGES = new Set(['loopback', 'linklocal', 'uniquelocal']);
+
+/** `net.isIP` from `node:net`, passed in so this package stays free of Node built-ins. */
+export type IsIp = (address: string) => number;
 
 /**
  * Parses `TRUST_PROXY`: unset → the private ranges in production, loopback only elsewhere (a
  * local dev proxy); `false` → trust nothing; otherwise a comma-separated list of addresses or
- * CIDRs. `true` is refused (every hop trusted: the client picks its own address and every per-IP
- * limit is void), and so is a hop count (see `TrustProxySetting`).
+ * CIDRs, each checked with `isIp` (prefix at most 32 for IPv4, 128 for IPv6). `true` is refused
+ * (every hop trusted: the client picks its own address and every per-IP limit is void), and so is
+ * a hop count (see `TrustProxySetting`). Throws an `Error` naming the bad entry.
  */
 export function parseTrustProxy(
   raw: string | undefined,
   nodeEnv: string | undefined,
+  isIp: IsIp,
 ): TrustProxySetting {
   const value = raw?.trim().toLowerCase() ?? '';
   if (!value) return nodeEnv === 'production' ? [...PRODUCTION_TRUSTED_PROXIES] : ['loopback'];
@@ -39,7 +44,23 @@ export function parseTrustProxy(
     .split(',')
     .map((v) => v.trim())
     .filter(Boolean);
-  const bad = list.find((v) => !ENTRY.test(v));
-  if (bad !== undefined) throw new Error(`TRUST_PROXY: "${bad}" is not an address or CIDR`);
+  const bad = list.find((v) => !validEntry(v, isIp));
+  if (bad !== undefined) {
+    throw new Error(
+      `TRUST_PROXY: "${bad}" is not an IP address, a CIDR (address/prefix, at most /32 for IPv4 ` +
+        'and /128 for IPv6) or one of loopback, linklocal, uniquelocal',
+    );
+  }
   return list;
+}
+
+function validEntry(entry: string, isIp: IsIp): boolean {
+  if (NAMED_RANGES.has(entry)) return true;
+  const [address = '', prefix, ...rest] = entry.split('/');
+  if (rest.length) return false;
+  const version = isIp(address);
+  if (version !== 4 && version !== 6) return false;
+  if (prefix === undefined) return true;
+  if (!/^\d{1,3}$/.test(prefix)) return false;
+  return Number(prefix) <= (version === 4 ? 32 : 128);
 }

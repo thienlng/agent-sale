@@ -1,3 +1,5 @@
+import { isIP } from 'node:net';
+
 import { ChannelRegistry, MetaAdapter } from '@agent-sales/channels';
 import { createDb } from '@agent-sales/db';
 import { parseTrustProxy } from '@agent-sales/shared';
@@ -22,7 +24,7 @@ const app = buildServer({
   verifyToken: process.env['META_WEBHOOK_VERIFY_TOKEN'] ?? '',
   kiotviet: new DrizzleKiotVietIngressStore(handle.db),
   logLevel: process.env['LOG_LEVEL'] ?? 'info',
-  trustProxy: parseTrustProxy(process.env['TRUST_PROXY'], process.env['NODE_ENV']),
+  trustProxy: parseTrustProxy(process.env['TRUST_PROXY'], process.env['NODE_ENV'], isIP),
 });
 app.addHook('onClose', async () => handle.close());
 await app.listen({ port: Number(process.env['PORT'] ?? 3001), host: '0.0.0.0' });

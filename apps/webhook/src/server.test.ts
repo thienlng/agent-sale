@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+import { isIP } from 'node:net';
 import {
   MetaAdapter,
   type NormalizedEvent,
@@ -203,7 +204,7 @@ describe('client address behind proxies', () => {
   });
 
   it('logs the address the outer proxy saw with the production default', async () => {
-    const { app, addresses } = logged(parseTrustProxy(undefined, 'production'));
+    const { app, addresses } = logged(parseTrustProxy(undefined, 'production', isIP));
     // The client wrote 1.2.3.4; NPM appended the real peer, then Caddy appended NPM.
     await app.inject({
       method: 'GET',

@@ -406,40 +406,100 @@ describe('auth flow (in-memory)', () => {
       expect(s.mailer.sent).toHaveLength(6);
     });
 
-    it('caps code checks per address per day across resends and warns the owner once', async () => {
+    it('counts Gmail dot, +tag and googlemail variants against one inbox cap', async () => {
+      const s = await setup();
+      const now = new Date(s.clock.now());
+      // Three spellings of one Gmail inbox; each has its own code row, so no cooldown applies.
+      for (const email of ['ab+1@gmail.com', 'a.b@gmail.com', 'ab@googlemail.com'])
+        await s.codes.send({ email }, 'signup', now);
+      await expect(
+        s.codes.send({ email: 'A.B+promo@Gmail.com' }, 'signup', now),
+      ).rejects.toBeInstanceOf(TooManyAttemptsError);
+      expect(s.mailer.sent).toHaveLength(3);
+      // Codes stay keyed on the exact address: each spelling checks its own.
+      expect(s.codeRepo.rows.size).toBe(3);
+      // A password reset to the same inbox has its own caps.
+      await s.codes.send({ email: 'ab@gmail.com' }, 'reset_password', now);
+      expect(s.mailer.sent).toHaveLength(4);
+    });
+
+    it('gives every code its own wrong-guess budget and counts the right code as no guess', async () => {
       const s = await setup();
       await signUp(s);
+      const start = s.clock.now() + 24 * 60 * 60_000;
+      await s.codes.send({ email: input.email }, 'reset_password', at(s, start, 0));
+      const first = lastCode(s.mailer);
+      const wrong = first === '000000' ? '111111' : '000000';
+      for (let k = 0; k < MAX_CODE_ATTEMPTS; k++)
+        await expect(
+          s.codes.consume(input.email, 'reset_password', wrong, at(s, start, k)),
+        ).rejects.toMatchObject({ details: { reason: 'code_invalid' } });
+      // Dead now, even for the right code; the owner is warned once.
+      await expect(
+        s.codes.consume(input.email, 'reset_password', first, at(s, start, 10)),
+      ).rejects.toMatchObject({ details: { reason: 'code_expired' } });
+      const alerts = () => s.mailer.sent.filter((m) => m.subject.includes('Cảnh báo')).length;
+      expect(alerts()).toBe(1);
+      // A new code starts a new budget: wrong guesses short of it leave the right code working.
+      await s.codes.send({ email: input.email }, 'reset_password', at(s, start, 61_000));
+      const second = lastCode(s.mailer);
+      for (let k = 0; k < MAX_CODE_ATTEMPTS - 1; k++)
+        await expect(
+          s.codes.consume(input.email, 'reset_password', wrong, at(s, start, 61_001 + k)),
+        ).rejects.toMatchObject({ details: { reason: 'code_invalid' } });
+      await expect(
+        s.codes.consume(input.email, 'reset_password', second, at(s, start, 62_000)),
+      ).resolves.toBeUndefined();
+      // Another killed code the same day sends no second warning.
+      await s.codes.send({ email: input.email }, 'reset_password', at(s, start, 122_000));
+      for (let k = 0; k < MAX_CODE_ATTEMPTS; k++)
+        await expect(
+          s.codes.consume(input.email, 'reset_password', wrong, at(s, start, 122_001 + k)),
+        ).rejects.toBeInstanceOf(EmailCodeError);
+      expect(alerts()).toBe(1);
+    });
+
+    it('lets a locked-out owner recover by password reset whatever an attacker does', async () => {
+      const s = await setup();
+      await signUp(s);
+      const right = { email: input.email, password: input.password, client: 'web' as const };
       const hour = 60 * 60_000;
-      // A day after signup, so its code email does not count against today's caps.
       const start = s.clock.now() + 24 * hour;
-      const sendAt = [0, 61_000, 122_000, hour + 1_000];
-      for (const ms of sendAt) {
+      at(s, start, 0);
+      // 1. The attacker locks password login (20 wrong passwords, a new IP each time).
+      for (let i = 0; i < 20; i++)
+        await expect(
+          s.login.execute({ ...right, password: 'wrong-password' }, { ...meta, ip: `10.8.0.${i}` }),
+        ).rejects.toBeInstanceOf(InvalidCredentialsError);
+      await expect(s.login.execute(right, { ...meta, ip: '10.8.1.1' })).rejects.toBeInstanceOf(
+        TooManyAttemptsError,
+      );
+      // 2. ...fills the signup-email caps of the address: the reset caps are not touched.
+      for (const ms of [0, 61_000, 122_000])
+        await s.codes.sendAccountExists(input.email, at(s, start, ms));
+      await expect(
+        s.codes.sendAccountExists(input.email, at(s, start, 183_000)),
+      ).rejects.toBeInstanceOf(TooManyAttemptsError);
+      // 3. ...and asks for reset codes (they reach the owner's inbox) and kills each by guessing,
+      // until the hourly reset cap is full.
+      for (const ms of [200_000, 261_000, 322_000]) {
         await s.codes.send({ email: input.email }, 'reset_password', at(s, start, ms));
         for (let k = 0; k < MAX_CODE_ATTEMPTS; k++)
           await expect(
-            s.codes.consume(input.email, 'reset_password', '000000', at(s, start, ms + k)),
+            s.codes.consume(input.email, 'reset_password', '000000', at(s, start, ms + 1 + k)),
           ).rejects.toBeInstanceOf(EmailCodeError);
       }
-      // 20 checks used: even the right code of a fresh one is refused, and the owner hears once.
-      await s.codes.send({ email: input.email }, 'reset_password', at(s, start, hour + 62_000));
-      const good = lastCode(s.mailer);
-      const sent = s.mailer.sent.length;
-      for (let k = 0; k < 2; k++)
-        await expect(
-          s.codes.consume(input.email, 'reset_password', good, at(s, start, hour + 63_000)),
-        ).rejects.toBeInstanceOf(TooManyAttemptsError);
-      expect(s.mailer.sent).toHaveLength(sent + 1);
-      expect(s.mailer.sent.at(-1)?.subject).toContain('Cảnh báo');
-      // A day later the cap is gone (a fresh code, the old one expired).
-      await s.codes.send({ email: input.email }, 'reset_password', at(s, start, 25 * hour));
       await expect(
-        s.codes.consume(
-          input.email,
-          'reset_password',
-          lastCode(s.mailer),
-          at(s, start, 25 * hour + 1),
-        ),
-      ).resolves.toBeUndefined();
+        s.codes.send({ email: input.email }, 'reset_password', at(s, start, 383_000)),
+      ).rejects.toBeInstanceOf(TooManyAttemptsError);
+      // The owner's own `forgot` sends nothing (and says so to nobody) until the hour ends; then a
+      // code arrives, the reset ends the login lock, and the new password signs in.
+      await s.codes.send({ email: input.email }, 'reset_password', at(s, start, hour + 201_000));
+      const password = 'a brand new passphrase';
+      await s.reset.reset({ email: input.email, code: lastCode(s.mailer), password }, meta);
+      await expect(
+        s.login.execute({ ...right, password }, { ...meta, ip: '10.8.1.2' }),
+      ).resolves.toBeDefined();
     });
   });
 

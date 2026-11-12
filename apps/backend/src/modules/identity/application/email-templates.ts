@@ -73,10 +73,10 @@ export function accountExistsEmail(input: { to: string }): EmailMessage {
   ]);
 }
 
-/** Tells the owner that password-reset codes for the address were guessed too often today. */
+/** Tells the owner that a password-reset code was killed by wrong guesses (at most once a day). */
 export function codeGuessAlertEmail(input: { to: string }): EmailMessage {
   return notice(input.to, 'Cảnh báo bảo mật tài khoản Rapiz', [
-    'Mã đặt lại mật khẩu cho tài khoản Rapiz của bạn bị nhập sai quá nhiều lần, nên việc đặt lại mật khẩu bằng email tạm khóa tới 24 giờ.',
+    'Mã đặt lại mật khẩu cho tài khoản Rapiz của bạn bị nhập sai quá nhiều lần nên đã bị hủy. Nếu bạn đang đặt lại mật khẩu, hãy yêu cầu một mã mới.',
     'Nếu đó không phải bạn, mật khẩu hiện tại vẫn an toàn. Bạn nên bật xác thực hai lớp trong phần bảo mật tài khoản.',
   ]);
 }

@@ -15,9 +15,9 @@ create index if not exists auth_counters_window_end_idx on auth_counters (window
 revoke all on auth_counters from app_tenant;
 grant select, insert, update, delete on auth_counters to app_system;
 
--- The signup trial goes to the first user of a canonical email (identity
--- `domain/trial-identity.ts`: lower-cased, `+tag` dropped, and for Gmail the dots too), stored as
--- the sha256 of that canonical form. The user id goes null when the user is deleted, so deleting an
+-- The signup trial goes to the first user of a canonical email (identity `domain/mailbox.ts`,
+-- `canonicalMailbox`: lower-cased, `+tag` dropped, and for Gmail the dots too), stored as the
+-- sha256 of that canonical form. The user id goes null when the user is deleted, so deleting an
 -- account does not hand out a new trial.
 create table if not exists trial_claims (
   email_hash text primary key,
