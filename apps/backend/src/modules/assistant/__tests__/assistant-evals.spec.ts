@@ -35,6 +35,29 @@ describe('owner assistant evals (fake model)', () => {
     expect(result.problems).toEqual(['draft.channels: ["in_app"]']);
   });
 
+  it('checks the answer text, the tool results and the UI actions (staging wave 1)', async () => {
+    const hold = cases.find((x) => x.id === 'hotel-hold-expiry-local-time')!;
+    const wrong = structuredClone(hold);
+    wrong.fake_turns[1]!.text = 'Dạ BK-0012 giữ chỗ đến 20:05 ngày 12/11, đã qua rồi ạ.';
+    const out = await runAssistantCase(wrong, fakeAssistantModel(wrong));
+    expect(out.problems).toEqual(['answer: missing "03:05"', 'answer: has "20:05"']);
+
+    const raw = structuredClone(hold);
+    raw.expect.tool_results = { contains: ['20:05:39.000Z'], not_contains: [] };
+    expect((await runAssistantCase(raw, fakeAssistantModel(raw))).problems).toEqual([
+      'tool_results: missing "20:05:39.000Z"',
+    ]);
+
+    const nav = structuredClone(cases.find((x) => x.id === 'data-question-no-navigate')!);
+    nav.fake_turns.splice(1, 0, {
+      text: '',
+      tool_calls: [{ name: 'ui_navigate', input: { to: '/app/orders' } }],
+    });
+    expect((await runAssistantCase(nav, fakeAssistantModel(nav))).problems).toEqual([
+      'ui action navigate on the answer',
+    ]);
+  });
+
   it('fails a case whose SQL does not match', async () => {
     const c = cases.find((x) => x.id === 'data-requests-by-status');
     const wrong = structuredClone(c!);

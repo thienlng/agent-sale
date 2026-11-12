@@ -40,6 +40,31 @@ const FakeTurn = z
   })
   .strict();
 
+const TextCheck = z
+  .object({
+    contains: z.array(z.string().min(1)).default([]),
+    not_contains: z.array(z.string().min(1)).default([]),
+  })
+  .strict()
+  .refine((t) => t.contains.length + t.not_contains.length > 0, 'contains or not_contains');
+
+/** `contains` fragments missing from `text`, and `not_contains` ones present (case-insensitive). */
+export function textProblems(
+  label: string,
+  text: string,
+  check: { contains: readonly string[]; not_contains: readonly string[] },
+): string[] {
+  const hay = text.toLowerCase();
+  return [
+    ...check.contains
+      .filter((w) => !hay.includes(w.toLowerCase()))
+      .map((w) => `${label}: missing ${JSON.stringify(w)}`),
+    ...check.not_contains
+      .filter((w) => hay.includes(w.toLowerCase()))
+      .map((w) => `${label}: has ${JSON.stringify(w)}`),
+  ];
+}
+
 /**
  * One owner message and what it must leave (owner assistant eval, T-172): the proposal, or the
  * read-only SQL it ran (T-187). A case without `proposal` must leave none.
@@ -66,9 +91,23 @@ export const AssistantEvalCase = z
           .object({ contains: z.array(z.string().min(1)).min(1) })
           .strict()
           .optional(),
+        /** The answer text: every `contains` fragment present, no `not_contains` one (case-insensitive). */
+        answer: TextCheck.optional(),
+        /** All tool results of the turn together, as the model saw them (same check). */
+        tool_results: TextCheck.optional(),
+        /** A UI action type (e.g. `navigate`) the answer must not carry. */
+        no_ui_action: z.enum(['navigate', 'spotlight', 'fill_form', 'chart']).optional(),
       })
       .strict()
-      .refine((e) => e.proposal || e.sql, 'expect a proposal or sql'),
+      .refine(
+        (e) => e.proposal || e.sql || e.answer || e.tool_results || e.no_ui_action,
+        'expect something',
+      ),
+    /**
+     * What the routes answer in this case: `"GET /products"` (method and the exact path the
+     * tool calls, without the query) → the JSON body of a 200. Any other route answers 404.
+     */
+    routes: z.record(z.string().regex(/^(GET|POST|PUT|PATCH|DELETE) \//), z.unknown()).default({}),
     /** The scripted model of fake mode: one entry per model call. */
     fake_turns: z.array(FakeTurn).min(1),
   })
@@ -212,7 +251,14 @@ export async function runAssistantCase(
     strings,
   );
   const schedules = new SchedulesService(account, workspace, repo, notifications, reports, prompts);
-  const invoker = { invoke: () => Promise.resolve({ status: 404, body: null }) };
+  const invoker = {
+    invoke: (i: { method: string; path: string }) => {
+      const key = `${i.method.toUpperCase()} ${i.path}`;
+      return Promise.resolve(
+        key in c.routes ? { status: 200, body: c.routes[key] } : { status: 404, body: null },
+      );
+    },
+  };
   const sql = c.expect.sql ? new RecordingSqlRunner() : null;
   const chat = new ChatTurnService(
     repo,
@@ -239,7 +285,26 @@ export async function runAssistantCase(
 
   const problems: string[] = [];
   try {
-    await chat.send(scope, thread.id, { turnId: newId(), text: c.message }, 'Bearer eval');
+    const turn = await chat.send(
+      scope,
+      thread.id,
+      { turnId: newId(), text: c.message },
+      'Bearer eval',
+    );
+    const answer = turn.messages.filter((m) => m.role === 'assistant').at(-1);
+    if (c.expect.answer)
+      problems.push(...textProblems('answer', answer?.content ?? '', c.expect.answer));
+    if (c.expect.tool_results) {
+      const results = (await repo.listMessages(scope, thread.id))
+        .filter((m) => m.role === 'tool')
+        .map((m) => m.content)
+        .join('\n');
+      problems.push(...textProblems('tool_results', results, c.expect.tool_results));
+    }
+    const banned = c.expect.no_ui_action;
+    if (banned && answer?.uiActions.some((a) => (a as { type?: string }).type === banned)) {
+      problems.push(`ui action ${banned} on the answer`);
+    }
     const proposals = (await repo.listProposals(scope, thread.id)).filter(
       (p) => p.status === 'pending',
     );
