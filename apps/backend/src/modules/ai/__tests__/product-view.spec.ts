@@ -213,7 +213,8 @@ describe('course and service products (offering)', () => {
     expect(c).not.toHaveProperty('fromVnd');
     expect(c).not.toHaveProperty('toVnd');
     const d = productDetails(service);
-    expect(d.variants).toEqual([{ sku: 'TM1-A', name: 'Mặc định', priceVnd: 0 }]);
+    // EV-6: no priceVnd 0 for the model to read as "no price"; the priceNote stands in.
+    expect(d.variants).toEqual([{ sku: 'TM1-A', name: 'Mặc định' }]);
     expect(d.offering).toEqual({});
     expect(d.priceNote).toBe('liên hệ');
   });

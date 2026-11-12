@@ -47,8 +47,8 @@ export interface CompactProduct {
 export interface ProductDetails extends CompactProduct {
   description: string;
   instructions: string;
-  /** `available` is absent for a course or a service. */
-  variants?: { sku: string; name: string; priceVnd: number; available?: number }[];
+  /** `available` is absent for a course or a service, `priceVnd` for its unpublished (0) prices. */
+  variants?: { sku: string; name: string; priceVnd?: number; available?: number }[];
   images: { id: string; label: string }[];
   /** Lodging folders the model may send with `send_message` `albumId` (next 8 photos). */
   albums?: { id: string; label: string }[];

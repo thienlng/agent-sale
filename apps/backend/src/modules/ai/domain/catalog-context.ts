@@ -63,7 +63,13 @@ export function catalogProductContext(product: ProductDto) {
       ...base,
       catalogKind: kind,
       offering: offeringFacts(facts),
-      variants: product.variants.map((v) => ({ sku: v.sku, name: v.name, priceVnd: v.price })),
+      // A price of 0 is "not published" (EV-6): no priceVnd, so the model reads the row's
+      // priceNote ("liên hệ") instead of a 0 it would turn into "no information".
+      variants: product.variants.map((v) => ({
+        sku: v.sku,
+        name: v.name,
+        ...(v.price > 0 ? { priceVnd: v.price } : {}),
+      })),
     };
   }
   return {
