@@ -14,7 +14,8 @@
       "quickReplies": "Quick replies",
       "history": "Edit history",
       "adsTool": "Facebook Ads tool",
-      "properties": "Properties & rooms"
+      "properties": "Properties & rooms",
+      "services": "Services"
     },
     "home": {
       "title": "Bot guide",
@@ -30,7 +31,7 @@
         },
         "channel": {
           "title": "Connect platforms.",
-          "body": "Connect your Bot to Facebook Pages, Instagram, TikTok, Zalo, Lazada"
+          "body": "Connect your Bot to Facebook Pages, Instagram and your website"
         },
         "products": {
           "title": "Product/service information.",
@@ -460,6 +461,28 @@
       "add": "Add instruction",
       "total": "{{count}} instructions in total",
       "empty": "No instructions yet"
+    },
+    "services": {
+      "title": "Service information",
+      "subtitle": "Manage the services the Bot uses to advise customers",
+      "tab": "Services",
+      "shared": "The service catalog belongs to the business. Choose which services this Bot may present.",
+      "search": "Search by service name or code",
+      "add": "Add service",
+      "exportCsv": "Download services (CSV)",
+      "empty": "No matching services",
+      "total": "{{count}} services in total",
+      "colProduct": "Service",
+      "colCode": "Service code",
+      "modeLabel": "Which services the Bot presents",
+      "modeAll": "All services on offer",
+      "modeAllHint": "New services are added to the Bot's list automatically.",
+      "modeSelected": "Only selected services",
+      "modeSelectedHint": "Tick each service in the table. Services added from this page are ticked.",
+      "colSelect": "Present",
+      "select": "Bot presents {{name}}",
+      "selectedCount": "{{count}} services selected",
+      "noneSelected": "No service is selected, so the Bot will not present any."
     }
   },
   "rules": {
@@ -503,7 +526,13 @@
     "thenOnly": "Bot will {{content}}",
     "showSystem": "Show system principles",
     "hideSystem": "Hide system principles",
-    "askSample": "Fill sample scenarios for this bot: draft a few from my shop's data and create proposals for me to approve."
+    "askSample": "Fill sample scenarios for this bot: draft a few from my shop's data and create proposals for me to approve.",
+    "service": {
+      "groupAfterOrder": "After an appointment is recorded",
+      "sections": {
+        "after_order": "After an appointment is recorded"
+      }
+    }
   },
   "purpose": {
     "facts": {
@@ -653,11 +682,18 @@
     "reset": "Undo",
     "leave": "Leaving this page discards your unsaved changes.",
     "stay": "Stay",
-    "leaveConfirm": "Leave page"
+    "leaveConfirm": "Leave page",
+    "service": {
+      "missionHint": "What the bot advises on, for whom, and what it should record. Example: suggest the right treatment and record the customer's appointment."
+    }
   },
   "assistantPage": {
     "knowledge": "Information & FAQ",
     "instructions": "Reply guidance",
     "quickReplies": "Quick replies"
+  },
+  "service": {
+    "productInstructions": "Service-specific bot instructions",
+    "productInstructionsHint": "Guide how the bot presents this service. Prices still come from the catalog."
   }
 }

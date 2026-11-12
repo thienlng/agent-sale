@@ -960,7 +960,24 @@
       "removeVariant": "Remove package",
       "save": "Save service",
       "saved": "Service saved",
-      "created": "Service created"
+      "created": "Service created",
+      "colVariants": "Packages",
+      "variantsCount": "{{count}} packages",
+      "images": "Service images",
+      "imagesHint": "Up to {{max}} images (JPG, PNG or WebP) chosen from your device. The bot sends these when a customer asks to see the service.",
+      "imageAlt": "Service image {{n}}",
+      "delete": {
+        "title": "Delete service",
+        "hint": "Only a service no customer has bought can be deleted. Archive a service that has sold instead.",
+        "action": "Delete service",
+        "confirmTitle": "Delete service {{name}}?",
+        "confirmBody": "The service and its packages are deleted for good, and the bot stops offering it. This cannot be undone.",
+        "deleted": "Service {{name}} deleted.",
+        "inOrders": "Customers have bought this service, so it cannot be deleted (history is kept). Archive it: it is no longer offered and the history stays.",
+        "inOrdersArchived": "Customers have bought this service, so it cannot be deleted (history is kept). It is already archived.",
+        "archiveInstead": "Archive service",
+        "archivedDone": "Service {{name}} archived."
+      }
     },
     "stock": {
       "title": "Stock",
@@ -1015,7 +1032,9 @@
       "priceOnRequest": "Ask us",
       "col": "Length",
       "minutesCount": "{{count}} min",
-      "sessionsCount": "{{count}} sessions"
+      "sessionsCount": "{{count}} sessions",
+      "priceFrom": "From {{price}}",
+      "priceWithOnRequest": "{{price}} · some packages on request"
     }
   },
   "warehouses": {
@@ -1683,6 +1702,7 @@
       "origin": "Customer source",
       "sales": "Salesperson",
       "page": "Page / channel",
+      "presetToday": "Today",
       "preset7": "7 days",
       "preset30": "30 days",
       "thisMonth": "This month",
