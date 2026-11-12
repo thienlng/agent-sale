@@ -1,6 +1,6 @@
 import { ASSISTANT_MESSAGE_MAX } from '@agent-sales/contracts';
 import { Paperclip, SendHorizontal } from 'lucide-react';
-import { type FormEvent, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -69,6 +69,15 @@ export function AssistantComposer({
   }
 
   const enterToSend = useEnterToSend(input, submit);
+
+  // A paste (or a draft) taller than the box: keep the caret in view when it sits at the end, the
+  // box having just grown to its max height while the browser kept the old scroll position.
+  useLayoutEffect(() => {
+    const el = input.current;
+    if (el && document.activeElement === el && el.selectionEnd === el.value.length) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [text]);
 
   return (
     <div className="flex flex-col">

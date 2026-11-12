@@ -155,6 +155,9 @@ function LiveTurn({ turnId }: { turnId: string }) {
   );
 }
 
+/** How close to the bottom (px) still counts as following the conversation. */
+const FOLLOW_SLACK_PX = 48;
+
 export function AssistantMessages({
   messages,
   proposals = NO_PROPOSALS,
@@ -176,10 +179,33 @@ export function AssistantMessages({
   roomy?: boolean;
 }) {
   const { t } = useTranslation('assistant');
+  const empty = messages.length === 0 && proposals.length === 0 && !pendingTurn;
   const end = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null);
+  // Following the bottom: true until the owner scrolls up, true again once back at the bottom.
+  const following = useRef(true);
   useEffect(() => {
+    following.current = true;
     end.current?.scrollIntoView({ block: 'end' });
   }, [messages.length, proposals.length, pendingTurn, unavailable]);
+  // The running turn's step trace, a proposal card or an image grows the conversation without a
+  // new message: keep the bottom in view while the owner is following it.
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const onScroll = () => {
+      following.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_SLACK_PX;
+    };
+    const grow = new ResizeObserver(() => {
+      if (following.current) el.scrollTop = el.scrollHeight;
+    });
+    for (const child of el.children) grow.observe(child);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      grow.disconnect();
+      el.removeEventListener('scroll', onScroll);
+    };
+  }, [loading, empty]);
 
   const placed = placeProposals(messages, proposals);
 
@@ -192,8 +218,8 @@ export function AssistantMessages({
     );
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-      {messages.length === 0 && proposals.length === 0 && !pendingTurn ? (
+    <div ref={box} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      {empty ? (
         <div
           data-measure
           className={cn('flex flex-col px-4', roomy ? 'min-h-full justify-center py-10' : 'py-6')}
