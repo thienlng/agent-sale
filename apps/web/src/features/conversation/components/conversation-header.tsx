@@ -179,7 +179,7 @@ export function ConversationHeader({
       <CustomerAvatar conversation={c} name={name} />
       <div className="min-w-24 flex-1">
         <h2 className="flex min-w-0 items-baseline gap-2 leading-tight">
-          <span className="truncate font-semibold">{name}</span>
+          <span className="max-w-full shrink-0 truncate font-semibold">{name}</span>
           <span className="truncate text-xs font-normal text-muted-foreground">
             {channel?.name ? v2('via', { provider, page: channel.name }) : provider}
           </span>

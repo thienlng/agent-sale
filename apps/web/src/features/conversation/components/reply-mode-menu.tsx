@@ -82,7 +82,7 @@ export function ReplyModeMenu({
           size="sm"
           disabled={disabled}
           aria-label={`${tr('label')}: ${label}`}
-          className="max-w-full min-w-0"
+          className="max-w-full min-w-0 shrink"
         >
           {mode === 'bot' ? <Bot /> : <UserRound />}
           <span className="truncate">{label}</span>

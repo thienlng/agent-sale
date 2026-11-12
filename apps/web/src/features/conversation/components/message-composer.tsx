@@ -40,6 +40,8 @@ export function MessageComposer(props: {
   humanAgentWindow?: boolean | undefined;
   /** Done or Spam: staff reopen before replying; the draft stays editable. */
   locked?: boolean | undefined;
+  /** The Page was removed from Rapiz: nothing can be written or sent here (TM-10). */
+  disabled?: boolean | undefined;
   /** "Messenger" / "Instagram" for the placeholder. */
   channelLabel?: string | undefined;
   channelId?: string | undefined;
@@ -61,6 +63,7 @@ function ScopedComposer({
   windowClosed: closedWindow,
   humanAgentWindow = false,
   locked = false,
+  disabled = false,
   channelLabel,
   scope,
   renderTools,
@@ -70,6 +73,7 @@ function ScopedComposer({
   windowClosed: boolean;
   humanAgentWindow?: boolean | undefined;
   locked?: boolean | undefined;
+  disabled?: boolean | undefined;
   channelLabel?: string | undefined;
   channelId?: string | undefined;
   scope: string;
@@ -83,7 +87,7 @@ function ScopedComposer({
   const { send: sender } = useInboxActions(id);
   const qc = useQueryClient();
   // Nothing may leave while the window is closed or the conversation sits in Done / Spam.
-  const windowClosed = closedWindow || locked;
+  const windowClosed = closedWindow || locked || disabled;
   const quick = useQuickReplies(botId);
   const [focused, setFocused] = useState(false);
   const saved = useSyncExternalStore(
@@ -272,11 +276,11 @@ function ScopedComposer({
             {t('channelInbox.composeContinuity.storageUnavailable')}
           </p>
         ) : null}
-        {closedWindow && !locked ? (
+        {closedWindow && !locked && !disabled ? (
           <p role="status" className="mb-3 rounded-lg bg-muted p-3 text-xs text-muted-foreground">
             {tr('windowClosed')}
           </p>
-        ) : humanAgentWindow && !locked ? (
+        ) : humanAgentWindow && !locked && !disabled ? (
           <p role="status" className="mb-2 text-xs text-muted-foreground">
             {tr('humanAgentHint')}
           </p>
@@ -360,7 +364,7 @@ function ScopedComposer({
             onFocus={() => setFocused(true)}
             maxLength={2000}
             value={draft}
-            disabled={sender.isPending}
+            disabled={sender.isPending || disabled}
             onChange={(event) => {
               rememberSelection(event.currentTarget);
               setDraft(event.currentTarget.value);
@@ -417,9 +421,9 @@ function ScopedComposer({
                   save({ attachment, attachmentAttempt: null, attachmentFailedAttempt: false })
                 }
               />
-              <QuickRepliesMenu quick={quick} disabled={!botId} onPick={insertText} />
-              <EmojiPicker disabled={sender.isPending} onPick={insertText} />
-              <fieldset disabled={sender.isPending} className="contents">
+              <QuickRepliesMenu quick={quick} disabled={!botId || disabled} onPick={insertText} />
+              <EmojiPicker disabled={sender.isPending || disabled} onPick={insertText} />
+              <fieldset disabled={sender.isPending || disabled} className="contents">
                 {renderTools?.(insertText)}
               </fieldset>
               {!draft.trim() && !saved.failedAttempt ? (

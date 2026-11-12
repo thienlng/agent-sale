@@ -233,6 +233,7 @@ export function ConversationView({
         conversation={c}
         channel={channel}
         botAvailable={Boolean(botId) && bot.data?.isActive !== false}
+        replyModeLocked={channel?.removed === true}
         takeoverMinutes={bot.data?.takeoverMinutes}
         members={members.data ?? []}
         membersLoading={members.isPending}
@@ -316,7 +317,8 @@ export function ConversationView({
         botId={botId}
         windowClosed={windowClosed}
         humanAgentWindow={humanAgentWindow}
-        locked={folder !== null || !canEdit || channel?.removed === true}
+        locked={folder !== null || !canEdit}
+        disabled={channel?.removed === true}
         channelLabel={CHANNEL_LABEL[c.provider]}
         channelId={c.channelId}
         renderTools={
