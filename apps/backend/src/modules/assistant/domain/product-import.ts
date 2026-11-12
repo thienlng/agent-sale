@@ -270,6 +270,23 @@ function applyOverride(w: Working, o: ImportDraftOverride): void {
   }
 }
 
+/**
+ * Clears every text field (after overrides, so a model-written override is scanned too) that the
+ * safety scan flags, with a `unsafe_text:<field>` warning on its row. A cleared name then fails
+ * `missing_name`, so that row is not created until the owner gives a clean name.
+ */
+function dropUnsafeText(w: Working, unsafe: (text: string) => boolean): void {
+  const drop = (field: string, value: string | null, row: number | undefined): boolean => {
+    if (!value || !unsafe(value)) return false;
+    w.sink.add(field, `unsafe_text:${field}`, row);
+    return true;
+  };
+  if (drop('name', w.name, w.firstRow)) w.name = '';
+  if (drop('description', w.description, w.firstRow)) w.description = '';
+  if (drop('category', w.category, w.firstRow)) w.category = null;
+  for (const v of w.variants) if (drop('variantName', v.name, v.row)) v.name = '';
+}
+
 function withSuffix(base: string, n: number): string {
   const suffix = `-${n}`;
   return base.slice(0, CODE_MAX - suffix.length) + suffix;
@@ -293,6 +310,7 @@ export function buildDrafts(input: BuildDraftsInput): ImportDraft[] {
   for (const w of working) {
     const o = overrides[w.key];
     if (o) applyOverride(w, o);
+    if (input.unsafeText) dropUnsafeText(w, input.unsafeText);
     if (!w.name) w.sink.add('name', 'missing_name', w.firstRow);
     for (const v of w.variants) {
       if (v.priceBad) w.sink.add('price', 'bad_price', v.row);
