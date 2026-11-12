@@ -247,7 +247,7 @@ export function outputTools(opts: {
         return {
           content: safeJson({
             error: verdict.reason,
-            ...(verdict.reason === 'ungrounded_figures' ? { figures: verdict.figures } : {}),
+            ...(verdict.reason !== 'instruction_leak' ? { figures: verdict.figures } : {}),
             hint: correctionNote(verdict),
           }),
           ok: false,

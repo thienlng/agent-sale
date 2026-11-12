@@ -3,7 +3,7 @@ import type { AgentLoopResult } from '@agent-sales/ai-core';
 
 import type { BotView } from '../../bot/api/index.js';
 import { newOutputState } from '../application/output-tools.js';
-import { decideReply, joinedImages } from '../application/reply-pipeline.js';
+import { decideReply, joinedImages, phoneReadBack } from '../application/reply-pipeline.js';
 
 describe('joinedImages', () => {
   it('keeps each picture once and stays within the 30-picture contract', () => {
@@ -48,5 +48,39 @@ describe('decideReply', () => {
       actionFallback: null,
     });
     expect(other.final).toBe('Bé thích mẫu nào hơn ạ?');
+  });
+});
+
+describe('phoneReadBack (VL-B9, LM-14)', () => {
+  const bot = { id: 'b1', name: 'TinyMind', language: 'vi' } as unknown as BotView;
+  const loop = (text: string) =>
+    ({
+      res: { text, toolCalls: [], stopReason: 'tool_use' },
+      outcome: 'final',
+      steps: [],
+    }) as unknown as AgentLoopResult;
+
+  it('reads back a phone the customer just gave unless the turn already repeated it', () => {
+    const last = 'sđt tôi 0909 888 777, tên Hoàng Mai. Gọi lại cho tôi trong hôm nay';
+    expect(phoneReadBack(last, [''])).toBe('Dạ em đã ghi nhận số 0909 888 777 ạ.');
+    expect(phoneReadBack(last, ['Dạ em đã ghi nhận số 0909888777 ạ.'])).toBe('');
+    expect(phoneReadBack('gặp người thật đi', [''])).toBe('');
+    expect(phoneReadBack(undefined, [''])).toBe('');
+  });
+
+  it('puts the read-back between the lead and the hand-over message', () => {
+    const output = newOutputState();
+    output.handoff = 'call back';
+    const decision = decideReply({
+      loop: loop(''),
+      output,
+      bot: { ...bot, handoffMessage: 'Dạ em chuyển nhân viên ạ.' } as BotView,
+      actionFallback: null,
+      customerLast: 'số chị 0977 123 456, gọi chị nhé',
+    });
+    expect(decision).toMatchObject({
+      outcome: 'handoff',
+      final: 'Dạ em đã ghi nhận số 0977 123 456 ạ.\nDạ em chuyển nhân viên ạ.',
+    });
   });
 });

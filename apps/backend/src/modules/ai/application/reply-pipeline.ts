@@ -16,6 +16,7 @@ import { correctionNote, type ReplyCheck } from '../domain/reply-guard.js';
 import { normalizeReplyText } from '../domain/reply-text.js';
 import { type ActionToolContext, playgroundConversationId, runActionTool } from './action-tools.js';
 import { CALCULATE_TOOL, calculateTool } from './calculator.js';
+import { phonesIn } from './reply-context.js';
 import { type HoldToolContext, holdTools } from './hold-tools.js';
 import { type OrderToolContext, orderTools } from './order-tools.js';
 import { type RequestToolContext, requestTools } from './request-tools.js';
@@ -169,6 +170,20 @@ export const fallbackText = (bot: BotView): string =>
 const handoffText = (bot: BotView): string =>
   bot.handoffMessage.trim() || defaultHandoffMessage(bot);
 
+/**
+ * VL-B9 / LM-14: a phone number the customer just gave is read back before the shop's hand-over
+ * message (the prompt asks for it; the model often hands off bare). Nothing when no phone is in
+ * the message or the turn's texts already repeat it.
+ */
+export function phoneReadBack(customerLast: string | undefined, said: readonly string[]): string {
+  const phone = customerLast ? phonesIn(customerLast)[0] : undefined;
+  if (!phone) return '';
+  const digits = (t: string) => t.replace(/\D/g, '');
+  const tail = digits(phone).slice(-9);
+  if (said.some((t) => digits(t).includes(tail))) return '';
+  return `Dạ em đã ghi nhận số ${phone} ạ.`;
+}
+
 /** Why the turn cannot end with the model's text, or null when it can. */
 function forcedGuardrail(loop: AgentLoopResult, actionFallback: string | null | undefined) {
   if (loop.outcome === 'limit') return 'tool_loop_limit';
@@ -191,6 +206,8 @@ export function decideReply(input: {
   actionFallback: string | null | undefined;
   /** The pre-send guard: a hand-off's model-written lead that fails it is dropped. */
   check?: (text: string) => ReplyCheck;
+  /** The customer's newest message: a phone in it is read back before a hand-off. */
+  customerLast?: string | undefined;
 }): ReplyDecision {
   const { loop, output, bot } = input;
   const sentAny = output.sent.length > 0;
@@ -205,7 +222,15 @@ export function decideReply(input: {
     return {
       outcome: 'handoff',
       guardrail: null,
-      final: [lead, handoffText(bot)].filter(Boolean).join('\n'),
+      final: [
+        lead,
+        bot.language === 'vi'
+          ? phoneReadBack(input.customerLast, [lead, ...output.sent.map((m) => m.text)])
+          : '',
+        handoffText(bot),
+      ]
+        .filter(Boolean)
+        .join('\n'),
     };
   }
   if (loop.res?.stopReason === 'refusal')
@@ -251,7 +276,7 @@ export async function guardFinal(input: {
   if (first.reason === 'instruction_leak') return refuse('instruction_leak');
   const rewritten = await input.rewrite(decision.final, correctionNote(first));
   if (rewritten && input.check(rewritten).ok) return { ...decision, final: rewritten };
-  return refuse('ungrounded_figures');
+  return refuse(first.reason);
 }
 
 /**

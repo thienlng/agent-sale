@@ -72,3 +72,14 @@ describe('quotedSources', () => {
     expect(quotedSources('Dạ em chào anh ạ', sources).size).toBe(0);
   });
 });
+
+describe('normalizeReplyText: a repeated line is sent once (TM-22)', () => {
+  it('drops a line equal to an earlier one, ignoring case and spacing', () => {
+    expect(
+      normalizeReplyText(
+        'Dạ có ạ, TinyMind có bộ thực phẩm gỗ.\nGiá 450.000đ ạ.\ndạ có ạ,  TinyMind có bộ thực phẩm gỗ.',
+      ),
+    ).toBe('Dạ có ạ, TinyMind có bộ thực phẩm gỗ.\nGiá 450.000đ ạ.');
+    expect(normalizeReplyText('A\n\nB\n\nC')).toBe('A\n\nB\n\nC');
+  });
+});

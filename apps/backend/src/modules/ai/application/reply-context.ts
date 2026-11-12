@@ -182,7 +182,7 @@ export function historyTurns(
 }
 
 /** The Vietnamese mobile numbers in `text` as written ("0987 654 321"), digit-run splits included. */
-function phonesIn(text: string): string[] {
+export function phonesIn(text: string): string[] {
   const out: string[] = [];
   for (const candidate of text.match(/\+?\d(?:[\s.\-()]?\d)+/g) ?? []) {
     if (normalizeVnPhone(candidate)) {

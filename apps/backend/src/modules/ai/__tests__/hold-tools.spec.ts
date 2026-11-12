@@ -32,6 +32,7 @@ import {
   newHoldToolState,
   PREPARE_HOLD_TOOL,
 } from '../application/hold-tools.js';
+import { unvouchedChildAges } from '../domain/child-ages.js';
 import type { LlmRuntime } from '../application/llm-runtime.js';
 import { newOutputState } from '../application/output-tools.js';
 import { PlaygroundService } from '../application/playground.service.js';
@@ -433,7 +434,12 @@ describe('prepare_hold', () => {
       check: availability({ options: [option({ package: '5PN', alternatives })] }),
     });
     const out = await tool(context(facade), CHECK_AVAILABILITY_TOOL).run(STAY);
-    expect(JSON.parse(out.content).options[0]).toMatchObject({ package: '5PN', alternatives });
+    // VL-B12: the nights are the picked package's; an alternative has its total and no nights.
+    expect(JSON.parse(out.content).options[0]).toMatchObject({
+      package: '5PN',
+      nightlyPackage: '5PN',
+      alternatives: alternatives.map((a) => ({ ...a, nightly: null })),
+    });
   });
 
   it('returns problems and id-free alternatives, sending nothing', async () => {
@@ -736,5 +742,29 @@ describe('hotel bot pipeline (spec §4)', () => {
     );
     const once = await full.svc.playground(ws, botId, ask('ok'));
     expect(once.reply).toBe('Dạ em đã giữ chỗ BK0042 đến 16:30 hôm nay ạ.');
+  });
+});
+
+describe('check_availability child ages (VL-B3)', () => {
+  it('accepts only ages the customer wrote next to an age word', () => {
+    const said = (text: string, ages: number[]) => unvouchedChildAges(ages, [text]);
+    // "8" of the date is not an age; the kids' ages were never given.
+    expect(said('20 người lớn với 4 bé, A17 từ 8/1/2027 đến 10/1/2027', [8, 8, 8, 8])).toEqual([
+      8, 8, 8, 8,
+    ]);
+    expect(said('9 người lớn và 3 bé 4, 4, 9 tuổi', [4, 4, 9])).toEqual([]);
+    expect(said('2 bé 5 và 7 tuổi', [5, 7])).toEqual([]);
+    expect(said('kids aged 6 years', [6])).toEqual([]);
+    expect(said('bé 18 tháng với bé sơ sinh', [1, 0])).toEqual([]);
+    expect(said('bé 4t', [4])).toEqual([]);
+    expect(said('bé 4 tuổi', [5])).toEqual([5]);
+  });
+
+  it('refuses a check with an age the customer never wrote, without calling the calendar', async () => {
+    const facade = fakeLodging();
+    const ctx = { ...context(facade), customerTexts: ['20 người lớn với 4 bé, 8/1/2027'] };
+    const out = await tool(ctx, CHECK_AVAILABILITY_TOOL).run({ ...STAY, childAges: [8, 8] });
+    expect(JSON.parse(out.content)).toEqual({ ok: false, problems: ['child_ages_not_given'] });
+    expect(facade.checkAvailabilityForBot).not.toHaveBeenCalled();
   });
 });

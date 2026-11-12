@@ -9,6 +9,7 @@ import type {
   LodgingFacade,
 } from '../../lodging/api/index.js';
 import type { MessageSink, OutgoingMessage, QuickReply } from '../api/reply-options.js';
+import { unvouchedChildAges } from '../domain/child-ages.js';
 import { safeJson } from './action-tools.js';
 import { resolveRooms } from './hold-rooms.js';
 import { confirmableDraft } from './order-tools.js';
@@ -81,7 +82,7 @@ const PrepareInput = z
 const CHECK_DEFINITION: ToolDefinition = {
   name: CHECK_AVAILABILITY_TOOL,
   description:
-    "Checks the real booking calendar for a stay and quotes it. checkIn and checkOut are YYYY-MM-DD (checkOut is the departure day), adults counts adults, childAges lists each child's age. With propertyCode (the code from the catalog) checks that property and, when it is full, returns other free properties; without it lists the free properties. Returns nights, the weekday labels, and for each free option its code, rooms, whether the party fits the standard, the exact nightly prices with their weekday labels and the total (totalSell). requestedFull true means the asked property is not free for those dates; problems explain dates or a party the server cannot quote.",
+    "Checks the real booking calendar for a stay and quotes it. checkIn and checkOut are YYYY-MM-DD (checkOut is the departure day), adults counts adults, childAges lists each child's age as the customer wrote it; when children come without their ages, ask the ages first (child_ages_not_given: an age the customer did not write). With propertyCode (the code from the catalog) checks that property and, when it is full, returns other free properties; without it lists the free properties. Returns nights, the weekday labels, and for each free option its code, rooms, whether the party fits the standard, the exact nightly prices with their weekday labels and the total (totalSell). requestedFull true means the asked property is not free for those dates; problems explain dates or a party the server cannot quote.",
   input: CheckInput,
 };
 
@@ -128,6 +129,11 @@ export interface HoldToolContext {
   takesHolds: boolean;
   /** A draft stored before the customer's newest message: the only one this turn can confirm or cancel. */
   confirmable: boolean;
+  /**
+   * What the customer wrote: each child age of a check must be a number in it (VL-B3: the model
+   * invented ages 0 for "4 bé"). Absent = not checked.
+   */
+  customerTexts?: readonly string[];
   state: HoldToolState;
   /** Logs a failure the turn survives (the error class only). */
   onError?: (error: unknown) => void;
@@ -183,7 +189,15 @@ const reply = (value: unknown, ok = true) => ({ content: safeJson(value), ok });
 /** An option as the model sees it: no property or room ids, room names as `rooms`. */
 function optionView(option: BotAvailabilityOption) {
   const { propertyId: _p, unitIds: _u, unitNames, ...rest } = option;
-  return { ...rest, rooms: unitNames };
+  if (!option.package) return { ...rest, rooms: unitNames };
+  // VL-B12: the nightly prices belong to the picked package only. An alternative package carries
+  // its total and no nights, said explicitly so the model never pairs it with these nights.
+  return {
+    ...rest,
+    nightlyPackage: option.package,
+    alternatives: option.alternatives.map((a) => ({ ...a, nightly: null })),
+    rooms: unitNames,
+  };
 }
 
 const isValidationFailure = (error: unknown): boolean =>
@@ -255,6 +269,8 @@ export function holdTools(ctx: HoldToolContext): {
     schema: CheckInput,
     run: async (input) => {
       const args = input as z.infer<typeof CheckInput>;
+      if (ctx.customerTexts && unvouchedChildAges(args.childAges ?? [], ctx.customerTexts).length)
+        return reply({ ok: false, problems: ['child_ages_not_given'] }, false);
       let propertyId: string | undefined;
       if (args.propertyCode) {
         const id = await propertyIdOf(ctx, args.propertyCode);
@@ -441,6 +457,8 @@ export async function hotelHoldContext(input: {
   answered: (storedAt: Date) => boolean;
   /** Logs a line; failures carry the error class only. */
   warn: (message: string) => void;
+  /** What the customer wrote (vouches for child ages). */
+  customerTexts?: readonly string[];
 }): Promise<HoldToolContext> {
   const { facade, ws, conversationId, lodging } = input;
   const errorName = (error: unknown) => (error instanceof Error ? error.name : 'unknown error');
@@ -466,6 +484,7 @@ export async function hotelHoldContext(input: {
         input.answered,
         (error) => input.warn(`Hold draft check failed: ${errorName(error)}`),
       )),
+    ...(input.customerTexts ? { customerTexts: input.customerTexts } : {}),
     state: newHoldToolState(),
     onError: (error) => input.warn(`Hold draft drop failed: ${errorName(error)}`),
   };

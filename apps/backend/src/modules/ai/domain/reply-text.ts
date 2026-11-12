@@ -12,7 +12,25 @@ export function unescapeLineBreaks(reply: string): string {
 
 /** The model's free-text answer as it may be sent: literal `\n` fixed, outer whitespace trimmed. */
 export function normalizeReplyText(text: string): string {
-  return unescapeLineBreaks(text).trim();
+  return withoutRepeatedLines(unescapeLineBreaks(text)).trim();
+}
+
+/**
+ * TM-22: the model sometimes writes the same sentence twice in one answer. A line equal to an
+ * earlier one (case and spacing ignored) is dropped; blank lines stay as they are.
+ */
+export function withoutRepeatedLines(text: string): string {
+  const seen = new Set<string>();
+  return text
+    .split('\n')
+    .filter((line) => {
+      const key = line.replace(/\s+/g, ' ').trim().toLowerCase();
+      if (!key) return true;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .join('\n');
 }
 
 const QUOTE_WORDS = 6;
