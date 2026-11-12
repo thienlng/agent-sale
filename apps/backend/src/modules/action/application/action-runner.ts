@@ -1,7 +1,7 @@
 import type { SecretBox } from '../../../common/security/secret-box.js';
 import type { ActionOutcome } from '../api/action.facade.js';
 import { buildRequest, type ActionArgs } from '../domain/build-request.js';
-import type { SafeHttpRequest, SafeHttpResult } from '../domain/safe-http.js';
+import type { SafeHttpRequest, SafeHttpResult } from '../../../common/security/safe-http.js';
 import { trimResponse } from '../domain/trim-response.js';
 import type { ActionRecord } from './ports/action-unit-of-work.js';
 

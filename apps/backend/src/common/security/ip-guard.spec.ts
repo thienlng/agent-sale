@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isPublicAddress } from '../domain/ip-guard.js';
+import { isPublicAddress } from './ip-guard.js';
 
 describe('isPublicAddress', () => {
   it.each([
