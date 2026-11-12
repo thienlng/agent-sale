@@ -41,6 +41,7 @@ export class ContactDeletionService {
       workspaceId: ws,
       contactId,
       phoneE164: contact.phoneNormalized,
+      name: contact.name,
       conversationIds: [],
       counts: { conversations: 0, messages: 0, files: 0, orders: 0, bookings: 0 },
     };

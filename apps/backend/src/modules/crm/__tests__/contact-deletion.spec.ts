@@ -63,6 +63,7 @@ describe('ContactLifecycle', () => {
       workspaceId: ws,
       contactId: newId(),
       phoneE164: null,
+      name: null,
       conversationIds: [],
       counts: { conversations: 0, messages: 0, files: 0, orders: 0, bookings: 0 },
     };
@@ -83,6 +84,7 @@ describe('ContactLifecycle', () => {
         workspaceId: ws,
         contactId: newId(),
         phoneE164: null,
+        name: null,
         conversationIds: [],
         counts: { conversations: 0, messages: 0, files: 0, orders: 0, bookings: 0 },
       }),
@@ -123,7 +125,11 @@ describe('ContactDeletionService', () => {
       bookings: 1,
     });
     // Orders carry only the phone, so the steps get it.
-    expect(seen[0]).toMatchObject({ contactId: c.id, phoneE164: '+84912345678' });
+    expect(seen[0]).toMatchObject({
+      contactId: c.id,
+      phoneE164: '+84912345678',
+      name: expect.anything(),
+    });
     expect(erased).toEqual([{ id: c.id, conversations: ['conv-1'] }]);
     expect(audits).toEqual([
       {

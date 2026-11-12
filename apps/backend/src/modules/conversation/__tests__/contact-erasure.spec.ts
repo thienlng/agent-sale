@@ -66,6 +66,7 @@ const erasureFor = (): ContactErasure => ({
   workspaceId: ws,
   contactId,
   phoneE164: '+84912345678',
+  name: null,
   conversationIds: [],
   counts: { conversations: 0, messages: 0, files: 0, orders: 0, bookings: 0 },
 });

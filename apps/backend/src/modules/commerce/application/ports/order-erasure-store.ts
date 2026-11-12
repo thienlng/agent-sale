@@ -3,6 +3,8 @@ import type { WorkspaceId } from '@agent-sales/shared';
 /** What anonymizing an order needs (the search text is rebuilt from it). */
 export interface ErasableOrder {
   id: string;
+  /** The conversation the order came from, if any (a conversation match needs no name check). */
+  conversationId: string | null;
   code: string;
   trackingCode: string | null;
   customer: Record<string, unknown>;
@@ -14,7 +16,7 @@ export interface ErasableOrder {
 export interface OrderErasureTx {
   /**
    * Orders of these conversations, or whose customer phone (digits only) is one of `phoneDigits`,
-   * deleted ones included.
+   * deleted ones included. Candidates: the caller keeps the phone matches whose name fits.
    */
   ordersOf(
     conversationIds: readonly string[],

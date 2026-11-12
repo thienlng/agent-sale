@@ -3,13 +3,16 @@ import type { WorkspaceId } from '@agent-sales/shared';
 export interface BookingErasureTx {
   /**
    * Replaces the guest of the customer's stay bookings — linked by `contact_id`, by one of the
-   * customer's conversations, or with the customer's phone (digits only) — with `guestName`, clears
-   * the phone and the customer link; returns how many bookings changed.
+   * customer's conversations, or with the customer's phone (digits only) and a guest name that is
+   * `contactName` (trimmed, spaces collapsed, case-insensitive) or empty — with `guestName`, clears
+   * the phone and the customer link; returns how many bookings changed. A booking found only by a
+   * shared phone under another guest's name stays.
    */
   anonymizeBookings(q: {
     contactId: string;
     conversationIds: readonly string[];
     phoneDigits: readonly string[];
+    contactName: string | null;
     guestName: string;
   }): Promise<number>;
   /** The bot's pending hold summaries of the customer or of these conversations. */

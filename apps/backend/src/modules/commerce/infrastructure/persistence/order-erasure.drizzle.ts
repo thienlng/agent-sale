@@ -30,6 +30,7 @@ export class DrizzleOrderErasureStore implements OrderErasureStore {
           return tx
             .select({
               id: o.id,
+              conversationId: o.conversationId,
               code: o.code,
               trackingCode: o.trackingCode,
               customer: o.customer,

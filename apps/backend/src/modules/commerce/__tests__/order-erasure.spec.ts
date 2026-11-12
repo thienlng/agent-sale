@@ -9,7 +9,11 @@ import type {
   OrderErasureStore,
   OrderErasureTx,
 } from '../application/ports/order-erasure-store.js';
-import { anonymizeOrderPeople } from '../domain/order-anonymize.js';
+import {
+  anonymizeOrderPeople,
+  isDeletedCustomersOrder,
+  sameName,
+} from '../domain/order-anonymize.js';
 
 const phones = ['84912345678', '0912345678'];
 
@@ -56,6 +60,7 @@ describe('OrderErasure', () => {
   it('deletes drafts, anonymizes matched orders and rebuilds their search text', async () => {
     const order: ErasableOrder = {
       id: newId(),
+      conversationId: 'c1',
       code: 'DH0001',
       trackingCode: null,
       customer: { name: 'Lan', phone: '0912345678' },
@@ -81,6 +86,7 @@ describe('OrderErasure', () => {
       workspaceId: workspaceId(newId()),
       contactId: newId(),
       phoneE164: '+84912345678',
+      name: 'Lan',
       conversationIds: ['c1'],
       counts: { conversations: 0, messages: 0, files: 0, orders: 0, bookings: 0 },
     };
@@ -113,11 +119,69 @@ describe('OrderErasure', () => {
       workspaceId: workspaceId(newId()),
       contactId: newId(),
       phoneE164: null,
+      name: null,
       conversationIds: [],
       counts: { conversations: 0, messages: 0, files: 0, orders: 0, bookings: 0 },
     };
     await new OrderErasure({ run: async (_ws, fn) => fn(tx) }).detach(erasure);
     expect(digits).toEqual([]);
     expect(erasure.counts.orders).toBe(0);
+  });
+
+  it("keeps an order found only by a shared phone under another person's name", async () => {
+    const base = {
+      code: 'DH',
+      trackingCode: null,
+      recipient: {},
+      noteInternal: '',
+      notePrint: '',
+    };
+    const orders: ErasableOrder[] = [
+      // Staff typed it for her husband, with the family phone: stays.
+      { ...base, id: 'husband', conversationId: null, customer: { name: 'Trần Văn Nam' } },
+      // Hers, typed by staff with spacing and case of their own.
+      { ...base, id: 'hers', conversationId: null, customer: { name: '  nguyễn thị  LAN ' } },
+      // No name typed: the phone is all there is.
+      { ...base, id: 'nameless', conversationId: null, customer: { phone: '0912345678' } },
+      // From her conversation: hers whatever the name says.
+      { ...base, id: 'chat', conversationId: 'c1', customer: { name: 'Chị Hai' } },
+    ];
+    const anonymized: string[] = [];
+    const tx: OrderErasureTx = {
+      deleteDrafts: async () => undefined,
+      ordersOf: async () => orders,
+      anonymize: async (id) => {
+        anonymized.push(id);
+      },
+    };
+    const erasure: ContactErasure = {
+      workspaceId: workspaceId(newId()),
+      contactId: newId(),
+      phoneE164: '+84912345678',
+      name: 'Nguyễn Thị Lan',
+      conversationIds: ['c1'],
+      counts: { conversations: 0, messages: 0, files: 0, orders: 0, bookings: 0 },
+    };
+    await new OrderErasure({ run: async (_ws, fn) => fn(tx) }).detach(erasure);
+    expect(anonymized).toEqual(['hers', 'nameless', 'chat']);
+    expect(erasure.counts.orders).toBe(3);
+  });
+});
+
+describe('isDeletedCustomersOrder', () => {
+  it('compares names loosely and needs no name for a conversation match', () => {
+    expect(sameName(' Nguyễn  Thị Lan', 'nguyễn thị lan')).toBe(true);
+    expect(sameName('Nguyễn Thị Lan', 'Nguyễn Thị Lân')).toBe(false);
+    const order = (name: unknown, conversationId: string | null = null) => ({
+      conversationId,
+      customer: name === undefined ? {} : { name },
+    });
+    expect(isDeletedCustomersOrder(order('Lan'), [], 'lan')).toBe(true);
+    expect(isDeletedCustomersOrder(order('Nam'), [], 'Lan')).toBe(false);
+    expect(isDeletedCustomersOrder(order('Nam'), [], null)).toBe(false);
+    expect(isDeletedCustomersOrder(order('  '), [], 'Lan')).toBe(true);
+    expect(isDeletedCustomersOrder(order(undefined), [], 'Lan')).toBe(true);
+    expect(isDeletedCustomersOrder(order('Nam', 'c1'), ['c1'], 'Lan')).toBe(true);
+    expect(isDeletedCustomersOrder(order('Nam', 'c2'), ['c1'], 'Lan')).toBe(false);
   });
 });

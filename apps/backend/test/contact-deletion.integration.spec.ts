@@ -162,7 +162,12 @@ async function conversationOf(ws: string, contactId: string | null, psid: string
   return { channelId, conversationId };
 }
 
-async function orderFor(h: Headers, customerPhone: string, recipient: object) {
+async function orderFor(
+  h: Headers,
+  customerPhone: string,
+  recipient: object,
+  customerName = 'Nguyễn Thị Lan',
+) {
   const warehouse = WarehouseDto.parse(
     (await call(h, 'POST', '/warehouses', { name: `Kho ${crypto.randomUUID()}` })).json(),
   );
@@ -184,7 +189,7 @@ async function orderFor(h: Headers, customerPhone: string, recipient: object) {
   const r = await call(h, 'POST', '/orders', {
     source: 'facebook',
     warehouseId: warehouse.id,
-    customer: { name: 'Nguyễn Thị Lan', phone: customerPhone, email: 'lan@example.vn' },
+    customer: { name: customerName, phone: customerPhone, email: 'lan@example.vn' },
     recipient,
     items: [{ variantId: variant?.id, qty: 1 }],
   });
@@ -219,6 +224,13 @@ describe('DELETE /contacts/{id}', () => {
       phone: '0909000111',
       address: '9 Pasteur',
     });
+    // Staff typed an order for her husband with the family's shared phone: not hers.
+    const husband = await orderFor(
+      a.h,
+      '0912 345 678',
+      { name: 'Trần Văn Nam', phone: '0912345678', address: '1 Lê Lợi' },
+      'Trần Văn Nam',
+    );
     const unrelated = await orderFor(a.h, '0987654321', {
       name: 'Trần Văn Bình',
       phone: '0987654321',
@@ -250,6 +262,24 @@ describe('DELETE /contacts/{id}', () => {
       contactId: lan.id,
       clientRequestId: crypto.randomUUID(),
       fingerprint: 'f',
+    });
+
+    // The husband's stay, booked with the same phone and no customer link: not hers either.
+    const husbandBookingId = crypto.randomUUID();
+    await owner.db.insert(schema.lodgingBookings).values({
+      id: husbandBookingId,
+      workspaceId: a.workspaceId,
+      propertyId,
+      code: 'B2',
+      kind: 'stay',
+      whole: true,
+      status: 'confirmed',
+      checkIn: '2026-12-10',
+      checkOut: '2026-12-12',
+      guestName: 'Trần Văn Nam',
+      guestPhone: '0912345678',
+      clientRequestId: crypto.randomUUID(),
+      fingerprint: 'f2',
     });
 
     const r = await call(a.h, 'DELETE', `/contacts/${lan.id}`);
@@ -332,9 +362,18 @@ describe('DELETE /contacts/{id}', () => {
     expect((await read(gift.id)).customer).toEqual({ name: DELETED_CUSTOMER_NAME });
     expect((await read(gift.id)).recipient).toMatchObject({ name: 'Bạn Hoa', phone: '0909000111' });
     expect((await read(unrelated.id)).customer).toMatchObject({ name: 'Nguyễn Thị Lan' });
-    // Her phone no longer finds anything in the order search.
+    expect((await read(husband.id)).customer).toMatchObject({
+      name: 'Trần Văn Nam',
+      phone: '0912 345 678',
+    });
+    // Her phone finds only the husband's order in the order search.
     const search = await call(a.h, 'GET', '/orders?q=0912345678');
-    expect(search.json()).toMatchObject({ total: 0 });
+    expect(search.json()).toMatchObject({ total: 1 });
+    const [husbandBooking] = await owner.db
+      .select()
+      .from(schema.lodgingBookings)
+      .where(eq(schema.lodgingBookings.id, husbandBookingId));
+    expect(husbandBooking).toMatchObject({ guestName: 'Trần Văn Nam', guestPhone: '0912345678' });
     const [booking] = await owner.db
       .select()
       .from(schema.lodgingBookings)

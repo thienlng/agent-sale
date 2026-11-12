@@ -9,6 +9,12 @@ export interface ContactErasure {
   readonly contactId: string;
   /** The customer's E.164 phone (orders carry no customer id, only the phone typed on them). */
   readonly phoneE164: string | null;
+  /**
+   * The customer's name as stored (null: none). A phone shared by several people (a family, a
+   * shop's front desk) must not erase somebody else's order or booking: a record matched only by
+   * phone is anonymized when its name is this one or empty.
+   */
+  readonly name: string | null;
   /** The customer's conversations (filled by the `collect` steps). */
   conversationIds: string[];
   /** What each module removed or anonymized, for the response; counts only. */

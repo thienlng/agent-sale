@@ -12,7 +12,8 @@ import { BOOKING_ERASURE_STORE, type BookingErasureStore } from './ports/booking
 /**
  * Lodging's part of deleting a customer (docs/09 §10, crm `ContactLifecycle`, `detach` phase). Stay
  * bookings are business records and stay, with the guest name replaced by `DELETED_CUSTOMER_NAME`,
- * the phone cleared and the customer link removed; the bot's pending hold summaries go.
+ * the phone cleared and the customer link removed; a booking found only by the phone is the
+ * customer's when its guest name is theirs or empty. The bot's pending hold summaries go.
  */
 @Injectable()
 export class BookingErasure implements OnModuleInit {
@@ -32,6 +33,7 @@ export class BookingErasure implements OnModuleInit {
         contactId: e.contactId,
         conversationIds: e.conversationIds,
         phoneDigits: e.phoneE164 ? phoneDigitVariants(e.phoneE164) : [],
+        contactName: e.name,
         guestName: DELETED_CUSTOMER_NAME,
       });
     });

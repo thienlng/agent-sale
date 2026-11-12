@@ -17,13 +17,24 @@ export class DrizzleBookingErasureStore implements BookingErasureStore {
   run<T>(ws: WorkspaceId, fn: (tx: BookingErasureTx) => Promise<T>): Promise<T> {
     return withTenant(this.db, ws, (tx) =>
       fn({
-        async anonymizeBookings({ contactId, conversationIds, phoneDigits, guestName }) {
+        async anonymizeBookings({
+          contactId,
+          conversationIds,
+          phoneDigits,
+          contactName,
+          guestName,
+        }) {
           const match: SQL[] = [eq(b.contactId, contactId)];
           if (conversationIds.length)
             match.push(sql`${b.conversationId} = any(${uuidArray(conversationIds)})`);
+          // A shared phone alone is not enough: the guest name must be the customer's or empty.
+          const norm = (v: SQL) =>
+            sql`lower(regexp_replace(btrim(coalesce(${v}, '')), '\\s+', ' ', 'g'))`;
           if (phoneDigits.length)
             match.push(
-              sql`regexp_replace(${b.guestPhone}, '\\D', '', 'g') = any(${textArray(phoneDigits)})`,
+              sql`(regexp_replace(${b.guestPhone}, '\\D', '', 'g') = any(${textArray(phoneDigits)})
+                and (btrim(coalesce(${b.guestName}, '')) = ''
+                  or ${norm(sql`${b.guestName}`)} = ${norm(sql`${contactName ?? ''}::text`)}))`,
             );
           // Blocks have no guest; the version moves so an open edit form reloads.
           const rows = await tx
