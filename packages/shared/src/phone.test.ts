@@ -52,6 +52,13 @@ describe('normalizeAnyPhone', () => {
     expect(normalizeAnyPhone('0912 345 678')).toBe('+84912345678');
     expect(normalizeAnyPhone('84912345678')).toBe('+84912345678');
   });
+  it('accepts Vietnamese landlines, which normalizeVnPhone (mobile only) refuses (LM2-7)', () => {
+    expect(normalizeAnyPhone('0243 999 8888')).toBe('+842439998888');
+    expect(normalizeAnyPhone('+84 28 3822 1234')).toBe('+842838221234');
+    expect(normalizeAnyPhone('0203 382 1234')).toBe('+842033821234');
+    expect(normalizeVnPhone('0243 999 8888')).toBeNull();
+    expect(normalizeAnyPhone('0243 999 888')).toBeNull();
+  });
   it('keeps foreign numbers written with a country code', () => {
     expect(normalizeAnyPhone('+1 (555) 123-4567')).toBe('+15551234567');
   });

@@ -559,6 +559,14 @@ describe('request source (MS-11)', () => {
   });
 });
 
+describe('request phones (LM2-7)', () => {
+  it('records a request left with a Vietnamese landline', async () => {
+    const a = await owner('education');
+    const res = await record(a.ws, 'consultation', { name: 'Anh Tùng', phone: '0243 999 8888' });
+    expect(res).toMatchObject({ outcome: 'recorded', phoneE164: '+842439998888' });
+  });
+});
+
 describe('request access', () => {
   it('offers nothing to a retail business: no tool kind and a 404 summary', async () => {
     const a = await owner('fashion');

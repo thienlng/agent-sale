@@ -111,13 +111,29 @@ export function maskPhone(e164: string): string {
 }
 
 /**
+ * A Vietnamese landline (since 2017: area code 02x or 02xx, 11 digits with the leading 0, e.g.
+ * "0243 999 8888") in E.164, or null. Landlines take no SMS or Zalo: only customer identity uses
+ * them (`normalizeAnyPhone`), never the mobile-only checks.
+ */
+export function normalizeVnLandline(input: string): string | null {
+  const digits = input.replace(/\D/g, '');
+  const national =
+    digits.length === 11 && digits.startsWith('02')
+      ? digits.slice(1)
+      : digits.length === 12 && digits.startsWith('842')
+        ? digits.slice(2)
+        : null;
+  return national ? `+84${national}` : null;
+}
+
+/**
  * Normalizes any usable phone input to E.164: Vietnamese mobiles via
- * normalizeVnPhone, other numbers written with a `+` country code as `+digits`
- * (8–15 digits). Returns null for anything else (e.g. a Vietnamese landline
- * without `+84`, or text). Used for customer identity and duplicate detection.
+ * normalizeVnPhone, Vietnamese landlines (LM2-7), other numbers written with a `+` country code
+ * as `+digits` (8–15 digits). Returns null for anything else (text, a short or unknown number).
+ * Used for customer identity and duplicate detection.
  */
 export function normalizeAnyPhone(input: string): string | null {
-  const vn = normalizeVnPhone(input);
+  const vn = normalizeVnPhone(input) ?? normalizeVnLandline(input);
   if (vn) return vn;
   const trimmed = input.trim();
   const digits = trimmed.replace(/\D/g, '');
