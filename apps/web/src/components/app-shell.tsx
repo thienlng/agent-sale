@@ -115,7 +115,9 @@ export function AppShell({
               <AccountMenu planDialog={planDialog} />
             </div>
           </header>
-          <div className="flex min-w-0 flex-1 flex-col p-4 md:p-6 has-data-[content-padding=false]:p-0 md:has-data-[content-padding=false]:p-0">
+          {/* The bottom padding lets the last controls of a page scroll clear of the floating
+              assistant button (bottom-right, 56 px + 16 px inset; TM-13). */}
+          <div className="flex min-w-0 flex-1 flex-col p-4 pb-24 md:p-6 md:pb-24 has-data-[content-padding=false]:p-0 md:has-data-[content-padding=false]:p-0">
             <div className="flex w-full min-w-0 flex-1 flex-col [html[data-content-layout=centered]_&]:mx-auto [html[data-content-layout=centered]_&]:max-w-screen-xl has-data-[content-padding=false]:max-w-none!">
               <div
                 key={`${session?.user.id}:${session?.workspaceId}`}
