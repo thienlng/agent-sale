@@ -22,6 +22,7 @@ import { LLM_PROVIDER_FACTORY } from './application/ports/llm-provider-factory.j
 import { TurnTraceService } from './application/turn-trace.service.js';
 import { AI_RUN_REPOSITORY, type AiRunRepository } from './domain/ports/ai-run.repository.js';
 import { CONVERSATION_SUMMARY_REPOSITORY } from './domain/ports/conversation-summary.repository.js';
+import { SummaryErasure } from './application/contact-erasure.js';
 import { LLM_CONFIG_REPOSITORY } from './domain/ports/llm-config.repository.js';
 import { TURN_TRACE_REPOSITORY } from './domain/ports/turn-trace.repository.js';
 import { SdkLlmProviderFactory } from './infrastructure/llm/sdk-provider-factory.js';
@@ -99,6 +100,7 @@ import { TurnTraceController } from './interface/http/turn-trace.controller.js';
           ? new DrizzleConversationSummaryRepository(db)
           : new InMemoryConversationSummaryRepository(),
     },
+    SummaryErasure,
     {
       provide: LLM_PROVIDER_FACTORY,
       inject: [SECRET_BOX],

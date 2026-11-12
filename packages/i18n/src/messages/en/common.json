@@ -1231,7 +1231,12 @@
       "noTags": "No tags yet.",
       "filesSoon": "Customer files come once storage (S3) is enabled.",
       "createdBy": "Created {{at}}",
-      "close": "Close"
+      "close": "Close",
+      "deleteNote": "Delete note",
+      "deleteNoteTitle": "Delete this note?",
+      "deleteNoteBody": "The note is removed for good, its text in the history too. This cannot be undone.",
+      "noteDeleted": "Note deleted",
+      "confirmDeleteNote": "Delete note"
     },
     "history": {
       "allTypes": "All changes",
@@ -1249,7 +1254,8 @@
         "tag.updated": "Tag details edited",
         "tag.removed": "Tag removed",
         "contact.request_recorded": "New request",
-        "contact.request_updated": "Request updated"
+        "contact.request_updated": "Request updated",
+        "note.deleted": "Note deleted"
       },
       "empty_value": "empty"
     },
@@ -1370,6 +1376,23 @@
       "loading": "Loading requests…",
       "loadError": "Could not load the requests.",
       "retry": "Retry"
+    },
+    "delete": {
+      "zoneTitle": "Delete customer",
+      "zoneHint": "Use this when the customer asks for their personal data to be deleted. This cannot be undone.",
+      "action": "Delete customer",
+      "title": "Delete {{name}} for good?",
+      "intro": "This cannot be undone.",
+      "removedTitle": "Deleted",
+      "removedProfile": "The profile, notes, history, tags and tasks of the customer",
+      "removedConversations": "Conversations with the customer and all their messages",
+      "removedFiles": "Pictures the customer sent through website chat",
+      "keptTitle": "Kept, but anonymized",
+      "kept": "Orders and stay bookings: the name becomes “Khách đã xoá” and the phone, email and address are removed.",
+      "confirm": "Delete for good",
+      "deleting": "Deleting…",
+      "cancel": "Cancel",
+      "done": "Customer and {{conversations}} conversations deleted; {{orders}} orders and {{bookings}} bookings anonymized."
     }
   },
   "team": {
@@ -2148,5 +2171,21 @@
       "blocked": "The browser blocks Rapiz notifications. Allow them in the browser settings.",
       "failed": "Could not turn on notifications. Try again later."
     }
+  },
+  "dataDeletion": {
+    "title": "Data deletion request",
+    "intro": "You asked Rapiz to delete the data linked to the Facebook account you used to connect Pages (Facebook Login).",
+    "notFound": "No request has this code. Check the link Facebook gave you.",
+    "status": {
+      "pending": "In progress",
+      "completed": "Completed"
+    },
+    "code": "Confirmation code",
+    "requestedAt": "Requested",
+    "completedAt": "Completed",
+    "pendingBody": "Rapiz will disconnect the Pages you connected and delete your access tokens within minutes.",
+    "completedBody_one": "The {{count}} Page you connected was disconnected and your Facebook access tokens were deleted. Rapiz no longer keeps your Facebook login data.",
+    "completedBody_other": "The {{count}} Pages you connected were disconnected and your Facebook access tokens were deleted. Rapiz no longer keeps your Facebook login data.",
+    "scope": "This does not delete the businesses, orders or conversations a business keeps on Rapiz. If you messaged a business and want your data deleted, contact that business."
   }
 }

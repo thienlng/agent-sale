@@ -17,6 +17,11 @@ import {
 import { AssistantModule } from '../modules/assistant/assistant.module.js';
 import { BILLING_RUNNER, type BillingRunner } from '../modules/billing/api/index.js';
 import { BillingModule } from '../modules/billing/billing.module.js';
+import {
+  CHANNEL_DATA_DELETION_RUNNER,
+  type ChannelDataDeletionRunner,
+} from '../modules/channel/api/index.js';
+import { ChannelModule } from '../modules/channel/channel.module.js';
 import { CRM_TASK_RUNNER, type CrmTaskRunner } from '../modules/crm/api/index.js';
 import { CrmModule } from '../modules/crm/crm.module.js';
 import { BRAIN_RUNNER, type BrainRunner } from '../modules/brain/api/index.js';
@@ -60,6 +65,7 @@ import { WorkspaceModule } from '../modules/workspace/workspace.module.js';
     BrainModule,
     CareModule,
     WorkspaceModule,
+    ChannelModule,
   ],
 })
 class WorkerModule {}
@@ -244,6 +250,19 @@ const careTimer = setInterval(() => {
       careBusy = false;
     });
 }, 15_000);
+// Meta data deletion requests (docs/07): remove the pages of the person who asked; every minute.
+const dataDeletion = ctx.get<ChannelDataDeletionRunner>(CHANNEL_DATA_DELETION_RUNNER);
+let deletingData = false;
+const dataDeletionTimer = setInterval(() => {
+  if (deletingData) return;
+  deletingData = true;
+  void dataDeletion
+    .tick()
+    .catch(() => logger.error('Meta data deletion tick failed'))
+    .finally(() => {
+      deletingData = false;
+    });
+}, 60_000);
 let dailyRunning = false;
 const runDaily = () => {
   if (dailyRunning) return;
@@ -274,8 +293,9 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const)
     clearInterval(brainTimer);
     clearInterval(careTimer);
     clearInterval(purgeTimer);
+    clearInterval(dataDeletionTimer);
   });
 logger.info(
   { queues },
-  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks, notifications, assistant jobs, assistant schedules, task reminders, brain signals, care agent, business purge; no queue processors registered yet)',
+  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks, notifications, assistant jobs, assistant schedules, task reminders, brain signals, care agent, business purge, Meta data deletion; no queue processors registered yet)',
 );

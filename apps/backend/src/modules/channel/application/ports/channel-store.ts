@@ -6,10 +6,27 @@ export interface GrantedAccount {
   name: string;
   token: string;
   expiresAt: string | null;
+  /** App-scoped id of the Facebook user who granted the page (Facebook Login only). */
+  grantorId?: string | null | undefined;
 }
 export interface ConnectionRecord extends ChannelConnectionDto {
   workspaceId: WorkspaceId;
   tokenSealed: string;
+  /** `metaUserHash(grantorId)` of whoever connected the page (0076); null when unknown. */
+  metaUserHash?: string | null | undefined;
+}
+/** A Meta data deletion request waiting for the worker (0076). */
+export interface PendingDataDeletion {
+  id: string;
+  userHash: string;
+}
+/** What the public status page shows (0076). */
+export interface DataDeletionRecord {
+  confirmationCode: string;
+  status: 'pending' | 'completed';
+  requestedAt: Date;
+  completedAt: Date | null;
+  connectionsRemoved: number;
 }
 export interface OAuthFlow {
   id: string;
@@ -48,7 +65,22 @@ export interface ChannelStore {
    * Soft delete (T-133): status `removed`, bot unbound, sealed token replaced by `tokenSealed`.
    * The row, its conversations and statistics stay; `list` no longer returns it.
    */
-  remove(ws: WorkspaceId, id: string, tokenSealed: string): Promise<ConnectionRecord | null>;
+  remove(
+    ws: WorkspaceId,
+    id: string,
+    tokenSealed: string,
+    audit?: { action: string; data: Record<string, unknown> },
+  ): Promise<ConnectionRecord | null>;
+  /** Live (not removed) connections of every workspace connected by this Facebook user. */
+  connectionsOfMetaUser(userHash: string): Promise<ConnectionRecord[]>;
+  /**
+   * Pending deletion requests, oldest first, locked for this worker (`SKIP LOCKED`); each claim
+   * counts an attempt, and a request is no longer claimed after 10.
+   */
+  claimDataDeletions(limit: number): Promise<PendingDataDeletion[]>;
+  /** Marks the request completed and drops its user hash. */
+  completeDataDeletion(id: string, connectionsRemoved: number): Promise<void>;
+  dataDeletion(confirmationCode: string): Promise<DataDeletionRecord | null>;
   /** Inserts a new connection (website connections are created here, Meta ones through `select`). */
   create(record: ConnectionRecord): Promise<ConnectionRecord>;
   /** Cross-tenant lookup of a website connection by its public site key. */
@@ -59,6 +91,12 @@ export interface ChannelStore {
   hasPendingCustomerEvent(connectionId: string, senderExternalId: string): Promise<boolean>;
   /** Clears the bot binding of every connection pointing at `botId`; returns how many changed. */
   unbindBot(ws: WorkspaceId, botId: string): Promise<number>;
+  /** Deletes the processed events of one sender on one connection; returns how many. */
+  forgetCustomerEvents(
+    ws: WorkspaceId,
+    connectionId: string,
+    senderExternalId: string,
+  ): Promise<number>;
   createFlow(flow: OAuthFlow): Promise<void>;
   consumeState(
     provider: MetaProvider,

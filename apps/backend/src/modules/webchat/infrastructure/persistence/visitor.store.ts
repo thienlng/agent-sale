@@ -127,9 +127,28 @@ export class DrizzleVisitorStore implements VisitorStore {
         );
     });
   }
+
+  forget(ws: WorkspaceId, contactId: string, conversationIds: readonly string[]) {
+    return withTenant(this.db, ws, async (tx) => {
+      const ids = sql`${`{${conversationIds.join(',')}}`}::uuid[]`;
+      const rows = await tx
+        .delete(v)
+        .where(
+          and(
+            eq(v.workspaceId, ws),
+            sql`(${v.contactId} = ${contactId} or ${v.conversationId} = any(${ids}))`,
+          ),
+        )
+        .returning({ id: v.id });
+      return rows.length;
+    });
+  }
 }
 
 export class UnavailableVisitorStore implements VisitorStore {
+  forget(): Promise<number> {
+    return Promise.resolve(0);
+  }
   recordMessage(): Promise<void> {
     return Promise.reject(new Error('Website chat requires a configured database'));
   }

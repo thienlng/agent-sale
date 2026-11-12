@@ -108,6 +108,8 @@ export type ContactDto = z.infer<typeof ContactDto>;
 export const ContactNoteDto = z.object({
   id: z.uuid(),
   body: z.string(),
+  /** Null for system and bot notes. The author (or an owner or admin) may delete the note. */
+  authorUserId: z.uuid().nullable().default(null),
   authorName: z.string().nullable(),
   createdAt: z.iso.datetime(),
   /** Set when the note was edited; earlier bodies are in the history. */
@@ -123,6 +125,27 @@ export const UpdateContactNoteRequest = z.object({
   expectedVersion: z.number().int().min(1),
 });
 
+/**
+ * The name a deleted customer's orders and stay bookings keep (docs/09 §10): business records stay,
+ * the person's name, phone, email and address go. Stored as data, shown as it is.
+ */
+export const DELETED_CUSTOMER_NAME = 'Khách đã xoá';
+
+/** What deleting a customer removed (`DELETE /contacts/{id}`); counts only. */
+export const ContactDeletionResult = z.object({
+  contactId: z.uuid(),
+  /** Conversations removed with their messages, notes, care steps and Brain signals. */
+  conversations: z.number().int().min(0),
+  messages: z.number().int().min(0),
+  /** Website chat pictures the customer uploaded, removed from storage. */
+  files: z.number().int().min(0),
+  /** Orders kept with the customer's name replaced and phone, email and address removed. */
+  orders: z.number().int().min(0),
+  /** Stay bookings kept the same way. */
+  bookings: z.number().int().min(0),
+});
+export type ContactDeletionResult = z.infer<typeof ContactDeletionResult>;
+
 export const CONTACT_HISTORY_TYPES = [
   'contact.created',
   'contact.updated',
@@ -130,6 +153,7 @@ export const CONTACT_HISTORY_TYPES = [
   'contact.assigned',
   'note.added',
   'note.edited',
+  'note.deleted',
   'tag.added',
   'tag.updated',
   'tag.removed',

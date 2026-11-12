@@ -18,6 +18,7 @@ import {
   ChannelConnectionDto,
   ConnectChannelResponse,
   DiscoveryDto,
+  MetaDataDeletionStatus,
   SelectChannelRequest,
   UpdateChannelRequest,
 } from './channel.schema.js';
@@ -185,5 +186,13 @@ export const channelRoutes = defineRoutes([
     path: '/channels/oauth/{provider}/callback',
     summary: 'Meta OAuth callback',
     responses: { 200: z.string() },
+  },
+  {
+    auth: false,
+    tag: 'channel',
+    method: 'get',
+    path: '/meta/data-deletion/{code}',
+    summary: 'Status of a Meta data deletion request (the link Meta shows the person)',
+    responses: { 200: MetaDataDeletionStatus },
   },
 ]);

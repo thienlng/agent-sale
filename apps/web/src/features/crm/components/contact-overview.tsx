@@ -1,16 +1,27 @@
 import type { ContactDto } from '@agent-sales/contracts';
-import { ListTodo, Pencil } from 'lucide-react';
+import { ListTodo, Pencil, Trash2 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { formatDateTime } from '@/lib/format';
 import { useCan } from '@/lib/permissions';
+import { useSession } from '@/lib/session';
 import { cn } from '@/lib/utils';
 
-import { useAddNote, useEditNote, useNotes, useUpdateContact } from '../api/crm';
+import { useAddNote, useDeleteNote, useEditNote, useNotes, useUpdateContact } from '../api/crm';
 import { crmErrorMessage } from '../hooks/crm-errors';
 import type { CrmLookups } from '../hooks/use-crm-lookups';
 
@@ -71,6 +82,7 @@ function NoteItem({
   note: {
     id: string;
     body: string;
+    authorUserId: string | null;
     authorName: string | null;
     createdAt: string;
     editedAt: string | null;
@@ -79,8 +91,14 @@ function NoteItem({
 }) {
   const { t } = useTranslation();
   const edit = useEditNote(contactId);
+  const remove = useDeleteNote(contactId);
   const [draft, setDraft] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const canEdit = useCan('contacts.edit');
+  // Same rule as the server: the author, or a member who sees every customer (owner, admin).
+  const me = useSession()?.user.id;
+  const seesAll = useCan('contacts.view_all');
+  const canDelete = canEdit && (seesAll || (me !== undefined && note.authorUserId === me));
   return (
     <li className="rounded-lg border p-3">
       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
@@ -90,16 +108,57 @@ function NoteItem({
           {note.editedAt ? ` · ${t('crm.detail.edited')}` : ''}
         </span>
         {draft === null && canEdit ? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t('crm.detail.editNote')}
-            onClick={() => setDraft(note.body)}
-          >
-            <Pencil />
-          </Button>
+          <span className="flex items-center">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t('crm.detail.editNote')}
+              onClick={() => setDraft(note.body)}
+            >
+              <Pencil />
+            </Button>
+            {canDelete ? (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t('crm.detail.deleteNote')}
+                onClick={() => setConfirming(true)}
+              >
+                <Trash2 />
+              </Button>
+            ) : null}
+          </span>
         ) : null}
       </div>
+      <AlertDialog open={confirming} onOpenChange={(o) => !remove.isPending && setConfirming(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('crm.detail.deleteNoteTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('crm.detail.deleteNoteBody')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={remove.isPending}>
+              {t('crm.detail.cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={remove.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                remove.mutate(note.id, {
+                  onSuccess: () => {
+                    setConfirming(false);
+                    toast.success(t('crm.detail.noteDeleted'));
+                  },
+                  onError: (err) => toast.error(crmErrorMessage(t, err)),
+                });
+              }}
+            >
+              {t('crm.detail.confirmDeleteNote')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {draft === null ? (
         <p className="mt-1 text-sm whitespace-pre-line">{note.body}</p>
       ) : (

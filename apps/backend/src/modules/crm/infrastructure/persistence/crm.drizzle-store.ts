@@ -2,6 +2,7 @@ import { type Database, sql, withTenant } from '@agent-sales/db';
 import type { WorkspaceId } from '@agent-sales/shared';
 
 import type { CrmStore, CrmTx } from '../../application/ports/crm-store.js';
+import { contactErasureTx } from './contact-erasure.drizzle.js';
 import { contactSyncTx } from './contact-sync.drizzle.js';
 import { contactsTx } from './contacts.drizzle.js';
 import { crmSettingsTx } from './crm-settings.drizzle.js';
@@ -20,6 +21,7 @@ export class DrizzleCrmStore implements CrmStore {
         ...crmSettingsTx(workspaceId, tx),
         ...policiesTx(workspaceId, tx),
         ...tasksTx(tx),
+        ...contactErasureTx(tx),
         async lock(key: string) {
           await tx.execute(
             sql`select pg_advisory_xact_lock(hashtextextended(${`crm/${workspaceId}/${key}`},0))`,

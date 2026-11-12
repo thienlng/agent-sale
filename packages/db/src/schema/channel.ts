@@ -28,8 +28,16 @@ export const channelConnections = pgTable(
     settings: jsonb('settings'),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * Who connected the page through Facebook Login (0076): SHA-256 hex of `facebook:<app-scoped
+     * user id>`, for Meta's data deletion callback. Null before 0076, for Instagram and website.
+     */
+    metaUserHash: text('meta_user_hash'),
   },
   (t) => [
+    index('channel_connections_meta_user_idx')
+      .on(t.metaUserHash)
+      .where(sql`${t.metaUserHash} is not null`),
     // A removed page (T-133) no longer owns its provider identity: only live rows are unique (0034).
     uniqueIndex('channel_connections_live_external_key')
       .on(t.provider, t.externalId)
@@ -78,5 +86,31 @@ export const channelWebhookEvents = pgTable(
   (t) => [
     uniqueIndex('channel_webhook_dedup').on(t.connectionId, t.externalId),
     ...tenantPolicies('channel_webhook_events'),
+  ],
+);
+
+/**
+ * GLOBAL (0076, app_system only): Meta data deletion requests. `user_hash` (see
+ * `channel_connections.meta_user_hash`) is kept only while pending; no personal data otherwise.
+ */
+export const metaDataDeletionRequests = pgTable(
+  'meta_data_deletion_requests',
+  {
+    id: uuid('id').primaryKey(),
+    confirmationCode: text('confirmation_code').notNull().unique(),
+    userHash: text('user_hash'),
+    status: text('status').$type<'pending' | 'completed'>().notNull().default('pending'),
+    connectionsRemoved: integer('connections_removed').notNull().default(0),
+    attempts: integer('attempts').notNull().default(0),
+    requestedAt: timestamp('requested_at', { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex('meta_data_deletion_requests_pending_user_idx')
+      .on(t.userHash)
+      .where(sql`${t.status} = 'pending'`),
+    index('meta_data_deletion_requests_pending_idx')
+      .on(t.requestedAt)
+      .where(sql`${t.status} = 'pending'`),
   ],
 );

@@ -13,6 +13,8 @@
 
 **Events consumed:** none.
 
+**Customer deletion (docs/09 §10):** `VisitorErasure` (`detach` step on crm's `CONTACT_LIFECYCLE`) deletes the `webchat_visitors` rows of the customer (`contact_id`) or of its conversations (`VisitorStore.forget`). The browser keeps its visitor token; a new message starts a new visitor row and conversation. The pictures the visitor uploaded are removed by the conversation module's erase step.
+
 **Invariants:**
 
 - Every public call resolves the site (`channel.resolveWebsite`) and answers a uniform `404 {error:"NOT_FOUND"}` for an unknown key, a site that is not `connected` or an `Origin` outside `settings.domains`.

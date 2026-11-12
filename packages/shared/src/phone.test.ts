@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  phoneDigitVariants,
   formatVnPhone,
   maskPhone,
   normalizeAnyPhone,
@@ -118,4 +119,14 @@ describe('findVnPhone', () => {
       expect(findVnPhone(input)).toBeNull();
     },
   );
+});
+
+describe('phoneDigitVariants', () => {
+  it('gives the international and national digits of a Vietnamese number', () => {
+    expect(phoneDigitVariants('+84912345678')).toEqual(['84912345678', '0912345678']);
+  });
+  it('gives only the digits of another country', () => {
+    expect(phoneDigitVariants('+6591234567')).toEqual(['6591234567']);
+    expect(phoneDigitVariants('')).toEqual([]);
+  });
 });

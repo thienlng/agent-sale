@@ -78,6 +78,9 @@ function fromCrm(row: OutboxRow, c: Common): FactDraft[] {
       return [fact('tag.assigned', { subjectId: e.tagId, refId: e.assignmentId })];
     case 'crm.tag.removed.v1':
       return [fact('tag.removed', { subjectId: e.tagId, refId: e.assignmentId })];
+    case 'crm.contact.deleted.v1':
+      // Aggregated counts stay (docs/09 §10); the facts carry ids only, never the person.
+      return [];
   }
 }
 
