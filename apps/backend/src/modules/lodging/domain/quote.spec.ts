@@ -206,6 +206,26 @@ describe('quoteStay', () => {
     expect(q.totalSell).toBe(12_000_000);
   });
 
+  it('needs staff approval for a party above the standard places when no maximum is set (VL2-7)', () => {
+    const p: QuoteProperty = {
+      ...villa,
+      surcharges: { extraAdult: { sell: 300_000, cost: 200_000 }, extraChild: null },
+    };
+    const stay = { ...whole, checkIn: '2026-11-09', checkOut: '2026-11-10', childAges: [] };
+    // 45 adults in a villa for 24 + 8: the surcharge prices them, but nothing caps the party.
+    const crowd = quoteStay(p, villaUnits, a17Rates, { ...stay, adults: 45 });
+    expect(crowd.warnings).toEqual(['over_standard']);
+    expect(crowd.surcharges).toEqual([
+      { kind: 'extra_adult', persons: 21, nights: 1, sell: 6_300_000, cost: 4_200_000 },
+    ]);
+    // Within the standard's places (adults + children) the surcharge alone covers the party.
+    expect(quoteStay(p, villaUnits, a17Rates, { ...stay, adults: 26 }).warnings).toEqual([]);
+    // With a maximum the surcharged party fits up to it.
+    expect(
+      quoteStay({ ...p, maxGuests: 50 }, villaUnits, a17Rates, { ...stay, adults: 45 }).warnings,
+    ).toEqual([]);
+  });
+
   it('warns above the hard maximum', () => {
     const q = quoteStay({ ...villa, maxGuests: 30 }, villaUnits, a17Rates, {
       ...whole,

@@ -336,6 +336,9 @@ export function quoteStay(
     limits.push(unitParty.reduce((s, u) => s + (u.max ?? 0), 0));
   }
   if (limits.some((max) => party > max)) warnings.add('over_max');
+  // VL2-7: without any maximum the surcharges have no ceiling (45 adults in an 8-bedroom villa
+  // would "fit"): a party larger than the standard's places needs staff approval.
+  if (!limits.length && party > standard.adults + standard.children) warnings.add('over_standard');
 
   const missing = warnings.has('missing_rate');
   const sum = (key: 'sell' | 'cost') =>

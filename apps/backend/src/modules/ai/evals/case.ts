@@ -187,6 +187,22 @@ const HoldDraft = z
   })
   .strict();
 
+/** A hold the bot placed earlier in the conversation (its code is in an earlier bot message). */
+const HeldBefore = z
+  .object({
+    /** The booking code, e.g. BK-0016. */
+    hold: z.string().regex(/^BK-\d+$/),
+    /** The property code. */
+    code: z.string().min(1),
+    checkIn: IsoDay,
+    checkOut: IsoDay,
+    adults: z.number().int().min(1),
+    childAges: z.array(z.number().int().min(0)).default([]),
+    guestPhone: z.string().min(1),
+    totalSell: z.number().int().min(0).nullable().default(null),
+  })
+  .strict();
+
 /** The calendar of a hotel case (its accommodation products are the properties). */
 const LodgingFixture = z
   .object({
@@ -196,6 +212,8 @@ const LodgingFixture = z
     hold_draft: HoldDraft.optional(),
     /** Another booking takes the draft's nights before the customer confirms it. */
     taken_before_confirm: z.boolean().default(false),
+    /** Holds the bot placed earlier in this conversation (status hold; their nights are taken). */
+    holds_before: z.array(HeldBefore).default([]),
   })
   .strict();
 

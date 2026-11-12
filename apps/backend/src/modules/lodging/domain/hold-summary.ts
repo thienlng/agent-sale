@@ -56,6 +56,8 @@ export interface HoldSummaryInput {
   note: string;
   /** The bedroom packages of the stay (T-193): `unitName` null = the whole property. */
   packages?: { unitName: string | null; name: string }[];
+  /** The code of the earlier bot hold this one replaces (VL2-4): released when it is placed. */
+  replaces?: string | null;
 }
 
 function clip(text: string, max: number): string {
@@ -112,6 +114,7 @@ export function buildHoldSummary(input: HoldSummaryInput): string {
     `Tổng: ${formatVnd(input.totalSell)}`,
     `Tên: ${clip(input.guestName, MAX_NAME_CHARS)} · SĐT: ${phoneText(input.guestPhone)}`,
     ...(note ? [`Ghi chú: ${note}`] : []),
+    ...(input.replaces ? [`Thay cho giữ chỗ ${input.replaces} (huỷ khi giữ chỗ này)`] : []),
     `Giữ trong ${holdDurationText(input.holdMinutes)}, nhân viên sẽ gọi xác nhận.`,
   ].join('\n');
 }

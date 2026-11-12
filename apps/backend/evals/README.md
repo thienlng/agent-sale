@@ -47,7 +47,7 @@ industry's prompt (`PROMPT_BY_INDUSTRY`: hotel `@25`; saas, education and spa `@
   properties (whole rental only): weekday `rates`, extra-adult surcharges above `standardAdults`,
   `maxGuests`, nights booked by `lodging.taken`, a summary in the layout of the real one, holds
   numbered `BK-0001`… `lodging.hold_draft` seeds a summary sent before the turn and
-  `lodging.taken_before_confirm` makes another booking take its nights before the confirm. Dates and
+  `lodging.taken_before_confirm` makes another booking take its nights before the confirm. `lodging.holds_before` lists holds the bot placed earlier in the conversation (`hold` code, property `code`, dates, party, `guestPhone`, `totalSell`): they take their nights, the bot reads them when an earlier bot message names their code, and a new hold of the same property and phone replaces one (VL2-4: `replaces` in the summary, cancelled on confirm, codes continue after the highest). Dates and
   review rules are not checked by the fake (the lodging module has its own tests). Whole-property
   bedroom packages (T-193, `accommodation.packages`) are simulated like `quoteStay`: the fewest
   bedrooms that hold the party and are sold every night, else the biggest; the other packages as

@@ -26,8 +26,21 @@ export interface EvalHoldDraft {
   guestPhone: string;
 }
 
+/** A hold the bot placed earlier in the conversation (`lodging.holds_before`). */
+export interface EvalHeldBefore {
+  hold: string;
+  code: string;
+  checkIn: string;
+  checkOut: string;
+  adults: number;
+  childAges: number[];
+  guestPhone: string;
+  totalSell: number | null;
+}
+
 export interface EvalLodgingFixture {
   taken: EvalTakenStay[];
+  holds_before?: EvalHeldBefore[] | undefined;
   hold_minutes: number;
   hold_draft?: EvalHoldDraft | undefined;
   /** Another booking takes the draft's nights between the summary and the customer's answer. */
@@ -78,14 +91,41 @@ export function evalLodging(
   fixture: EvalLodgingFixture = { taken: [], hold_minutes: 120, taken_before_confirm: false },
 ): LodgingBotFacade {
   const properties = products.filter((p) => p.accommodation);
-  const taken = [...fixture.taken];
-  let draft: { propertyId: string; stay: Stay; storedAt: Date } | null = null;
-  let holds = 0;
+  // Earlier holds of the conversation: live (status hold) and taking their nights.
+  const earlier = (fixture.holds_before ?? []).map((h) => ({ ...h, status: 'hold' }));
+  const taken: (EvalTakenStay & { hold?: string })[] = [
+    ...fixture.taken,
+    ...earlier.map((h) => ({
+      code: h.code,
+      checkIn: h.checkIn,
+      checkOut: h.checkOut,
+      hold: h.hold,
+    })),
+  ];
+  let draft: {
+    propertyId: string;
+    stay: Stay;
+    storedAt: Date;
+    phone?: string;
+    earlierHolds?: string[];
+  } | null = null;
+  let holds = Math.max(0, ...earlier.map((h) => Number(h.hold.slice(3))));
+  const digits = (phone: string) => phone.replace(/\D/g, '').slice(-9);
+  /** As the real facade: the live earlier hold for the same property and guest phone. */
+  const replacedOf = (codes: readonly string[] | undefined, propertyCode: string, phone: string) =>
+    earlier.find(
+      (h) =>
+        h.status === 'hold' &&
+        (codes ?? []).includes(h.hold) &&
+        h.code.toLowerCase() === propertyCode.toLowerCase() &&
+        digits(h.guestPhone) === digits(phone),
+    );
 
-  const isFree = (p: ProductDto, stay: Stay): boolean => {
+  const isFree = (p: ProductDto, stay: Stay, ignoreHold?: string): boolean => {
     const nights = new Set(nightsOf(stay.checkIn, stay.checkOut));
     return !taken.some(
       (t) =>
+        (ignoreHold === undefined || t.hold !== ignoreHold) &&
         t.code.toLowerCase() === p.code.toLowerCase() &&
         nightsOf(t.checkIn, t.checkOut).some((n) => nights.has(n)),
     );
@@ -209,6 +249,7 @@ export function evalLodging(
     name: string,
     phone: string,
     packageName?: string,
+    replaces?: string,
   ): string => {
     const option = optionOf(p, stay, packageName);
     const kids = stay.childAges.length
@@ -222,6 +263,7 @@ export function evalLodging(
       `${stay.adults} người lớn${kids}`,
       `Tổng: ${formatVnd(option.totalSell ?? 0)}`,
       `Tên: ${name} · SĐT: ${phone}`,
+      ...(replaces ? [`Thay cho giữ chỗ ${replaces} (huỷ khi giữ chỗ này)`] : []),
       `Giữ trong ${[h ? `${h} giờ` : '', m ? `${m} phút` : ''].filter(Boolean).join(' ')}, nhân viên sẽ gọi xác nhận.`,
     ].join('\n');
   };
@@ -230,7 +272,7 @@ export function evalLodging(
     const seed = fixture.hold_draft;
     const p = properties.find((x) => x.code.toLowerCase() === seed.code.toLowerCase());
     if (!p) throw new Error(`lodging.hold_draft: no property with code ${seed.code}`);
-    draft = { propertyId: p.id, stay: seed, storedAt: new Date(0) };
+    draft = { propertyId: p.id, stay: seed, storedAt: new Date(0), phone: seed.guestPhone };
   }
 
   return {
@@ -261,9 +303,10 @@ export function evalLodging(
       const stay = { ...input };
       problems.push(...stayProblems(stay));
       const p = properties.find((x) => x.id === input.propertyId);
+      const replaced = p ? replacedOf(input.earlierHolds, p.code, input.guestPhone) : undefined;
       if (!p) problems.push('not_sold');
       else if (!problems.length) {
-        if (!isFree(p, stay)) problems.push('not_available');
+        if (!isFree(p, stay, replaced?.hold)) problems.push('not_available');
         else if (overMax(p, stay)) problems.push('over_max');
       }
       const asked = input.packages?.find((k) => k.unitId === null)?.name;
@@ -283,30 +326,74 @@ export function evalLodging(
             ? ranked(stay, input.propertyId)
             : [],
         };
-      draft = { propertyId: p.id, stay, storedAt: new Date() };
+      draft = {
+        propertyId: p.id,
+        stay,
+        storedAt: new Date(),
+        phone: input.guestPhone,
+        ...(input.earlierHolds ? { earlierHolds: input.earlierHolds } : {}),
+      };
       return {
         status: 'ready' as const,
-        summary: summaryOf(p, stay, input.guestName.trim(), input.guestPhone.trim(), asked),
+        summary: summaryOf(
+          p,
+          stay,
+          input.guestName.trim(),
+          input.guestPhone.trim(),
+          asked,
+          replaced?.hold,
+        ),
         holdMinutes: fixture.hold_minutes,
+        ...(replaced ? { replaces: replaced.hold } : {}),
       };
     },
-    confirmBotHold: async () => {
+    confirmBotHold: async (_ws, input) => {
       if (!draft) return { status: 'no_draft' as const, alternatives: [] };
       const held = draft;
       draft = null;
       const p = properties.find((x) => x.id === held.propertyId);
       if (!p) return { status: 'no_draft' as const, alternatives: [] };
       if (fixture.taken_before_confirm) taken.push({ code: p.code, ...held.stay });
-      if (!isFree(p, held.stay))
+      const replaced = replacedOf(input.earlierHolds, p.code, held.phone ?? '');
+      if (!isFree(p, held.stay, replaced?.hold))
         return { status: 'not_available' as const, alternatives: ranked(held.stay, p.id) };
+      if (replaced) {
+        replaced.status = 'cancelled';
+        taken.splice(
+          taken.findIndex((t) => t.hold === replaced.hold),
+          1,
+        );
+      }
       taken.push({ code: p.code, ...held.stay });
       holds += 1;
       return {
         status: 'held' as const,
         code: `BK-${String(holds).padStart(4, '0')}`,
         holdExpiresAt: new Date(Date.now() + fixture.hold_minutes * 60_000).toISOString(),
+        ...(replaced ? { replaced: replaced.hold } : {}),
       };
     },
+    botConversationHolds: async (_ws, input) =>
+      earlier
+        .filter((h) => input.codes.includes(h.hold))
+        .map((h) => {
+          const p = properties.find((x) => x.code.toLowerCase() === h.code.toLowerCase());
+          return {
+            code: h.hold,
+            propertyCode: h.code,
+            propertyName: p?.name ?? h.code,
+            checkIn: h.checkIn,
+            checkOut: h.checkOut,
+            adults: h.adults,
+            childAges: h.childAges,
+            totalSell: h.totalSell,
+            status: h.status,
+            holdExpiresAt:
+              h.status === 'hold'
+                ? new Date(Date.now() + fixture.hold_minutes * 60_000).toISOString()
+                : null,
+          };
+        }),
     cancelBotHoldDraft: async () => {
       draft = null;
     },

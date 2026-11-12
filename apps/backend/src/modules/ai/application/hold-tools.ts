@@ -1,15 +1,17 @@
 import type { RunnableTool, ToolDefinition } from '@agent-sales/ai-core';
-import { DomainError, type WorkspaceId } from '@agent-sales/shared';
+import { DomainError, formatVnd, type WorkspaceId } from '@agent-sales/shared';
 import { z } from 'zod';
 
 import type {
   BotAvailabilityOption,
+  BotConversationHold,
   LodgingBotFacade,
   LodgingCatalogFacade,
   LodgingFacade,
 } from '../../lodging/api/index.js';
 import type { MessageSink, OutgoingMessage, QuickReply } from '../api/reply-options.js';
 import { partyNotGiven } from '../domain/child-ages.js';
+import { isPlainAgreement } from '../domain/handoff-guard.js';
 import { safeJson } from './action-tools.js';
 import { resolveRooms } from './hold-rooms.js';
 import { confirmableDraft } from './order-tools.js';
@@ -134,6 +136,11 @@ export interface HoldToolContext {
    * invented ages 0 for "4 bé"). Absent = not checked.
    */
   customerTexts?: readonly string[];
+  /**
+   * Codes of the holds the bot placed earlier in this conversation (its own messages, VL2-4): a
+   * new hold of the same property and guest replaces one of them.
+   */
+  earlierHolds?: readonly string[];
   state: HoldToolState;
   /** Logs a failure the turn survives (the error class only). */
   onError?: (error: unknown) => void;
@@ -149,7 +156,7 @@ export interface HoldToolState {
   /** Dropping a draft failed: its state is unknown, so confirm / cancel are off for this turn. */
   draftUnknown: boolean;
   /** `confirm_hold` placed a hold this turn: its code must reach the customer. */
-  created: { code: string; expiresAt: string } | null;
+  created: { code: string; expiresAt: string; replaced?: string } | null;
 }
 
 export const newHoldToolState = (): HoldToolState => ({
@@ -177,11 +184,93 @@ export function localHoldTime(iso: string): { time: string; day: string } | null
   return { time: `${parts.hour}:${parts.minute}`, day: `${parts.day}/${parts.month}` };
 }
 
-/** The line that tells the customer the hold's code and until when it is held (when known). */
-export function holdCreatedText(code: string, expiresAt: string): string {
+/**
+ * The line that tells the customer the hold's code and until when it is held (when known), and
+ * the earlier hold it replaced (VL2-4).
+ */
+export function holdCreatedText(code: string, expiresAt: string, replaced?: string): string {
   const until = localHoldTime(expiresAt);
   const when = until ? ` đến ${until.time} ngày ${until.day}` : '';
-  return `Dạ em đã giữ chỗ ${code}${when} ạ. Nhân viên sẽ gọi xác nhận sớm ạ.`;
+  const earlier = replaced ? ` Giữ chỗ ${replaced} trước đó đã được huỷ ạ.` : '';
+  return `Dạ em đã giữ chỗ ${code}${when} ạ.${earlier} Nhân viên sẽ gọi xác nhận sớm ạ.`;
+}
+
+/**
+ * VL2-6: the property the conversation is about: of the properties already discussed, the one
+ * whose code the customer or the bot named last (a broad search lists another first, and stale
+ * training talks about one villa). Empty when none was named.
+ */
+export function currentPropertyBlock(
+  focus: readonly { code?: string | null; name: string }[],
+  messages: readonly { content: string }[],
+): string {
+  const named = focus.filter((p) => (p.code ?? '').trim().length >= 2);
+  const fold = (t: string) =>
+    t
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLowerCase();
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const text = fold(messages[i]?.content ?? '');
+    const escape = (code: string) => code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const hit = named.find((p) =>
+      new RegExp(`(?<![\\p{L}\\d])${escape(fold(p.code ?? '').trim())}(?![\\p{L}\\d])`, 'u').test(
+        text,
+      ),
+    );
+    if (hit)
+      return `<current_property>\nThe conversation is about ${hit.code} (${hit.name}). A question that names no property is about it: answer with its own data (search it by its code when needed), never another property's.\n</current_property>`;
+  }
+  return '';
+}
+
+/** Booking codes the shop's own messages named (`BK-0016`), oldest first, at most 20. */
+export function holdCodesIn(messages: readonly { role: string; content: string }[]): string[] {
+  const codes = messages
+    .filter((m) => m.role !== 'customer')
+    .flatMap((m) => m.content.toUpperCase().match(/\bBK-\d{1,9}\b/g) ?? []);
+  return [...new Set(codes)].slice(-20);
+}
+
+const HOLD_STATUS: Record<string, string> = {
+  hold: 'đang giữ',
+  confirmed: 'đã xác nhận',
+  checked_in: 'đã nhận phòng',
+  checked_out: 'đã trả phòng',
+  cancelled: 'đã huỷ',
+  expired: 'hết hạn giữ',
+  no_show: 'khách không đến',
+};
+const ddmm = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}/${day.slice(0, 4)}`;
+
+/**
+ * VL2-5: the holds the bot placed in this conversation, read live from the calendar, so the bot
+ * names their codes, totals and status and never implies another stay is held.
+ */
+export function conversationHoldsBlock(holds: readonly BotConversationHold[]): string {
+  if (!holds.length) return '';
+  const lines = holds.map((h) => {
+    const until = h.holdExpiresAt ? localHoldTime(h.holdExpiresAt) : null;
+    const status = HOLD_STATUS[h.status] ?? h.status;
+    const kids = h.childAges.length
+      ? `, ${h.childAges.length} trẻ em (${h.childAges.join(', ')} tuổi)`
+      : '';
+    return [
+      `- ${h.code}: ${h.propertyCode} ${h.propertyName}`,
+      `${ddmm(h.checkIn)} → ${ddmm(h.checkOut)}`,
+      `${h.adults} người lớn${kids}`,
+      h.totalSell === null ? '' : `tổng ${formatVnd(h.totalSell)}`,
+      `${status}${until ? ` đến ${until.time} ngày ${until.day}` : ''}`,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  });
+  return [
+    '<holds_in_this_conversation>',
+    'The holds placed in this conversation, read from the calendar now. Only these exist: any other property, date or total discussed is not held. A hold waits for staff to call and confirm.',
+    ...lines,
+    '</holds_in_this_conversation>',
+  ].join('\n');
 }
 
 const reply = (value: unknown, ok = true) => ({ content: safeJson(value), ok });
@@ -312,6 +401,16 @@ export function holdTools(ctx: HoldToolContext): {
           },
           false,
         );
+      // VL2-4: "ok giữ luôn" answers the summary that waits; preparing it again re-sends it.
+      if (draftOpen() && isPlainAgreement(ctx.customerTexts?.at(-1) ?? ''))
+        return reply(
+          {
+            ok: false,
+            error: 'summary_waiting',
+            hint: 'The customer agreed to the summary already sent: call confirm_hold instead.',
+          },
+          false,
+        );
       const propertyId = await propertyIdOf(ctx, args.propertyCode);
       if (!propertyId) return reply({ ok: false, error: 'unknown_property_code' }, false);
       const whole = !args.rooms?.length;
@@ -334,6 +433,7 @@ export function holdTools(ctx: HoldToolContext): {
           guestPhone: args.guestPhone,
           ...(args.note?.trim() ? { note: args.note.trim() } : {}),
           ...(rooms.packages.length ? { packages: rooms.packages } : {}),
+          ...(ctx.earlierHolds?.length ? { earlierHolds: [...ctx.earlierHolds] } : {}),
         });
       } catch (error) {
         if (isValidationFailure(error)) return reply(INVALID_REQUEST, false);
@@ -382,6 +482,8 @@ export function holdTools(ctx: HoldToolContext): {
           ok: true,
           status: 'awaiting_customer_confirmation',
           holdMinutes: res.holdMinutes,
+          // The summary says this earlier hold is cancelled once the new one is placed.
+          ...(res.replaces ? { replaces: res.replaces } : {}),
         }),
         productIds: [propertyId],
       };
@@ -395,18 +497,26 @@ export function holdTools(ctx: HoldToolContext): {
     // Never the model's arguments: only the draft the customer was shown.
     run: async () => {
       if (!draftOpen()) return reply({ ok: false, code: 'not_confirmable' }, false);
-      const res = await facade.confirmBotHold(ws, { conversationId });
+      const res = await facade.confirmBotHold(ws, {
+        conversationId,
+        ...(ctx.earlierHolds?.length ? { earlierHolds: [...ctx.earlierHolds] } : {}),
+      });
       if (res.status !== 'held')
         return reply(
           { ok: false, status: res.status, alternatives: res.alternatives.map(optionView) },
           false,
         );
-      state.created = { code: res.code, expiresAt: res.holdExpiresAt };
+      state.created = {
+        code: res.code,
+        expiresAt: res.holdExpiresAt,
+        ...(res.replaced ? { replaced: res.replaced } : {}),
+      };
       const until = localHoldTime(res.holdExpiresAt);
       return reply({
         ok: true,
         code: res.code,
         ...(until ? { heldUntil: `${until.time} ${until.day}` } : {}),
+        ...(res.replaced ? { replacedAndCancelled: res.replaced } : {}),
       });
     },
   };
@@ -459,6 +569,8 @@ export async function hotelHoldContext(input: {
   warn: (message: string) => void;
   /** What the customer wrote (vouches for child ages). */
   customerTexts?: readonly string[];
+  /** Codes of the bot's earlier holds in this conversation ({@link holdCodesIn}). */
+  earlierHolds?: readonly string[];
 }): Promise<HoldToolContext> {
   const { facade, ws, conversationId, lodging } = input;
   const errorName = (error: unknown) => (error instanceof Error ? error.name : 'unknown error');
@@ -485,6 +597,7 @@ export async function hotelHoldContext(input: {
         (error) => input.warn(`Hold draft check failed: ${errorName(error)}`),
       )),
     ...(input.customerTexts ? { customerTexts: input.customerTexts } : {}),
+    ...(input.earlierHolds?.length ? { earlierHolds: input.earlierHolds } : {}),
     state: newHoldToolState(),
     onError: (error) => input.warn(`Hold draft drop failed: ${errorName(error)}`),
   };

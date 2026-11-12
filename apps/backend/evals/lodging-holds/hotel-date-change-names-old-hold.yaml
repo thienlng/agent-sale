@@ -1,0 +1,98 @@
+id: hotel-date-change-names-old-hold
+group: lodging-holds
+tags: [critical]
+bot:
+  industry: hotel
+  name: Tam Dao Villas
+  orderTaking: true
+  mission: 'Tư vấn villa. Lịch trống, cọc/hủy, giá lễ, phụ thu và xác nhận booking do nhân viên/chủ căn kiểm tra.'
+  profile:
+    fields: { displayName: 'Tam Dao Villas Central' }
+    notes: ''
+products:
+  - name: 'E64 – Villa E64'
+    code: E64
+    description: 'Villa nguyên căn 7 phòng ngủ ở sân golf Tam Đảo.'
+    variants: [{ name: 'Nguyên căn', price: 12000000, stock: 0 }]
+    accommodation:
+      rentalType: entire_property
+      code: E64
+      bedrooms: 7
+      standardAdults: 24
+      standardChildren: 8
+      childAgeBelow: 6
+      maxGuests: 40
+      roomLayout:
+        - { name: 'Phòng 1', beds: '2 giường đôi' }
+        - { name: 'Phòng 2', beds: '2 giường đôi' }
+        - { name: 'Phòng 3', beds: '2 giường đôi' }
+        - { name: 'Phòng 4', beds: '2 giường đôi' }
+        - { name: 'Phòng 5', beds: '2 giường đôi' }
+        - { name: 'Phòng 6', beds: '2 giường đôi' }
+        - { name: 'Phòng 7', beds: '2 giường đôi' }
+      amenities: ['Hồ bơi', 'BBQ']
+      rateBasis: night
+      rates:
+        - { days: [1, 2, 3, 4], amount: 12000000 }
+        - { days: [5, 7], amount: 13000000 }
+        - { days: [6], amount: 14000000 }
+      checkInOut: 'Nhận căn 14:00, trả căn 12:00'
+      depositPolicy: 'Đặt cọc 50% tổng tiền khi giữ căn. Hủy trước 7 ngày hoàn cọc, sau đó mất cọc.'
+      gallery: []
+      surcharges: { extraAdult: 300000, extraChild: 150000, childFreeBelow: 6, childAdultFrom: 12 }
+situations:
+  - title: 'Yêu cầu đặt căn và xác nhận'
+    trigger: 'Khách đồng ý thuê, để lại liên hệ hoặc yêu cầu chốt booking'
+    content: 'Tóm tắt những thông tin đã biết, xin liên hệ nếu chưa có. Khi khách gửi số điện thoại thì handoff cho nhân viên.'
+  - title: 'Kiểm tra tiêu chuẩn đoàn và tuổi trẻ'
+    trigger: 'Khách hỏi đoàn đông, thêm người, trẻ em hoặc tuổi trẻ'
+    content: 'Không tự hứa miễn phí hay phụ thu. Đoàn vượt hoặc thiếu tuổi cần chủ căn duyệt.'
+lodging:
+  holds_before:
+    - {
+        hold: BK-0016,
+        code: E64,
+        checkIn: '2028-01-14',
+        checkOut: '2028-01-16',
+        adults: 9,
+        childAges: [4, 4, 9],
+        guestPhone: '0987654321',
+        totalSell: 27000000,
+      }
+# VL2-4: a date change of a held property prepares the new hold, which replaces the old one: the
+# summary names the old code, no second hold is kept and no staff is needed.
+conversation:
+  - customer: 'giữ E64 tối thứ 6 14/1/2028 đến chủ nhật 16/1/2028, 9 người lớn, 2 bé 4 tuổi và 1 bé 9 tuổi. Tên Lê Minh Quân 0987654321'
+  - bot: 'Dạ em đã giữ chỗ BK-0016 đến 03:47 ngày 13/11 ạ. Nhân viên sẽ gọi xác nhận sớm ạ.'
+  - customer: 'à anh đổi sang tối thứ 6 21/1/2028 đến chủ nhật 23/1/2028 được không em, vẫn đoàn đó'
+expect:
+  guardrail: none
+  outcome_not: handoff
+  steps_succeeded: ['prepare_hold']
+  steps_exclude: ['confirm_hold']
+  contains_all: ['BK-0016', 'Thay cho']
+  quick_replies: ['✅ Giữ chỗ', '✏️ Sửa thông tin']
+fake_turns:
+  - tool_calls:
+      - name: check_availability
+        input:
+          {
+            checkIn: '2028-01-21',
+            checkOut: '2028-01-23',
+            adults: 9,
+            childAges: [4, 4, 9],
+            propertyCode: E64,
+          }
+  - tool_calls:
+      - name: prepare_hold
+        input:
+          {
+            propertyCode: E64,
+            checkIn: '2028-01-21',
+            checkOut: '2028-01-23',
+            adults: 9,
+            childAges: [4, 4, 9],
+            guestName: 'Lê Minh Quân',
+            guestPhone: '0987654321',
+          }
+  - text: ''

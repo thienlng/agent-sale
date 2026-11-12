@@ -84,7 +84,10 @@ import {
 } from './action-tools.js';
 import { createHistorySummarizer } from './history-summarizer.js';
 import {
+  conversationHoldsBlock,
+  currentPropertyBlock,
   HOLD_CONFIRM_PAYLOAD,
+  holdCodesIn,
   holdCreatedText,
   hotelHoldContext,
   localHoldTime,
@@ -417,8 +420,11 @@ export class PlaygroundService implements AiFacade {
               this.#logger.warn(`Order draft drop failed: ${errorClass(error)}`),
           }
         : null;
+    const hotel = Boolean(this.lodgingBot && this.lodgingCatalog && bot.industry === 'hotel');
+    // VL2-4 / VL2-5: the holds the bot placed earlier in this conversation (its messages name them).
+    const earlierHolds = hotel && !isCommentReply ? holdCodesIn(input.messages) : [];
     const holds =
-      this.lodgingBot && this.lodgingCatalog && bot.industry === 'hotel'
+      this.lodgingBot && this.lodgingCatalog && hotel
         ? await hotelHoldContext({
             facade: this.lodgingBot,
             catalog: this.lodgingCatalog,
@@ -434,8 +440,30 @@ export class PlaygroundService implements AiFacade {
             answered: answeredSince(input.messages, options.turnTimes, startedAt),
             warn: (message) => this.#logger.warn(message),
             customerTexts,
+            earlierHolds,
           })
         : null;
+    const lodgingBlocks =
+      hotel && this.lodgingBot && this.lodgingCatalog
+        ? [
+            earlierHolds.length
+              ? conversationHoldsBlock(
+                  await this.lodgingBot.botConversationHolds(ws, {
+                    conversationId: conversationKey,
+                    channel: options.channel ?? PLAYGROUND_ORDER_CHANNEL,
+                    codes: earlierHolds,
+                  }),
+                )
+              : '',
+            // VL2-6: the property the conversation is about stays in focus across turns.
+            currentPropertyBlock(
+              await this.lodgingCatalog.searchBotCatalog(ws, scope, { limit: 100 }),
+              input.messages,
+            ),
+          ]
+            .filter(Boolean)
+            .join('\n\n')
+        : '';
     // A bot of a request industry records its requests on the CRM customer itself (ADR-020).
     const requestProfile = requestProfileFor(bot.industry);
     // The products the turn knows by name: an empty course or service is filled from them.
@@ -483,6 +511,7 @@ export class PlaygroundService implements AiFacade {
         profile,
         ...sources.map((s) => `${s.question}\n${s.answer}`),
         situations,
+        lodgingBlocks,
         focusText,
         pendingText,
         imagesText,
@@ -604,7 +633,7 @@ export class PlaygroundService implements AiFacade {
           ...withTurnContext(compact.turns, {
             profile,
             sources,
-            situations,
+            situations: [situations, lodgingBlocks].filter(Boolean).join('\n\n'),
             focus: focusText,
             pending: pendingText,
             images: imagesText,
@@ -731,7 +760,7 @@ export class PlaygroundService implements AiFacade {
     if (held) {
       decision = announceCreated(decision, {
         code: held.code,
-        line: holdCreatedText(held.code, held.expiresAt),
+        line: holdCreatedText(held.code, held.expiresAt, held.replaced),
         sentTexts: output.sent.map((m) => m.text),
         fallback: fallbackText(bot),
         // The code alone is not enough: the customer must also read until when it is held.
