@@ -131,7 +131,7 @@ describe('AssistantFacade (contract)', () => {
     expect(stored).toMatchObject({
       accountId,
       ownerUserId: me.userId,
-      promptVersion: 'assistant@5',
+      promptVersion: 'assistant@6',
     });
     expect(stored.systemPrompt).toContain('personal assistant of Lan,');
     expect(stored.systemPrompt).toContain(`- Thời trang Mây (retail) — id ${me.businessId}`);

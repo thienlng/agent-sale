@@ -13,6 +13,12 @@ import type { OwnerScope } from '../domain/owner-scope.js';
 import type { AssistantRepository } from '../domain/ports/assistant.repository.js';
 import type { RouteInvoker } from '../domain/ports/route-invoker.port.js';
 import { readCurrentState } from './current-state.js';
+import {
+  InitialStock,
+  PRODUCT_CREATE_KEY,
+  unknownStockSkus,
+  withStockShown,
+} from './initial-stock.js';
 import { summariseRouteError } from './route-errors.js';
 import { type CatalogEntry, type RouteCatalog, searchCatalog } from './route-catalog.js';
 import type { NativeToolEntry } from './sql/sql-tools.js';
@@ -64,6 +70,8 @@ const ToolCallInput = z.object({
   query: z.record(z.string().max(60), z.unknown()).optional(),
   body: z.unknown().optional(),
   summary: z.string().max(300).optional(),
+  /** Only with POST /products: counted stock of the new variants, set on the same approval. */
+  stock: z.unknown().optional(),
 });
 
 export const ROUTE_TOOL_DEFINITIONS: ToolDefinition[] = [
@@ -82,7 +90,7 @@ export const ROUTE_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: TOOL_CALL_TOOL,
     description:
-      'Run a route by key. A read returns { status, body }. A write is never run: it becomes a proposal the owner approves in the chat; give `summary` (Vietnamese, ≤ 300 chars: what will change). businessId defaults to the current business. Native tools (sql_schema, sql_query) take their input in `body`.',
+      'Run a route by key. A read returns { status, body }. A write is never run: it becomes a proposal the owner approves in the chat; give `summary` (Vietnamese, ≤ 300 chars: what will change). businessId defaults to the current business. Native tools (sql_schema, sql_query) take their input in `body`. With POST /products, `stock` ([{sku, onHand}]) sets the counted stock of the new variants in the default warehouse on the same approval: one card for "tạo sản phẩm, tồn 5 cái".',
     input: ToolCallInput,
   },
 ];
@@ -160,6 +168,7 @@ type Prepared =
       path: string;
       query?: Record<string, string | string[]>;
       body?: unknown;
+      stock?: InitialStock;
     }
   | { ok: false; errorCode: string; extra?: Record<string, unknown> };
 
@@ -291,6 +300,19 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
       }
       body = parsed.data;
     }
+    let stock: InitialStock | undefined;
+    if (input.stock !== undefined && input.stock !== null) {
+      if (entry.key !== PRODUCT_CREATE_KEY) return { ok: false, errorCode: 'stock_not_allowed' };
+      const parsed = InitialStock.safeParse(input.stock);
+      if (!parsed.success) {
+        return { ok: false, errorCode: 'invalid_stock', extra: { issues: issuesOf(parsed.error) } };
+      }
+      const unknown = unknownStockSkus(body, parsed.data);
+      if (unknown.length > 0) {
+        return { ok: false, errorCode: 'stock_unknown_sku', extra: { skus: unknown } };
+      }
+      stock = parsed.data;
+    }
     return {
       ok: true,
       entry,
@@ -298,6 +320,7 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
       path,
       ...(query && Object.keys(query).length ? { query } : {}),
       ...(entry.body ? { body } : {}),
+      ...(stock ? { stock } : {}),
     };
   }
 
@@ -369,8 +392,10 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
       body: p.body ?? null,
       summary,
       preview: {
-        body: p.body ?? null,
+        // The card shows each new variant with its stock; `stock` runs after the create.
+        body: p.stock ? withStockShown(p.body, p.stock) : (p.body ?? null),
         query: p.query ?? null,
+        ...(p.stock ? { stock: p.stock } : {}),
         ...(before !== undefined ? { before } : {}),
         ...(beforeUnavailable ? { beforeUnavailable: true } : {}),
       },

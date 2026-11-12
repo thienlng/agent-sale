@@ -68,8 +68,8 @@ describe('renderMemoryBlock', () => {
 });
 
 describe('buildSystemPrompt', () => {
-  it('uses assistant@5 for new threads', () => {
-    expect(ASSISTANT_PROMPT).toEqual({ name: 'assistant', version: 5 });
+  it('uses assistant@6 for new threads', () => {
+    expect(ASSISTANT_PROMPT).toEqual({ name: 'assistant', version: 6 });
   });
 
   it('renders the same inputs to a byte-identical prompt with skills and memory', async () => {
@@ -209,6 +209,15 @@ describe('assistant@4 read-by-id rule (QA LOOKUP-m)', () => {
   it('reads a record by its id instead of searching with it', async () => {
     const template = await loadAssistantTemplate();
     expect(template).toContain('read that record by id (GET /contacts/{contactId}');
+  });
+});
+
+describe('assistant@6 rules (staging wave 2)', () => {
+  it("puts a new product's stock on its card and answers from evidence", async () => {
+    const template = await loadAssistantTemplate();
+    // AS-12, AS2-7, AS2-2.
+    expect(template).toContain("A new product's stock goes on the same card");
+    expect(template).toContain('A verdict follows what you read, never the owner');
   });
 });
 

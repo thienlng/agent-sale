@@ -20,6 +20,7 @@ import { ROUTE_INVOKER, type RouteInvoker } from '../domain/ports/route-invoker.
 import { APPROVAL_DELEGATION_SECONDS, delegatedAuthorization } from './delegated-authorization.js';
 import { readCurrentState } from './current-state.js';
 import { ImportExecutor, type ImportOutcome, ImportRunError } from './import-executor.js';
+import { InitialStock, PRODUCT_CREATE_KEY, setInitialStock } from './initial-stock.js';
 import { type CatalogEntry, ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
 import { routeErrorLine, summariseRouteError } from './route-errors.js';
 import { type ScheduleProposalBody, SchedulesService } from './schedules.service.js';
@@ -264,11 +265,13 @@ export class ProposalService {
     }
 
     const ok = status >= 200 && status < 300;
+    // A product created with its stock on one card (AS-12): set the stock now.
+    const stockEvent = ok ? await this.#initialStock(proposal, body, authorization) : undefined;
     return this.#finish(
       scope,
       proposal,
       ok
-        ? { ok, body }
+        ? { ok, body, ...(stockEvent ? { event: stockEvent } : {}) }
         : {
             ok,
             errorCode: status === 0 ? 'invoke_failed' : `http_${status}`,
@@ -276,6 +279,29 @@ export class ProposalService {
             reason: routeErrorLine(summariseRouteError(body)),
           },
     );
+  }
+
+  /**
+   * After a product create whose card carried `stock`, sets it in the default warehouse; the
+   * event to store when that failed (the product itself was created), else undefined.
+   */
+  async #initialStock(
+    proposal: ProposalRecord,
+    created: unknown,
+    authorization: string,
+  ): Promise<string | undefined> {
+    if (proposal.routeKey !== PRODUCT_CREATE_KEY) return undefined;
+    const parsed = InitialStock.safeParse((proposal.preview as { stock?: unknown } | null)?.stock);
+    if (!parsed.success) return undefined;
+    const outcome = await setInitialStock(this.invoker, {
+      businessId: proposal.businessId,
+      authorization,
+      created,
+      stock: parsed.data,
+    }).catch(() => 'stock_failed' as const);
+    if (outcome === 'ok') return undefined;
+    this.#log.warn(`assistant proposal ${proposal.id}: initial stock not set (${outcome})`);
+    return `Đã áp dụng: ${proposal.summary} — nhưng chưa nhập được tồn kho (${outcome === 'no_warehouse' ? 'chưa có kho mặc định' : 'lỗi khi ghi tồn'}); anh/chị nhập tồn trên trang sản phẩm giúp em.`;
   }
 
   /**
