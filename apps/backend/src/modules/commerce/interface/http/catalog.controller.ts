@@ -170,6 +170,18 @@ export class CatalogController {
     return this.catalog.updateProduct(ws, id, body);
   }
 
+  /** 409 `product_in_orders` (archive it instead) or `product_synced` (a KiotViet product). */
+  @RequireCapability('catalog.manage')
+  @Delete('products/:productId')
+  @HttpCode(204)
+  deleteProduct(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() user: AuthState,
+    @Param('productId') id: string,
+  ): Promise<void> {
+    return this.catalog.deleteProduct(ws, id, user.userId);
+  }
+
   @RequireCapability('catalog.manage')
   @Patch('products/:productId/bot-settings')
   updateBotSettings(

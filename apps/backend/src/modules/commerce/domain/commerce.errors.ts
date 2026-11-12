@@ -64,6 +64,23 @@ export class WarehouseInUseError extends DomainError {
   }
 }
 
+/**
+ * A product that cannot be hard-deleted: `product_in_orders` (an order line or a legacy stay
+ * request references it or one of its variants; archive it instead), `product_synced` (linked to a
+ * PMS: the next sync would bring it back; it is removed in the PMS).
+ */
+export class ProductNotDeletableError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor(reason: 'product_in_orders' | 'product_synced') {
+    super(
+      reason === 'product_in_orders'
+        ? 'The product is used by orders; archive it instead'
+        : 'The product is synced from the PMS; remove it there',
+      { reason },
+    );
+  }
+}
+
 export class InvalidOrderTransitionError extends DomainError {
   readonly code = 'CONFLICT';
 }

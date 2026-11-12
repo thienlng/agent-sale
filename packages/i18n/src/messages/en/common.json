@@ -974,6 +974,21 @@
       "available": "Available",
       "update": "Update",
       "updated": "Stock updated"
+    },
+    "delete": {
+      "title": "Delete product",
+      "hint": "Only a product that no order uses can be deleted. Archive a product that has sold instead.",
+      "action": "Delete product",
+      "confirmTitle": "Delete product {{name}}?",
+      "confirmBody": "The product, its variants and its stock are deleted for good, and the bot stops offering it. This cannot be undone.",
+      "confirm": "Delete for good",
+      "deleting": "Deleting…",
+      "deleted": "Product {{name}} deleted.",
+      "inOrders": "This product is in orders, so it cannot be deleted (order history is kept). Archive it: it stops selling and past orders stay.",
+      "inOrdersArchived": "This product is in orders, so it cannot be deleted (order history is kept). It is already archived.",
+      "synced": "This product is synced from KiotViet and would come back on the next sync. Delete or discontinue it in KiotViet.",
+      "archiveInstead": "Archive product",
+      "archivedDone": "Product {{name}} archived."
     }
   },
   "commerce": {

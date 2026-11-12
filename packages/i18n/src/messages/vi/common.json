@@ -968,6 +968,21 @@
       "available": "Có thể bán",
       "update": "Cập nhật",
       "updated": "Đã cập nhật tồn kho"
+    },
+    "delete": {
+      "title": "Xoá sản phẩm",
+      "hint": "Chỉ xoá được sản phẩm chưa có trong đơn hàng nào. Sản phẩm đã bán thì hãy lưu trữ.",
+      "action": "Xoá sản phẩm",
+      "confirmTitle": "Xoá sản phẩm {{name}}?",
+      "confirmBody": "Sản phẩm, các mẫu mã và tồn kho sẽ bị xoá vĩnh viễn, bot cũng ngừng tư vấn sản phẩm này. Không thể hoàn tác.",
+      "confirm": "Xoá vĩnh viễn",
+      "deleting": "Đang xoá…",
+      "deleted": "Đã xoá sản phẩm {{name}}.",
+      "inOrders": "Sản phẩm này đã có trong đơn hàng nên không xoá được (để giữ lịch sử đơn). Hãy lưu trữ: sản phẩm ngừng bán, đơn cũ vẫn còn.",
+      "inOrdersArchived": "Sản phẩm này đã có trong đơn hàng nên không xoá được (để giữ lịch sử đơn). Sản phẩm đang được lưu trữ.",
+      "synced": "Sản phẩm này đồng bộ từ KiotViet nên sẽ quay lại ở lần đồng bộ sau. Hãy xoá hoặc ngừng kinh doanh trên KiotViet.",
+      "archiveInstead": "Lưu trữ sản phẩm",
+      "archivedDone": "Đã lưu trữ sản phẩm {{name}}."
     }
   },
   "commerce": {
