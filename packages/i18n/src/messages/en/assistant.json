@@ -15,6 +15,17 @@
   "placeholder": "Ask Rapiz Agent…",
   "send": "Send",
   "thinking": "Looking it up…",
+  "progress": {
+    "model": "Thinking…",
+    "skill": "Reading the how-to…",
+    "search": "Finding the right data…",
+    "read": "Looking up the data…",
+    "memory": "Remembering…",
+    "import": "Reading the file…",
+    "propose": "Drafting a proposal…",
+    "ui": "Opening the page…",
+    "steps": "{{count}} steps"
+  },
   "stepsLoading": "Loading steps…",
   "stepFailed": "failed",
   "stepKinds": {

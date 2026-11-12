@@ -23,7 +23,7 @@ import { useMessageFeedback } from '../api/assistant-settings';
 import { NAVIGATE_FOLLOW_UP_TEXT } from '../utils/navigate-follow-up';
 import { AssistantMarkdown } from './assistant-markdown';
 import { AssistantProposal } from './assistant-proposals';
-import { AssistantStepList, AssistantSteps } from './assistant-steps';
+import { AssistantSteps, progressKey } from './assistant-steps';
 
 /** The assistant's feature groups on an empty conversation, four concrete abilities each. */
 const GROUPS = [
@@ -154,13 +154,21 @@ function LiveTurn({ turnId }: { turnId: string }) {
     return () => clearTimeout(timer);
   }, [turnId]);
   const run = useAssistantRun(ready === turnId ? turnId : null, { poll: true });
+  // A plain status for the owner; the step trace stays behind "Xem các bước" on the answer (AS-9).
+  const steps = run.data?.steps ?? [];
+  const key = progressKey(steps);
+  const rounds = steps.filter((s) => !s.toolName).length;
   return (
     <li className="flex max-w-[85%] min-w-0 flex-col gap-2 self-start rounded-2xl rounded-bl-sm bg-muted px-3 py-2">
       <span className="inline-flex items-center gap-2 text-muted-foreground" role="status">
         <Loader2 className="size-4 animate-spin" aria-hidden />
-        {t('thinking')}
+        {key ? t(`progress.${key}`) : t('thinking')}
+        {rounds > 1 ? (
+          <span className="text-xs tabular-nums opacity-70">
+            · {t('progress.steps', { count: rounds })}
+          </span>
+        ) : null}
       </span>
-      {run.data?.steps.length ? <AssistantStepList steps={run.data.steps} /> : null}
     </li>
   );
 }

@@ -15,6 +15,17 @@
   "placeholder": "Hỏi Rapiz Agent…",
   "send": "Gửi",
   "thinking": "Đang tra cứu…",
+  "progress": {
+    "model": "Đang suy nghĩ…",
+    "skill": "Đang xem cách làm…",
+    "search": "Đang tìm nguồn dữ liệu phù hợp…",
+    "read": "Đang tra cứu dữ liệu…",
+    "memory": "Đang ghi nhớ…",
+    "import": "Đang đọc tệp…",
+    "propose": "Đang soạn đề xuất…",
+    "ui": "Đang mở trang…",
+    "steps": "{{count}} bước"
+  },
   "stepsLoading": "Đang tải các bước…",
   "stepFailed": "lỗi",
   "stepKinds": {
