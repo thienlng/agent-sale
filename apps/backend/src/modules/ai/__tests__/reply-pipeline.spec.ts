@@ -3,7 +3,13 @@ import type { AgentLoopResult } from '@agent-sales/ai-core';
 
 import type { BotView } from '../../bot/api/index.js';
 import { newOutputState } from '../application/output-tools.js';
-import { decideReply, joinedImages, phoneReadBack } from '../application/reply-pipeline.js';
+import {
+  decideReply,
+  ENGLISH_HANDOFF,
+  joinedImages,
+  phoneReadBack,
+  writesEnglish,
+} from '../application/reply-pipeline.js';
 
 describe('joinedImages', () => {
   it('keeps each picture once and stays within the 30-picture contract', () => {
@@ -112,6 +118,30 @@ describe('handoff say line (TM2-7, TM-16)', () => {
     });
     expect(decision.final).toBe(
       'Dạ em ghi nhận chị muốn huỷ đơn DH000006, em xin lỗi vì giao chậm ạ.\nDạ em chuyển nhân viên ạ.',
+    );
+  });
+});
+
+describe('English customers at a hand-off (MS2-2)', () => {
+  it('reads the phone back and hands over in English', () => {
+    expect(writesEnglish('I want to complain, call me on 0977 123 456 please')).toBe(true);
+    expect(writesEnglish('em muốn gặp nhân viên')).toBe(false);
+    expect(writesEnglish('ok')).toBe(false);
+    const output = newOutputState();
+    output.handoff = 'complaint';
+    const decision = decideReply({
+      loop: {
+        res: { text: 'I am sorry about this.', toolCalls: [], stopReason: 'tool_use' },
+        outcome: 'final',
+        steps: [],
+      } as unknown as AgentLoopResult,
+      output,
+      bot: { language: 'vi', handoffMessage: 'Dạ em chuyển nhân viên ạ.' } as unknown as BotView,
+      actionFallback: null,
+      customerTexts: ['I want to complain, call me on 0977 123 456 please'],
+    });
+    expect(decision.final).toBe(
+      `I am sorry about this.\nNoted, your number is 0977 123 456.\n${ENGLISH_HANDOFF}`,
     );
   });
 });

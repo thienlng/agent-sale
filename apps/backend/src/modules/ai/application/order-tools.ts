@@ -50,7 +50,7 @@ const PrepareOrderInput = z.object({
 const PREPARE_DEFINITION: ToolDefinition = {
   name: PREPARE_ORDER_TOOL,
   description:
-    'Prepares an order once the customer clearly wants to buy and you know the products (sku from product details), quantities and the recipient name, phone and delivery address. The server checks stock, computes the prices and sends the customer the order summary with "Đặt hàng" / "Sửa thông tin" buttons; never restate the summary. Returns problems to ask the customer about, or that the order waits for the customer to confirm.',
+    'Prepares an order once the customer clearly wants to buy and you know the products (sku from product details), quantities and the recipient name, phone and delivery address. The server checks stock, computes the prices and sends the customer the order summary with "Đặt hàng" / "Sửa thông tin" buttons; never restate the summary. Returns problems to ask the customer about, or that the order waits for the customer to confirm. To change a summary already sent (a quantity, an item, the recipient), call it again with every detail, reusing the recipient from the earlier summary or messages unless the customer changed it ("cùng địa chỉ và số đt"): it replaces that summary. note: only what the customer asked to note on the order, in their words; never your own remarks (they are shown to the customer as the customer\'s note).',
   input: PrepareOrderInput,
 };
 
@@ -64,7 +64,7 @@ const CONFIRM_DEFINITION: ToolDefinition = {
 const CANCEL_DEFINITION: ToolDefinition = {
   name: CANCEL_ORDER_DRAFT_TOOL,
   description:
-    'The customer wants to change or drop the order summary sent earlier: discards it. To change something, prepare the order again with the new details.',
+    'Only when the customer no longer wants the order summarised earlier: discards it. Never for a change (a quantity, an item, the address): call prepare_order again with all details instead, which replaces the summary.',
   input: z.object({}),
 };
 

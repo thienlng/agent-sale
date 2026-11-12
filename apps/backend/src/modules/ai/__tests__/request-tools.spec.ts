@@ -346,13 +346,18 @@ describe('contactVouched', () => {
   });
 });
 
-describe('weekdayMismatch (LM-17)', () => {
-  it('names the real weekday when the customer paired a date with another weekday', () => {
+describe('weekdayMismatch (LM-17, LM2-6)', () => {
+  it('flags a weekday and a date that disagree in the newest message, whichever was resolved', () => {
     const texts = ['chiều thứ 7 ngày 15/11/2027 lúc 4h'];
-    expect(weekdayMismatch('2027-11-15', texts)).toBe('Thứ Hai');
+    expect(weekdayMismatch('2027-11-15', texts)).toBe('15/11 là Thứ Hai');
+    // LM2-6: the model resolved the weekday (Saturday 14/11) instead of the date.
+    expect(weekdayMismatch('2026-11-14', ['Chiều thứ 7 tuần này 15/11 lúc 4h chiều nhé'])).toBe(
+      '15/11 là Chủ Nhật',
+    );
     expect(weekdayMismatch('2027-11-13', ['thứ 7 13/11/2027'])).toBeNull();
     expect(weekdayMismatch('2026-11-15', ['chủ nhật 15/11'])).toBeNull();
-    expect(weekdayMismatch('2026-11-16', ['Đổi sang 9h sáng chủ nhật 16/11 nhé'])).toBe('Thứ Hai');
     expect(weekdayMismatch('2027-11-15', ['ngày 15/11/2027'])).toBeNull();
+    // The customer's answer ends it: only the newest message counts.
+    expect(weekdayMismatch('2026-11-14', ['thứ 7 tuần này 15/11', 'thứ 7 nhé em'])).toBeNull();
   });
 });

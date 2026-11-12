@@ -181,7 +181,11 @@ const ADDRESS_WORDS =
  * khoản bên em là gì?"), never for an order recipient's phone sent with an address, and not when
  * the turn's texts already repeat it.
  */
-export function phoneReadBack(customerTexts: readonly string[], said: readonly string[]): string {
+export function phoneReadBack(
+  customerTexts: readonly string[],
+  said: readonly string[],
+  english = false,
+): string {
   const last = customerTexts.at(-1) ?? '';
   const phone = phonesIn(last).at(-1);
   if (!phone || ADDRESS_WORDS.test(last)) return '';
@@ -189,8 +193,25 @@ export function phoneReadBack(customerTexts: readonly string[], said: readonly s
   const tail = digits(phone).slice(-9);
   if (customerTexts.slice(0, -1).some((t) => digits(t).includes(tail))) return '';
   if (said.some((t) => digits(t).includes(tail))) return '';
-  return `Dạ em đã ghi nhận số ${phone} ạ.`;
+  return english ? `Noted, your number is ${phone}.` : `Dạ em đã ghi nhận số ${phone} ạ.`;
 }
+
+const VIETNAMESE_LETTERS =
+  /[ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]/iu;
+const ENGLISH_WORDS =
+  /\b(the|you|your|my|is|are|please|can|want|call|number|hello|hi|thanks?|what|how|order|with|and)\b/giu;
+
+/** The customer's newest message reads as English: no Vietnamese letters, several English words. */
+export function writesEnglish(text: string | undefined): boolean {
+  if (!text || VIETNAMESE_LETTERS.test(text)) return false;
+  return (text.match(ENGLISH_WORDS) ?? []).length >= 2;
+}
+
+/**
+ * MS2-2: the shop's hand-over message is an owner setting in Vietnamese; a customer writing English
+ * reads this generic English line instead (the model's lead-in already follows their language).
+ */
+export const ENGLISH_HANDOFF = 'A member of our staff will get back to you here shortly.';
 
 /** Why the turn cannot end with the model's text, or null when it can. */
 function forcedGuardrail(loop: AgentLoopResult, actionFallback: string | null | undefined) {
@@ -225,6 +246,7 @@ export function decideReply(input: {
       : { outcome: 'fallback', guardrail: 'interrupted', final: null };
   }
   if (output.handoff !== null) {
+    const english = bot.language === 'vi' && writesEnglish(input.customerTexts?.at(-1));
     // The model's own lead-in, else the handoff's `say` line (TM2-7): either must pass the guard.
     const written =
       normalizeReplyText(loop.res?.text ?? '') || normalizeReplyText(output.handoffSay ?? '');
@@ -235,9 +257,13 @@ export function decideReply(input: {
       final: [
         lead,
         bot.language === 'vi'
-          ? phoneReadBack(input.customerTexts ?? [], [lead, ...output.sent.map((m) => m.text)])
+          ? phoneReadBack(
+              input.customerTexts ?? [],
+              [lead, ...output.sent.map((m) => m.text)],
+              english,
+            )
           : '',
-        handoffText(bot),
+        english ? ENGLISH_HANDOFF : handoffText(bot),
       ]
         .filter(Boolean)
         .join('\n'),
