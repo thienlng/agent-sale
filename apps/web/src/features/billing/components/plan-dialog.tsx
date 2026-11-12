@@ -13,8 +13,10 @@ import {
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatNumber } from '@/lib/format';
+import { useSession } from '@/lib/session';
 
 import { useEntitlements } from '../api/use-entitlements';
+import { useMessageUsage } from '../api/use-message-usage';
 
 /** Limits worth showing a shop owner, in display order; other keys stay internal. */
 const LIMITS = ['members.max', 'channels.max', 'contacts.max', 'knowledge_items.max'] as const;
@@ -41,6 +43,10 @@ function PlanBody({ data }: { data: EntitlementsDto }) {
   const { t, i18n } = useTranslation();
   const limit = (v: number | null) => (v === null ? t('billing.plan.unlimited') : formatNumber(v));
   const ai = data.aiIncludedMessages;
+  // The AI allowance is the account's, shared by its businesses: show what is used (AS-22).
+  const usage = useMessageUsage().data;
+  const session = useSession();
+  const business = session?.memberships.find((m) => m.workspaceId === session.workspaceId);
   const rows = [
     ...(ai
       ? [
@@ -51,6 +57,15 @@ function PlanBody({ data }: { data: EntitlementsDto }) {
               amount: formatNumber(ai.amount),
               days: ai.periodDays,
             }),
+            ...(usage?.metered
+              ? {
+                  used: t('billing.plan.aiUsed', {
+                    used: formatNumber(usage.used),
+                    limit: formatNumber(usage.limit),
+                    date: formatDay(usage.cycleEnd, i18n.language),
+                  }),
+                }
+              : {}),
           },
         ]
       : []),
@@ -66,6 +81,14 @@ function PlanBody({ data }: { data: EntitlementsDto }) {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1 rounded-lg border bg-muted/40 p-4">
         <span className="text-xs text-muted-foreground">{t('billing.plan.current')}</span>
+        {business?.accountName ? (
+          <span className="text-sm text-muted-foreground">
+            {t('billing.plan.account', {
+              account: business.accountName,
+              business: business.workspaceName,
+            })}
+          </span>
+        ) : null}
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xl font-semibold">{data.plan.name}</span>
           <Badge variant={STATUS_VARIANT[data.status]}>
@@ -87,9 +110,14 @@ function PlanBody({ data }: { data: EntitlementsDto }) {
           </h3>
           <dl className="divide-y rounded-lg border">
             {rows.map((r) => (
-              <div key={r.key} className="flex items-center justify-between gap-4 px-4 py-2.5">
+              <div key={r.key} className="flex items-start justify-between gap-4 px-4 py-2.5">
                 <dt className="text-sm text-muted-foreground">{r.label}</dt>
-                <dd className="text-sm font-medium tabular-nums">{r.value}</dd>
+                <dd className="flex flex-col items-end text-sm font-medium tabular-nums">
+                  {r.value}
+                  {'used' in r && r.used ? (
+                    <span className="text-xs font-normal text-muted-foreground">{r.used}</span>
+                  ) : null}
+                </dd>
               </div>
             ))}
           </dl>
