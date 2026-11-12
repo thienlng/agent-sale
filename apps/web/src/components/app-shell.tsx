@@ -96,7 +96,7 @@ export function AppShell({
         )}
         {/* On a wide screen the open assistant panel (420 px, docked right) takes its room from
             the page, which reflows instead of hiding its right columns under it (AS-19). */}
-        <SidebarInset className="min-w-0 overflow-x-clip transition-[margin] lg:[html[data-assistant-docked]_&]:mr-[420px]">
+        <SidebarInset className="min-w-0 overflow-x-clip lg:[html[data-assistant-docked]_&]:mr-[420px]">
           <header
             className={[
               'flex h-(--header-height) shrink-0 items-center gap-2 border-b bg-background px-3 md:px-4',
