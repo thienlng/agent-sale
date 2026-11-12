@@ -8,6 +8,7 @@ import {
   ENGLISH_HANDOFF,
   joinedImages,
   phoneReadBack,
+  withCustomerPronoun,
   writesEnglish,
 } from '../application/reply-pipeline.js';
 
@@ -142,6 +143,24 @@ describe('English customers at a hand-off (MS2-2)', () => {
     });
     expect(decision.final).toBe(
       `I am sorry about this.\nNoted, your number is 0977 123 456.\n${ENGLISH_HANDOFF}`,
+    );
+  });
+});
+
+describe('withCustomerPronoun (EV-4)', () => {
+  it('addresses a customer who called themselves "chị" when the answer never did', () => {
+    const said = ['Chị muốn mua bộ Thú gỗ xếp thăng bằng cho con, giá bao nhiêu em'];
+    expect(withCustomerPronoun('Dạ bộ này giá 340.000đ ạ.', said)).toBe(
+      'Dạ bộ này giá 340.000đ chị ạ.',
+    );
+    expect(withCustomerPronoun('Dạ chị ơi, bộ này giá 340.000đ ạ.', said)).toBe(
+      'Dạ chị ơi, bộ này giá 340.000đ ạ.',
+    );
+    expect(withCustomerPronoun('Dạ bộ này giá 340.000đ ạ.', ['bộ này bao nhiêu'])).toBe(
+      'Dạ bộ này giá 340.000đ ạ.',
+    );
+    expect(withCustomerPronoun('Dạ giá 180.000đ ạ.', ['em muốn hỏi giá'])).toBe(
+      'Dạ giá 180.000đ ạ.',
     );
   });
 });

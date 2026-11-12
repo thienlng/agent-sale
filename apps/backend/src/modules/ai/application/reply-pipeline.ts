@@ -16,7 +16,7 @@ import { correctionNote, type ReplyCheck } from '../domain/reply-guard.js';
 import { normalizeReplyText } from '../domain/reply-text.js';
 import { type ActionToolContext, playgroundConversationId, runActionTool } from './action-tools.js';
 import { CALCULATE_TOOL, calculateTool } from './calculator.js';
-import { phonesIn } from './reply-context.js';
+import { customerSelfPronoun, phonesIn } from './reply-context.js';
 import { type HoldToolContext, holdTools } from './hold-tools.js';
 import { type OrderToolContext, orderTools } from './order-tools.js';
 import { type RequestToolContext, requestTools } from './request-tools.js';
@@ -213,6 +213,23 @@ export function writesEnglish(text: string | undefined): boolean {
  */
 export const ENGLISH_HANDOFF = 'A member of our staff will get back to you here shortly.';
 
+/**
+ * EV-4 (examiner: tinymind-pronoun-*): the customer called themselves "anh" / "chị" / … and the
+ * turn never addresses them: the final answer's closing "ạ" becomes "{pronoun} ạ", the way a shop
+ * assistant would write it. "em" customers are left alone (no pronoun is the safe choice).
+ */
+export function withCustomerPronoun(
+  text: string,
+  customerTexts: readonly string[],
+  sent: readonly { text: string }[] = [],
+): string {
+  const pronoun = customerSelfPronoun(customerTexts);
+  if (!pronoun || pronoun === 'em') return text;
+  const word = new RegExp(`(?<!\\p{L})${pronoun}(?!\\p{L})`, 'iu');
+  if ([text, ...sent.map((m) => m.text)].some((t) => word.test(t))) return text;
+  return text.replace(/(?<!\p{L})ạ([.!]?)\s*$/u, `${pronoun} ạ$1`);
+}
+
 /** Why the turn cannot end with the model's text, or null when it can. */
 function forcedGuardrail(loop: AgentLoopResult, actionFallback: string | null | undefined) {
   if (loop.outcome === 'limit') return 'tool_loop_limit';
@@ -277,7 +294,12 @@ export function decideReply(input: {
   const same = (a: string) => a.replace(/\s+/g, ' ').trim().toLowerCase();
   if (text && output.sent.some((m) => m.text && same(m.text) === same(text)))
     return { outcome: 'answered', guardrail: null, final: null };
-  if (text) return { outcome: 'answered', guardrail: null, final: text };
+  if (text)
+    return {
+      outcome: 'answered',
+      guardrail: null,
+      final: withCustomerPronoun(text, input.customerTexts ?? [], output.sent),
+    };
   // Cut short after a send (budget, round limit, invalid tools): close with the fallback line so
   // a promise like "em gửi ảnh từng mẫu nhé" is not left hanging.
   if (sentAny)

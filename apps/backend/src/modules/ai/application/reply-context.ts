@@ -230,6 +230,48 @@ export function earlierPhones(all: readonly ChatMessage[], kept: readonly ChatMe
   return out.slice(-MAX_EARLIER_PHONES);
 }
 
+const SELF = '(anh|chị|chi|em|cô|chú|bác)';
+const VERBS =
+  '(hỏi|hoi|muốn|muon|cần|can|lấy|lay|đặt|dat|mua|xem|định|dinh|thấy|thay|ở|đang|dang|có|co|đi|di|tên|ten|chốt|chot|gửi|gui|nhận|nhan|ship|đổi|doi|thích|thich|chọn|chon|là|la)';
+const SELF_PATTERNS = [
+  // "Anh hỏi bộ…", "chị lấy 2 cái" (a vocative "chị ơi" is the customer calling the shop).
+  new RegExp(`(?:^|[.!?,\\n]\\s*)${SELF}\\s+${VERBS}(?![\\p{L}])`, 'giu'),
+  // "cho chị xem", "giúp em với"
+  new RegExp(
+    `(?<![\\p{L}])(?:cho|giúp|giup|giùm|gium)\\s+${SELF}(?![\\p{L}])(?!\\s+(ơi|oi))`,
+    'giu',
+  ),
+];
+
+/**
+ * EV-4 / TM2 pronouns: how the customer refers to themselves, from their latest message that says
+ * it ("Anh hỏi…" → "anh"); null when no message does. Read from the turns the model receives.
+ */
+export function customerSelfPronoun(customerTexts: readonly string[]): string | null {
+  for (let i = customerTexts.length - 1; i >= 0; i -= 1) {
+    const text = customerTexts[i] ?? '';
+    for (const pattern of SELF_PATTERNS)
+      for (const m of text.matchAll(pattern)) {
+        const word = (m[1] ?? '').toLowerCase();
+        return word === 'chi' ? 'chị' : word;
+      }
+  }
+  return null;
+}
+
+/** The per-turn line that names the customer's pronoun (null pronoun: no line). */
+export function customerPronounLine(pronoun: string | null): string {
+  if (!pronoun) return '';
+  if (pronoun === 'em')
+    return 'The customer calls themselves "em": never call them "anh" or "chị"; write without a second-person pronoun.';
+  return `The customer calls themselves "${pronoun}": address them as "${pronoun}" at least once in this reply.`;
+}
+
+const customerBlock = (content: string): string | null => {
+  const m = /<customer>\n([\s\S]*?)\n<\/customer>/.exec(content);
+  return m ? (m[1] ?? '') : null;
+};
+
 /**
  * Appends the per-turn blocks (profile, knowledge, situations, focus products, pending action,
  * pictures, phone and email lines, current time) to the last user message, so the system prompt and the
@@ -244,6 +286,9 @@ export function withTurnContext(turns: readonly ChatMessage[], ctx: TurnContext)
       prev.content = `${prev.content}\n\n${turn.content}`;
     else merged.push({ ...turn });
   }
+  const pronoun = customerSelfPronoun(
+    turns.flatMap((t) => (t.role === 'user' ? [customerBlock(t.content) ?? ''] : [])),
+  );
   const blocks = [
     ctx.profile,
     knowledgeBlock(ctx.sources),
@@ -252,6 +297,7 @@ export function withTurnContext(turns: readonly ChatMessage[], ctx: TurnContext)
     ctx.pending,
     ctx.images,
     ctx.phoneKnown ? PHONE_KNOWN_LINE : '',
+    customerPronounLine(pronoun),
     ctx.earlierPhones?.length ? earlierPhonesLine(ctx.earlierPhones) : '',
     ctx.emailKnown ? EMAIL_KNOWN_LINE : '',
     currentTimeBlock(ctx.now),
