@@ -71,6 +71,11 @@ export function filterBusinesses(
   });
 }
 
+/** Whole days left to restore a deleted business, rounded up (0 once the window ended). */
+export function restoreDaysLeft(purgeAfter: string, now: number = Date.now()): number {
+  return Math.max(0, Math.ceil((Date.parse(purgeAfter) - now) / DAY_MS));
+}
+
 /** Industries present among the businesses, for the filter's options. */
 export function industriesOf(businesses: readonly MembershipDto[]): string[] {
   return [...new Set(businesses.map((m) => m.industry).filter(Boolean))].sort();

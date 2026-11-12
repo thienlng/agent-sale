@@ -1910,7 +1910,41 @@
       "clear": "Xóa bộ lọc",
       "open": "Mở business {{name}}",
       "createdOn": "Tạo ngày {{date}}",
-      "otherAccount": "Thuộc tài khoản {{name}}"
+      "otherAccount": "Thuộc tài khoản {{name}}",
+      "deleted": {
+        "title": "Đã xoá (khôi phục trong {{days}} ngày)",
+        "hint": "Hết hạn, dữ liệu của business bị xoá vĩnh viễn.",
+        "daysLeft_other": "Còn {{count}} ngày để khôi phục",
+        "lastDay": "Hôm nay là ngày cuối để khôi phục",
+        "deletedOn": "Xoá ngày {{date}}",
+        "restore": "Khôi phục",
+        "restoreLabel": "Khôi phục business {{name}}",
+        "restored": "Đã khôi phục {{name}}. Hãy kết nối lại các kênh.",
+        "restoreError": "Không khôi phục được business này. Thời hạn có thể đã hết."
+      }
+    },
+    "delete": {
+      "title": "Xoá business",
+      "hint": "Xoá business này cùng toàn bộ dữ liệu. Trong {{days}} ngày đầu bạn vẫn khôi phục được; sau đó dữ liệu bị xoá vĩnh viễn.",
+      "stopsTitle": "Ngay khi xoá:",
+      "points": {
+        "bot": "Bot ngừng trả lời khách trên mọi kênh.",
+        "care": "Chăm sóc tự động và Business Brain dừng lại.",
+        "channels": "Trang Facebook, Instagram và chat website bị ngắt kết nối; KiotViet ngừng đồng bộ. Khi khôi phục, bạn cần kết nối lại.",
+        "access": "Mọi thành viên mất quyền vào business này."
+      },
+      "exportFirst": "Nên xuất dữ liệu trước khi xoá.",
+      "exportLink": "Xuất dữ liệu",
+      "action": "Xoá business…",
+      "ownerOnly": "Chỉ chủ business mới xoá được business này.",
+      "dialogTitle": "Xoá business {{name}}?",
+      "dialogBody": "Business sẽ bị ẩn ngay và xoá vĩnh viễn sau {{days}} ngày. Trong thời gian đó bạn khôi phục được ở mục Business của tôi.",
+      "confirmLabel": "Nhập tên business để xác nhận",
+      "confirmHint": "Nhập chính xác: {{name}}",
+      "cancel": "Huỷ",
+      "submit": "Xoá business",
+      "done": "Đã xoá {{name}}. Bạn có thể khôi phục trong {{days}} ngày.",
+      "mismatch": "Tên chưa khớp. Nhập đúng tên business."
     }
   },
   "account": {
