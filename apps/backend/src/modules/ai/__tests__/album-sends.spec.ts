@@ -235,3 +235,35 @@ describe('send_message: one product per message (EV-5)', () => {
     expect(sent.map((m) => m.images.length)).toEqual([2, 1]);
   });
 });
+
+describe('send_message: pictures already received (MS2-5, LM2-4)', () => {
+  it('drops a picture the conversation received and refuses a call left with none', async () => {
+    const product = {
+      id: 'thu-go',
+      name: 'Thú gỗ',
+      imageUrls: ['https://cdn.example.com/a.jpg', 'https://cdn.example.com/b.jpg'],
+      accommodation: null,
+    } as unknown as ProductDto;
+    const sent: OutgoingMessage[] = [];
+    const sink: MessageSink = {
+      send: vi.fn(async (m: OutgoingMessage) => {
+        sent.push(m);
+        return { delivered: 1 };
+      }),
+    };
+    const allowlist = new ImageAllowlist([], BASE);
+    allowlist.addProducts([product]);
+    const tool = outputTools({
+      sink,
+      allowlist,
+      state: newOutputState(),
+      sendMessage: true,
+      sentMediaUrls: ['https://cdn.example.com/a.jpg'],
+    }).runnable.find((t) => t.name === SEND_MESSAGE_TOOL)!;
+    const again = await tool.run({ text: 'Thú gỗ', imageIds: ['p:thu-go:0'] });
+    expect(JSON.parse(again.content)).toMatchObject({ error: 'pictures_already_sent' });
+    expect(sent).toHaveLength(0);
+    await tool.run({ text: 'Thú gỗ', imageIds: ['p:thu-go:0', 'p:thu-go:1'] });
+    expect(sent[0]?.images.map((i) => i.url)).toEqual(['https://cdn.example.com/b.jpg']);
+  });
+});

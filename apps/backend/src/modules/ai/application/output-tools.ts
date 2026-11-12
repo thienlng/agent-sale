@@ -244,7 +244,18 @@ export function outputTools(opts: {
               const image = album.images[k];
               return image ? [{ id: `${album.id}:${k}`, url: image.url, label: image.label }] : [];
             })
-          : picked.map(({ id, url, label }) => ({ id, url, label }));
+          : picked
+              .map(({ id, url, label }) => ({ id, url, label }))
+              // MS2-5 / LM2-4: a picture the conversation already received is not sent again.
+              .filter((image) => !earlier.has(sentKey(image.url)) && !sentIn(0, image.url));
+      if (!album && picked.length && !images.length)
+        return {
+          content: safeJson({
+            error: 'pictures_already_sent',
+            hint: 'The customer already received these pictures: do not send them or a caption again.',
+          }),
+          ok: false,
+        };
       // A link is text the customer opens; an uploaded video goes out as its own message.
       const link = video?.kind === 'link' ? `${video.title}: ${video.url}` : '';
       const written = normalizeReplyText(args.text ?? '');
