@@ -613,42 +613,45 @@
     "older": "Cũ hơn"
   },
   "starters": {
-    "title": "Rapiz Agent — trợ lý vận hành của chủ doanh nghiệp",
-    "body": "Phân tích số liệu, vận hành bot, quản lý sản phẩm và đơn hàng, lập báo cáo tự động cho mọi business trong tài khoản. Mọi thay đổi dữ liệu đều chờ anh/chị phê duyệt.",
-    "capabilitiesLabel": "Năng lực của Rapiz Agent",
-    "capabilities": {
-      "numbers": {
-        "title": "Phân tích kinh doanh",
-        "body": "Truy vấn trực tiếp doanh thu, đơn hàng, sản phẩm, khách hàng và hội thoại; so sánh theo kỳ và trả kết quả kèm biểu đồ."
+    "title": "Rapiz Agent — trợ lý vận hành cho chủ doanh nghiệp",
+    "body": "Nắm toàn bộ dữ liệu và cấu hình của các business trong tài khoản. Mọi thay đổi dữ liệu đều chờ anh/chị phê duyệt.",
+    "groupsLabel": "Nhóm tính năng của Rapiz Agent",
+    "groups": {
+      "setup": {
+        "title": "Hướng dẫn và thiết lập",
+        "items": {
+          "a": "Biết anh/chị đang ở trang nào",
+          "b": "Chỉ đúng nút, điền sẵn biểu mẫu",
+          "c": "Nhập sản phẩm từ Excel, CSV, ảnh",
+          "d": "Kết nối Facebook, Instagram, website"
+        }
       },
-      "bot": {
-        "title": "Chẩn đoán và huấn luyện bot",
-        "body": "Đọc lại từng lượt trả lời của bot, chỉ ra nguyên nhân sai và đề xuất bản sửa; soạn kịch bản, lời chào, câu hỏi thường gặp."
+      "insights": {
+        "title": "Phân tích và báo cáo",
+        "items": {
+          "a": "Doanh thu từng shop và tổng thể",
+          "b": "So sánh theo kỳ, vẽ biểu đồ",
+          "c": "Báo cáo định kỳ qua push, email",
+          "d": "Cảnh báo hết hàng, khách chờ lâu"
+        }
       },
-      "catalog": {
-        "title": "Sản phẩm và đơn hàng",
-        "body": "Tạo, cập nhật sản phẩm và tồn kho; nhập hàng loạt từ Excel, CSV hoặc ảnh chụp; tra cứu và cập nhật trạng thái đơn."
-      },
-      "reports": {
-        "title": "Báo cáo và cảnh báo tự động",
-        "body": "Báo cáo doanh thu, đơn mới, khách mới theo lịch; cảnh báo sắp hết hàng, khách chờ trả lời qua thông báo, push hoặc email."
-      },
-      "channels": {
-        "title": "Thiết lập cửa hàng và kênh bán",
-        "body": "Điền thông tin doanh nghiệp, kết nối Fanpage, Instagram và chat trên website, kiểm tra kết nối của bot."
-      },
-      "guide": {
-        "title": "Thao tác trực tiếp trên giao diện",
-        "body": "Mở đúng trang, chỉ đúng nút cần bấm, điền sẵn biểu mẫu để anh/chị kiểm tra trước khi lưu."
+      "bots": {
+        "title": "Quản lý và giám sát bot",
+        "items": {
+          "a": "Cấu hình kịch bản, lời chào, FAQ",
+          "b": "Thiết lập tích hợp API cho bot",
+          "c": "Đọc nhật ký, tìm lỗi, đề xuất sửa",
+          "d": "Theo dõi mức sẵn sàng của bot"
+        }
       }
     },
-    "learning": "Rapiz Agent ghi nhớ quy tắc riêng của doanh nghiệp và tự đúc kết kỹ năng mới sau mỗi cuộc trò chuyện. Anh/chị xem lại và chỉnh trong tab Kỹ năng, Bộ nhớ.",
+    "learning": "Tự ghi nhớ quy tắc của doanh nghiệp và học kỹ năng mới sau mỗi cuộc trò chuyện; xem lại ở tab Kỹ năng và Bộ nhớ.",
     "label": "Câu hỏi gợi ý",
     "items": {
-      "revenue": "So sánh doanh thu và số đơn tuần này với tuần trước, kèm biểu đồ theo ngày.",
-      "chart": "5 sản phẩm bán chạy nhất 30 ngày qua là gì?",
-      "report": "Báo cho tôi khi có khách chờ trả lời quá 15 phút.",
-      "bot": "Kiểm tra vì sao bot trả lời sai về phí giao hàng và đề xuất cách sửa."
+      "setup": "Hướng dẫn tôi kết nối Fanpage và cấu hình bot",
+      "revenue": "Doanh thu từng shop tháng này so với tháng trước?",
+      "bot": "Vì sao bot trả lời sai về phí giao hàng?",
+      "alert": "Báo tôi khi có khách chờ trả lời quá 15 phút"
     }
   }
 }

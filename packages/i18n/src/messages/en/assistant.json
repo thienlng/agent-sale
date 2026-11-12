@@ -619,41 +619,44 @@
   },
   "starters": {
     "title": "Rapiz Agent — the operations assistant for business owners",
-    "body": "Analyses your numbers, runs your bots, manages products and orders and sends automatic reports for every business in the account. Every data change waits for your approval.",
-    "capabilitiesLabel": "Rapiz Agent's capabilities",
-    "capabilities": {
-      "numbers": {
-        "title": "Business analysis",
-        "body": "Queries revenue, orders, products, customers and conversations directly; compares periods and answers with charts."
+    "body": "Knows all the data and settings of the businesses in your account. Every data change waits for your approval.",
+    "groupsLabel": "Rapiz Agent's feature groups",
+    "groups": {
+      "setup": {
+        "title": "Guidance and setup",
+        "items": {
+          "a": "Knows which page you are on",
+          "b": "Points at buttons, prefills forms",
+          "c": "Imports products from Excel, CSV, photos",
+          "d": "Connects Facebook, Instagram, website"
+        }
       },
-      "bot": {
-        "title": "Bot diagnosis and training",
-        "body": "Reviews the bot's replies one by one, names why one went wrong and proposes a fix; drafts scripts, greetings and FAQs."
+      "insights": {
+        "title": "Analysis and reports",
+        "items": {
+          "a": "Revenue per shop and overall",
+          "b": "Compares periods, draws charts",
+          "c": "Scheduled reports by push, email",
+          "d": "Alerts on low stock, waiting customers"
+        }
       },
-      "catalog": {
-        "title": "Products and orders",
-        "body": "Creates and updates products and stock; imports in bulk from Excel, CSV or photos; looks up orders and updates their status."
-      },
-      "reports": {
-        "title": "Automatic reports and alerts",
-        "body": "Scheduled reports on revenue, new orders and new customers; alerts on low stock and waiting customers by in-app, push or email."
-      },
-      "channels": {
-        "title": "Shop and channel setup",
-        "body": "Fills in business details, connects Facebook Pages, Instagram and website chat, and checks the bot's connections."
-      },
-      "guide": {
-        "title": "Hands-on in the dashboard",
-        "body": "Opens the right page, points at the button to press and prefills forms for you to check before saving."
+      "bots": {
+        "title": "Bot management and monitoring",
+        "items": {
+          "a": "Configures scripts, greetings, FAQs",
+          "b": "Sets up API integrations for the bot",
+          "c": "Reads logs, finds faults, proposes fixes",
+          "d": "Tracks how ready the bot is"
+        }
       }
     },
-    "learning": "Rapiz Agent remembers your business's own rules and turns each conversation into new skills. Review and edit them in the Skills and Memory tabs.",
+    "learning": "Remembers your business's rules and learns new skills from each conversation; review them in the Skills and Memory tabs.",
     "label": "Suggested questions",
     "items": {
-      "revenue": "Compare revenue and orders this week with last week, with a daily chart.",
-      "chart": "What were the 5 best-selling products in the last 30 days?",
-      "report": "Alert me when a customer has waited more than 15 minutes for a reply.",
-      "bot": "Check why the bot answered the delivery-fee question wrong and propose a fix."
+      "setup": "Walk me through connecting my Page and setting up the bot",
+      "revenue": "Revenue per shop this month versus last month?",
+      "bot": "Why did the bot answer the delivery fee wrong?",
+      "alert": "Alert me when a customer waits over 15 minutes"
     }
   }
 }

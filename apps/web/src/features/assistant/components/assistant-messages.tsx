@@ -2,12 +2,10 @@ import type { AssistantMessageDto, AssistantProposalDto } from '@agent-sales/con
 import {
   BarChart3,
   Bot,
-  CalendarClock,
+  Check,
   ChevronDown,
+  Compass,
   Loader2,
-  MousePointerClick,
-  Package,
-  Plug,
   ThumbsDown,
   ThumbsUp,
 } from 'lucide-react';
@@ -25,17 +23,15 @@ import { AssistantMarkdown } from './assistant-markdown';
 import { AssistantProposal } from './assistant-proposals';
 import { AssistantStepList, AssistantSteps } from './assistant-steps';
 
-/** What the assistant can do, shown on an empty conversation (its toolsets, in plain words). */
-const CAPABILITIES = [
-  { key: 'numbers', Icon: BarChart3 },
-  { key: 'bot', Icon: Bot },
-  { key: 'catalog', Icon: Package },
-  { key: 'reports', Icon: CalendarClock },
-  { key: 'channels', Icon: Plug },
-  { key: 'guide', Icon: MousePointerClick },
+/** The assistant's feature groups on an empty conversation, four concrete abilities each. */
+const GROUPS = [
+  { key: 'setup', Icon: Compass },
+  { key: 'insights', Icon: BarChart3 },
+  { key: 'bots', Icon: Bot },
 ] as const;
+const GROUP_ITEMS = ['a', 'b', 'c', 'd'] as const;
 /** Starter questions of the empty conversation: concrete asks that send on click. */
-const STARTERS = ['revenue', 'chart', 'report', 'bot'] as const;
+const STARTERS = ['setup', 'revenue', 'bot', 'alert'] as const;
 
 /** Lazy, so recharts loads only when an answer has a chart (docs/16). */
 const AssistantChart = lazy(() => import('./assistant-chart'));
@@ -200,10 +196,7 @@ export function AssistantMessages({
       {messages.length === 0 && proposals.length === 0 && !pendingTurn ? (
         <div
           data-measure
-          className={cn(
-            'flex flex-col px-4',
-            roomy ? 'min-h-full justify-center py-10 sm:px-8' : 'py-6',
-          )}
+          className={cn('flex flex-col px-4', roomy ? 'min-h-full justify-center py-10' : 'py-6')}
         >
           <p
             className={cn(
@@ -213,32 +206,31 @@ export function AssistantMessages({
           >
             {t('starters.title')}
           </p>
-          <p className="mt-2 max-w-2xl text-sm text-pretty text-muted-foreground">
-            {t('starters.body')}
-          </p>
+          <p className="mt-2 text-sm text-pretty text-muted-foreground">{t('starters.body')}</p>
           <ul
-            aria-label={t('starters.capabilitiesLabel')}
-            className={cn('mt-6 grid gap-x-6 gap-y-4', roomy && 'sm:grid-cols-2')}
+            aria-label={t('starters.groupsLabel')}
+            className={cn('mt-6 grid gap-x-6 gap-y-6', roomy && 'xl:grid-cols-3')}
           >
-            {CAPABILITIES.map(({ key, Icon }) => (
-              <li key={key} className="flex items-start gap-3">
-                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-brand-text">
-                  <Icon className="size-4" aria-hidden />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium">
-                    {t(`starters.capabilities.${key}.title`)}
+            {GROUPS.map(({ key, Icon }) => (
+              <li key={key} className="flex flex-col gap-3">
+                <p className="flex items-center gap-2.5 text-sm font-semibold">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-brand-text">
+                    <Icon className="size-4" aria-hidden />
                   </span>
-                  <span className="block text-xs text-pretty text-muted-foreground">
-                    {t(`starters.capabilities.${key}.body`)}
-                  </span>
-                </span>
+                  {t(`starters.groups.${key}.title`)}
+                </p>
+                <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
+                  {GROUP_ITEMS.map((item) => (
+                    <li key={item} className="flex gap-2 text-pretty">
+                      <Check className="mt-0.5 size-4 shrink-0 text-brand-text" aria-hidden />
+                      {t(`starters.groups.${key}.items.${item}`)}
+                    </li>
+                  ))}
+                </ul>
               </li>
             ))}
           </ul>
-          <p className="mt-5 max-w-2xl text-xs text-pretty text-muted-foreground">
-            {t('starters.learning')}
-          </p>
+          <p className="mt-6 text-xs text-pretty text-muted-foreground">{t('starters.learning')}</p>
           <p className="mt-7 text-xs font-medium text-muted-foreground">{t('starters.label')}</p>
           <ul
             aria-label={t('starters.label')}
@@ -250,7 +242,7 @@ export function AssistantMessages({
                   type="button"
                   disabled={!onStarter}
                   onClick={() => onStarter?.(t(`starters.items.${key}`))}
-                  className="flex h-full w-full items-start rounded-xl border bg-background px-3.5 py-3 text-left text-sm transition-colors hover:border-primary/40 hover:bg-primary-soft/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-60"
+                  className="flex h-full w-full items-center rounded-xl border bg-background px-3.5 py-3 text-left text-sm transition-colors hover:border-primary/40 hover:bg-primary-soft/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-60"
                 >
                   {t(`starters.items.${key}`)}
                 </button>

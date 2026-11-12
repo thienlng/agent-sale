@@ -133,7 +133,7 @@ describe('AssistantPanel', () => {
     renderApp();
 
     expect(
-      await screen.findByText('Rapiz Agent — trợ lý vận hành của chủ doanh nghiệp'),
+      await screen.findByText('Rapiz Agent — trợ lý vận hành cho chủ doanh nghiệp'),
     ).toBeInTheDocument();
     expect(useAssistantUi.getState()).toMatchObject({
       workspaceId: WS,

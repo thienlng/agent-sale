@@ -23,9 +23,10 @@ export type AssistantPageView = (typeof PAGE_TABS)[number]['view'];
  * scroll areas stay full width (the measured parts are marked `data-measure`).
  */
 const PAGE_MEASURE = cn(
-  '[&_[data-measure]]:mx-auto [&_[data-measure]]:w-full [&_[data-measure]]:max-w-3xl',
+  '[&_[data-measure]]:mx-auto [&_[data-measure]]:w-full [&_[data-measure]]:max-w-4xl',
   // The composer sits as a card above the bottom edge instead of a full-width bar.
-  '[&_form[data-measure]]:mb-4 [&_form[data-measure]]:w-[calc(100%-2rem)]',
+  // Inset like the messages (p-4), so the box lines up with them at any width.
+  '[&_form[data-measure]]:mb-4 [&_form[data-measure]]:w-[calc(100%-2rem)] [&_form[data-measure]]:max-w-[calc(56rem-2rem)]',
 );
 
 interface DropHandlers {
@@ -165,7 +166,7 @@ export function AssistantPageLayout({
             // keeps a reading width. Their own scroll box and padding (sized for the side sheet)
             // give way to the page's.
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-8 sm:py-8 [&>*]:overflow-visible [&>*]:p-0">
+              <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-8 sm:py-8 [&>*]:overflow-visible [&>*]:p-0">
                 {children}
               </div>
             </div>
