@@ -1,7 +1,7 @@
 # Postgres with the backup tools (ADR-028): WAL-G for WAL archiving and base backups, rclone and
 # age for the media and config copies. Built on the server by deploy.sh (`docker compose build`).
 # WAL-G v3.0.8+ ship no Postgres binaries; v3.0.7 is the newest that does.
-FROM pgvector/pgvector:pg16
+FROM pgvector/pgvector:pg16@sha256:0dd3149a06e4579a0d70d8fef9945636cd514005e7237deb27f9b67886f8dc4f
 ARG WALG_VERSION=v3.0.7
 ARG WALG_SHA256=a573efb1d874ecfdd773a62cd718eb39adc1b065d27030046ecde9d252b291a4
 ARG RCLONE_VERSION=v1.75.2
