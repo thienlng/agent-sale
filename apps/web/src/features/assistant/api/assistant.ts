@@ -9,15 +9,18 @@ import {
   AssistantThreadList,
   type SendAssistantMessageRequest,
   SendAssistantMessageResponse,
+  type UpdateAssistantThreadRequest,
 } from '@agent-sales/contracts';
 import { useMutation, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
+import { z } from 'zod';
 
 import { api } from '@/lib/api-client';
 import { useWorkspaceId } from '@/lib/use-workspace';
 
 export const assistantKeys = {
   all: (ws: string) => ['ws', ws, 'assistant'] as const,
-  threads: (ws: string, q: string) => ['ws', ws, 'assistant', 'threads', q] as const,
+  threads: (ws: string, q: string, archived = false) =>
+    ['ws', ws, 'assistant', 'threads', archived ? 'archived' : 'open', q] as const,
   messages: (ws: string, threadId: string) =>
     ['ws', ws, 'assistant', 'messages', threadId] as const,
   run: (ws: string, runId: string) => ['ws', ws, 'assistant', 'runs', runId] as const,
@@ -38,16 +41,25 @@ export const assistantKeys = {
 
 export type ProposalDecision = 'approve' | 'reject';
 
-/** The owner's open threads, pinned first (search by `q`). */
-export function useAssistantThreads(q: string) {
+/** The owner's open (or, with `archived`, archived) threads, pinned first (search by `q`). */
+export function useAssistantThreads(q: string, { archived = false } = {}) {
   const ws = useWorkspaceId();
   return useQuery({
-    queryKey: assistantKeys.threads(ws, q),
-    queryFn: ({ signal }) =>
-      api(`/assistant/threads${q ? `?q=${encodeURIComponent(q)}` : ''}`, AssistantThreadList, {
-        workspaceId: ws,
-        signal,
-      }),
+    queryKey: assistantKeys.threads(ws, q, archived),
+    queryFn: ({ signal }) => {
+      const params = [
+        ...(q ? [`q=${encodeURIComponent(q)}`] : []),
+        ...(archived ? ['archived=true'] : []),
+      ];
+      return api(
+        `/assistant/threads${params.length ? `?${params.join('&')}` : ''}`,
+        AssistantThreadList,
+        {
+          workspaceId: ws,
+          signal,
+        },
+      );
+    },
     // The server orders pinned first already; keep it stable whatever the source.
     select: (list) => [...list.data].sort((a, b) => Number(b.pinned) - Number(a.pinned)),
     enabled: Boolean(ws),
@@ -105,6 +117,48 @@ export function useCreateAssistantThread() {
     onSuccess: (thread) => {
       queryClient.setQueryData<AssistantMessageDto[]>(assistantKeys.messages(ws, thread.id), []);
     },
+  });
+}
+
+/** Rename, pin/unpin or archive/unarchive one thread; every thread list is refetched. */
+export function useUpdateAssistantThread() {
+  const ws = useWorkspaceId();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ threadId, ...patch }: UpdateAssistantThreadRequest & { threadId: string }) =>
+      api(`/assistant/threads/${threadId}`, AssistantThreadDto, {
+        method: 'PATCH',
+        body: patch,
+        workspaceId: ws,
+      }),
+    // The new title or pin shows at once; the refetch then moves it to its place.
+    onSuccess: (thread) => {
+      queryClient.setQueriesData<AssistantThreadList>(
+        { queryKey: [...assistantKeys.all(ws), 'threads'] },
+        (old) => old && { data: old.data.map((item) => (item.id === thread.id ? thread : item)) },
+      );
+    },
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: [...assistantKeys.all(ws), 'threads'] }),
+  });
+}
+
+/**
+ * Delete one thread for good (204). A 409 `thread_running` means the assistant is still answering
+ * in it. Its cached messages and proposals are dropped; the thread lists are refetched.
+ */
+export function useDeleteAssistantThread() {
+  const ws = useWorkspaceId();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (threadId: string) =>
+      api(`/assistant/threads/${threadId}`, z.null(), { method: 'DELETE', workspaceId: ws }),
+    onSuccess: (_res, threadId) => {
+      queryClient.removeQueries({ queryKey: assistantKeys.messages(ws, threadId) });
+      queryClient.removeQueries({ queryKey: assistantKeys.proposals(ws, threadId) });
+    },
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: [...assistantKeys.all(ws), 'threads'] }),
   });
 }
 

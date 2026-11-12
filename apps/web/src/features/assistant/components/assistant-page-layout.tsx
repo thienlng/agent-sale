@@ -46,6 +46,7 @@ export function AssistantPageLayout({
   onView,
   onPickThread,
   onNewThread,
+  onCurrentRemoved,
   onCollapse,
   dropHandlers,
   children,
@@ -55,6 +56,8 @@ export function AssistantPageLayout({
   onView: (view: AssistantPageView) => void;
   onPickThread: (threadId: string) => void;
   onNewThread: () => void;
+  /** The conversation on screen was archived or deleted from the list. */
+  onCurrentRemoved: () => void;
   onCollapse: () => void;
   dropHandlers: DropHandlers;
   children: ReactNode;
@@ -80,7 +83,11 @@ export function AssistantPageLayout({
     <div className="flex h-full min-h-0 min-w-0 flex-1">
       <aside aria-label={t('threads')} className="hidden w-72 shrink-0 flex-col border-r lg:flex">
         <div className="p-3">{newButton}</div>
-        <AssistantThreadList currentId={threadId} onPick={pick} />
+        <AssistantThreadList
+          currentId={threadId}
+          onPick={pick}
+          onCurrentRemoved={onCurrentRemoved}
+        />
       </aside>
       <Sheet open={drawer} onOpenChange={setDrawer}>
         <SheetContent side="left" className="gap-0 p-0">
@@ -90,7 +97,11 @@ export function AssistantPageLayout({
             <SheetDescription className="sr-only">{t('subtitle')}</SheetDescription>
             {newButton}
           </div>
-          <AssistantThreadList currentId={threadId} onPick={pick} />
+          <AssistantThreadList
+            currentId={threadId}
+            onPick={pick}
+            onCurrentRemoved={onCurrentRemoved}
+          />
         </SheetContent>
       </Sheet>
       <section

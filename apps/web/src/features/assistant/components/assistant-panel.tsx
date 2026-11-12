@@ -404,7 +404,13 @@ export function AssistantPanel() {
   /** The current view's body; the threads view exists in the sheet only. */
   function body(): ReactNode {
     if (view === 'threads' && !onPage)
-      return <AssistantThreadList currentId={threadId} onPick={pickThread} />;
+      return (
+        <AssistantThreadList
+          currentId={threadId}
+          onPick={pickThread}
+          onCurrentRemoved={newThread}
+        />
+      );
     if (view === 'memory') return <AssistantMemory />;
     if (view === 'skills') return <AssistantSkills />;
     // On the page, memory has its own place in the rail: no second way to it.
@@ -422,6 +428,7 @@ export function AssistantPanel() {
           onView={setView}
           onPickThread={pickThread}
           onNewThread={newThread}
+          onCurrentRemoved={newThread}
           onCollapse={collapse}
           dropHandlers={dropHandlers}
         >
