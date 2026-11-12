@@ -6,7 +6,7 @@
 name: rapiz
 
 x-app: &app
-  image: ${RAPIZ_IMAGE:-ghcr.io/thienlng/agent-sale}/app:${RAPIZ_TAG:-latest}
+  image: ${RAPIZ_IMAGE:-ghcr.io/thienlng/agent-sale}/app:${RAPIZ_TAG:?run via deploy.sh or set RAPIZ_TAG=$(cat .deployed-tag)}
   env_file: .env
   environment:
     NODE_ENV: production
@@ -213,7 +213,7 @@ services:
     logging: *logging
 
   edge:
-    image: ${RAPIZ_IMAGE:-ghcr.io/thienlng/agent-sale}/edge:${RAPIZ_TAG:-latest}
+    image: ${RAPIZ_IMAGE:-ghcr.io/thienlng/agent-sale}/edge:${RAPIZ_TAG:?run via deploy.sh or set RAPIZ_TAG=$(cat .deployed-tag)}
     restart: unless-stopped
     environment:
       S3_BUCKET: ${S3_BUCKET:-rapiz}

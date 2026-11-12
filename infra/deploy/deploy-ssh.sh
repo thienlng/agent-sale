@@ -6,7 +6,8 @@
 #   deploy <40-hex commit SHA>   stdin: GHCR user and token, one line each (may be empty). Copies
 #                                the server files out of that release's app image, then runs
 #                                ./deploy.sh <sha>. Nothing else crosses the connection, so the key
-#                                can only ship an image CI already built and pushed.
+#                                can only ship an image CI already built and pushed (any of them,
+#                                older releases included).
 #   rollback                     ./deploy.sh rollback
 # The image repository comes from RAPIZ_IMAGE in .env (default as in compose.yml), not the caller.
 set -euo pipefail

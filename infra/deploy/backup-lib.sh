@@ -1,6 +1,13 @@
 # Helpers for the backup scripts (ADR-028); sourced with the app folder as working directory.
 # shellcheck shell=bash
-compose() { docker compose --env-file .env "$@"; }
+# compose.yml requires RAPIZ_TAG (no `latest`). The backup jobs never start the app or edge images,
+# so they use the deployed tag, or a placeholder before the first deploy (backup-keys.sh) that
+# fails to pull rather than run an unknown image.
+compose() {
+  local tag=${RAPIZ_TAG:-}
+  [[ -n $tag ]] || tag=$(cat .deployed-tag 2>/dev/null) || true
+  RAPIZ_TAG=${tag:-undeployed} docker compose --env-file .env "$@"
+}
 env_get() {
   local v
   v=$(grep -E "^$1=" .env 2>/dev/null | tail -1 | cut -d= -f2-) || true

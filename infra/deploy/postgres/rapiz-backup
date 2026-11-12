@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Off-site copies of media and config (ADR-028), run in the `backup` tools container:
 #   rapiz-backup media          sync bucket S3_BUCKET to media:current (encrypted); replaced or
-#                               deleted objects move to media:deleted/<UTC date>
+#                               deleted objects move to media:deleted/<UTC date>. With
+#                               BACKUP_OBJECT_LOCK=1 copy only: nothing off-site is deleted
 #   rapiz-backup config         tar .env + compose.yml, encrypt to BACKUP_AGE_RECIPIENT, upload
 #   rapiz-backup prune          drop media:deleted days and config archives beyond 30 (a no-op
 #                               with BACKUP_OBJECT_LOCK=1)
@@ -27,6 +28,13 @@ quiet=(--stats 0 --log-level NOTICE)
 
 case ${1:-} in
   media)
+    if [[ ${BACKUP_OBJECT_LOCK:-} == 1 ]]; then
+      # The append-only key cannot delete, and sync --backup-dir moves (copy + delete). Copy only:
+      # objects deleted from the source stay in media:current, a replaced object becomes a new
+      # version that the object lock keeps, and a lost source bucket cannot empty anything.
+      rclone copy "src:$S3_BUCKET" media:current --fast-list --transfers 8 "${quiet[@]}"
+      exit 0
+    fi
     # A lost or wrong source bucket must not empty the off-site copy (it would only survive 30 days
     # in deleted/). BACKUP_MEDIA_FORCE=1 after checking that the source really shrank.
     have=$(rclone lsf -R --files-only --fast-list media:current "${quiet[@]}" 2>/dev/null | wc -l)

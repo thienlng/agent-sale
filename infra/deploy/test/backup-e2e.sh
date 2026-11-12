@@ -9,6 +9,8 @@ here=$(cd "$(dirname "$0")" && pwd)
 src=$(dirname "$here")
 work=$(mktemp -d)
 export COMPOSE_PROJECT_NAME=rapiz-bktest
+# compose.yml requires an image tag; the backup services never use the app or edge images.
+export RAPIZ_TAG=bktest
 cd "$work"
 cp "$src"/{compose.yml,backup.sh,backup-lib.sh,backup-nightly.sh,backup-check.sh,restore-drill.sh,backup-keys.sh} .
 cp -r "$src/postgres" .
@@ -105,14 +107,22 @@ docker run --rm -i -e K="$age_key" --entrypoint sh rapiz-postgres:local \
 ok "local dump: encrypted, private, restorable with the kit key"
 
 # Object lock: the server deletes nothing off-site; the bucket lifecycle does.
+# The test bucket cannot refuse deletes per key (SeaweedFS's Write action covers them), so the media
+# step is checked by its effect: a source delete leaves the off-site copy and deleted/ untouched.
 echo BACKUP_OBJECT_LOCK=1 >> .env
 retain_before=$(grep '^retain_ok=' backups/backup-status)
+deleted_before=$(bk rclone lsf -R media:deleted | sort)
+bk rclone deletefile src:rapiz/p/b.jpg
+printf 'three' | bk rclone rcat src:rapiz/c.jpg
 out=$(bash ./backup-nightly.sh 2>&1) || { echo "$out"; die "nightly under object lock failed"; }
 grep -q 'retain, prune: skipped' <<<"$out" || die "retain/prune not skipped under object lock: $out"
 [[ $(grep '^retain_ok=' backups/backup-status) == "$retain_before" ]] || die "retain ran under object lock"
 [[ $(bk prune) == *"skipped"* ]] || die "rapiz-backup prune ran under object lock"
+[[ $(bk rclone cat media:current/c.jpg) == three ]] || die "media not copied under object lock"
+[[ $(bk rclone cat media:current/p/b.jpg) == two ]] || die "media step deleted off-site under object lock"
+[[ $(bk rclone lsf -R media:deleted | sort) == "$deleted_before" ]] || die "media step moved objects under object lock"
 sed -i '/^BACKUP_OBJECT_LOCK=/d' .env
-ok "object lock: retain and prune skipped"
+ok "object lock: retain and prune skipped, media copied without deletes"
 
 # Drill and point-in-time restore ----------------------------------------------------------------
 psqlq "insert into t(note) values ('mid')" >/dev/null

@@ -225,6 +225,8 @@ progress: `<branch>`**. Each pull request records what it changed and what still
   strictly: only `deploy <40-hex SHA>` or `rollback`; the registry user and token come on stdin; the
   server files are taken from the release image of that SHA, never from the connection. Tested by
   `infra/deploy/test/deploy-ssh-test.sh` in CI.
+- **Residual risk.** A stolen key can still deploy any older image CI built from `main` (with that
+  release's server files) and run `rollback`; rotate the key if it may have leaked.
 - **Fix branch.** `chore/security-infra-hardening`. The `authorized_keys` line and the GitHub
   environment are server and repository settings: see [Verify on the server](#verify-on-the-server).
 

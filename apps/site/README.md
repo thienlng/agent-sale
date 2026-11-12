@@ -58,11 +58,16 @@ the pages make no extra request.
 
 - **Production (Docker image).** The image stays key-free. The edge server fills the loader from its
   environment (Caddy `templates`, `infra/deploy/Caddyfile`): set `RAPIZ_SITE_WIDGET_KEY` in the
-  server `.env` and restart `edge`. The bubble then loads the same-origin `/widget.js`.
+  server `.env` and restart `edge`. The bubble then loads the same-origin `/widget.js` and calls the
+  same-origin `/api`. It must stay same-origin: the edge does not pass `RAPIZ_SITE_WIDGET_SRC` or
+  `RAPIZ_SITE_WIDGET_API`, and the site's enforced CSP allows scripts and connections from
+  `'self'` only.
 - **Build time (local or self-built sites).** `PUBLIC_RAPIZ_WIDGET_KEY` fills the loader in `dist/`
   during `astro build`. `PUBLIC_RAPIZ_WIDGET_SRC` (default `/widget.js`) and
   `PUBLIC_RAPIZ_WIDGET_API` (the widget's `data-api`, default: the script's origin) point at another
-  widget host, for example `http://localhost:5174/widget.js` and `http://localhost:3000`.
+  widget host, for example `http://localhost:5174/widget.js` and `http://localhost:3000`. A site
+  built that way and served by the production edge is blocked by its CSP: add those origins to
+  `script-src` and `connect-src` in `infra/deploy/Caddyfile` first.
 - **The key.** `pnpm --filter @agent-sales/backend rapiz-site-bot seed --owner <email> --domains
   rapiz.io,www.rapiz.io` creates or updates the Rapiz business, its bot, its knowledge and the
   website connection, and prints the key (`wk_…`). The bot's content is

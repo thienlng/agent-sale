@@ -59,10 +59,10 @@ The server follows `/opt/infra/README.md` on the host: apps live in `/opt/apps/<
    - Repository variable `DEPLOY_ENABLED`: `true`. Until it is set, the Deploy workflow skips.
    - Branch protection on `main` (required PR review and CI): the environment trusts whatever reaches `main`.
 7. **First platform admin.** Sign up in the dashboard, then make that account a platform admin:
-   `docker compose exec api node apps/backend/dist/cli/platform-admin.js grant <email>`
+   `RAPIZ_TAG=$(cat .deployed-tag) docker compose exec api node apps/backend/dist/cli/platform-admin.js grant <email>`
 8. **LLM provider.** Add one in Admin → LLM. Without it, production answers 503 for bot turns.
 9. **Plans and trial.** In Admin (`/admin/plans` for the catalog, `/admin/settings` for trial, lifecycle and bank account): check the plan catalog and prices, set the VietQR bank account, then turn the signup trial on (it ships off, so a deploy alone changes nothing for new signups). The `worker` service runs the subscription lifecycle (trial end, past due, suspension) every 5 minutes; keep it running.
-10. **Website chat (optional).** Rapiz's own pages show a chat bubble once the edge has a site key. Sign up the owner, then run `docker compose exec api node apps/backend/dist/cli/rapiz-site-bot.js seed --owner <email> --domains <host>,www.<host>` (idempotent; also puts the plans in the bot's catalog with pictures fetched from the live site, so behind the beta gate add `--site http://edge`; prints `site key: wk_…`), add `RAPIZ_SITE_WIDGET_KEY=wk_…` to `.env` and run `docker compose --env-file .env up -d edge`. Unset, the pages load no widget. Details: [apps/site README](../../apps/site/README.md#website-chat).
+10. **Website chat (optional).** Rapiz's own pages show a chat bubble once the edge has a site key. Sign up the owner, then run `RAPIZ_TAG=$(cat .deployed-tag) docker compose exec api node apps/backend/dist/cli/rapiz-site-bot.js seed --owner <email> --domains <host>,www.<host>` (idempotent; also puts the plans in the bot's catalog with pictures fetched from the live site, so behind the beta gate add `--site http://edge`; prints `site key: wk_…`), add `RAPIZ_SITE_WIDGET_KEY=wk_…` to `.env` and run `RAPIZ_TAG=$(cat .deployed-tag) docker compose --env-file .env up -d edge`. Unset, the pages load no widget. Details: [apps/site README](../../apps/site/README.md#website-chat).
 
 ## Deploy key
 
@@ -79,7 +79,7 @@ command="/opt/apps/rapiz/deploy-ssh.sh",restrict ssh-ed25519 AAAA… rapiz-ci-de
 | `deploy <40-hex commit SHA>` | Reads the GHCR user and token from stdin (one line each), logs in, takes `compose.yml`, the scripts and `postgres/` out of `<RAPIZ_IMAGE>/app:<sha>` (the files of that reviewed commit), runs `./deploy.sh <sha>`, logs out |
 | `rollback` | `./deploy.sh rollback` |
 
-Anything else is refused. The image repository comes from `RAPIZ_IMAGE` in `.env` (default `ghcr.io/thienlng/agent-sale`), never from the caller, so a stolen key can only redeploy an image CI already built from `main`. Keep your own login key separate and unrestricted. Do not reuse the CI key anywhere else.
+Anything else is refused. The image repository comes from `RAPIZ_IMAGE` in `.env` (default `ghcr.io/thienlng/agent-sale`), never from the caller, so a stolen key cannot pick another registry or run other commands. It can still deploy any image CI ever built from `main`, including an older release with known bugs (its `compose.yml` and scripts come with it), and run `rollback`; migrations only move forward, so an old release runs on the newer schema. Treat a leaked key as an incident: remove its line from `authorized_keys`, put a new key in the environment secret, and redeploy the current `main`. Keep your own login key separate and unrestricted. Do not reuse the CI key anywhere else.
 
 The workflow only runs on `main` (a manual run on another ref is refused) and only as the `production` environment. Images are tagged with the commit SHA only; there is no `:latest`.
 
@@ -109,6 +109,10 @@ The release that adds `deploy-ssh.sh` changes how CI reaches the server. Before 
 2. Replace the CI key's line in `~/.ssh/authorized_keys` with the forced-command form in [Deploy key](#deploy-key), ideally with a new key.
 3. Move the `DEPLOY_*` secrets from repository secrets to the `production` environment and set its branch rule and reviewer (first install, step 6). Delete the repository-level copies.
 4. Check the NPM admin login file: `chmod 600 ~/npm-admin.txt` (`beta-gate.sh` also tightens it).
+5. Check the SeaweedFS version the server runs. `compose.yml` used to say `chrislusf/seaweedfs:latest` and now pins `4.53`; a server that pulled a newer `latest` would be downgraded, and SeaweedFS does not promise that older versions read newer metadata. Run
+   `docker image inspect -f '{{.Created}} {{index .RepoDigests 0}}' "$(docker inspect -f '{{.Image}}' rapiz-object-storage-1)"` and
+   `docker exec rapiz-object-storage-1 weed version`. If it reports a version above 4.53, raise the pin in `infra/deploy/compose.yml` (and `infra/deploy/test/compose.override.yml`) to that version and its digest before merging.
+6. Make sure `/opt/apps/rapiz/.deployed-tag` holds the running commit SHA (`deploy.sh` writes it). `compose.yml` no longer falls back to `:latest`, so every manual `docker compose` command needs `RAPIZ_TAG=$(cat .deployed-tag)`, as below.
 
 The first deploy of that release then, without any manual step:
 
@@ -130,7 +134,7 @@ echo "DATABASE_ASSISTANT_SQL_URL=postgres://rapiz_assistant:$(openssl rand -hex 
 The `migrate` service (`--login-roles`) creates the login with that password, and `api` reads the URL from `.env`. Check the login exists:
 
 ```bash
-docker compose exec postgres psql -U rapiz_owner -d rapiz -c "select rolname from pg_roles where rolname = 'rapiz_assistant'"
+RAPIZ_TAG=$(cat .deployed-tag) docker compose exec postgres psql -U rapiz_owner -d rapiz -c "select rolname from pg_roles where rolname = 'rapiz_assistant'"
 ```
 
 Without the line, the SQL lane is off: the assistant falls back to the sales overview route for revenue questions.
@@ -142,21 +146,23 @@ Bots can run on a ChatGPT-plan login through the Hermes bridge (`services/hermes
 1. Build the image on the server. The context is a staging folder with `hermes-agent/` (the Hermes source, without `.git`, `tests`, `website`, `apps`) and `bridge/` (a copy of `services/hermes` without `var/`):
    `docker build -f hermes.Dockerfile -t rapiz-hermes:local <staging folder>`
 2. In `.env`: `COMPOSE_PROFILES=hermes`, `HERMES_BRIDGE_KEY=<random, 32+ characters>` and `HERMES_SUBSCRIPTION_LOGIN=true` (shows the sign-in panel in production).
-3. `docker compose --env-file .env up -d hermes api agent worker`.
+3. `RAPIZ_TAG=$(cat .deployed-tag) docker compose --env-file .env up -d hermes api agent worker`.
 4. Admin → Mô hình AI: add a **Hermes** provider with address `http://hermes:8788` and the bridge key as API key, press "Đăng nhập ChatGPT" and approve the code, then route the tiers to a model from the list.
 
 The login lives in the `hermes` volume. Do not sign the same ChatGPT account in on another bridge (for example a developer machine) with a copied `auth.json`: two processes rotating one refresh token log each other out.
 
 ## Operations (as `deploy` in `/opt/apps/rapiz`)
 
+`compose.yml` requires the image tag (`RAPIZ_TAG`, no default): `deploy.sh` sets it, the backup scripts read `.deployed-tag`, and a manual `docker compose` command needs the `RAPIZ_TAG=$(cat .deployed-tag)` prefix shown here (or `export RAPIZ_TAG=$(cat .deployed-tag)` once per shell). Without it compose stops with "required variable RAPIZ_TAG is missing a value".
+
 | Task | Command |
 |---|---|
-| Status | `docker compose ps` |
-| Logs | `docker compose logs -f --tail 100 api agent webhook` |
+| Status | `RAPIZ_TAG=$(cat .deployed-tag) docker compose ps` |
+| Logs | `RAPIZ_TAG=$(cat .deployed-tag) docker compose logs -f --tail 100 api agent webhook` |
 | Roll back to the previous release | `./deploy.sh rollback` |
 | Deploy a specific commit | `./deploy-ssh.sh deploy <sha>` (takes that commit's server files too) or `./deploy.sh <sha>` (requires `docker login ghcr.io` with a token that can read packages; `./deploy-ssh.sh` reads the user and token from stdin) |
 | Change domain | Point the new domain's DNS at the server, add it to the NPM proxy host with a certificate, run `./set-host.sh <new-host>`, then update the Meta app's webhook URL, OAuth redirect URIs and app domains |
-| Put an account on a plan from the shell | `docker compose exec api node apps/backend/dist/cli/workspace-plan.js set <owner-email> <plan> [months]` (audited like an `/admin` change, reason `cli`) |
+| Put an account on a plan from the shell | `RAPIZ_TAG=$(cat .deployed-tag) docker compose exec api node apps/backend/dist/cli/workspace-plan.js set <owner-email> <plan> [months]` (audited like an `/admin` change, reason `cli`) |
 | Local dump now | `./backup.sh` (daily at 03:15 UTC by cron, 7 days kept in `backups/`; encrypted to `BACKUP_AGE_RECIPIENT` once off-site backups are on) |
 | Off-site backup now / restore drill | `./backup-nightly.sh` / `./restore-drill.sh` ([backup runbook](backup-and-restore.md)) |
 
@@ -167,10 +173,10 @@ Migration 0066 turns each lodging gallery into folders. Releases before T-192 re
 ```bash
 RAPIZ_TAG=<T-192-or-later sha> docker compose --env-file .env run --rm --no-deps -T migrate \
   cat packages/db/sql/rollback-0066-lodging-media-folders.sql |
-  docker compose --env-file .env exec -T postgres psql -U rapiz_owner -d rapiz -v ON_ERROR_STOP=1
+  RAPIZ_TAG=$(cat .deployed-tag) docker compose --env-file .env exec -T postgres psql -U rapiz_owner -d rapiz -v ON_ERROR_STOP=1
 ```
 
-It keeps image items only, folder order then item order, captions kept; videos, links and folder names are dropped. It changes nothing else and can run again. Before deploying T-192 or later again, let 0066 run again: `docker compose exec postgres psql -U rapiz_owner -d rapiz -c "delete from schema_migrations where name = '0066_lodging_media_folders.sql'"`.
+It keeps image items only, folder order then item order, captions kept; videos, links and folder names are dropped. It changes nothing else and can run again. Before deploying T-192 or later again, let 0066 run again: `RAPIZ_TAG=$(cat .deployed-tag) docker compose exec postgres psql -U rapiz_owner -d rapiz -c "delete from schema_migrations where name = '0066_lodging_media_folders.sql'"`.
 
 ### Rolling back T-193 (migration 0067)
 
@@ -179,26 +185,26 @@ Migration 0067 adds unit details, the `lodging_packages` table and `package_id` 
 ```bash
 RAPIZ_TAG=<T-193-or-later sha> docker compose --env-file .env run --rm --no-deps -T migrate \
   cat packages/db/sql/rollback-0067-lodging-units-packages.sql |
-  docker compose --env-file .env exec -T postgres psql -U rapiz_owner -d rapiz -v ON_ERROR_STOP=1
+  RAPIZ_TAG=$(cat .deployed-tag) docker compose --env-file .env exec -T postgres psql -U rapiz_owner -d rapiz -v ON_ERROR_STOP=1
 ```
 
-It turns each target's full-package rates (most bedrooms; a tie goes to the later sort order) into plain rates and deletes the other package rates, then drops the package columns of rates, booking units and hold drafts, the `lodging_packages` table and the unit detail columns. Unit details, unit galleries and packages are lost; bookings, their units and totals stay. It can run again and does not touch `schema_migrations`. Before deploying T-193 or later again, delete **both** rows so 0067 and 0068 run again: `docker compose exec postgres psql -U rapiz_owner -d rapiz -c "delete from schema_migrations where name in ('0067_lodging_units_packages.sql', '0068_lodging_bot_hold_draft_packages.sql')"`. Rolling back past T-192 as well: run this section first, then the 0066 one.
+It turns each target's full-package rates (most bedrooms; a tie goes to the later sort order) into plain rates and deletes the other package rates, then drops the package columns of rates, booking units and hold drafts, the `lodging_packages` table and the unit detail columns. Unit details, unit galleries and packages are lost; bookings, their units and totals stay. It can run again and does not touch `schema_migrations`. Before deploying T-193 or later again, delete **both** rows so 0067 and 0068 run again: `RAPIZ_TAG=$(cat .deployed-tag) docker compose exec postgres psql -U rapiz_owner -d rapiz -c "delete from schema_migrations where name in ('0067_lodging_units_packages.sql', '0068_lodging_bot_hold_draft_packages.sql')"`. Rolling back past T-192 as well: run this section first, then the 0066 one.
 
 ### Restore a local dump
 
 For point-in-time restores, a lost server or lost pictures use [backup-and-restore.md](backup-and-restore.md). A local dump is the quick way back to the state before a deploy:
 
 ```bash
-docker compose stop api agent worker webhook
+RAPIZ_TAG=$(cat .deployed-tag) docker compose stop api agent worker webhook
 # Encrypted dump (rapiz-*.dump.age): the age private key is only in the break-glass kit. Put it in a
 # private file for the restore and remove it right after.
 (umask 077 && cat > /tmp/age-key.txt)   # paste the AGE-SECRET-KEY-… line, then Ctrl-D
 docker run --rm -i --entrypoint age -v /tmp/age-key.txt:/k:ro rapiz-postgres:local -d -i /k < backups/<file>.dump.age |
-  docker compose exec -T postgres pg_restore -U rapiz_owner -d rapiz --clean --if-exists
+  RAPIZ_TAG=$(cat .deployed-tag) docker compose exec -T postgres pg_restore -U rapiz_owner -d rapiz --clean --if-exists
 shred -u /tmp/age-key.txt
 # A plain dump (rapiz-*.dump, written while BACKUP_AGE_RECIPIENT was unset):
-docker compose exec -T postgres pg_restore -U rapiz_owner -d rapiz --clean --if-exists < backups/<file>.dump
-docker compose start api agent worker webhook
+RAPIZ_TAG=$(cat .deployed-tag) docker compose exec -T postgres pg_restore -U rapiz_owner -d rapiz --clean --if-exists < backups/<file>.dump
+RAPIZ_TAG=$(cat .deployed-tag) docker compose start api agent worker webhook
 ```
 
 Local dumps live on the same disk; the off-site copies are in [backup-and-restore.md](backup-and-restore.md).
@@ -224,7 +230,8 @@ Neither the password nor the gate token is in Git. The token sits in the NPM pro
 
 - No container publishes ports. Only `edge` is reachable, and only through NPM. Postgres, Redis and the S3 API sit on an internal network; `/metrics` is not routed and `/api/v1/health/ready` answers 404 at the edge (compose healthchecks call it inside the network). In production `/api/v1/health` carries no build version and `/api/v1/openapi.json` lists the public API only.
 - Redis requires a password and SeaweedFS's filer, master and volume servers are not reachable from the other containers (only S3 is), so a compromised neighbour container cannot read or wipe them without the keys.
-- Headers (docs/09 §6): HSTS is `max-age=31536000` without `includeSubDomains`, because not every subdomain of the public host is known to serve HTTPS. Add it (and consider preload) only after checking every subdomain. The dashboard CSP is report-only until checked in every flow; frame-ancestors is enforced everywhere.
+- Headers (docs/09 §6): HSTS is `max-age=31536000` without `includeSubDomains`, because not every subdomain of the public host is known to serve HTTPS. Add it (and consider preload) only after checking every subdomain. The dashboard CSP is report-only until checked in every flow; frame-ancestors is enforced everywhere. The report-only policy has no reporting endpoint, so the check is manual: sign in on the live host with the browser's developer tools open, walk every flow (inbox with pictures and videos, product and lodging editors with uploads and YouTube or Drive videos, settings, billing, admin, notifications, the installed app) and look for `[Report Only] Refused to …` lines in the console; or let a Playwright crawl of the same pages collect `console` messages containing `Content-Security-Policy`. Widen the policy in `infra/deploy/Caddyfile` for each legitimate violation, then switch the header to `Content-Security-Policy` once a full pass is clean.
+- The marketing site's enforced CSP allows scripts and connections from the same origin only. Its chat bubble must stay same-origin (`/widget.js`, `/api`): the edge passes `RAPIZ_SITE_WIDGET_KEY` only, never a widget source or API on another host ([apps/site README](../../apps/site/README.md#website-chat)).
 - Images are pinned by digest and actions by commit SHA; Dependabot (`docker`, `docker-compose`, `github-actions`) proposes updates.
 - Use SSH keys only. Once key login works, set `PasswordAuthentication no` in `/etc/ssh/sshd_config.d/` and restart `ssh`.
 - `.env` holds every secret. Never paste it into chat, logs or tickets. The pulls use the CI job's short-lived `GITHUB_TOKEN`, and `deploy-ssh.sh` logs out right after.

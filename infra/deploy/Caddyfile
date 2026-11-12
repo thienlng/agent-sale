@@ -53,6 +53,8 @@
 		@query expression {query} != ""
 		respond @query 404
 		header Content-Security-Policy "sandbox; default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; frame-ancestors 'none'"
+		# Caddy's path matcher ignores case, so PHOTO.PNG renders and page.HTML downloads
+		# (infra/deploy/test/edge-headers.sh checks both).
 		@download not path *.jpg *.jpeg *.png *.webp *.gif *.avif *.mp4 *.webm *.mov
 		header @download Content-Disposition attachment
 		rewrite * /{$S3_BUCKET}{uri}
@@ -81,7 +83,10 @@
 	# Marketing pages (apps/site/public). A folder path without its slash redirects to it.
 	@site path / /index.html /images/* /fonts/* /static/* /nganh/* /tinh-nang/* /tich-hop /tich-hop/* /bao-mat /bao-mat/* /bang-gia /bang-gia/* /dat-lich-demo /dat-lich-demo/* /ve-rapiz /ve-rapiz/* /privacy /privacy/* /terms /terms/*
 	# The site has no inline scripts; inline style attributes stay. Images and connections are wide
-	# enough for the chat bubble (bot replies may show product pictures from other hosts).
+	# enough for the chat bubble (bot replies may show product pictures from other hosts). The
+	# bubble must stay same-origin (/widget.js, /api): the edge passes only RAPIZ_SITE_WIDGET_KEY, so
+	# the SRC and API placeholders of site-widget.js stay empty here. A site built with another
+	# PUBLIC_RAPIZ_WIDGET_SRC/API origin must add it to script-src and connect-src.
 	handle @site {
 		header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 		root * /srv/site

@@ -106,7 +106,12 @@ out=$(fetch /media/p/page.html)
 expect "$out" 'Content-Security-Policy: sandbox;' 'media document'
 expect "$out" 'Content-Disposition: attachment' 'media document downloads'
 reject "$out" 'Content-Disposition: inline' 'media upstream disposition'
-ok "media: sandboxed, non-pictures download"
+# Extensions match without regard to case.
+out=$(fetch /media/p/PHOTO.PNG)
+reject "$out" 'Content-Disposition' 'media upper-case picture renders inline'
+out=$(fetch /media/p/page.HTML)
+expect "$out" 'Content-Disposition: attachment' 'media upper-case document downloads'
+ok "media: sandboxed, non-pictures download (any case)"
 
 out=$(fetch /api/v1/health/ready)
 expect "$out" 'HTTP/1.1 404' 'readiness'
