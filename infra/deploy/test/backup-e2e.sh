@@ -94,6 +94,26 @@ bk rclone cat "offsite:offsite-test/config/$newest" |
   grep -q '^BACKUP_S3_BUCKET=offsite-test' || die "config archive does not decrypt"
 ok "nightly: base backup, encrypted media sync keeping deleted objects, encrypted config"
 
+# Local dump: encrypted to the age recipient, readable with the private key from the kit.
+bash ./backup.sh > /dev/null 2>&1 || die "local dump failed"
+dump=$(ls backups/rapiz-*.dump.age 2>/dev/null | tail -1)
+[[ -n $dump ]] || die "local dump not encrypted"
+[[ $(stat -c %a "$dump") == 600 ]] || die "local dump readable by others"
+docker run --rm -i -e K="$age_key" --entrypoint sh rapiz-postgres:local \
+  -c 'printf "%s\n" "$K" > /tmp/k; age -d -i /tmp/k | pg_restore --list' < "$dump" | grep -q 'TABLE public t ' ||
+  die "encrypted local dump does not decrypt to a restorable dump"
+ok "local dump: encrypted, private, restorable with the kit key"
+
+# Object lock: the server deletes nothing off-site; the bucket lifecycle does.
+echo BACKUP_OBJECT_LOCK=1 >> .env
+retain_before=$(grep '^retain_ok=' backups/backup-status)
+out=$(bash ./backup-nightly.sh 2>&1) || { echo "$out"; die "nightly under object lock failed"; }
+grep -q 'retain, prune: skipped' <<<"$out" || die "retain/prune not skipped under object lock: $out"
+[[ $(grep '^retain_ok=' backups/backup-status) == "$retain_before" ]] || die "retain ran under object lock"
+[[ $(bk prune) == *"skipped"* ]] || die "rapiz-backup prune ran under object lock"
+sed -i '/^BACKUP_OBJECT_LOCK=/d' .env
+ok "object lock: retain and prune skipped"
+
 # Drill and point-in-time restore ----------------------------------------------------------------
 psqlq "insert into t(note) values ('mid')" >/dev/null
 target=$(psqlq "select to_char(clock_timestamp() at time zone 'utc', 'YYYY-MM-DD HH24:MI:SS.US') || '+00'")

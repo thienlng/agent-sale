@@ -3,7 +3,8 @@
 #   rapiz-backup media          sync bucket S3_BUCKET to media:current (encrypted); replaced or
 #                               deleted objects move to media:deleted/<UTC date>
 #   rapiz-backup config         tar .env + compose.yml, encrypt to BACKUP_AGE_RECIPIENT, upload
-#   rapiz-backup prune          drop media:deleted days and config archives beyond 30
+#   rapiz-backup prune          drop media:deleted days and config archives beyond 30 (a no-op
+#                               with BACKUP_OBJECT_LOCK=1)
 #   rapiz-backup verify [n]     compare n random objects with their off-site copies; newest config exists
 #   rapiz-backup rclone <args>  rclone with the remotes below (restores, see the runbook)
 # Remotes: src: (SeaweedFS), offsite: (BACKUP_S3_*), media: (crypt over offsite:<bucket>/media).
@@ -43,6 +44,8 @@ case ${1:-} in
       rclone rcat "offsite:$bucket/config/$(date -u +%Y%m%dT%H%M%SZ).tar.gz.age" "${quiet[@]}"
     ;;
   prune)
+    # Under object lock the bucket's lifecycle rules expire old data (backup-nightly.sh).
+    if [[ ${BACKUP_OBJECT_LOCK:-} == 1 ]]; then echo "prune: skipped (BACKUP_OBJECT_LOCK=1)"; exit 0; fi
     cutoff=$(date -u -d "$keep days ago" +%F)
     { rclone lsf media:deleted --dirs-only "${quiet[@]}" 2>/dev/null || true; } | sed 's:/$::' | while read -r day; do
       if [[ $day < $cutoff ]]; then rclone purge "media:deleted/$day" "${quiet[@]}"; fi
