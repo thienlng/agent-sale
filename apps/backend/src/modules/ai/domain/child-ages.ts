@@ -1,16 +1,34 @@
+/** A list of ages: "4", "1, 4, 7", "5 và 7", "1, 4 and 7", "3/5". */
+const AGE_LIST = '((?:\\d{1,2}\\s*(?:,|và|va|and|&|/|-|–)\\s*)*\\d{1,2})';
+/** A number that is really a count, a stay length or a time ("10 người lớn", "2 đêm", "11h"). */
+const NOT_AN_AGE =
+  '(?![\\d\\s]*(?:người|nguoi|ng\\b|nl\\b|khách|khach|adults?|pax|guests?|people|đêm|dem\\b|ngày|ngay|nights?|days?|giờ|gio\\b|h\\b|phòng|phong|pn\\b|rooms?|triệu|tr\\b|k\\b|đ(?![\\p{L}])|vnd))';
+/** "4 tuổi", "8 years", "4-year-old", "4yo", "bé 4t". */
+const AGE_AFTER = new RegExp(
+  `${AGE_LIST}[\\s-]*(tuổi|tuoi|years?|yrs?|yo|y/o|t)(?![\\p{L}])`,
+  'gu',
+);
+/** "aged 1, 4 and 7", "ages 3, 5", "tuổi lần lượt 1, 4, 7", "bé lên 3". */
+const AGE_BEFORE = new RegExp(
+  `(?<![\\p{L}])(?:aged|ages?|tuổi(?:\\s+(?:lần lượt|là|các bé|các cháu))?|tuoi(?:\\s+(?:lan luot|la))?|(?:bé|be|con|cháu|chau|đứa|dua)\\s+(?:nhà (?:anh|chị|em)\\s+)?lên)\\s*(?::|=|là|la|of)?\\s*${AGE_LIST}${NOT_AN_AGE}`,
+  'gu',
+);
+const MONTHS = new RegExp(`${AGE_LIST}\\s*(tháng|thang|months?)(?![\\p{L}])`, 'gu');
+
 /**
- * The child ages the customer never wrote: an age counts only next to an age word ("4 tuổi",
- * "bé 4, 6 và 9 tuổi", "8 years", "18 tháng" = 1, "sơ sinh" = 0), never a bare number such as the
+ * The child ages the customer never wrote: an age counts only next to an age word, after it
+ * ("4 tuổi", "bé 4, 6 và 9 tuổi", "8 years", "4-year-old", "18 tháng" = 1, "sơ sinh" = 0) or before
+ * it ("kids aged 1, 4 and 7", "tuổi lần lượt 1, 4, 7", "bé lên 3"), never a bare number such as the
  * 8 of "8/1/2027" (VL-B3: the model passed [8,8,8,8] for "4 bé"). Returns the unvouched ages.
  */
 export function unvouchedChildAges(ages: readonly number[], customerTexts: readonly string[]) {
   const text = customerTexts.join('\n').toLowerCase();
   const said = new Set<number>();
-  const LIST = '((?:\\d{1,2}\\s*(?:,|và|va|&|/|-|–)\\s*)*\\d{1,2})\\s*';
-  for (const m of text.matchAll(new RegExp(`${LIST}(tuổi|tuoi|years?|yo|y/o|t)(?![\\p{L}])`, 'gu')))
-    for (const n of (m[1] ?? '').match(/\d+/g) ?? []) said.add(Number(n));
-  for (const m of text.matchAll(new RegExp(`${LIST}(tháng|thang|months?)(?![\\p{L}])`, 'gu')))
-    for (const n of (m[1] ?? '').match(/\d+/g) ?? []) said.add(Math.floor(Number(n) / 12));
+  const numbers = (list: string | undefined) => (list ?? '').match(/\d+/g) ?? [];
+  for (const m of text.matchAll(AGE_AFTER)) for (const n of numbers(m[1])) said.add(Number(n));
+  for (const m of text.matchAll(AGE_BEFORE)) for (const n of numbers(m[1])) said.add(Number(n));
+  for (const m of text.matchAll(MONTHS))
+    for (const n of numbers(m[1])) said.add(Math.floor(Number(n) / 12));
   if (/sơ sinh|so sinh|newborn/.test(text)) said.add(0);
   return ages.filter((age) => !said.has(age));
 }
