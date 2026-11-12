@@ -55,7 +55,11 @@ const accommodationHead = {
   rentalType: z.enum(['entire_property', 'rooms']),
   /** Lodging v2 property code, e.g. `A17` (T-160). */
   code: z.string().optional(),
-  bedrooms: z.number().int().min(1).max(100),
+  /**
+   * Required when a product is written. A lodging bot product leaves it out when no bedroom
+   * package states it: its room layout is descriptive, not one row per bedroom (VL-A5).
+   */
+  bedrooms: z.number().int().min(1).max(100).optional(),
   standardAdults: z.number().int().min(1).max(1000),
   standardChildren: z.number().int().min(0).max(1000),
   childAgeBelow: z.number().int().min(1).max(18),
@@ -95,55 +99,62 @@ const accommodationTail = {
     })
     .optional(),
 };
-const coversEveryBedroom = (v: { rentalType: string; roomLayout: unknown[]; bedrooms: number }) =>
-  v.rentalType !== 'entire_property' || v.roomLayout.length === v.bedrooms;
-const EVERY_BEDROOM = 'room layout must describe every bedroom';
+/** A written whole-property product states its bedrooms, one layout row each (T-155). */
+const coversEveryBedroom = (v: {
+  rentalType: string;
+  roomLayout: unknown[];
+  bedrooms?: number | undefined;
+}) =>
+  v.bedrooms !== undefined &&
+  (v.rentalType !== 'entire_property' || v.roomLayout.length === v.bedrooms);
+const EVERY_BEDROOM = { message: 'room layout must describe every bedroom', path: ['bedrooms'] };
 
-export const AccommodationDetails = z
-  .object({
-    ...accommodationHead,
-    /**
-     * Lodging media folders (T-192): filled only by the lodging bot product; older commerce rows
-     * have none and a commerce product save refuses them (ALBUMS_LODGING_ONLY). `gallery` keeps
-     * the flat photo list for them.
-     */
-    albums: z.array(GalleryFolder).max(GALLERY_MAX_FOLDERS).optional(),
-    notes: text(3000).default(''),
-    /** Lodging v2 (T-160): bookable rooms of a `rooms` property with their weekday rates. */
-    units: z
-      .array(
-        UnitRow.extend({
-          /** Unit details (T-193); absent on rows written before them. */
-          category: z.enum(['room', 'bungalow', 'house', 'other']).optional(),
-          view: z.string().optional(),
-          areaM2: z.number().int().min(1).max(100_000).nullable().optional(),
-          description: z.string().optional(),
-          amenities: z.array(z.string()).optional(),
-          maxGuests: z.number().int().min(1).max(2000).nullable().optional(),
-          /** The unit's own media folders; ids usable as `send_message` album / video ids. */
-          albums: z.array(GalleryFolder).max(GALLERY_MAX_FOLDERS).optional(),
-          /** The unit's bedroom packages; `weekdayRates` are its full package's prices. */
-          packages: z.array(AccommodationPackage).max(10).optional(),
-        }),
-      )
-      .optional(),
-    /**
-     * Bedroom packages of the whole property (T-193); `rates` are then the full package's prices.
-     */
-    packages: z.array(AccommodationPackage).max(10).optional(),
-    /** Lodging v2 (T-160): date-range prices; inclusive nights; `unitName` null = whole property. */
-    overrides: z
-      .array(
-        OverrideRow.extend({
-          /** The bedroom package the price is for (T-193); absent for a target without packages. */
-          packageName: z.string().optional(),
-        }),
-      )
-      .optional(),
-    ...accommodationTail,
-  })
-  .refine(coversEveryBedroom, EVERY_BEDROOM);
+export const AccommodationDetails = z.object({
+  ...accommodationHead,
+  /**
+   * Lodging media folders (T-192): filled only by the lodging bot product; older commerce rows
+   * have none and a commerce product save refuses them (ALBUMS_LODGING_ONLY). `gallery` keeps
+   * the flat photo list for them.
+   */
+  albums: z.array(GalleryFolder).max(GALLERY_MAX_FOLDERS).optional(),
+  notes: text(3000).default(''),
+  /** Lodging v2 (T-160): bookable rooms of a `rooms` property with their weekday rates. */
+  units: z
+    .array(
+      UnitRow.extend({
+        /** Unit details (T-193); absent on rows written before them. */
+        category: z.enum(['room', 'bungalow', 'house', 'other']).optional(),
+        view: z.string().optional(),
+        areaM2: z.number().int().min(1).max(100_000).nullable().optional(),
+        description: z.string().optional(),
+        amenities: z.array(z.string()).optional(),
+        maxGuests: z.number().int().min(1).max(2000).nullable().optional(),
+        /** The unit's own media folders; ids usable as `send_message` album / video ids. */
+        albums: z.array(GalleryFolder).max(GALLERY_MAX_FOLDERS).optional(),
+        /** The unit's bedroom packages; `weekdayRates` are its full package's prices. */
+        packages: z.array(AccommodationPackage).max(10).optional(),
+      }),
+    )
+    .optional(),
+  /**
+   * Bedroom packages of the whole property (T-193); `rates` are then the full package's prices.
+   */
+  packages: z.array(AccommodationPackage).max(10).optional(),
+  /** Lodging v2 (T-160): date-range prices; inclusive nights; `unitName` null = whole property. */
+  overrides: z
+    .array(
+      OverrideRow.extend({
+        /** The bedroom package the price is for (T-193); absent for a target without packages. */
+        packageName: z.string().optional(),
+      }),
+    )
+    .optional(),
+  ...accommodationTail,
+});
 export type AccommodationDetails = z.infer<typeof AccommodationDetails>;
+
+/** `AccommodationDetails` as a product save takes it: bedrooms stated, one layout row each. */
+export const AccommodationWrite = AccommodationDetails.refine(coversEveryBedroom, EVERY_BEDROOM);
 
 /**
  * `AccommodationDetails` without the fields only the lodging module's bot product fills (media

@@ -53,6 +53,7 @@ const SAAS_REQUEST_NAME = 'Record a demo, free trial or consultation request';
 const recorded: BotRequestResult = {
   outcome: 'recorded',
   contactId: newId(),
+  phoneE164: '+84983123456',
   created: true,
   missing: [],
   dateLabel: null,
@@ -128,6 +129,18 @@ describe('record_request in the reply pipeline: saas (ADR-020)', () => {
     );
   });
 
+  it('passes the website channel as the source and returns the customer to link (MS-11)', async () => {
+    const { svc, crm } = pipeline((_req, round) =>
+      round === 0 ? call(args) : { text: 'Dạ em đã ghi nhận ạ.' },
+    );
+    const res = await svc.reply(ws, botId, ask(said), { ...live(), channel: 'website' });
+    expect(crm.recordBotRequest.mock.calls[0]?.[1]).toMatchObject({ channel: 'website' });
+    expect(res.requestContact).toEqual({
+      contactId: recorded.outcome === 'recorded' ? recorded.contactId : '',
+      phoneE164: '+84983123456',
+    });
+  });
+
   it('the playground previews without writing', async () => {
     const { svc, crm } = pipeline((_req, round) =>
       round === 0 ? call(args) : { text: 'Dạ em ghi nhận rồi ạ.' },
@@ -179,7 +192,7 @@ describe('record_request for education and spa', () => {
     preferredTime: 'chiều',
   };
 
-  it('a spa bot records an appointment with the spa profile and passes updated, missing and dateLabel through', async () => {
+  it('a spa bot records an appointment with the spa profile; an update passes no missing details again (LM-13)', async () => {
     const { svc, crm, requests } = pipeline(
       (_req, round) => (round === 0 ? call(spaArgs) : { text: 'Dạ em đã ghi nhận ạ.' }),
       'spa',
@@ -187,6 +200,7 @@ describe('record_request for education and spa', () => {
     crm.recordBotRequest.mockResolvedValueOnce({
       outcome: 'updated',
       contactId: newId(),
+      phoneE164: '+84983123456',
       created: false,
       missing: ['branch'],
       dateLabel: 'Thứ Bảy 13/11/2027',
@@ -211,7 +225,8 @@ describe('record_request for education and spa', () => {
     });
     const result = lastToolResult(requests[1]);
     expect(result).toContain('\\"updated\\":true');
-    expect(result).toContain('\\"missing\\":[\\"branch\\"]');
+    // LM-13: they were asked for when the request was first recorded.
+    expect(result).toContain('\\"missing\\":[]');
     expect(result).toContain('Thứ Bảy 13/11/2027');
   });
 

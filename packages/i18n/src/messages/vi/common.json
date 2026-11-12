@@ -954,7 +954,24 @@
       "removeVariant": "Bỏ gói này",
       "save": "Lưu dịch vụ",
       "saved": "Đã lưu dịch vụ",
-      "created": "Đã tạo dịch vụ"
+      "created": "Đã tạo dịch vụ",
+      "colVariants": "Số gói",
+      "variantsCount": "{{count}} gói",
+      "images": "Ảnh dịch vụ",
+      "imagesHint": "Tối đa {{max}} ảnh (JPG, PNG hoặc WebP) chọn từ máy của bạn. Bot sẽ gửi các ảnh này khi khách muốn xem hình dịch vụ.",
+      "imageAlt": "Ảnh dịch vụ {{n}}",
+      "delete": {
+        "title": "Xoá dịch vụ",
+        "hint": "Chỉ xoá được dịch vụ chưa có khách mua. Dịch vụ đã có khách mua thì hãy lưu trữ.",
+        "action": "Xoá dịch vụ",
+        "confirmTitle": "Xoá dịch vụ {{name}}?",
+        "confirmBody": "Dịch vụ và các gói sẽ bị xoá vĩnh viễn, bot cũng ngừng tư vấn dịch vụ này. Không thể hoàn tác.",
+        "deleted": "Đã xoá dịch vụ {{name}}.",
+        "inOrders": "Dịch vụ này đã có khách mua nên không xoá được (để giữ lịch sử). Hãy lưu trữ: dịch vụ ngừng cung cấp, lịch sử vẫn còn.",
+        "inOrdersArchived": "Dịch vụ này đã có khách mua nên không xoá được (để giữ lịch sử). Dịch vụ đang được lưu trữ.",
+        "archiveInstead": "Lưu trữ dịch vụ",
+        "archivedDone": "Đã lưu trữ dịch vụ {{name}}."
+      }
     },
     "stock": {
       "title": "Tồn kho",
@@ -1009,7 +1026,9 @@
       "priceOnRequest": "Liên hệ",
       "col": "Thời lượng",
       "minutesCount": "{{count}} phút",
-      "sessionsCount": "{{count}} buổi"
+      "sessionsCount": "{{count}} buổi",
+      "priceFrom": "Từ {{price}}",
+      "priceWithOnRequest": "{{price}} · có gói liên hệ"
     }
   },
   "warehouses": {
@@ -1677,6 +1696,7 @@
       "origin": "Nguồn khách",
       "sales": "Nhân viên Sales",
       "page": "Trang / kênh",
+      "presetToday": "Hôm nay",
       "preset7": "7 ngày",
       "preset30": "30 ngày",
       "thisMonth": "Tháng này",

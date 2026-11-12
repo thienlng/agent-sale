@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { PublicImageUrl } from '../common/media.js';
-import { AccommodationDetails, CatalogAccommodationDetails } from './lodging.schema.js';
+import {
+  AccommodationDetails,
+  AccommodationWrite,
+  CatalogAccommodationDetails,
+} from './lodging.schema.js';
 import { Money } from './money.schema.js';
 import { OrderItemsPreviewFields, OrderOriginFields } from './order-review.schema.js';
 
@@ -220,7 +224,7 @@ const upsertProductShape = {
   visibleToBot: z.boolean().default(true),
   botInstructions: z.string().trim().max(4000).default(''),
   imageUrls: ProductImageUrls.default([]),
-  accommodation: AccommodationDetails.nullable().optional(),
+  accommodation: AccommodationWrite.nullable().optional(),
   /** Omitted on update: the stored offering stays. Null clears it. */
   offering: OfferingDetails.nullable().optional(),
   status: z.enum(['active', 'archived']).default('active'),
