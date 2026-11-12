@@ -301,7 +301,10 @@ export const tasks = pgTable(
     conversationId: uuid('conversation_id'),
     subjectType: text('subject_type'),
     subjectId: uuid('subject_id'),
-    source: text('source').$type<'manual' | 'today' | 'assistant'>().notNull().default('manual'),
+    source: text('source')
+      .$type<'manual' | 'today' | 'assistant' | 'bot'>()
+      .notNull()
+      .default('manual'),
     createdBy: uuid('created_by'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
@@ -321,7 +324,7 @@ export const tasks = pgTable(
     check('tasks_note_length', sql`char_length(${t.note}) <= 2000`),
     check('tasks_assignee_kind_check', sql`${t.assigneeKind} in ('member','ai')`),
     check('tasks_status_check', sql`${t.status} in ('open','done','cancelled')`),
-    check('tasks_source_check', sql`${t.source} in ('manual','today','assistant')`),
+    check('tasks_source_check', sql`${t.source} in ('manual','today','assistant','bot')`),
     check('tasks_subject_type_length', sql`char_length(${t.subjectType}) <= 40`),
     check('tasks_subject_check', sql`(${t.subjectType} is null) = (${t.subjectId} is null)`),
     check(

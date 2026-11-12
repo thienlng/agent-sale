@@ -484,6 +484,55 @@ describe('spa requests', () => {
   });
 });
 
+describe('request tasks and reschedules (MS-10, MS-21)', () => {
+  const tasks = async (h: Headers, contactId: string) =>
+    (await call(h, 'GET', `/tasks?scope=all&status=open&contactId=${contactId}`)).json()
+      .data as Array<{ id: string; title: string; source: string; dueAt: string | null }>;
+
+  it('opens one confirmation task per customer request, due now, rewritten by updates', async () => {
+    const a = await owner('spa');
+    const base = { name: 'Chị Thư', phone: '0987654321', service: 'Phun mày' };
+    const res = await record(a.ws, 'appointment', {
+      ...base,
+      preferredDate: vnDate(4),
+      preferredTime: '9h',
+    });
+    const id = contactIdOf(res);
+    const [task, ...more] = await tasks(a.headers, id);
+    expect(more).toEqual([]);
+    expect(task).toMatchObject({ source: 'bot' });
+    expect(task?.title).toMatch(/^Xác nhận – Đặt lịch: Chị Thư – (Thứ|Chủ).* 9h$/);
+    expect(Date.parse(task?.dueAt ?? '')).toBeLessThanOrEqual(Date.now());
+    // An update of a request not confirmed yet: same task, new slot, status unchanged.
+    await record(a.ws, 'appointment', { ...base, preferredTime: '10h' });
+    const after = await tasks(a.headers, id);
+    expect(after).toHaveLength(1);
+    expect(after[0]?.title).toMatch(/10h$/);
+    expect(await statusKey(a.headers, id)).toBe('booking_requested');
+  });
+
+  it('sends a confirmed appointment back to "requested" with a "Khách đổi lịch" task when the slot moves', async () => {
+    const a = await owner('spa');
+    const base = { name: 'Chị Thư', phone: '0987654322', service: 'Phun mày' };
+    const first = await record(a.ws, 'appointment', { ...base, preferredDate: vnDate(4) });
+    const id = contactIdOf(first);
+    await setStatus(a.headers, id, 'booked');
+    // Staff closed the confirmation task when they confirmed the slot.
+    const [done] = await tasks(a.headers, id);
+    await call(a.headers, 'POST', `/tasks/${done?.id}/complete`);
+    // Same request, same slot (a retried call): stays confirmed, no task.
+    await record(a.ws, 'appointment', { ...base, preferredDate: vnDate(4) });
+    expect(await statusKey(a.headers, id)).toBe('booked');
+    // The customer moves the day: back to requested, a reschedule task, flagged in the history.
+    const moved = await record(a.ws, 'appointment', { ...base, preferredDate: vnDate(5) });
+    expect(moved).toMatchObject({ outcome: 'updated' });
+    expect(await statusKey(a.headers, id)).toBe('booking_requested');
+    const open = await tasks(a.headers, id);
+    expect(open).toHaveLength(1);
+    expect(open[0]?.title).toMatch(/^Khách đổi lịch – Đặt lịch: Chị Thư – /);
+  });
+});
+
 describe('request source (MS-11)', () => {
   it('gives a customer created by a website request the Website source and returns its phone', async () => {
     const a = await owner('spa');

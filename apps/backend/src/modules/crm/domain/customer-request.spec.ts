@@ -14,6 +14,8 @@ import {
   isPastDate,
   mergeRequestDetails,
   requestNote,
+  requestTaskTitle,
+  slotChanged,
   UPDATE_WINDOW_MS,
   withCatalogItem,
 } from './customer-request.js';
@@ -125,6 +127,48 @@ describe('historyDetails', () => {
         preferredDate: '2026-11-07',
       }),
     ).toEqual({ name: 'Chị Hoa', course: 'IELTS', preferredDate: '2026-11-07' });
+  });
+});
+
+describe('reschedules (MS-10)', () => {
+  const spa = REQUEST_PROFILES.spa;
+  const move = spa.status.appointment!;
+  const at = { current: 4, target: 2 };
+
+  it('sends a confirmed slot back only when the update moved it', () => {
+    expect(decideStatusMove(move, 'booked', at)).toBe(false);
+    expect(decideStatusMove(move, 'booked', at, true)).toBe(true);
+    // forward_only (saas) never moves back, rescheduled or not.
+    expect(decideStatusMove(REQUEST_PROFILES.saas.status.demo!, 'won', at, true)).toBe(false);
+  });
+
+  it('compares day, time, branch and service, not the name or the note', () => {
+    const earlier = { details: { name: 'Thư', service: 'Phun mày', preferredDate: '2026-11-17' } };
+    expect(
+      slotChanged(earlier, {
+        name: 'Thư',
+        service: 'Phun mày',
+        preferredDate: '2026-11-17',
+        note: 'x',
+      }),
+    ).toBe(false);
+    expect(
+      slotChanged(earlier, { name: 'Thư', service: 'Phun mày', preferredDate: '2026-11-18' }),
+    ).toBe(true);
+    expect(
+      slotChanged(earlier, { name: 'Thư', service: 'Phun môi', preferredDate: '2026-11-17' }),
+    ).toBe(true);
+  });
+
+  it('titles the staff task by kind, name and slot', () => {
+    const details = { name: 'Chị Thư', preferredTime: '9h' };
+    expect(requestTaskTitle(spa, 'appointment', details, 'Thứ Ba 17/11/2026', false)).toBe(
+      'Xác nhận – Đặt lịch: Chị Thư – Thứ Ba 17/11/2026 9h',
+    );
+    expect(requestTaskTitle(spa, 'appointment', details, null, true)).toBe(
+      'Khách đổi lịch – Đặt lịch: Chị Thư – 9h',
+    );
+    expect(requestTaskTitle(spa, 'consultation', {}, null, false)).toBe('Xác nhận – Xin tư vấn');
   });
 });
 

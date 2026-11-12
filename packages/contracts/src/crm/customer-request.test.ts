@@ -154,6 +154,8 @@ describe('education and spa profiles', () => {
       key: 'booking_requested',
       move: 'unless',
       keep: ['booked'],
+      // A moved confirmed slot goes back to the request stage (MS-10).
+      reopen: ['booked'],
     });
     expect(REQUEST_PROFILES.spa.description).toContain(
       'preferredDate is YYYY-MM-DD only when the customer named a day; otherwise put their words in preferredTime',

@@ -29,6 +29,10 @@ Staff set every status by hand except the ones a request moves to:
 
 The rule is "move unless at a confirmed status", not "forward only". A returning customer who asks again goes back into the queue: a `visited` spa customer who books again moves to `booking_requested`, and an `enrolled` student who asks for a new consultation stays `enrolled`. Each move leaves the usual `contact.status_changed` history entry and event.
 
+**Reschedules (MS-10).** An update (same kind within 24 h) that moves the slot — day, time, branch, service or course — of a customer at a confirmed status goes back to the request stage (`reopen`: spa `booked` → `booking_requested`, education `test_scheduled` → `test_requested`); the history entry carries `rescheduled: true`.
+
+**Staff tasks (MS-21).** Every recorded request opens (or, for an update, rewrites) one staff task per customer (`subject_type = 'customer_request'`, subject = the customer, `source = 'bot'`, assigned to the customer's sales person, due when recorded), titled `Xác nhận – <kind>: <name> – <day time>`, with the request note. It shows in **Việc hôm nay** until someone completes it; a reschedule makes it due again as `Khách đổi lịch – <kind>: …`.
+
 ## What the bot collects
 
 The bot calls its built-in tool `record_request` once it knows the name and a phone number the customer wrote themselves (the last 9 digits must appear in the customer's messages). For a spa appointment it also needs the service and a day or a time. Before calling, it asks for the details worth having, at most two per message:

@@ -114,6 +114,42 @@ export function sameRequest(
   return (data['dateLabel'] ?? null) === label && [...keys].every((k) => stored[k] === details[k]);
 }
 
+/** The fields that make a request's slot: changing one of them reschedules it (MS-10). */
+const SLOT_FIELDS = ['preferredDate', 'preferredTime', 'branch', 'service', 'course'] as const;
+
+/** Whether an update moves the slot of the stored request (`{kind, details, dateLabel}` data). */
+export function slotChanged(
+  earlier: Readonly<Record<string, unknown>>,
+  details: Readonly<Record<string, string>>,
+): boolean {
+  const stored = (earlier['details'] ?? {}) as Record<string, unknown>;
+  return SLOT_FIELDS.some((k) => (stored[k] ?? '') !== (details[k] ?? ''));
+}
+
+/** Subject of the open task that asks staff to confirm a customer's request (one per customer). */
+export const REQUEST_TASK_SUBJECT = 'customer_request';
+/** Title prefix of that task once the customer moved a confirmed slot. */
+export const RESCHEDULED_PREFIX = 'Khách đổi lịch';
+
+/**
+ * The staff task's title for a request (≤ 200 chars): "Xác nhận – <kind>: <name> – <day time>",
+ * or "Khách đổi lịch – <kind>: …" when the customer moved a confirmed slot.
+ */
+export function requestTaskTitle(
+  profile: RequestProfile,
+  kind: CustomerRequestKind,
+  details: Readonly<Record<string, unknown>>,
+  label: string | null,
+  rescheduled: boolean,
+): string {
+  const text = (k: string) => (typeof details[k] === 'string' ? (details[k] as string).trim() : '');
+  const what = profile.kindLabels[kind] ?? kind;
+  const when = [label, text('preferredTime')].filter(Boolean).join(' ');
+  const who = [text('name'), when].filter(Boolean).join(' – ');
+  const head = `${rescheduled ? RESCHEDULED_PREFIX : 'Xác nhận'} – ${what}`;
+  return (who ? `${head}: ${who}` : head).slice(0, 200);
+}
+
 /**
  * Whether a request moves the customer to `move.key`. `currentKey` is the built-in key of the
  * customer's status (null: none or a custom status). `positions` are the pipeline positions of the
@@ -127,8 +163,12 @@ export function decideStatusMove(
   move: RequestStatusMove,
   currentKey: string | null,
   positions: { current: number | null; target: number },
+  /** The update moved the slot: a `reopen` status goes back to the target (MS-10). */
+  rescheduled = false,
 ): boolean {
   if (currentKey !== null && currentKey === move.key) return false;
+  if (rescheduled && move.move === 'unless' && currentKey && move.reopen?.includes(currentKey))
+    return true;
   if (move.move === 'forward_only')
     return positions.current === null || positions.current < positions.target;
   return currentKey === null || !move.keep.includes(currentKey);

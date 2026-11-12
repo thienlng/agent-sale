@@ -70,8 +70,12 @@ export type RequestFieldRule = RequestFieldKey | readonly RequestFieldKey[];
 export type RequestStatusMove =
   /** ADR-020 behaviour (saas): never moves a customer backwards. */
   | { key: string; move: 'forward_only' }
-  /** Moves unless the current key is in `keep` (a confirmed status) or already the target. */
-  | { key: string; move: 'unless'; keep: readonly string[] };
+  /**
+   * Moves unless the current key is in `keep` (a confirmed status) or already the target. An update
+   * that changes the slot (day, time, branch, service or course) of a customer at a `reopen` status
+   * (a confirmed appointment) moves back to `key`: staff must confirm the new slot (MS-10).
+   */
+  | { key: string; move: 'unless'; keep: readonly string[]; reopen?: readonly string[] };
 
 export interface RequestFieldDef {
   key: RequestFieldKey;
@@ -275,8 +279,18 @@ const EDUCATION_PROFILE: RequestProfile = {
     consultation: ['goal'],
   },
   status: {
-    placement_test: { key: 'test_requested', move: 'unless', keep: EDUCATION_TESTED },
-    trial: { key: 'test_requested', move: 'unless', keep: EDUCATION_TESTED },
+    placement_test: {
+      key: 'test_requested',
+      move: 'unless',
+      keep: EDUCATION_TESTED,
+      reopen: ['test_scheduled'],
+    },
+    trial: {
+      key: 'test_requested',
+      move: 'unless',
+      keep: EDUCATION_TESTED,
+      reopen: ['test_scheduled'],
+    },
     consultation: {
       key: 'consulting',
       move: 'unless',
@@ -332,7 +346,12 @@ const SPA_PROFILE: RequestProfile = {
     appointment: ['branch', 'preferredTime'],
   },
   status: {
-    appointment: { key: 'booking_requested', move: 'unless', keep: ['booked'] },
+    appointment: {
+      key: 'booking_requested',
+      move: 'unless',
+      keep: ['booked'],
+      reopen: ['booked'],
+    },
     consultation: {
       key: 'consulting',
       move: 'unless',
