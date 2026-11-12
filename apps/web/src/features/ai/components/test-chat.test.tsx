@@ -57,6 +57,7 @@ describe('TestChat', () => {
         { role: 'bot', content: 'Dạ Shop Lan xin chào ạ!' },
         { role: 'customer', content: 'shop o dau vay' },
       ],
+      sessionId: expect.stringMatching(/^[0-9a-f-]{36}$/),
     });
   });
 
@@ -82,7 +83,11 @@ describe('TestChat', () => {
       [`POST /bots/${botId}/playground`]: {
         status: 503,
         body: {
-          error: { code: 'AI_UNAVAILABLE', message: 'No AI model is configured for this tier' },
+          error: {
+            code: 'AI_UNAVAILABLE',
+            message: 'No AI model is configured for this tier',
+            details: { tier: 'standard', reason: 'not_configured' },
+          },
         },
       },
     });
@@ -94,6 +99,46 @@ describe('TestChat', () => {
     expect(
       await screen.findByText('Chưa cấu hình mô hình AI cho gói này. Liên hệ quản trị hệ thống.'),
     ).toBeInTheDocument();
+  });
+
+  it('says the AI is busy for a temporary outage, not that it is not configured (TM-3)', async () => {
+    const { fetchStub } = stubFetch({
+      [`POST /bots/${botId}/playground`]: {
+        status: 503,
+        body: {
+          error: {
+            code: 'AI_UNAVAILABLE',
+            message: 'The AI model is temporarily unavailable',
+            details: { reason: 'temporarily_unavailable' },
+          },
+        },
+      },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithProviders(<TestChat botId={botId} greeting="" />);
+    await userEvent.type(screen.getByLabelText('Nhập tin nhắn của bạn'), 'alo{Enter}');
+    expect(
+      await screen.findByText('Mô hình AI đang bận, vui lòng thử lại sau ít phút.', {}, { timeout: 8000 }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps one session per test chat and starts a new one on reset (TM-18)', async () => {
+    const { fetchStub, calls } = stubFetch({
+      [`POST /bots/${botId}/playground`]: { status: 200, body: reply },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithProviders(<TestChat botId={botId} greeting="" />);
+    const input = () => screen.getByLabelText('Nhập tin nhắn của bạn');
+    await userEvent.type(input(), 'mot{Enter}');
+    expect(await screen.findByText('Dạ shop ở 12 Lê Lợi ạ')).toBeInTheDocument();
+    await userEvent.type(input(), 'hai{Enter}');
+    expect(await screen.findAllByText('Dạ shop ở 12 Lê Lợi ạ')).toHaveLength(2);
+    await userEvent.click(screen.getByRole('button', { name: 'Làm mới đoạn chat' }));
+    await userEvent.type(input(), 'ba{Enter}');
+    expect(await screen.findByText('Dạ shop ở 12 Lê Lợi ạ')).toBeInTheDocument();
+    const ids = calls.map((c) => (c.body as { sessionId: string }).sessionId);
+    expect(ids[0]).toBe(ids[1]);
+    expect(ids[2]).not.toBe(ids[0]);
   });
 
   it('offers the FAQ starters only while empty and resets the conversation', async () => {
@@ -140,6 +185,7 @@ describe('TestChat', () => {
       expect(calls[0]?.body).toEqual({
         messages: [{ role: 'customer', content: 'giay nay gia sao' }],
         images: [{ mimeType: 'image/png', base64: 'AAAAAA==' }],
+        sessionId: expect.any(String),
       });
       expect(screen.getAllByAltText('Ảnh đính kèm')).toHaveLength(1);
     });
