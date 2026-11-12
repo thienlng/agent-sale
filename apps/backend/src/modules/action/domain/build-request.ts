@@ -76,6 +76,9 @@ export function buildRequest(
     values.set(param.name, value);
   }
 
+  // Arguments never choose the host: actions saved before the contract refused it stay inert.
+  if (/[{}]/.test(/^https?:\/\/([^/?#]*)/i.exec(spec.url)?.[1] ?? '')) return invalid;
+
   let path = spec.url;
   const query: [string, string][] = [];
   const headers: Record<string, string> = { Accept: 'application/json' };

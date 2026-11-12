@@ -184,6 +184,25 @@ describe('ActionFormView', () => {
       expect(calls[0]?.body).toMatchObject({ authSecret: 'new-token' });
     });
 
+    it('asks for the secret again when the URL moves to another origin', async () => {
+      const { fetchStub, calls } = stubFetch({ [patch]: { status: 200, body: stored } });
+      vi.stubGlobal('fetch', fetchStub);
+      await renderForm(stored);
+      const url = screen.getByLabelText('Đường dẫn API');
+      await userEvent.clear(url);
+      await userEvent.click(url);
+      await userEvent.paste('https://other.vn/orders/{orderId}');
+      expect(screen.getByLabelText('Khóa bí mật')).toHaveAttribute('placeholder', 'Dán khóa mới');
+      await userEvent.click(save());
+      expect(await screen.findByText(/Nhập lại khóa/)).toBeInTheDocument();
+      expect(calls).toHaveLength(0);
+      await userEvent.click(screen.getByLabelText('Khóa bí mật'));
+      await userEvent.paste('other-key');
+      await userEvent.click(save());
+      await waitFor(() => expect(calls).toHaveLength(1));
+      expect(calls[0]?.body).toMatchObject({ authSecret: 'other-key' });
+    });
+
     it('keeps the form pre-filled from the stored action and hides the secret for "none"', async () => {
       vi.stubGlobal('fetch', stubFetch({}).fetchStub);
       await renderForm(stored);

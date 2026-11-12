@@ -15,6 +15,8 @@ import { TrainingNav } from './training-nav';
 
 // The on/off switch has its own tests; this file covers the menu entries only.
 vi.mock('./bot-active-switch', () => ({ BotActiveSwitch: () => null }));
+const can = vi.hoisted(() => ({ manage: true }));
+vi.mock('@/lib/permissions', () => ({ useCan: () => can.manage }));
 
 const BOT = { id: 'b1', name: 'Shop bot' } as BotDto;
 
@@ -31,6 +33,26 @@ async function renderNav(props: Partial<Parameters<typeof TrainingNav>[0]> = {})
 }
 
 describe('TrainingNav', () => {
+  it('shows API actions only to members who manage bots', async () => {
+    for (const nav of await renderNav()) {
+      expect(within(nav).getByRole('link', { name: 'Hành động API' })).toHaveAttribute(
+        'href',
+        '/app/bots/b1/actions',
+      );
+    }
+  });
+
+  it('hides API actions from members who cannot manage bots', async () => {
+    can.manage = false;
+    try {
+      for (const nav of await renderNav()) {
+        expect(within(nav).queryByRole('link', { name: 'Hành động API' })).toBeNull();
+      }
+    } finally {
+      can.manage = true;
+    }
+  });
+
   it('has no image library entry in either menu', async () => {
     for (const nav of await renderNav()) {
       expect(within(nav).queryByRole('link', { name: 'Thư viện ảnh' })).toBeNull();

@@ -17,6 +17,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useCan } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
 
 import { BotActiveSwitch } from './bot-active-switch';
@@ -128,6 +129,9 @@ function SettingsGroup({ botId }: { botId: string }) {
 export function TrainingNav({ bot }: { bot: BotDto }) {
   const { t } = useTranslation('training');
   const { t: common } = useTranslation();
+  // API actions carry third-party secrets: only `bots.manage` may open them (the API refuses others).
+  const canManage = useCan('bots.manage');
+  const main = canManage ? MAIN : MAIN.filter((i) => i.to !== '/app/bots/$botId/actions');
 
   return (
     <div className="flex shrink-0 flex-col border-b bg-background lg:w-56 lg:border-r lg:border-b-0">
@@ -148,7 +152,7 @@ export function TrainingNav({ bot }: { bot: BotDto }) {
 
       <nav aria-label={t('menu')} className="hidden flex-col pb-4 lg:flex">
         <GroupLabel>{t('space.nav.main')}</GroupLabel>
-        {MAIN.map((item) => (
+        {main.map((item) => (
           <NavLink key={item.to} botId={bot.id} item={item} industry={bot.industry} />
         ))}
         <SettingsGroup botId={bot.id} />
@@ -159,7 +163,7 @@ export function TrainingNav({ bot }: { bot: BotDto }) {
       </nav>
 
       <nav aria-label={t('menu')} className="flex overflow-x-auto lg:hidden">
-        {[...MAIN, ...SETTINGS, ...DEVELOPMENT].map((item) => (
+        {[...main, ...SETTINGS, ...DEVELOPMENT].map((item) => (
           <NavLink
             key={item.to}
             botId={bot.id}

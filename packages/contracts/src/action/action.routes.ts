@@ -59,7 +59,8 @@ export const actionRoutes = defineRoutes([
     method: 'patch',
     path: '/bots/{botId}/actions/{actionId}',
     assistant: { use: 'never' },
-    summary: 'Update an API action (authSecret: absent keeps, empty clears)',
+    summary:
+      'Update an API action (authSecret: absent keeps, empty clears; a new origin or auth needs a new one)',
     body: UpdateActionRequest,
     responses: { 200: ActionDto },
   },

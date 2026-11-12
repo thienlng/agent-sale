@@ -20,6 +20,7 @@
   "empty": "Chưa có hành động nào",
   "emptyHint": "Thêm API đầu tiên để bot tra cứu đơn hàng, đặt lịch…",
   "noMatch": "Không có hành động phù hợp",
+  "noPermission": "Chỉ chủ sở hữu và quản trị viên được quản lý hành động API.",
   "loadError": "Không tải được danh sách hành động",
   "retry": "Thử lại",
   "toggle": "Bật/tắt {{name}}",
@@ -52,7 +53,7 @@
     "headerName": "Tên header",
     "secret": "Khóa bí mật",
     "secretSaved": "•••• đã lưu",
-    "secretHint": "Chỉ ghi, không hiển thị lại. Để trống để giữ khóa hiện tại.",
+    "secretHint": "Chỉ ghi, không hiển thị lại. Để trống để giữ khóa hiện tại khi địa chỉ và kiểu xác thực không đổi.",
     "secretPlaceholder": "Dán khóa mới",
     "params": "Tham số",
     "paramsHint": "Thông tin bot cần hỏi khách hoặc lấy từ cuộc trò chuyện trước khi gọi.",
@@ -107,6 +108,8 @@
     "headerName": "Tên header không hợp lệ",
     "tooLong": "Quá dài",
     "statusCode": "Mã từ 100 đến 599",
+    "hostPlaceholder": "Tên miền không được chứa {param}",
+    "secretMoved": "Nhập lại khóa: khóa chỉ được gửi tới đúng địa chỉ và kiểu xác thực đã lưu",
     "invalid": "Giá trị không hợp lệ"
   },
   "test": {
