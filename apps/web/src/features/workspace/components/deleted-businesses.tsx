@@ -59,7 +59,7 @@ export function DeletedBusinesses() {
                     date: formatDay(isoDate(new Date(b.deletedAt))),
                   })}
                   {' · '}
-                  <span className="text-destructive">
+                  <span className={left <= 3 ? 'text-destructive' : undefined}>
                     {left <= 1
                       ? t('business.gallery.deleted.lastDay')
                       : t('business.gallery.deleted.daysLeft', { count: left })}
