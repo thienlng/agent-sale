@@ -108,4 +108,14 @@ describe('RatesTab', () => {
     expect(within(group).getByText('Giá nhập')).toBeVisible();
     expect(within(group).getByLabelText('Phụ thu người lớn · Giá nhập')).toBeInTheDocument();
   });
+
+  it('lists the days of each row as a card on a phone (VL-A7)', async () => {
+    stub();
+    vi.stubGlobal('innerWidth', 390);
+    renderWithRouter(() => <RatesTab property={rooms} canEdit onDirtyChange={() => {}} />);
+    const card = await screen.findByRole('region', { name: 'P102' });
+    expect(within(card).getByLabelText('Giá bán P102 CN')).toBeInTheDocument();
+    expect(within(card).getByLabelText('Giá nhập P102 CN')).toBeInTheDocument();
+    expect(screen.queryByRole('table')).toBeNull();
+  });
 });
