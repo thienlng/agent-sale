@@ -5,7 +5,9 @@ import {
   ActionDto,
   ActionInput,
   ActionTestRequest,
+  HOST_PLACEHOLDER,
   looksLikeSecretName,
+  sameSecretTarget,
   SECRET_IN_DRAFT,
   UpdateActionRequest,
 } from './index.js';
@@ -105,6 +107,24 @@ describe('ActionInput', () => {
     expect(ActionInput.safeParse({ ...valid, url: 'http://shop.example.com/x' }).success).toBe(
       false,
     );
+  });
+
+  it('refuses a {placeholder} in the host, port or userinfo', () => {
+    const path = [{ ...valid.params[0], name: 'h' }];
+    for (const url of [
+      'https://{h}/api',
+      'https://{h}.example.com/api',
+      'https://shop.example.com:{h}/api',
+      'https://{h}@shop.example.com/api',
+    ]) {
+      const parsed = ActionInput.safeParse({ ...valid, url, params: path });
+      expect(parsed.success, url).toBe(false);
+      expect(JSON.stringify(parsed.error?.issues), url).toContain(HOST_PLACEHOLDER);
+    }
+    expect(
+      ActionInput.safeParse({ ...valid, url: 'https://shop.example.com/{h}?q=1', params: path })
+        .success,
+    ).toBe(true);
   });
 
   it('rejects a {placeholder} without a matching path param', () => {
@@ -218,5 +238,41 @@ describe('other action schemas', () => {
   it('accepts primitive test args only', () => {
     expect(ActionTestRequest.safeParse({ args: { a: 'x', b: 1, c: true } }).success).toBe(true);
     expect(ActionTestRequest.safeParse({ args: { a: { nested: 1 } } }).success).toBe(false);
+  });
+});
+
+describe('sameSecretTarget', () => {
+  const key = { kind: 'api_key', headerName: 'X-Api-Key' } as const;
+  const at = (url: string, auth: Parameters<typeof sameSecretTarget>[0]['auth'] = key) => ({
+    url,
+    auth,
+  });
+  const stored = at('https://shop.example.com/api/orders/{code}');
+
+  it('keeps the secret on the same origin and auth', () => {
+    expect(sameSecretTarget(at('https://shop.example.com/v2/{code}?x=1'), stored)).toBe(true);
+    expect(sameSecretTarget(at('https://SHOP.example.com:443/a'), stored)).toBe(true);
+    expect(
+      sameSecretTarget(
+        at('https://shop.example.com/a', { ...key, headerName: 'x-api-key' }),
+        stored,
+      ),
+    ).toBe(true);
+  });
+
+  it('refuses another origin, auth kind or header name', () => {
+    expect(sameSecretTarget(at('https://api.shop.example.com/a'), stored)).toBe(false);
+    expect(sameSecretTarget(at('https://shop.example.com:8443/a'), stored)).toBe(false);
+    expect(sameSecretTarget(at('https://shop.example.com/a', { kind: 'bearer' }), stored)).toBe(
+      false,
+    );
+    expect(
+      sameSecretTarget(at('https://shop.example.com/a', { ...key, headerName: 'X-Leak' }), stored),
+    ).toBe(false);
+  });
+
+  it('refuses a placeholder host even when both templates match', () => {
+    expect(sameSecretTarget(at('https://{h}/a'), at('https://{h}/a'))).toBe(false);
+    expect(sameSecretTarget(at('not a url'), at('not a url'))).toBe(false);
   });
 });

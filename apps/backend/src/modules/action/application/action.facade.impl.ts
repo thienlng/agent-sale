@@ -3,6 +3,8 @@ import {
   type ActionDto,
   type ActionTestResult,
   type UpdateActionRequest,
+  SECRET_REQUIRED,
+  sameSecretTarget,
 } from '@agent-sales/contracts';
 import { isUuid, newId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable, Optional } from '@nestjs/common';
@@ -101,7 +103,19 @@ export class ActionFacadeImpl implements ActionFacade {
         requiresConfirm: patch.requiresConfirm ?? current.requiresConfirm,
         enabled: patch.enabled ?? current.enabled,
       });
-      let authSecretEnc = current.authSecretEnc;
+      // A stored secret only travels where it was entered for (same origin, sent the same way);
+      // moving it elsewhere needs the secret again, so it is refused rather than silently dropped.
+      const keeps = sameSecretTarget(merged, current);
+      if (
+        !keeps &&
+        current.authSecretEnc !== null &&
+        merged.auth.kind !== 'none' &&
+        authSecret === undefined
+      )
+        throw new InvalidActionError('Re-enter the secret for the new address or authentication', {
+          reason: SECRET_REQUIRED,
+        });
+      let authSecretEnc = keeps ? current.authSecretEnc : null;
       if (merged.auth.kind === 'none' || authSecret === '') authSecretEnc = null;
       else if (authSecret !== undefined) authSecretEnc = this.secrets.seal(authSecret);
       const next: ActionRecord = {
@@ -157,7 +171,7 @@ export class ActionFacadeImpl implements ActionFacade {
         draft.actionId && isUuid(draft.actionId)
           ? await this.uow.run(ws, (repo) => repo.find(botId, draft.actionId as string))
           : null;
-      authSecretEnc = stored?.authSecretEnc ?? null;
+      authSecretEnc = stored && sameSecretTarget(fields, stored) ? stored.authSecretEnc : null;
     }
     const now = new Date().toISOString();
     const record: ActionRecord = {
