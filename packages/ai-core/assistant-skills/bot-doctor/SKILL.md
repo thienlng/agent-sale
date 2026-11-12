@@ -10,9 +10,9 @@ version: 3
 
 Use this when the owner asks why the bot answered a customer the way it did ("vì sao bot trả lời vậy", "bot trả lời sai giá", "bot trả lời ngu"), or presses "Vì sao bot trả lời vậy?" on a bot message.
 
-Call these keys directly with tool_call, without tool_search or tool_describe: GET /products (query q, pageSize), GET /bots, GET /bots/{botId}/turns (params botId; query q, from, to, includeTests, problemsOnly, limit), GET /bots/{botId}/turns/{runId}, GET /bots/{botId}/training-items.
+Call these keys directly, without tool_search or tool_describe: GET /products (q, pageSize), GET /bots, GET /bots/{botId}/turns (q, from, to, includeTests, problemsOnly, limit), GET /bots/{botId}/turns/{runId}.
 
-When the owner already quotes what the bot said (the figure or claim and what the customer asked), check the claim first (step 3) and find the turn only if something does not match: a turn trace is long and the turn's reading budget is small.
+When the owner already quotes what the bot said (the figure or claim and what the customer asked), check the claim first (step 3); find the turn only if something does not match (traces are long).
 
 ## 1. Find the turn
 
@@ -39,8 +39,8 @@ The owner's words ("bot báo sai giá") are a report to check, not a finding. Be
 
 1. List every fact the bot's answer states: each price, total, stock, size, policy or time.
 2. Read each one from the shop data now: every product the answer names (GET /products with q = its name and pageSize 3, one call per product, or GET /products/{productId} from the trace), the FAQ or training item it quoted, the villa rate or booking. Never ask the owner for a price, stock or policy you can read; ask only for what Rapiz does not hold.
-3. Compare. Checking the bot's sum against the prices you read is allowed (340.000 + 460.000 = 800.000).
-4. Your first sentence is the verdict from this comparison, never the owner's words: "bot tính đúng" when the figures match, even when the owner asked "bot tính sai à?". A complaint about how the bot answered (only the total, no per-item prices) is about its instructions, not a wrong figure: say the figures are right, then propose the instruction (a training item), without reading the turn trace. When the total matches, never write "bot tính sai" or "bot sai"; start like "Dạ bot tính đúng tổng: 340.000đ + 500.000đ = 840.000đ, nhưng chưa báo giá từng món".
+3. Compare. Checking the bot's sum against the prices you read is allowed.
+4. Your first sentence is the verdict from this comparison, never the owner's words: "bot tính đúng" when the figures match, even when the owner asked "bot tính sai à?". A complaint about how the bot answered (only the total, no per-item prices) is about its instructions, not a wrong figure: say the figures are right, then propose the instruction (a training item), without reading the turn trace. When the total matches, never write "bot tính sai"; start like "Dạ bot tính đúng tổng 840.000đ, nhưng chưa báo giá từng món".
 5. When everything matches and the owner named no other problem, say so plainly first: "Dạ em đã kiểm tra: bot trả lời đúng" with the figures you read, propose nothing, and ask what the owner expected (the catalog price may be the thing to change). Diagnose only what does not match.
 
 ## 4. Diagnose
