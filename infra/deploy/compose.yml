@@ -69,13 +69,24 @@ services:
     networks: [default, backend]
     logging: *logging
 
+  # Password from REDIS_PASSWORD (bootstrap.sh / deploy.sh generate it; REDIS_URL carries it). It
+  # goes into a config file inside the container, never onto a command line.
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe
     restart: unless-stopped
-    command: ['redis-server', '--appendonly', 'yes']
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        umask 077
+        : > /tmp/redis.conf
+        if [ -n "$$REDIS_PASSWORD" ]; then printf 'requirepass %s\n' "$$REDIS_PASSWORD" > /tmp/redis.conf; fi
+        chown redis /tmp/redis.conf
+        exec docker-entrypoint.sh redis-server /tmp/redis.conf --appendonly yes
     volumes: [redisdata:/data]
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: ['CMD-SHELL', 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
       interval: 5s
       timeout: 3s
       retries: 30
@@ -84,23 +95,39 @@ services:
 
   # S3-compatible object storage. The identities file is rendered from .env at start:
   # `rapiz` writes, `anonymous` may only read the bucket (public product pictures for Meta).
+  # Only the S3 gateway listens on the network: master, volume and filer bind to the container's
+  # loopback (`weed shell` runs inside it), and their HTTP APIs also want a JWT signed with
+  # SEAWEEDFS_JWT_KEY when it is set. The Iceberg and Lance catalog ports are off.
   object-storage:
-    image: chrislusf/seaweedfs:latest
+    image: chrislusf/seaweedfs:4.53@sha256:ccad23e18639c8b98cee17e7100b95830a06077b56d8e5b006d6dcf8ec5e94a0
     restart: unless-stopped
     environment:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:?set in .env}
       S3_SECRET_KEY: ${S3_SECRET_KEY:?set in .env}
       S3_BUCKET: ${S3_BUCKET:-rapiz}
+      SEAWEEDFS_JWT_KEY: ${SEAWEEDFS_JWT_KEY:-}
     entrypoint: ['/bin/sh', '-c']
     command:
       - |
+        umask 077
         cat > /tmp/s3.json <<JSON
         {"identities":[
           {"name":"rapiz","credentials":[{"accessKey":"$$S3_ACCESS_KEY","secretKey":"$$S3_SECRET_KEY"}],
            "actions":["Admin","Read","Write","List","Tagging"]},
           {"name":"anonymous","actions":["Read:$$S3_BUCKET"]}]}
         JSON
-        exec weed server -dir=/data -s3 -s3.config=/tmp/s3.json -master.volumeSizeLimitMB=1024 -volume.max=0
+        mkdir -p /etc/seaweedfs
+        {
+          printf '[access]\nui = false\n'
+          if [ -n "$$SEAWEEDFS_JWT_KEY" ]; then
+            for s in jwt.signing jwt.signing.read jwt.filer_signing jwt.filer_signing.read; do
+              printf '[%s]\nkey = "%s"\nexpires_after_seconds = 30\n' "$$s" "$$SEAWEEDFS_JWT_KEY"
+            done
+          fi
+        } > /etc/seaweedfs/security.toml
+        exec weed server -ip=127.0.0.1 -ip.bind=127.0.0.1 -s3.ip.bind=0.0.0.0 -s3.port.iceberg=0 \
+          -s3.port.lance=0 -dir=/data -s3 -s3.config=/tmp/s3.json -master.volumeSizeLimitMB=1024 \
+          -volume.max=0
     volumes: [s3data:/data]
     networks: [backend]
     logging: *logging
@@ -196,7 +223,6 @@ services:
       default: {}
       backend: {}
       proxy: { aliases: [rapiz-edge] }
-    volumes: [caddydata:/data, caddyconfig:/config]
     depends_on: [api, webhook, object-storage]
     healthcheck:
       test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1/']
@@ -216,6 +242,4 @@ volumes:
   pgdrill:
   redisdata:
   s3data:
-  caddydata:
-  caddyconfig:
   hermes:

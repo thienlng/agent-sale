@@ -27,6 +27,18 @@ fi
 tag=$arg
 export RAPIZ_TAG=$tag
 echo "deploying $tag (current: ${current:-none})"
+
+# Secrets added after the first install (Redis password, SeaweedFS JWT key): generated once into
+# .env and never changed; REDIS_URL is rewritten only if it is still the passwordless default.
+ensure_secret() {
+  grep -qE "^$1=." .env && return 0
+  (umask 077 && sed -i "/^$1=\$/d" .env && printf '%s=%s\n' "$1" "$(openssl rand -hex 24)" >> .env)
+  echo "added $1 to .env"
+}
+ensure_secret REDIS_PASSWORD
+ensure_secret SEAWEEDFS_JWT_KEY
+redis_pw=$(grep -E '^REDIS_PASSWORD=' .env | tail -1 | cut -d= -f2-)
+sed -i "s#^REDIS_URL=redis://redis:6379/*\$#REDIS_URL=redis://:$redis_pw@redis:6379#" .env
 [[ ${RAPIZ_SKIP_PULL:-} == 1 ]] || compose pull --quiet --ignore-buildable
 # Project postgres image with the backup tools (postgres/, ADR-028); cached after the first build.
 compose build -q postgres
