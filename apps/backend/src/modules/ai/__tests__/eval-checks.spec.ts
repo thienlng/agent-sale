@@ -82,6 +82,36 @@ describe('eval checks', () => {
     expect(results[0]?.detail).toContain('299k');
   });
 
+  it('numbers_only_from_sources treats dates derived from the current time as grounded (EV-11)', () => {
+    // Friday 13/11/2026, 01:06 in Asia/Ho_Chi_Minh: "cuối tuần này" is 14/11 and 15/11.
+    const now = new Date('2026-11-12T18:06:00Z');
+    const check = (reply: string) =>
+      runChecks({ numbers_only_from_sources: true }, { ...base, reply, now })[0];
+    expect(check('Dạ tối thứ Bảy 14/11 và Chủ nhật 15/11/2026 bảo hành 6 tháng ạ.')?.pass).toBe(
+      true,
+    );
+    // 27/11 is the last day of the window; 28/11 and a past date are checked like any figure.
+    expect(check('Dạ ngày 27/11 ạ.')?.pass).toBe(true);
+    expect(check('Dạ ngày 28/11 ạ.')?.detail).toContain('28');
+    expect(check('Dạ ngày 12/11 ạ.')?.pass).toBe(false);
+    // A near date vouches only for itself, not for the same numbers elsewhere in the reply.
+    expect(check('Dạ 14/11 còn 15 phòng ạ.')?.detail).toEqual('figures not in the sources: ["15"]');
+    // The year rolls over: 31/12 → 3/1 of the next year.
+    const late = new Date('2026-12-30T03:00:00Z');
+    expect(
+      runChecks(
+        { numbers_only_from_sources: true },
+        { ...base, reply: 'Dạ 3/1/2027 và 3/1 ạ.', now: late },
+      )[0]?.pass,
+    ).toBe(true);
+    // Without the turn's time nothing changes.
+    expect(check('Dạ ngày 14/11 ạ.')?.pass).toBe(true);
+    expect(
+      runChecks({ numbers_only_from_sources: true }, { ...base, reply: 'Dạ ngày 14/11 ạ.' })[0]
+        ?.pass,
+    ).toBe(false);
+  });
+
   it('numbers_only_from_sources does not let the customer vouch for a price', () => {
     const results = runChecks(
       { numbers_only_from_sources: true },

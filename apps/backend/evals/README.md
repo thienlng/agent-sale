@@ -163,7 +163,8 @@ Checks are deterministic and optional (an absent key is not checked). Text compa
 and Unicode normalization, not diacritics. `numbers_only_from_sources` reuses the pipeline's
 `ungroundedFigures` (`domain/grounding.ts`): every figure in the reply must be in the case's
 profile, notes, FAQs, situations or products; the customer's words vouch only for non-money
-figures. Since agent harness v2 the reply path no longer replaces an ungrounded reply (ADR-015), so
+figures. A d/m date (optionally with a year) of the turn's day or the next 14 days counts as
+grounded: the model derives it from the `<current_time>` block ("cuối tuần này" → 14/11). Since agent harness v2 the reply path no longer replaces an ungrounded reply (ADR-015), so
 this check is the only place an invented figure shows up: put it on every case that quotes a price
 or a policy figure. Profile notes are trusted data: an injected number in notes is "grounded", so
 the injection case uses `not_contains`.
