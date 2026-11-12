@@ -157,7 +157,8 @@ export function buildChart(req: ChartRequest, result: SqlRunResult): BuildChartR
 }
 
 /** A line that only stands in for a chart: `[Biểu đồ …]`, `[Chart: …]`, `*(biểu đồ bên dưới)*`. */
-const CHART_PLACEHOLDER_LINE = /^\s*[*_]*[[(](?:biểu đồ|bieu do|chart)(?=[\s:\])])[^\])]*[\])][*_]*\s*$/iu;
+const CHART_PLACEHOLDER_LINE =
+  /^\s*[*_]*[[(](?:biểu đồ|bieu do|chart)(?=[\s:\])])[^\])]*[\])][*_]*\s*$/iu;
 
 /**
  * The answer without the placeholder lines a model writes where its chart goes (NEW-4): the app
