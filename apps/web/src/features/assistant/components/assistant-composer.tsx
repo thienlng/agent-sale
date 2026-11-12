@@ -11,7 +11,7 @@ import { useAssistantUi } from '../stores/assistant-ui.store';
 import { ATTACH_ACCEPT, type AssistantAttachments, AttachmentTray } from './assistant-attachments';
 
 /**
- * Message box: Enter sends, Shift+Enter adds a line. While a turn runs the owner can keep typing;
+ * Message box: Enter sends, Shift+Enter or Alt+Enter adds a line. While a turn runs the owner can keep typing;
  * only sending waits (the send button is disabled and Enter does nothing; 📎 still attaches). `onSend`
  * resolves false when the message was not sent, and the text comes back for another try. A new
  * `draft` (a page's request that arrived while a turn ran) replaces the text for the owner to send.
