@@ -42,12 +42,12 @@ function harness() {
 const post = (app: ReturnType<typeof harness>['app'], body: string, type: string) =>
   app.inject({
     method: 'POST',
-    url: '/meta/data-deletion',
+    url: '/webhooks/meta/data-deletion',
     headers: { 'content-type': type },
     payload: body,
   });
 
-describe('POST /meta/data-deletion', () => {
+describe('POST /webhooks/meta/data-deletion', () => {
   it('answers the status URL and a confirmation code for a valid signed request', async () => {
     const { app, calls, lines } = harness();
     const signed = signRequest(payload, secret);
@@ -116,7 +116,11 @@ describe('POST /meta/data-deletion', () => {
       secrets: {},
       logLevel: 'silent',
     });
-    const res = await app.inject({ method: 'POST', url: '/meta/data-deletion', payload: 'x' });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/meta/data-deletion',
+      payload: 'x',
+    });
     expect(res.statusCode).toBe(404);
   });
 });

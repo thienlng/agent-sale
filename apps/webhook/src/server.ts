@@ -36,7 +36,7 @@ export interface ServerDeps {
   verifyToken?: string;
   /** KiotViet deliveries per connection (`POST /webhooks/kiotviet/:token`); route omitted when absent. */
   kiotviet?: KiotVietIngressStore;
-  /** Meta's data deletion callback (`POST /meta/data-deletion`); route omitted when absent. */
+  /** Meta's data deletion callback (`POST /webhooks/meta/data-deletion`); route omitted when absent. */
   metaDataDeletion?: MetaDataDeletionDeps;
   /** Proxy hops believed for the logged client address (`parseTrustProxy`); default none. */
   trustProxy?: TrustProxySetting;
