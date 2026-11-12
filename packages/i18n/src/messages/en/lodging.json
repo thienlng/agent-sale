@@ -329,9 +329,8 @@
       "blocked": "Blocked",
       "partial": "Some rooms free"
     },
-    "noActiveRooms": "No room is on sale.",
-    "missingRates": "Weekday prices are incomplete.",
-    "botHidden": "The bot will not see this place until its prices are complete.",
+    "noActiveRooms": "Not offered by the bot: the property is sold by room but has no room yet. Add rooms in the Rental units tab, or sell it as a whole.",
+    "missingRates": "Not offered by the bot: some nights in the next 7 days have no price. Fill them in the Prices tab.",
     "createTitle": "Add place",
     "createDescription": "Enter the basics; prices, rooms and photos go on the detail page.",
     "code": "Place code",

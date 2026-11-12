@@ -329,9 +329,8 @@
       "blocked": "Khoá lịch",
       "partial": "Còn một số phòng"
     },
-    "noActiveRooms": "Chưa có phòng nào đang bán.",
-    "missingRates": "Chưa đủ giá cả tuần.",
-    "botHidden": "Bot chưa thấy căn hộ này cho tới khi đủ giá.",
+    "noActiveRooms": "Bot chưa chào bán: căn hộ bán theo phòng nhưng chưa có phòng nào. Thêm phòng ở tab Đơn vị cho thuê, hoặc đổi sang bán nguyên căn.",
+    "missingRates": "Bot chưa chào bán: còn đêm chưa có giá trong 7 ngày tới. Điền giá ở tab Giá.",
     "createTitle": "Thêm căn hộ",
     "createDescription": "Nhập thông tin cơ bản; giá, phòng và ảnh thêm ở trang chi tiết.",
     "code": "Mã căn hộ",

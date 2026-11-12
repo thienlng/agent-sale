@@ -12,7 +12,7 @@ import { ATTACH_ACCEPT, type AssistantAttachments, AttachmentTray } from './assi
 
 /**
  * Message box: Enter sends, Shift+Enter adds a line. While a turn runs the owner can keep typing;
- * only sending waits (the button is disabled and Enter does nothing). `onSend`
+ * only sending waits (the send button is disabled and Enter does nothing; 📎 still attaches). `onSend`
  * resolves false when the message was not sent, and the text comes back for another try. A new
  * `draft` (a page's request that arrived while a turn ran) replaces the text for the owner to send.
  * With `attachments`, 📎 attaches a sheet or product photos (the tray shows them above the box),
@@ -104,7 +104,7 @@ export function AssistantComposer({
               variant="ghost"
               className="text-muted-foreground"
               aria-label={t('import.attach')}
-              disabled={sending || attachments.creating}
+              disabled={attachments.creating}
               onClick={() => picker.current?.click()}
             >
               <Paperclip />
