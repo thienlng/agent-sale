@@ -159,11 +159,22 @@ def validate_request(value):
     return value
 
 
+def bridge_concurrency(raw):
+    """Turns served at once: HERMES_BRIDGE_CONCURRENCY clamped to 1..4; unset or invalid = 1."""
+    try:
+        return min(4, max(1, int(raw))) if raw else 1
+    except ValueError:
+        return 1
+
+
 def make_server(host, port, key, runtime, login=None):
     if len(key) < 32:
         raise ValueError("HERMES_BRIDGE_KEY must contain at least 32 characters")
-    gate = threading.BoundedSemaphore(1)
-    started = {"at": None}  # monotonic start of the turn in flight, for the Retry-After estimate
+    # Single-flight by default; HERMES_BRIDGE_CONCURRENCY (1..4) lets a development bridge serve a few
+    # turns at once (several testers or agents) on the same login.
+    slots = bridge_concurrency(os.environ.get("HERMES_BRIDGE_CONCURRENCY"))
+    gate = threading.BoundedSemaphore(slots)
+    started = {"at": None}  # monotonic start of the latest turn in flight, for the Retry-After estimate
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_args):
@@ -262,7 +273,8 @@ def make_server(host, port, key, runtime, login=None):
                 # Exception text may include provider credentials or customer context.
                 self.send_json(502, {"error": "RUNTIME_FAILED"})
             finally:
-                started["at"] = None
+                if slots == 1:
+                    started["at"] = None
                 gate.release()
 
     server = ThreadingHTTPServer((host, port), Handler)
