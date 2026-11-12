@@ -1018,8 +1018,8 @@ describe('ChatTurnService with the SQL lane', () => {
         chart: {
           kind: 'bar',
           title: 'Đơn',
-          x: { key: 'n', label: 'n' },
-          series: [{ key: 'n2', label: 'n2' }],
+          x: { key: 'n', label: 'Số lượng' },
+          series: [{ key: 'n2', label: 'N2' }],
           unit: 'number',
           rows: [{ n: 'a', n2: 1 }],
         },

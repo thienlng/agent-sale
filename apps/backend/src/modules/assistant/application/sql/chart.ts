@@ -27,6 +27,56 @@ export const MAX_CHART_ROWS = 60;
 export const MAX_CHART_CELL_CHARS = 80;
 const MAX_LABEL_CHARS = 60;
 
+/**
+ * Vietnamese axis and series labels for the column names the SQL views and the model's queries
+ * use, when the model gives no `labels` (staging NEW-4: the owner saw "day" and "orders").
+ */
+const COLUMN_LABELS: Record<string, string> = {
+  day: 'Ngày',
+  date: 'Ngày',
+  ngay: 'Ngày',
+  week: 'Tuần',
+  month: 'Tháng',
+  hour: 'Giờ',
+  orders: 'Số đơn',
+  order_count: 'Số đơn',
+  orders_count: 'Số đơn',
+  revenue: 'Doanh thu',
+  total_revenue: 'Doanh thu',
+  sales: 'Doanh số',
+  profit: 'Lợi nhuận',
+  units: 'Số lượng',
+  units_sold: 'Số lượng bán',
+  qty: 'Số lượng',
+  quantity: 'Số lượng',
+  product: 'Sản phẩm',
+  product_name: 'Sản phẩm',
+  customers: 'Số khách',
+  customer_count: 'Số khách',
+  new_customers: 'Khách mới',
+  conversations: 'Hội thoại',
+  messages: 'Tin nhắn',
+  nights: 'Số đêm',
+  bookings: 'Số booking',
+  property_name: 'Căn',
+  source: 'Nguồn',
+  channel: 'Kênh',
+  status: 'Trạng thái',
+  status_name: 'Trạng thái',
+  category: 'Danh mục',
+  count: 'Số lượng',
+  n: 'Số lượng',
+  total: 'Tổng',
+};
+
+/** The label of a column without a model label: the known Vietnamese one, else the name spaced. */
+export function defaultColumnLabel(key: string): string {
+  const known = COLUMN_LABELS[key.toLowerCase()];
+  if (known) return known;
+  const spaced = key.replace(/_+/g, ' ').trim();
+  return spaced ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : key;
+}
+
 export type BuildChartResult =
   { ok: true; chart: AssistantChart } | { ok: false; errorCode: string };
 
@@ -91,7 +141,7 @@ export function buildChart(req: ChartRequest, result: SqlRunResult): BuildChartR
   });
   const label = (key: string) => ({
     key,
-    label: cut(req.labels?.[key] ?? key, MAX_LABEL_CHARS),
+    label: cut(req.labels?.[key] ?? defaultColumnLabel(key), MAX_LABEL_CHARS),
   });
   return {
     ok: true,
@@ -104,4 +154,20 @@ export function buildChart(req: ChartRequest, result: SqlRunResult): BuildChartR
       rows,
     },
   };
+}
+
+/** A line that only stands in for a chart: `[Biểu đồ …]`, `[Chart: …]`, `*(biểu đồ bên dưới)*`. */
+const CHART_PLACEHOLDER_LINE = /^\s*[*_]*[[(](?:biểu đồ|bieu do|chart)(?=[\s:\])])[^\])]*[\])][*_]*\s*$/iu;
+
+/**
+ * The answer without the placeholder lines a model writes where its chart goes (NEW-4): the app
+ * draws the chart under the answer, so such a line only shows as raw text. Pure.
+ */
+export function withoutChartPlaceholders(text: string): string {
+  return text
+    .split('\n')
+    .filter((line) => !CHART_PLACEHOLDER_LINE.test(line))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }

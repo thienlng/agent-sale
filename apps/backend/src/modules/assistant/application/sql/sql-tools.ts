@@ -177,7 +177,7 @@ export function sqlTools(ctx: SqlToolContext): NativeToolEntry[] {
     key: SQL_QUERY_KEY,
     toolset: 'sql',
     summary:
-      'Run one read-only SELECT over the SQL views and get the rows (figures for the answer). Pass `chart` to show a bar, line or pie chart built from the result rows; do not repeat every point in the answer.',
+      'Run one read-only SELECT over the SQL views and get the rows (figures for the answer). Pass `chart` to show a bar, line or pie chart built from the result rows, with Vietnamese `labels` for the x and y columns; the app draws it under the answer, so do not write a placeholder line for it or repeat every point.',
     when: 'Count, sum or compare shop figures for a date range: revenue today, this week, this month or last month, sales, profit, order count, top products by quantity, stock, new customers by source, inbound and outbound messages per day, conversations per channel, lodging nights. Write the SQL after sql_schema. Pass chart to show a bar, line or pie chart of the rows (a series over days or a ranking).',
     input: SqlQueryInput,
     async run(raw) {

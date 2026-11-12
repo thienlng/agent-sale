@@ -260,8 +260,8 @@ describe('sql_query charts', () => {
         chart: {
           kind: 'bar',
           title: 'Doanh thu',
-          x: { key: 'day', label: 'day' },
-          series: [{ key: 'revenue', label: 'revenue' }],
+          x: { key: 'day', label: 'Ngày' },
+          series: [{ key: 'revenue', label: 'Doanh thu' }],
           unit: 'vnd',
           rows: [
             { day: '2026-11-01', revenue: 100_000 },

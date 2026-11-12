@@ -63,7 +63,7 @@ import { SCHEDULE_TOOL_DEFINITION, scheduleTool } from './schedule-tools.js';
 import { SchedulesService } from './schedules.service.js';
 import { SKILL_TOOL_DEFINITIONS, skillTools } from './skill-tools.js';
 import { SkillsService } from './skills.service.js';
-import { MAX_CHARTS_PER_TURN } from './sql/chart.js';
+import { MAX_CHARTS_PER_TURN, withoutChartPlaceholders } from './sql/chart.js';
 import { type NativeToolEntry, SQL_TOOLSET, sqlTools } from './sql/sql-tools.js';
 import { disabledTools, enabledDefinitions, toolsetCacheSuffix } from './toolsets.js';
 import { withTurnOutputBudget } from './turn-budget.js';
@@ -579,7 +579,11 @@ export class ChatTurnService {
       return this.#result(scope, runId, [user, ...(answer ? [answer] : [])], secretsRemoved);
     }
 
-    const replyText = result.res?.text.trim() ?? '';
+    const rawReply = result.res?.text.trim() ?? '';
+    // A chart is drawn under the answer: a "[Biểu đồ …]" line in the text would show raw (NEW-4).
+    const replyText = ctx.uiActions.some((a) => a.type === 'chart')
+      ? withoutChartPlaceholders(rawReply)
+      : rawReply;
     const answered = result.outcome === 'done' && replyText.length > 0;
     const added = await this.repo.appendMessages(scope, thread.id, [
       ...result.followUps.map((m) => toRow(m, runId)),

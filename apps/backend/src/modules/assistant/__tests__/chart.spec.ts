@@ -1,7 +1,12 @@
 import { AssistantChart } from '@agent-sales/contracts';
 import { describe, expect, it } from 'vitest';
 
-import { buildChart, type ChartRequest } from '../application/sql/chart.js';
+import {
+  buildChart,
+  type ChartRequest,
+  defaultColumnLabel,
+  withoutChartPlaceholders,
+} from '../application/sql/chart.js';
 import type { SqlRunResult } from '../domain/ports/sql-runner.port.js';
 
 const DAYS = [
@@ -58,14 +63,15 @@ describe('buildChart', () => {
     expect(AssistantChart.safeParse(out.chart).success).toBe(true);
   });
 
-  it('defaults the labels to the column names and the unit to number', () => {
+  it('defaults the labels to Vietnamese names of the columns and the unit to number (NEW-4)', () => {
     const out = buildChart(bar({ kind: 'line', y: ['revenue', 'orders'] }), daily());
     if (!out.ok) throw new Error(out.errorCode);
-    expect(out.chart.x).toEqual({ key: 'day', label: 'day' });
+    expect(out.chart.x).toEqual({ key: 'day', label: 'Ngày' });
     expect(out.chart.series).toEqual([
-      { key: 'revenue', label: 'revenue' },
-      { key: 'orders', label: 'orders' },
+      { key: 'revenue', label: 'Doanh thu' },
+      { key: 'orders', label: 'Số đơn' },
     ]);
+    expect(defaultColumnLabel('gross_margin')).toBe('Gross margin');
     expect(out.chart.unit).toBe('number');
     // Only the x and y columns are kept.
     expect(Object.keys(out.chart.rows[0]!)).toEqual(['day', 'revenue', 'orders']);
@@ -132,7 +138,7 @@ describe('buildChart', () => {
       truncated: false,
     });
     if (!out.ok) throw new Error(out.errorCode);
-    expect(out.chart.series[0]!.label).toBe('c'.repeat(60));
+    expect(out.chart.series[0]!.label).toBe(`C${'c'.repeat(59)}`);
     expect(AssistantChart.safeParse(out.chart).success).toBe(true);
   });
 
@@ -187,5 +193,19 @@ describe('buildChart', () => {
     expect(error(bar({ kind: 'pie' }), daily({ rows: [['a', -1, 1, 'x']] }))).toBe('chart_bad_pie');
     // A negative value is fine on a bar chart.
     expect(error(bar(), daily({ rows: [['a', -1, 1, 'x']] }))).toBeNull();
+  });
+});
+
+describe('withoutChartPlaceholders (NEW-4)', () => {
+  it('drops the line a model writes where its chart goes, and keeps the rest', () => {
+    expect(
+      withoutChartPlaceholders(
+        'Biểu đồ số đơn mỗi ngày trong 30 ngày qua:\n\n[Biểu đồ số đơn theo ngày — 30 ngày qua]\n\nTổng 4 đơn.',
+      ),
+    ).toBe('Biểu đồ số đơn mỗi ngày trong 30 ngày qua:\n\nTổng 4 đơn.');
+    expect(withoutChartPlaceholders('A\n*(Chart: orders)*\nB')).toBe('A\nB');
+    // A link or a bracket inside a sentence stays.
+    const kept = 'Xem [Đơn hàng](/app/orders) và [biểu đồ] trong câu.';
+    expect(withoutChartPlaceholders(kept)).toBe(kept);
   });
 });
