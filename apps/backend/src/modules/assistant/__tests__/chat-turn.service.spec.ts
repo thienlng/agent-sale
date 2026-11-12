@@ -3,6 +3,9 @@ import type { AssistantUiAction } from '@agent-sales/contracts';
 import { DomainError, newId, userId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it, vi } from 'vitest';
 
+import { InMemoryLimiter } from '../../../common/limits/limiter.js';
+import { LlmBudgetExceededError, OwnerLlmBudget } from '../../../common/limits/llm-budget.js';
+
 import {
   ChatTurnService,
   FALLBACK_REPLY,
@@ -71,6 +74,7 @@ async function setup(
   sqlRunner: SqlRunner | null = null,
   catalog = new SkillCatalog([]),
   delegation: AccessDelegation | null = null,
+  budget: OwnerLlmBudget | null = null,
 ) {
   const repo = new InMemoryAssistantRepository();
   const scope: OwnerScope = {
@@ -103,6 +107,7 @@ async function setup(
     {} as SchedulesService,
     sqlRunner,
     delegation,
+    budget,
   );
   const thread = await repo.createThread(scope, {
     id: newId(),
@@ -257,6 +262,63 @@ describe('ChatTurnService', () => {
     ).rejects.toBeInstanceOf(AssistantBusyError);
     release(ANSWER);
     expect((await first).run.status).toBe('done');
+  });
+
+  it('bounds the runs one owner has in flight across threads and charges the account tokens (audit #15)', async () => {
+    const limiter = new InMemoryLimiter();
+    const budget = new OwnerLlmBudget(
+      { accountTokensDay: 1_000_000, playgroundRunsUserMinute: 0, assistantRunsPerUser: 1 },
+      limiter,
+    );
+    let unblock: () => void = () => undefined;
+    const gate = new Promise<void>((r) => (unblock = r));
+    const { service, scope, thread, repo, generate } = await setup(
+      [ANSWER],
+      null,
+      undefined,
+      null,
+      budget,
+    );
+    generate.mockImplementationOnce(async () => {
+      await gate;
+      return ANSWER;
+    });
+    const other = await repo.createThread(scope, {
+      id: newId(),
+      title: '',
+      systemPrompt: 'SYSTEM PROMPT',
+      promptVersion: 'assistant@1',
+    });
+    const first = service.send(scope, thread.id, { turnId: newId(), text: 'hi' }, AUTH);
+    await vi.waitFor(() => expect(generate).toHaveBeenCalled());
+    await expect(
+      service.send(scope, other.id, { turnId: newId(), text: 'hello' }, AUTH),
+    ).rejects.toBeInstanceOf(LlmBudgetExceededError);
+    unblock();
+    await first;
+    expect(await limiter.peek(`llm:acct:${scope.accountId}:tokens:d`)).toBe(110);
+    // The slot was released: the next run goes through.
+    await service.send(scope, other.id, { turnId: newId(), text: 'hello' }, AUTH);
+  });
+
+  it('refuses a run once the account has spent its tokens of the day, before calling the model', async () => {
+    const budget = new OwnerLlmBudget(
+      { accountTokensDay: 50, playgroundRunsUserMinute: 0, assistantRunsPerUser: 2 },
+      new InMemoryLimiter(),
+    );
+    const { service, scope, thread, generate } = await setup(
+      [ANSWER],
+      null,
+      undefined,
+      null,
+      budget,
+    );
+    await service.send(scope, thread.id, { turnId: newId(), text: 'hi' }, AUTH);
+    const calls = generate.mock.calls.length;
+    await expect(
+      service.send(scope, thread.id, { turnId: newId(), text: 'again' }, AUTH),
+    ).rejects.toBeInstanceOf(LlmBudgetExceededError);
+    expect(generate.mock.calls.length).toBe(calls);
   });
 
   it('answers a retried turn id with the first result, without calling the model again', async () => {

@@ -3,6 +3,10 @@ import { Module } from '@nestjs/common';
 
 import { getEnv, hermesSubscriptionLoginEnabled } from '../../common/config.js';
 import { DB_SYSTEM, DB_TENANT } from '../../common/db/db.module.js';
+import {
+  conversationLlmBudgetFromEnv,
+  ownerLlmBudgetFromEnv,
+} from '../../common/limits/llm-budget.js';
 import { SECRET_BOX, SecretBox } from '../../common/security/secret-box.js';
 import { ActionModule } from '../action/action.module.js';
 import { BotModule } from '../bot/bot.module.js';
@@ -17,6 +21,7 @@ import { AI_LLM_GATEWAY } from './api/llm-gateway.port.js';
 import { AiTraceRunnerImpl } from './application/ai-trace.runner.js';
 import { HERMES_SUBSCRIPTION_LOGIN, LlmAdminService } from './application/llm-admin.service.js';
 import { LlmRuntime } from './application/llm-runtime.js';
+import { AI_SPEND_LIMITS } from './application/spend-guard.js';
 import { MEDIA_PUBLIC_BASE, PlaygroundService } from './application/playground.service.js';
 import { LLM_PROVIDER_FACTORY } from './application/ports/llm-provider-factory.js';
 import { TurnTraceService } from './application/turn-trace.service.js';
@@ -56,6 +61,14 @@ import { TurnTraceController } from './interface/http/turn-trace.controller.js';
   ],
   controllers: [AiController, LlmAdminController, TurnTraceController],
   providers: [
+    {
+      // Model spend caps (security audit 2026-11-12 #15).
+      provide: AI_SPEND_LIMITS,
+      useFactory: () => ({
+        conversation: conversationLlmBudgetFromEnv(),
+        owner: ownerLlmBudgetFromEnv(),
+      }),
+    },
     {
       provide: SECRET_BOX,
       useFactory: () => {
