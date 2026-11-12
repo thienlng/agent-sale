@@ -683,6 +683,7 @@ export class PlaygroundService implements AiFacade {
           actionFallback: actionState.fallback,
           check,
           customerTexts,
+          phoneKnown: input.phoneKnown === true,
         })
       : { outcome: 'answered', guardrail: 'model_error', final: fallbackText(bot) };
     if (loop && base) {

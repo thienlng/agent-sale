@@ -213,6 +213,28 @@ export function writesEnglish(text: string | undefined): boolean {
  */
 export const ENGLISH_HANDOFF = 'A member of our staff will get back to you here shortly.';
 
+const ASKS_PHONE = /(số điện thoại|sđt|sdt|phone|number)/iu;
+
+/**
+ * MS2-1: staff can only call back a customer whose phone they have. A hand-off in a conversation
+ * where the customer never wrote a phone (and the contact has none) asks for it, in the
+ * customer's language and with their pronoun, unless the lead-in already asks.
+ */
+export function phoneAsk(
+  customerTexts: readonly string[],
+  said: readonly string[],
+  phoneKnown: boolean,
+  english = false,
+): string {
+  if (phoneKnown || customerTexts.some((t) => phonesIn(t).length > 0)) return '';
+  if (said.some((t) => ASKS_PHONE.test(t))) return '';
+  if (english) return 'Could you leave your phone number so our staff can call you back?';
+  const pronoun = customerSelfPronoun(customerTexts);
+  const who =
+    pronoun && pronoun !== 'em' ? pronoun.charAt(0).toUpperCase() + pronoun.slice(1) : 'Anh/chị';
+  return `${who} để lại số điện thoại để nhân viên gọi tư vấn ạ.`;
+}
+
 /**
  * EV-4 (examiner: tinymind-pronoun-*): the customer called themselves "anh" / "chị" / … and the
  * turn never addresses them: the final answer's closing "ạ" becomes "{pronoun} ạ", the way a shop
@@ -252,6 +274,8 @@ export function decideReply(input: {
   actionFallback: string | null | undefined;
   /** The pre-send guard: a hand-off's model-written lead that fails it is dropped. */
   check?: (text: string) => ReplyCheck;
+  /** The conversation's contact already has a phone: a hand-off does not ask for one (MS2-1). */
+  phoneKnown?: boolean | undefined;
   /** The customer's messages, oldest first: their latest phone is read back before a hand-off. */
   customerTexts?: readonly string[] | undefined;
 }): ReplyDecision {
@@ -279,6 +303,9 @@ export function decideReply(input: {
               [lead, ...output.sent.map((m) => m.text)],
               english,
             )
+          : '',
+        bot.language === 'vi'
+          ? phoneAsk(input.customerTexts ?? [], [lead], input.phoneKnown === true, english)
           : '',
         english ? ENGLISH_HANDOFF : handoffText(bot),
       ]

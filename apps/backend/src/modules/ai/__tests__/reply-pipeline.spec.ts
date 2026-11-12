@@ -7,6 +7,7 @@ import {
   decideReply,
   ENGLISH_HANDOFF,
   joinedImages,
+  phoneAsk,
   phoneReadBack,
   withCustomerPronoun,
   writesEnglish,
@@ -116,6 +117,7 @@ describe('handoff say line (TM2-7, TM-16)', () => {
       output,
       bot: { language: 'vi', handoffMessage: 'Dạ em chuyển nhân viên ạ.' } as unknown as BotView,
       actionFallback: null,
+      phoneKnown: true,
     });
     expect(decision.final).toBe(
       'Dạ em ghi nhận chị muốn huỷ đơn DH000006, em xin lỗi vì giao chậm ạ.\nDạ em chuyển nhân viên ạ.',
@@ -162,5 +164,23 @@ describe('withCustomerPronoun (EV-4)', () => {
     expect(withCustomerPronoun('Dạ giá 180.000đ ạ.', ['em muốn hỏi giá'])).toBe(
       'Dạ giá 180.000đ ạ.',
     );
+  });
+});
+
+describe('phoneAsk (MS2-1)', () => {
+  it('asks for a phone only when the conversation has none and the lead-in does not ask', () => {
+    const health = ['da em đang uống kháng sinh thì làm liệu trình được không ạ'];
+    expect(phoneAsk(health, [''], false)).toBe(
+      'Anh/chị để lại số điện thoại để nhân viên gọi tư vấn ạ.',
+    );
+    expect(phoneAsk(['Chị muốn hỏi về liệu trình'], [''], false)).toBe(
+      'Chị để lại số điện thoại để nhân viên gọi tư vấn ạ.',
+    );
+    expect(phoneAsk(['Can I do this treatment while pregnant?'], [''], false, true)).toBe(
+      'Could you leave your phone number so our staff can call you back?',
+    );
+    expect(phoneAsk(health, [''], true)).toBe('');
+    expect(phoneAsk(['số em 0912 345 678'], [''], false)).toBe('');
+    expect(phoneAsk(health, ['Chị cho em xin số điện thoại nhé.'], false)).toBe('');
   });
 });

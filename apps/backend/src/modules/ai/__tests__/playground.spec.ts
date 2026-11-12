@@ -500,7 +500,8 @@ describe('sales-agent prompt and handoff reply', () => {
     expect(res).toMatchObject({
       outcome: 'handoff',
       guardrail: null,
-      reply: `Em xin lỗi anh/chị về trải nghiệm này ạ.\n${bot.handoffMessage}`,
+      // MS2-1: no phone known in the conversation: the hand-off asks for one.
+      reply: `Em xin lỗi anh/chị về trải nghiệm này ạ.\nAnh/chị để lại số điện thoại để nhân viên gọi tư vấn ạ.\n${bot.handoffMessage}`,
     });
     // handoff ends the turn: no model call after its batch.
     expect(fake.calls).toHaveLength(1);
@@ -517,11 +518,25 @@ describe('sales-agent prompt and handoff reply', () => {
     expect(a.reply).toBe(`Em đã ghi nhận số 0912345678 ạ.\n${bot.handoffMessage}`);
   });
 
-  it('sends only the shop handoff message when the model adds nothing', async () => {
+  it('asks for the phone before the shop handoff message when none is known (MS2-1)', async () => {
     const { svc } = build([handoff('')]);
     const res = await svc.playground(ws, botId, ask('gặp người thật'));
+    expect(res.reply).toBe(
+      `Anh/chị để lại số điện thoại để nhân viên gọi tư vấn ạ.\n${bot.handoffMessage}`,
+    );
+    expect(res.messages).toEqual([
+      {
+        text: `Anh/chị để lại số điện thoại để nhân viên gọi tư vấn ạ.\n${bot.handoffMessage}`,
+        images: [],
+        via: 'final',
+      },
+    ]);
+  });
+
+  it('sends only the shop handoff message when the model adds nothing and the phone is known', async () => {
+    const { svc } = build([handoff('')]);
+    const res = await svc.playground(ws, botId, { ...ask('gặp người thật'), phoneKnown: true });
     expect(res.reply).toBe(bot.handoffMessage);
-    expect(res.messages).toEqual([{ text: bot.handoffMessage, images: [], via: 'final' }]);
   });
 
   it('never leaks model text when the turn ends in the fallback', async () => {
