@@ -1,3 +1,4 @@
+import { PLAYGROUND_CHANNEL } from '@agent-sales/contracts';
 import { isUuid, newId, normalizeVnPhone, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
@@ -24,6 +25,7 @@ import {
   BOT_HOLD_DRAFT_TTL_MS,
   CUSTOMER_CHANNELS,
   held,
+  holdMinutesOf,
   holdRequestId,
   HoldNotConfirmable,
   MAX_NAME,
@@ -31,6 +33,8 @@ import {
   NightsTakenOnConfirm,
   quoteHash,
   stayOf,
+  TEST_HOLD_MINUTES,
+  TEST_HOLD_TAG,
   tidy,
   toBotOption,
   validParty,
@@ -336,6 +340,7 @@ export class LodgingBotHolds implements LodgingBotFacade {
       throw new HoldNotConfirmable('price_changed', draft);
     }
     let booking: BookingRecord;
+    const test = draft.channel === PLAYGROUND_CHANNEL;
     try {
       booking = await this.bookings.createIn(
         tx,
@@ -360,10 +365,12 @@ export class LodgingBotHolds implements LodgingBotFacade {
           adjustmentReason: '',
           manualTotalSell: null,
           note: draft.note,
-          tags: [],
+          // A test-chat hold is labelled and lapses soon: it must not block real guests (VL-A11).
+          tags: test ? [TEST_HOLD_TAG] : [],
         },
         { id: null, name: draft.botName || null },
         now,
+        test ? { holdMinutes: Math.min(TEST_HOLD_MINUTES, await holdMinutesOf(tx)) } : {},
       );
     } catch (error) {
       if (error instanceof LodgingError && error.code === 'NIGHTS_TAKEN') {

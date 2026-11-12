@@ -133,6 +133,8 @@ export class BookingService {
     input: CreateBookingRequest,
     actor: Actor,
     now: Date,
+    /** A hold's lifetime when not the business's `holdMinutes` (test-chat holds, VL-A11). */
+    opts: { holdMinutes?: number } = {},
   ): Promise<BookingRecord> {
     const fingerprint = createHash('sha256').update(JSON.stringify(input)).digest('hex');
     await tx.lockRequestKey(input.clientRequestId);
@@ -168,7 +170,7 @@ export class BookingService {
     const b: BookingRecord =
       input.kind === 'block'
         ? blockRecord(base, input.blockReason)
-        : await this.newStay(tx, ctx, input, base, now);
+        : await this.newStay(tx, ctx, input, base, now, opts.holdMinutes);
     await tx.insertBooking(b);
     await tx.takeNights(b.id, unitIds, nights);
     await tx.audit(
@@ -386,11 +388,13 @@ export class BookingService {
     input: Extract<CreateBookingRequest, { kind: 'stay' }>,
     base: BookingBase,
     now: Date,
+    holdFor?: number,
   ): Promise<BookingRecord> {
     const { whole, checkIn, checkOut, party } = input;
     const stay = { whole, unitIds: base.unitIds, checkIn, checkOut, ...party };
     const quote = quoteSelection(ctx, stay, input.packageIds, []);
-    const holdMinutes = input.status === 'hold' ? (await tx.settings()).holdMinutes : null;
+    const holdMinutes =
+      input.status === 'hold' ? (holdFor ?? (await tx.settings()).holdMinutes) : null;
     return {
       ...base,
       unitPackages: unitPackagesOf(quote, input.whole, base.unitIds),
