@@ -27,7 +27,8 @@
         "profile": {
           "title": "Thông tin doanh nghiệp.",
           "body": "Điền tên, địa chỉ, hotline và giờ mở cửa để Bot trả lời đúng thông tin của bạn",
-          "missing": "Còn {{count}} thông tin chưa điền"
+          "missing": "Còn {{count}} thông tin chưa điền",
+          "optional": "Có thể điền thêm {{count}} thông tin để Bot trả lời đầy đủ hơn"
         },
         "channel": {
           "title": "Tích hợp nền tảng.",

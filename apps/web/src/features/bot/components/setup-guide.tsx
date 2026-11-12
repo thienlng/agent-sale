@@ -94,7 +94,14 @@ export function SetupGuide({
                   </span>
                   {step.emptyCount ? (
                     <span className="block text-sm text-muted-foreground">
-                      {t('space.home.steps.profile.missing', { count: step.emptyCount })}
+                      {/* A finished step only suggests more (MS-30): a green check never sits
+                          next to "Còn 2 thông tin chưa điền". */}
+                      {t(
+                        step.done
+                          ? 'space.home.steps.profile.optional'
+                          : 'space.home.steps.profile.missing',
+                        { count: step.emptyCount },
+                      )}
                     </span>
                   ) : null}
                 </span>

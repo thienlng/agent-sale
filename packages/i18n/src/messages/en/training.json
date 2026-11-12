@@ -27,7 +27,8 @@
         "profile": {
           "title": "Business information.",
           "body": "Fill in your name, address, hotline and opening hours so the Bot answers with your facts",
-          "missing": "{{count}} details are still empty"
+          "missing": "{{count}} details are still empty",
+          "optional": "{{count}} more details would make the Bot's answers fuller"
         },
         "channel": {
           "title": "Connect platforms.",
