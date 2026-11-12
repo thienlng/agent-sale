@@ -8,12 +8,20 @@ import {
 import { Controller, Get, Header, Inject, Res } from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
 
+import { getEnv } from '../../../../common/config.js';
 import { Public } from '../../../../common/http/auth-context.js';
 import { metricsRegistry } from '../../../../common/metrics.js';
 import { CheckReadiness } from '../../application/check-readiness.js';
 
 const startedAt = Date.now();
 const version = process.env['APP_VERSION'] ?? '0.0.0-dev';
+
+/**
+ * Production hides internals from the public host: no build version on liveness and only the
+ * public API (ADR-022) in /openapi.json. Readiness and /metrics are blocked at the edge
+ * (infra/deploy/Caddyfile) and reached on the container network only.
+ */
+const isProduction = (): boolean => getEnv().NODE_ENV === 'production';
 
 /** Operational endpoints: liveness, readiness, metrics, API description. */
 @Public()
@@ -23,7 +31,10 @@ export class HealthController {
 
   @Get('health')
   get(): HealthResponse {
-    return { status: 'ok', version, uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000) };
+    const uptimeSeconds = Math.floor((Date.now() - startedAt) / 1000);
+    return isProduction()
+      ? { status: 'ok', uptimeSeconds }
+      : { status: 'ok', version, uptimeSeconds };
   }
 
   @Get('health/ready')
@@ -40,14 +51,19 @@ export class HealthController {
     return metricsRegistry.metrics();
   }
 
+  /** The full internal route map outside production; the public API subset in production. */
   @Get('openapi.json')
   openapi(): Record<string, unknown> {
+    if (isProduction()) return this.publicOpenapi();
     return buildOpenApiDocument(allRoutes, { title: 'Rapiz API', version });
   }
 
   /** The public API (ADR-022): only the routes a workspace API key may call. */
   @Get('public/openapi.json')
   publicOpenapi(): Record<string, unknown> {
-    return buildOpenApiDocument(apiKeyRoutes(allRoutes), { title: 'Rapiz Public API', version });
+    return buildOpenApiDocument(apiKeyRoutes(allRoutes), {
+      title: 'Rapiz Public API',
+      version: isProduction() ? '1' : version,
+    });
   }
 }

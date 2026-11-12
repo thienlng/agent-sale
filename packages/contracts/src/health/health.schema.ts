@@ -2,7 +2,8 @@ import { z } from 'zod';
 
 export const HealthResponse = z.object({
   status: z.literal('ok'),
-  version: z.string(),
+  /** Build version (git SHA); omitted in production so the public host does not reveal it. */
+  version: z.string().optional(),
   uptimeSeconds: z.number().nonnegative(),
 });
 export type HealthResponse = z.infer<typeof HealthResponse>;
