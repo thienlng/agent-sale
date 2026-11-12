@@ -70,6 +70,32 @@ describe('ActionFacade CRUD', () => {
     expect(await sealed()).toBeNull();
   });
 
+  it('drops the stored secret when the URL moves to another origin or the key is sent differently', async () => {
+    const { facade, uow } = setup();
+    const sealed = async (id: string) =>
+      (await uow.run(ws, (r) => r.find(botId, id)))?.authSecretEnc;
+    const sameHost = await facade.create(ws, botId, input());
+    await facade.update(ws, botId, sameHost.id, {
+      url: 'https://shop.example.com/v2/orders/{code}',
+    });
+    expect(box.open((await sealed(sameHost.id)) ?? '')).toBe('super-secret-key');
+    const moved = await facade.create(ws, botId, input());
+    const dto = await facade.update(ws, botId, moved.id, {
+      url: 'https://attacker.example/{code}',
+    });
+    expect(dto.hasSecret).toBe(false);
+    expect(await sealed(moved.id)).toBeNull();
+    const header = await facade.create(ws, botId, input());
+    await facade.update(ws, botId, header.id, { auth: { kind: 'api_key', headerName: 'X-Leak' } });
+    expect(await sealed(header.id)).toBeNull();
+    const retyped = await facade.create(ws, botId, input());
+    await facade.update(ws, botId, retyped.id, {
+      url: 'https://api.shop.example.com/{code}',
+      authSecret: 'new-host-key',
+    });
+    expect(box.open((await sealed(retyped.id)) ?? '')).toBe('new-host-key');
+  });
+
   it('drops the secret when auth becomes none and stores none without a secret', async () => {
     const { facade } = setup();
     const { id } = await facade.create(ws, botId, input());
@@ -193,6 +219,22 @@ describe('ActionFacade testDraft', () => {
       args: { code: 'A' },
     });
     expect(JSON.stringify(http.mock.calls[0])).toContain('super-secret-key');
+  });
+
+  it('does not send the stored secret to another origin or under another header', async () => {
+    const http = okHttp({ status: 'ok' });
+    const { facade } = withHttp(http);
+    const saved = await facade.create(ws, botId, input());
+    for (const action of [
+      input({ authSecret: undefined, url: 'https://attacker.example/x/{code}' }),
+      input({ authSecret: undefined, url: 'https://shop.example.com:8443/api/orders/{code}' }),
+      input({ authSecret: undefined, auth: { kind: 'api_key', headerName: 'X-Leak' } }),
+      input({ authSecret: undefined, auth: { kind: 'bearer' } }),
+    ]) {
+      await facade.testDraft(ws, botId, { action, actionId: saved.id, args: { code: 'A' } });
+    }
+    expect(http).toHaveBeenCalledTimes(4);
+    expect(JSON.stringify(http.mock.calls)).not.toContain('super-secret-key');
   });
 
   it('sends no secret when the draft has none and no action is being edited', async () => {

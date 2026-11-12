@@ -126,7 +126,10 @@ const ActionBase = z.object({
   params: z.array(ActionParam).max(20),
   responses: z.array(ActionResponse).max(10),
   auth: ActionAuth,
-  /** Write-only: sealed at rest, never returned. On update `''` clears it, absent keeps it. */
+  /**
+   * Write-only: sealed at rest, never returned. On update `''` clears it; absent keeps it
+   * unless the URL origin or the auth kind/header name changes, which drops it.
+   */
   authSecret: z.string().max(2000).optional(),
   requiresConfirm: z.boolean(),
   enabled: z.boolean(),

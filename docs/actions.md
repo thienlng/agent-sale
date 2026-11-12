@@ -2,7 +2,7 @@
 
 A shop owner declares HTTP APIs ("actions") the bot may call while answering a customer: look up an order, check ERP stock, create a booking. The model decides _when_ to call; the server decides _whether and how_. The model never touches the network, a URL, a header or a secret.
 
-Design record: `docs/superpowers/specs/2026-10-25-bot-api-actions-design.md`. Module: `apps/backend/src/modules/action` (`MODULE.md`). UI: bot menu → **Hành động API** (`/app/bots/{botId}/actions`); the existing **Tích hợp** page stays channel connections.
+Design record: `docs/superpowers/specs/2026-10-25-bot-api-actions-design.md`. Module: `apps/backend/src/modules/action` (`MODULE.md`). UI: bot menu → **Hành động API** (`/app/bots/{botId}/actions`); the existing **Tích hợp** page stays channel connections. Every `/bots/{botId}/actions` route needs `bots.manage` (owner and admin); other roles get 403.
 
 ## What an action declares
 
@@ -12,7 +12,7 @@ Design record: `docs/superpowers/specs/2026-10-25-bot-api-actions-design.md`. Mo
 | `url`, `method` | HTTPS only. `{param}` placeholders must each match a `path` parameter. GET/POST/PUT/PATCH/DELETE. |
 | `params[]` | `name`, `type` (string/number/boolean), `location` (path/query/header/body), `required`, `description`. |
 | `responses[]` | `statusCode` + declared `fields`. Only these fields ever reach the model; an undeclared status is an error. A field inside a list or object is declared by path: `items.code` keeps `code` of every element of `items` (first 10) and drops its siblings. |
-| `auth` | none, API key header (header name + secret) or Bearer (secret). Secrets are sealed with `SecretBox`, write-only in the API (`hasSecret`), never sent to the model, never logged. |
+| `auth` | none, API key header (header name + secret) or Bearer (secret). Secrets are sealed with `SecretBox`, write-only in the API (`hasSecret`), never sent to the model, never logged. Changing the URL origin or how the key is sent drops the stored secret unless a new one is typed. |
 | `requiresConfirm` | Default on for non-GET. The bot reads the parameters back and the customer must agree first. |
 | `enabled` | Disabled actions are not offered to the model. |
 
@@ -42,7 +42,7 @@ Tokens of all rounds are summed into one `ai_runs` row (one billed AI message). 
 
 `POST /bots/{botId}/actions/{id}/test` with sample `args` runs the real executor on the **saved** action (also when disabled) and returns `{ok, statusCode, data, errorCode, latencyMs}`; test runs are `is_test`.
 
-`POST /bots/{botId}/actions/test` with `{action, actionId?, args}` runs the form **as typed**, saved or not; the **Thử gọi** panel uses it, so the owner can iterate before saving. It stores nothing and records no run. A blank secret falls back to the stored secret of `actionId` (same bot only), so editing never forces retyping it.
+`POST /bots/{botId}/actions/test` with `{action, actionId?, args}` runs the form **as typed**, saved or not; the **Thử gọi** panel uses it, so the owner can iterate before saving. It stores nothing and records no run. A blank secret falls back to the stored secret of `actionId` (same bot only) when the draft keeps the stored URL origin (scheme, host, port) and auth kind and header name, so editing the path or the params never forces retyping it. A draft aimed at another origin or sending the key differently runs without the stored secret: it is only ever sent where it was entered for.
 
 ## Drafted by the owner assistant (T-174)
 

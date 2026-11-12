@@ -28,6 +28,29 @@ function toDto({ authSecretEnc, ...rest }: ActionRecord): ActionDto {
   return { ...rest, hasSecret: authSecretEnc !== null };
 }
 
+function originOf(url: string): string | null {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A stored secret may only travel where it was entered for: the same origin, sent the same way.
+ * Otherwise anyone able to edit or test the action could point it at their own host and read it.
+ */
+function sameSecretTarget(
+  a: Pick<ActionRecord, 'url' | 'auth'>,
+  b: Pick<ActionRecord, 'url' | 'auth'>,
+): boolean {
+  const origin = originOf(a.url);
+  if (origin === null || origin !== originOf(b.url) || a.auth.kind !== b.auth.kind) return false;
+  return a.auth.kind !== 'api_key' || b.auth.kind !== 'api_key'
+    ? true
+    : a.auth.headerName.toLowerCase() === b.auth.headerName.toLowerCase();
+}
+
 export const SAFE_HTTP = Symbol('ACTION_SAFE_HTTP');
 
 type Args = Record<string, string | number | boolean>;
@@ -101,7 +124,7 @@ export class ActionFacadeImpl implements ActionFacade {
         requiresConfirm: patch.requiresConfirm ?? current.requiresConfirm,
         enabled: patch.enabled ?? current.enabled,
       });
-      let authSecretEnc = current.authSecretEnc;
+      let authSecretEnc = sameSecretTarget(merged, current) ? current.authSecretEnc : null;
       if (merged.auth.kind === 'none' || authSecret === '') authSecretEnc = null;
       else if (authSecret !== undefined) authSecretEnc = this.secrets.seal(authSecret);
       const next: ActionRecord = {
@@ -157,7 +180,7 @@ export class ActionFacadeImpl implements ActionFacade {
         draft.actionId && isUuid(draft.actionId)
           ? await this.uow.run(ws, (repo) => repo.find(botId, draft.actionId as string))
           : null;
-      authSecretEnc = stored?.authSecretEnc ?? null;
+      authSecretEnc = stored && sameSecretTarget(fields, stored) ? stored.authSecretEnc : null;
     }
     const now = new Date().toISOString();
     const record: ActionRecord = {
