@@ -8,7 +8,7 @@ import { AssistantPageContext } from '@agent-sales/contracts';
 
 import { renderDashboardMap } from '../domain/dashboard-map.js';
 import { compareStores, memoryLimit, memoryUsed } from '../domain/memory-store.js';
-import type { MemoryStoreRecord } from '../domain/ports/assistant.repository.js';
+import type { MemoryEntry, MemoryStoreRecord } from '../domain/ports/assistant.repository.js';
 
 /**
  * The pinned assistant prompt for new threads (`packages/ai-core/prompts/assistant@2.md`).
@@ -47,19 +47,29 @@ export interface PromptExtras {
   memory: MemoryStoreRecord[];
 }
 
+/** The text of an entry a prompt may carry: approved text only, null when there is none. */
+export function approvedText(e: MemoryEntry): string | null {
+  if (!e.pending) return e.text;
+  return e.previousText !== undefined && !e.previousPending ? e.previousText : null;
+}
+
 /**
  * The memory snapshot: each non-empty store as `<store> [<pct>% — <used>/<limit>]` and its
  * entries as `- <text>` lines, in the order owner_profile, notes, business stores by id. Entries
- * that fail the safety scan now are left out (the store's usage still counts them). Empty text
- * when nothing is remembered. Pure and byte-stable.
+ * that fail the safety scan now are left out (the store's usage still counts them), and so are
+ * entries waiting for the owner's approval (a rewrite still waiting shows the approved text it
+ * replaced). Empty text when nothing is remembered. Pure and byte-stable.
  */
 export function renderMemoryBlock(memory: readonly MemoryStoreRecord[]): string {
   return [...memory]
     .sort((a, b) => compareStores(a.store, b.store))
     .flatMap((m) => {
       const lines = m.entries
-        .filter((e) => scanUntrustedText(e.text).ok)
-        .map((e) => `- ${e.text.replace(/\s*\n\s*/g, ' ')}`);
+        .flatMap((e) => {
+          const shown = approvedText(e);
+          return shown !== null && scanUntrustedText(shown).ok ? [shown] : [];
+        })
+        .map((text) => `- ${text.replace(/\s*\n\s*/g, ' ')}`);
       if (lines.length === 0) return [];
       const limit = memoryLimit(m.store);
       const used = memoryUsed(m.entries);

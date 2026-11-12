@@ -4,11 +4,13 @@ import {
   buildArgs,
   confirmDefault,
   emptyParam,
+  formFromDto,
   newForm,
   toInput,
   validateForm,
   type ActionForm,
 } from './action-form';
+import { actionDto } from '../components/fixtures';
 
 const valid = (over: Partial<ActionForm> = {}): ActionForm => ({
   ...newForm(),
@@ -126,6 +128,63 @@ describe('toInput', () => {
       params: Record<string, unknown>[];
     };
     expect('key' in (body.params[0] ?? {})).toBe(false);
+  });
+
+  it('sends source only for a param the server fills from the customer record', () => {
+    const phone = {
+      ...emptyParam(),
+      name: 'phone',
+      description: 'SĐT',
+      source: 'customer_phone' as const,
+    };
+    const body = toInput(
+      valid({ params: [{ ...emptyParam(), name: 'q', description: 'x' }, phone] }),
+    ) as {
+      params: Record<string, unknown>[];
+    };
+    expect('source' in (body.params[0] ?? {})).toBe(false);
+    expect(body.params[1]?.['source']).toBe('customer_phone');
+    expect(validateForm(valid({ params: [phone] }))).toEqual({});
+  });
+
+  it('flags a non-string param filled from the customer record', () => {
+    const p = {
+      ...emptyParam(),
+      name: 'phone',
+      description: 'x',
+      type: 'number' as const,
+      source: 'customer_phone' as const,
+    };
+    expect(validateForm(valid({ params: [p] }))['params.0.type']?.key).toBe('sourceType');
+  });
+});
+
+describe('formFromDto', () => {
+  it('reads a param saved without source as filled by the bot', () => {
+    const form = formFromDto(actionDto());
+    expect(form.params[0]?.source).toBe('model');
+    const bound = formFromDto(
+      actionDto({
+        params: [
+          {
+            name: 'orderId',
+            type: 'string',
+            location: 'path',
+            required: true,
+            description: 'Mã đơn',
+          },
+          {
+            name: 'phone',
+            type: 'string',
+            location: 'query',
+            required: true,
+            description: 'SĐT',
+            source: 'customer_email',
+          },
+        ],
+      }),
+    );
+    expect(bound.params[1]?.source).toBe('customer_email');
   });
 });
 

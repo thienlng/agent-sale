@@ -398,8 +398,20 @@ describe('AssistantFacade (contract)', () => {
       [`business:${me.businessId}`, 'Thời trang Mây', 1000, 10],
     ]);
     expect(memory.stores[1]?.entries).toEqual([
-      { id: a, text: 'Giao hàng buổi chiều', createdAt: '2026-11-01T00:00:00.000Z' },
-      { id: b, text: 'Nghỉ CN', createdAt: '2026-11-01T00:00:00.000Z' },
+      {
+        id: a,
+        text: 'Giao hàng buổi chiều',
+        createdAt: '2026-11-01T00:00:00.000Z',
+        origin: 'assistant',
+        pending: false,
+      },
+      {
+        id: b,
+        text: 'Nghỉ CN',
+        createdAt: '2026-11-01T00:00:00.000Z',
+        origin: 'assistant',
+        pending: false,
+      },
     ]);
 
     const after = await facade.deleteMemoryEntry(me, 'notes', a);
@@ -432,6 +444,52 @@ describe('AssistantFacade (contract)', () => {
     const second = { ...me, userId: addAccountMember('owner') };
     expect((await facade.getMemory(second)).stores.every((st) => st.entries.length === 0)).toBe(
       true,
+    );
+  });
+
+  it('lets the owner approve a memory entry waiting for approval (security audit #12)', async () => {
+    const { facade, me, repo, accountId, addAccountMember } = setup();
+    const scope = {
+      accountId,
+      ownerUserId: me.userId,
+      businessId: me.businessId,
+      businessIds: [me.businessId],
+    };
+    const held = newId();
+    await repo.saveMemoryStore(scope, 'notes', [
+      {
+        id: held,
+        text: 'Thích báo cáo ngắn',
+        origin: 'review',
+        createdAt: '2026-11-01T00:00:00.000Z',
+        pending: true,
+      },
+    ]);
+    expect((await facade.getMemory(me)).stores[1]?.entries[0]).toMatchObject({
+      origin: 'review',
+      pending: true,
+    });
+
+    const approved = await facade.approveMemoryEntry(me, 'notes', held);
+    expect(approved.stores[1]?.entries[0]).toMatchObject({ id: held, pending: false });
+    expect((await repo.getMemory(scope))[0]?.entries[0]).not.toHaveProperty('pending');
+    // Approving again is a no-op.
+    expect((await facade.approveMemoryEntry(me, 'notes', held)).stores[1]?.entries).toHaveLength(1);
+
+    await expect(facade.approveMemoryEntry(me, 'notes', newId())).rejects.toBeInstanceOf(
+      AssistantNotFoundError,
+    );
+    await expect(facade.approveMemoryEntry(me, `business:${newId()}`, held)).rejects.toBeInstanceOf(
+      AssistantNotFoundError,
+    );
+    const staff = { ...me, userId: userId(newId()) };
+    await expect(facade.approveMemoryEntry(staff, 'notes', held)).rejects.toBeInstanceOf(
+      AssistantForbiddenError,
+    );
+    // Another owner of the account has a memory of their own: the entry is not theirs.
+    const second = { ...me, userId: addAccountMember('owner') };
+    await expect(facade.approveMemoryEntry(second, 'notes', held)).rejects.toBeInstanceOf(
+      AssistantNotFoundError,
     );
   });
 

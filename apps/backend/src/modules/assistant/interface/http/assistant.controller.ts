@@ -227,6 +227,17 @@ export class AssistantController {
     return this.facade.undoLearnedMemory(actor(user, ws), store, entryId);
   }
 
+  @Post('memory/:store/entries/:entryId/approve')
+  @HttpCode(200)
+  approveMemoryEntry(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('store') store: string,
+    @Param('entryId') entryId: string,
+  ): Promise<AssistantMemoryDto> {
+    return this.facade.approveMemoryEntry(actor(user, ws), store, entryId);
+  }
+
   // ─── Skills (1c) ───
 
   @Get('skills')

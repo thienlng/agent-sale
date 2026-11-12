@@ -137,7 +137,7 @@
     "verify": {
       "send": "Send code",
       "sending": "Sending…",
-      "sent": "A 6-digit code was sent to {{email}}. It is valid for 15 minutes.",
+      "sent": "A 6-digit code was sent to {{email}}. It is valid for 15 minutes. If this email already has an account, we sent sign-in instructions instead.",
       "code": "Verification code",
       "needCode": "Press \"Send code\" and enter the 6-digit code from the email to sign up.",
       "resend": "Resend code",

@@ -47,6 +47,13 @@ function toolsSection(request: GenerateRequest): string {
 
 const attr = (v: string | undefined) => (v ?? '').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
 
+/**
+ * Only real tool messages may carry a `<tool_result>` block: a lookalike in any other message (a
+ * customer text quoted in a prompt block that missed escaping, a stored summary) is neutralised.
+ */
+const TOOL_RESULT_TAG = /<(\/?)tool_result/gi;
+const neutralise = (text: string) => text.replace(TOOL_RESULT_TAG, '&lt;$1tool_result');
+
 function renderMessages(messages: ChatMessage[], section: string): ChatMessage[] {
   const out: ChatMessage[] = [];
   let sectionAdded = false;
@@ -67,7 +74,7 @@ function renderMessages(messages: ChatMessage[], section: string): ChatMessage[]
       else out.push({ role: 'user', content: block });
       afterToolResult = true;
       continue;
-    } else out.push(m);
+    } else out.push(m.role === 'system' ? m : { ...m, content: neutralise(m.content) });
   }
   if (!sectionAdded) out.unshift({ role: 'system', content: section });
   return out;

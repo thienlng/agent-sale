@@ -135,7 +135,7 @@
     "verify": {
       "send": "Gửi mã",
       "sending": "Đang gửi…",
-      "sent": "Đã gửi mã 6 số tới {{email}}. Mã có hiệu lực 15 phút.",
+      "sent": "Đã gửi mã 6 số tới {{email}}. Mã có hiệu lực 15 phút. Nếu email này đã có tài khoản, chúng tôi gửi hướng dẫn đăng nhập thay cho mã.",
       "code": "Mã xác minh",
       "needCode": "Bấm \"Gửi mã\" và nhập mã 6 số trong email để đăng ký.",
       "resend": "Gửi lại mã",

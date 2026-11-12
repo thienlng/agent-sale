@@ -161,7 +161,12 @@ export class CareStep {
           : {
               ...base,
               text: written.text,
-              status: level === 'suggest' ? ('draft' as const) : ('sending' as const),
+              // A figure from nowhere (a price, a phone) never goes out on its own: the owner
+              // approves it first, whatever the autonomy level (docs/06 §3.3).
+              status:
+                level === 'suggest' || written.ungrounded.length
+                  ? ('draft' as const)
+                  : ('sending' as const),
               skipReason: null,
             };
       if (!(await this.store.insertMessage(ws, row))) {

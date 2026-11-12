@@ -99,3 +99,27 @@ export const userIdentities = pgTable(
     index('user_identities_user_idx').on(t.userId),
   ],
 );
+
+/**
+ * GLOBAL: shared fixed-window auth counters (logins per account, code emails and checks per
+ * address; migration 0077). The key is a sha256. app_system only.
+ */
+export const authCounters = pgTable(
+  'auth_counters',
+  {
+    keyHash: text('key_hash').primaryKey(),
+    count: integer('count').notNull(),
+    windowEnd: timestamp('window_end', { withTimezone: true }).notNull(),
+  },
+  (t) => [index('auth_counters_window_end_idx').on(t.windowEnd)],
+);
+
+/**
+ * GLOBAL: who got the signup trial of a canonical email (sha256; migration 0077). The user id goes
+ * null when the user is deleted, and the claim stays. app_system only.
+ */
+export const trialClaims = pgTable('trial_claims', {
+  emailHash: text('email_hash').primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  claimedAt: timestamp('claimed_at', { withTimezone: true }).notNull().defaultNow(),
+});

@@ -5,6 +5,7 @@ import {
   PromptRegistry,
 } from '@agent-sales/ai-core';
 import type { PlaygroundRequest, ProductDto, WebsitePageContext } from '@agent-sales/contracts';
+import { escapeTags } from '@agent-sales/shared';
 
 import type { BotActionView, PendingAction } from '../../action/api/index.js';
 import type { BotView } from '../../bot/api/index.js';
@@ -151,7 +152,8 @@ export interface TurnContext {
 
 /**
  * The conversation as plain chat turns from the first customer message on. Customer text is
- * wrapped as data. `times` (when given, aligned with `input.messages`) is cut the same way.
+ * wrapped as data, with `<` escaped: a message cannot close `<customer>` and pass a block such as
+ * `<shop_situations>` or `<tool_result>` that would look like the shop's own. `times` (when given, aligned with `input.messages`) is cut the same way.
  */
 export function historyTurns(
   input: PlaygroundRequest,
@@ -166,7 +168,7 @@ export function historyTurns(
     .map((m): ChatMessage =>
       m.role === 'bot'
         ? { role: 'assistant', content: m.content }
-        : { role: 'user', content: `<customer>\n${m.content}\n</customer>` },
+        : { role: 'user', content: `<customer>\n${escapeTags(m.content)}\n</customer>` },
     );
   const aligned = times && times.length === input.messages.length;
   return { turns, times: aligned ? times.slice(firstCustomer) : null };

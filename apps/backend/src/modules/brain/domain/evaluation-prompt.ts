@@ -116,14 +116,14 @@ const SENDER_LABEL = { customer: 'Customer', human: 'Staff', bot: 'Bot' } as con
 
 /**
  * A message as one line inside the `<<<` … `>>>` data fence: whitespace collapsed, and the fence
- * marks a customer could type broken up (`<<<` → `< < <`), so a message cannot close the fence
- * and pass instructions as if outside it.
+ * marks a customer could type neutralised (`<` → `&lt;`, `>>>` → `> > >`), so a message cannot
+ * close the fence, open a tag, or pass instructions as if outside it.
  */
 export function fenceSafe(text: string): string {
   return text
     .replace(/\s+/g, ' ')
     .trim()
-    .replace(/<{3,}/g, (m) => m.split('').join(' '))
+    .replaceAll('<', '&lt;')
     .replace(/>{3,}/g, (m) => m.split('').join(' '));
 }
 const HCM_OFFSET_MS = 7 * 3_600_000;

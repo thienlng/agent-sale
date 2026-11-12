@@ -14,6 +14,7 @@ import {
   CARE_WRITER_TIER,
   CARE_WRITER_TIMEOUT_MS,
   CareWriterWireSchema,
+  careUngroundedFigures,
   parseWriterOutput,
   type WriterPersona,
 } from '../domain/care-writer.js';
@@ -29,7 +30,8 @@ export interface WriterCost {
 }
 
 export type WriteResult =
-  | ({ kind: 'send'; text: string } & WriterCost)
+  /** `ungrounded`: figures no trusted text vouches for; the message must be approved first. */
+  | ({ kind: 'send'; text: string; ungrounded: string[] } & WriterCost)
   | ({ kind: 'skip'; reason: string } & WriterCost)
   /** The model failed, timed out or answered twice with something unusable. */
   | { kind: 'failed' }
@@ -64,18 +66,20 @@ export class CareWriter {
     const ctx = await this.conversations.signalContext(ws, input.conversationId, null);
     if (!ctx) return { kind: 'failed' };
     const bot = await this.#bot(ws, input.conversationId);
+    const facts = bot
+      ? Object.entries(bot.profile.fields)
+          .filter(([, v]) => v.trim())
+          .map(([label, value]) => ({ label, value }))
+      : [];
+    const messages = ctx.messages.slice(-CARE_WRITER_MESSAGES);
     const user = buildWriterInput({
       template: input.template,
       step: input.step,
       instruction: input.instruction,
       persona: bot ? persona(bot) : null,
-      facts: bot
-        ? Object.entries(bot.profile.fields)
-            .filter(([, v]) => v.trim())
-            .map(([label, value]) => ({ label, value }))
-        : [],
+      facts,
       note: input.note,
-      messages: ctx.messages.slice(-CARE_WRITER_MESSAGES),
+      messages,
     });
     const system = await registry.load(CARE_WRITER_PROMPT);
     for (let attempt = 1; attempt <= 2; attempt++) {
@@ -106,7 +110,16 @@ export class CareWriter {
         outputTokens: res.usage.outputTokens,
       };
       return out.kind === 'send'
-        ? { kind: 'send', text: out.text, ...cost }
+        ? {
+            kind: 'send',
+            text: out.text,
+            ungrounded: careUngroundedFigures(out.text, {
+              instruction: input.instruction,
+              facts,
+              messages,
+            }),
+            ...cost,
+          }
         : { kind: 'skip', reason: out.reason, ...cost };
     }
     return { kind: 'failed' };
