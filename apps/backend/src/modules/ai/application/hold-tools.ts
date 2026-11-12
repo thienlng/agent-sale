@@ -10,6 +10,7 @@ import type {
 } from '../../lodging/api/index.js';
 import type { MessageSink, OutgoingMessage, QuickReply } from '../api/reply-options.js';
 import { safeJson } from './action-tools.js';
+import { COMMIT_LIMIT_REPLY, type CommitAllowance } from './commit-quota.js';
 import { resolveRooms } from './hold-rooms.js';
 import { confirmableDraft } from './order-tools.js';
 import type { OutputState } from './output-tools.js';
@@ -131,6 +132,8 @@ export interface HoldToolContext {
   state: HoldToolState;
   /** Logs a failure the turn survives (the error class only). */
   onError?: (error: unknown) => void;
+  /** Holds this customer may still get today (audit #18); absent = no cap (playground). */
+  quota?: CommitAllowance | null;
 }
 
 export interface HoldToolState {
@@ -379,12 +382,14 @@ export function holdTools(ctx: HoldToolContext): {
     // Never the model's arguments: only the draft the customer was shown.
     run: async () => {
       if (!draftOpen()) return reply({ ok: false, code: 'not_confirmable' }, false);
+      if (ctx.quota && !(await ctx.quota.allowed())) return reply(COMMIT_LIMIT_REPLY, false);
       const res = await facade.confirmBotHold(ws, { conversationId });
       if (res.status !== 'held')
         return reply(
           { ok: false, status: res.status, alternatives: res.alternatives.map(optionView) },
           false,
         );
+      await ctx.quota?.used().catch((error: unknown) => ctx.onError?.(error));
       state.created = { code: res.code, expiresAt: res.holdExpiresAt };
       const until = localHoldTime(res.holdExpiresAt);
       return reply({
@@ -441,6 +446,8 @@ export async function hotelHoldContext(input: {
   answered: (storedAt: Date) => boolean;
   /** Logs a line; failures carry the error class only. */
   warn: (message: string) => void;
+  /** Holds this customer may still get today (audit #18). */
+  quota?: CommitAllowance | null;
 }): Promise<HoldToolContext> {
   const { facade, ws, conversationId, lodging } = input;
   const errorName = (error: unknown) => (error instanceof Error ? error.name : 'unknown error');
@@ -468,5 +475,6 @@ export async function hotelHoldContext(input: {
       )),
     state: newHoldToolState(),
     onError: (error) => input.warn(`Hold draft drop failed: ${errorName(error)}`),
+    ...(input.quota ? { quota: input.quota } : {}),
   };
 }

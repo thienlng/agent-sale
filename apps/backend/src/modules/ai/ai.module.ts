@@ -7,6 +7,7 @@ import {
   conversationLlmBudgetFromEnv,
   ownerLlmBudgetFromEnv,
 } from '../../common/limits/llm-budget.js';
+import { sharedLimiter } from '../../common/limits/limiter.js';
 import { SECRET_BOX, SecretBox } from '../../common/security/secret-box.js';
 import { ActionModule } from '../action/action.module.js';
 import { BotModule } from '../bot/bot.module.js';
@@ -21,6 +22,7 @@ import { AI_LLM_GATEWAY } from './api/llm-gateway.port.js';
 import { AiTraceRunnerImpl } from './application/ai-trace.runner.js';
 import { HERMES_SUBSCRIPTION_LOGIN, LlmAdminService } from './application/llm-admin.service.js';
 import { LlmRuntime } from './application/llm-runtime.js';
+import { BotCommitQuota } from './application/commit-quota.js';
 import { AI_SPEND_LIMITS } from './application/spend-guard.js';
 import { MEDIA_PUBLIC_BASE, PlaygroundService } from './application/playground.service.js';
 import { LLM_PROVIDER_FACTORY } from './application/ports/llm-provider-factory.js';
@@ -67,6 +69,13 @@ import { TurnTraceController } from './interface/http/turn-trace.controller.js';
       useFactory: () => ({
         conversation: conversationLlmBudgetFromEnv(),
         owner: ownerLlmBudgetFromEnv(),
+        commits: new BotCommitQuota(
+          {
+            ordersPerContactDay: getEnv().BOT_ORDERS_CONTACT_DAY,
+            holdsPerContactDay: getEnv().BOT_HOLDS_CONTACT_DAY,
+          },
+          sharedLimiter(),
+        ),
       }),
     },
     {

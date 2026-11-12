@@ -32,6 +32,8 @@ import {
   newHoldToolState,
   PREPARE_HOLD_TOOL,
 } from '../application/hold-tools.js';
+import { InMemoryLimiter } from '../../../common/limits/limiter.js';
+import { BotCommitQuota, COMMIT_LIMIT_REPLY } from '../application/commit-quota.js';
 import type { LlmRuntime } from '../application/llm-runtime.js';
 import { newOutputState } from '../application/output-tools.js';
 import { PlaygroundService } from '../application/playground.service.js';
@@ -510,6 +512,26 @@ describe('confirm_hold / cancel_hold_draft', () => {
     const out = await tool(ctx, CONFIRM_HOLD_TOOL).run({});
     expect(JSON.parse(out.content)).toEqual({ ok: false, code: 'not_confirmable' });
     expect(facade.confirmBotHold).not.toHaveBeenCalled();
+  });
+
+  it('stops at the holds one visitor may get per day, keyed by conversation without a contact (audit #18)', async () => {
+    const quota = new BotCommitQuota(
+      { ordersPerContactDay: 0, holdsPerContactDay: 1 },
+      new InMemoryLimiter(),
+    );
+    const facade = fakeLodging({ storedAt: new Date(0) });
+    const allowance = () => quota.for('hold', ws, { contactId: null, conversationId });
+    const first = await tool(
+      context(facade, { confirmable: true, quota: allowance() }),
+      CONFIRM_HOLD_TOOL,
+    ).run({});
+    expect(first.ok).toBe(true);
+    const second = await tool(
+      context(facade, { confirmable: true, quota: allowance() }),
+      CONFIRM_HOLD_TOOL,
+    ).run({});
+    expect(JSON.parse(second.content)).toEqual(COMMIT_LIMIT_REPLY);
+    expect(facade.confirmBotHold).toHaveBeenCalledTimes(1);
   });
 
   it('reports a lost hold with id-free alternatives', async () => {

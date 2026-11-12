@@ -16,6 +16,8 @@ import type { KnowledgeFacade } from '../../knowledge/api/index.js';
 import type { WorkspaceFacade } from '../../workspace/api/index.js';
 import type { OutgoingMessage } from '../api/reply-options.js';
 import { playgroundConversationId } from '../application/action-tools.js';
+import { InMemoryLimiter } from '../../../common/limits/limiter.js';
+import { BotCommitQuota, COMMIT_LIMIT_REPLY } from '../application/commit-quota.js';
 import { LlmRuntime } from '../application/llm-runtime.js';
 import {
   CANCEL_ORDER_DRAFT_TOOL,
@@ -300,6 +302,40 @@ describe('order tools (spec §4.1)', () => {
     const out = await runnable(ctx, CONFIRM_ORDER_TOOL).run({});
     expect(JSON.parse(out.content)).toEqual({ ok: false, code: 'not_confirmable' });
     expect(facade.confirmBotOrder).not.toHaveBeenCalled();
+  });
+
+  it('confirm stops at the orders one customer may get per day, counting only created orders (audit #18)', async () => {
+    const quota = new BotCommitQuota(
+      { ordersPerContactDay: 1, holdsPerContactDay: 0 },
+      new InMemoryLimiter(),
+    );
+    const who = { contactId: 'contact-1', conversationId };
+    const facade = fakeCommerce({ storedAt: new Date(Date.now() - 60_000) });
+    vi.mocked(facade.confirmBotOrder).mockResolvedValueOnce({ ok: false, code: 'expired' });
+    const failed = context(facade, { confirmable: true, quota: quota.for('order', ws, who) });
+    expect((await runnable(failed, CONFIRM_ORDER_TOOL).run({})).ok).toBe(false);
+
+    const first = context(facade, { confirmable: true, quota: quota.for('order', ws, who) });
+    expect(JSON.parse((await runnable(first, CONFIRM_ORDER_TOOL).run({})).content)).toEqual({
+      ok: true,
+      orderCode: 'DH0042',
+    });
+    // The same customer in another conversation is refused without calling commerce.
+    const again = context(facade, {
+      confirmable: true,
+      quota: quota.for('order', ws, { contactId: 'contact-1', conversationId: newId() }),
+    });
+    const out = await runnable(again, CONFIRM_ORDER_TOOL).run({});
+    expect(out.ok).toBe(false);
+    expect(JSON.parse(out.content)).toEqual(COMMIT_LIMIT_REPLY);
+    expect(facade.confirmBotOrder).toHaveBeenCalledTimes(2);
+    // Another customer still orders; holds are not capped here.
+    const other = context(fakeCommerce({ storedAt: new Date(Date.now() - 60_000) }), {
+      confirmable: true,
+      quota: quota.for('order', ws, { contactId: 'contact-2', conversationId }),
+    });
+    expect((await runnable(other, CONFIRM_ORDER_TOOL).run({})).ok).toBe(true);
+    expect(quota.for('hold', ws, who)).toBeNull();
   });
 
   it('confirm reports a failed confirmation code', async () => {

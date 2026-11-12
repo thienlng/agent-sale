@@ -2,6 +2,7 @@ import { newId } from '@agent-sales/shared';
 
 import type { ConversationLlmBudget, OwnerLlmBudget } from '../../../common/limits/llm-budget.js';
 import type { BotView } from '../../bot/api/index.js';
+import type { BotCommitQuota } from './commit-quota.js';
 import type { ReplyResult } from '../api/reply-options.js';
 import { defaultHandoffMessage } from '../domain/default-messages.js';
 
@@ -11,6 +12,8 @@ export interface AiSpendLimits {
   conversation?: ConversationLlmBudget;
   /** Playground per-user rate and the account's daily tokens. */
   owner?: OwnerLlmBudget;
+  /** Orders and holds the bot commits per customer and day (audit #18). */
+  commits?: BotCommitQuota;
 }
 
 export const AI_SPEND_LIMITS = Symbol('AI_SPEND_LIMITS');

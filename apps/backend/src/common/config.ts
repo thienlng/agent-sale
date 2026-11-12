@@ -182,8 +182,8 @@ export const EnvSchema = z
     PLAYGROUND_RUNS_USER_MINUTE: limitVar(10),
     /** Assistant turns one user may have running at once, across threads. */
     ASSISTANT_RUNS_PER_USER: limitVar(2),
-    /** Order drafts and lodging holds the bot may create for one customer per day. */
-    BOT_ORDER_DRAFTS_CONTACT_DAY: limitVar(10),
+    /** Orders and lodging holds the bot may create for one customer per day. */
+    BOT_ORDERS_CONTACT_DAY: limitVar(10),
     BOT_HOLDS_CONTACT_DAY: limitVar(3),
   })
   .refine((env) => !env.TURNSTILE_SITE_KEY === !env.TURNSTILE_SECRET, {

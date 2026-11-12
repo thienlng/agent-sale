@@ -125,6 +125,7 @@ import {
 } from './reply-pipeline.js';
 import type { RequestToolContext } from './request-tools.js';
 import { AI_SPEND_LIMITS, budgetHandoff, type AiSpendLimits } from './spend-guard.js';
+import type { CommitKind } from './commit-quota.js';
 import { sha256, TraceRecorder, traceExcerpt } from './trace-recorder.js';
 
 export { EMAIL_KNOWN_LINE, PHONE_KNOWN_LINE };
@@ -379,6 +380,14 @@ export class PlaygroundService implements AiFacade {
     // Orders need a private conversation: never for a public comment reply. Hotel bots sell
     // lodging properties, which commerce orders cannot hold (T-160). A request industry converts
     // through record_request, never an order, even with order taking on (ESV-R7).
+    // Orders and holds per customer and day (audit #18); never for a test run.
+    const commitQuota = (kind: CommitKind) =>
+      options.isTest
+        ? null
+        : (this.spend.commits?.for(kind, ws, {
+            contactId: options.contactId ?? null,
+            conversationId: conversationKey,
+          }) ?? null);
     const orders: OrderToolContext | null =
       this.commerce &&
       bot.orderTaking &&
@@ -403,6 +412,7 @@ export class PlaygroundService implements AiFacade {
             state: newOrderToolState(),
             onError: (error: unknown) =>
               this.#logger.warn(`Order draft drop failed: ${errorClass(error)}`),
+            quota: commitQuota('order'),
           }
         : null;
     const holds =
@@ -421,6 +431,7 @@ export class PlaygroundService implements AiFacade {
             privateChat: !isCommentReply,
             answered: answeredSince(input.messages, options.turnTimes, startedAt),
             warn: (message) => this.#logger.warn(message),
+            quota: commitQuota('hold'),
           })
         : null;
     // A bot of a request industry records its requests on the CRM customer itself (ADR-020).

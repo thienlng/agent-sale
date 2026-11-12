@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { CommerceFacade } from '../../commerce/api/index.js';
 import type { MessageSink, OutgoingMessage, QuickReply } from '../api/reply-options.js';
 import { safeJson } from './action-tools.js';
+import { COMMIT_LIMIT_REPLY, type CommitAllowance } from './commit-quota.js';
 import type { OutputState } from './output-tools.js';
 
 /** Commerce's problem for a course or service SKU: offerings are not sold through orders. */
@@ -82,6 +83,8 @@ export interface OrderToolContext {
   state: OrderToolState;
   /** Logs a failure the turn survives (the error class only). */
   onError?: (error: unknown) => void;
+  /** Orders this customer may still get today (audit #18); absent = no cap (playground). */
+  quota?: CommitAllowance | null;
 }
 
 export interface OrderToolState {
@@ -330,12 +333,14 @@ export function orderTools(ctx: OrderToolContext): {
     // Never the model's arguments: only the draft the customer was shown.
     run: async () => {
       if (!draftOpen()) return reply({ ok: false, code: 'not_confirmable' }, false);
+      if (ctx.quota && !(await ctx.quota.allowed())) return reply(COMMIT_LIMIT_REPLY, false);
       const res = await facade.confirmBotOrder(ws, {
         botId: ctx.bot.id,
         botName: ctx.bot.name,
         conversationId,
       });
       if (!res.ok) return reply({ ok: false, code: res.code }, false);
+      await ctx.quota?.used().catch((error: unknown) => ctx.onError?.(error));
       state.orderCreated = true;
       state.orderCode = res.orderCode;
       return reply({ ok: true, orderCode: res.orderCode });
