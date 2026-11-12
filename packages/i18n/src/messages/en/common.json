@@ -604,6 +604,7 @@
     "prevPage": "Previous page",
     "nextPage": "Next page",
     "summary": "{{count}} orders · total {{total}}",
+    "summaryCancelled": "{{count}} orders ({{cancelled}} cancelled) · total {{total}}",
     "filters": {
       "columns": "Columns",
       "resetColumns": "Default columns",

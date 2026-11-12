@@ -3,7 +3,7 @@ import type { TFunction } from 'i18next';
 import type { ReactNode } from 'react';
 import { useSyncExternalStore } from 'react';
 
-import { formatDateTime, formatVnd } from '@/lib/format';
+import { formatDateTime, formatPhone, formatVnd } from '@/lib/format';
 import { storage } from '@/lib/storage';
 
 import { OrderCreatedByCell } from './order-created-by-cell';
@@ -68,7 +68,9 @@ export const ORDER_COLUMNS: readonly OrderColumn[] = [
     cell: (o) => (
       <>
         <div className="truncate font-medium">{o.customer.name}</div>
-        <div className="text-xs text-muted-foreground tabular-nums">{o.customer.phone}</div>
+        <div className="text-xs text-muted-foreground tabular-nums">
+          {o.customer.phone ? formatPhone(o.customer.phone) : null}
+        </div>
       </>
     ),
     csv: (o) => o.customer.name,
@@ -77,7 +79,11 @@ export const ORDER_COLUMNS: readonly OrderColumn[] = [
     id: 'phone',
     header: 'orders.col.phone',
     defaultVisible: false,
-    cell: (o) => <span className="tabular-nums">{o.recipient.phone ?? '—'}</span>,
+    cell: (o) => (
+      <span className="tabular-nums">
+        {o.recipient.phone ? formatPhone(o.recipient.phone) : '—'}
+      </span>
+    ),
     csv: (o) => o.recipient.phone ?? '',
   },
   {

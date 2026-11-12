@@ -601,6 +601,7 @@
     "prevPage": "Trang trước",
     "nextPage": "Trang sau",
     "summary": "{{count}} đơn · tổng {{total}}",
+    "summaryCancelled": "{{count}} đơn ({{cancelled}} đã huỷ) · tổng {{total}}",
     "filters": {
       "columns": "Cột",
       "resetColumns": "Cột mặc định",

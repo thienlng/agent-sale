@@ -76,6 +76,20 @@ function footerCell(col: OrderColumn, totals: Totals) {
   }
 }
 
+/**
+ * How many of the listed orders are cancelled (TM2-13): the per-status count, when the status
+ * filter lets cancelled orders through.
+ */
+export function cancelledInList(search: OrdersSearch, counts: Record<string, number>): number {
+  const chosen = search.status ?? [];
+  const shown = !chosen.length
+    ? true
+    : (search.statusMode ?? 'include') === 'include'
+      ? chosen.includes('cancelled')
+      : !chosen.includes('cancelled');
+  return shown ? (counts['cancelled'] ?? 0) : 0;
+}
+
 function OrderCards({ rows }: { rows: OrderSummaryDto[] }) {
   const { t } = useTranslation();
   return (
@@ -91,7 +105,10 @@ function OrderCards({ rows }: { rows: OrderSummaryDto[] }) {
               <span className="flex min-w-0 flex-wrap items-center gap-1.5">
                 <span className="font-medium text-brand-text tabular-nums">{o.code}</span>
                 {o.createdByKind === 'bot' ? <BotBadge /> : null}
-                {o.createdByKind === 'bot' && o.reviewState === 'pending' ? (
+                {/* Cancelling a bot order rejects it: nothing left to review (TM2-12). */}
+                {o.createdByKind === 'bot' &&
+                o.reviewState === 'pending' &&
+                o.status !== 'cancelled' ? (
                   <PendingReviewChip />
                 ) : null}
               </span>
@@ -238,7 +255,14 @@ export function OrdersList({
           <h1 className="text-2xl font-semibold tracking-tight">{t('orders.title')}</h1>
           {data ? (
             <p className="mt-1 text-sm text-muted-foreground">
-              {t('orders.summary', { count: data.total, total: formatVnd(data.totals.total) })}
+              {/* The total leaves cancelled orders out, so the count says how many it holds. */}
+              {cancelledInList(search, data.counts) > 0
+                ? t('orders.summaryCancelled', {
+                    count: data.total,
+                    cancelled: cancelledInList(search, data.counts),
+                    total: formatVnd(data.totals.total),
+                  })
+                : t('orders.summary', { count: data.total, total: formatVnd(data.totals.total) })}
             </p>
           ) : null}
         </div>
@@ -354,7 +378,10 @@ export function OrdersList({
                           order={o}
                           onOpen={() => open(o)}
                           onApprove={
-                            canAdd && o.createdByKind === 'bot' && o.reviewState === 'pending'
+                            canAdd &&
+                            o.createdByKind === 'bot' &&
+                            o.reviewState === 'pending' &&
+                            o.status !== 'cancelled'
                               ? () => approve(o)
                               : undefined
                           }
