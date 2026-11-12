@@ -34,9 +34,16 @@ import {
   type GoogleOAuthClient,
 } from '../src/modules/identity/application/ports/google-oauth.js';
 import {
+  SESSION_REPOSITORY,
+  type SessionRepository,
+} from '../src/modules/identity/domain/ports/session.repository.js';
+import {
   USER_REPOSITORY,
   type UserRepository,
 } from '../src/modules/identity/domain/ports/user.repository.js';
+import { stepAt, totpAt } from '../src/modules/identity/domain/totp.js';
+import type { InMemorySessionRepository } from '../src/modules/identity/infrastructure/persistence/identity.in-memory-repositories.js';
+import { enableTwoFactor } from './support/mfa.js';
 import { signUpVerified, signupCode } from './support/signup.js';
 
 /** Synthetic OAuth client secret for tests (built at runtime so secret scanners skip it). */
@@ -702,11 +709,23 @@ function stubLlmNetwork(a: NestFastifyApplication): void {
 }
 
 describe('HTTP: platform admin — LLM configuration', () => {
+  /** A platform admin with two-factor on, signed in on a session that passed it. */
   async function admin(a: NestFastifyApplication) {
     const email = `admin-${Math.random()}@rapiz.vn`;
     const { token } = await signup(a, email);
     await a.get<UserRepository>(USER_REPOSITORY).setPlatformAdmin(email, true);
-    return { authorization: `Bearer ${token}` };
+    const authorization = `Bearer ${token}`;
+    await enableTwoFactor(
+      (path, payload) =>
+        inject(a, {
+          method: 'POST',
+          url: `/api/v1${path}`,
+          headers: { authorization },
+          payload: { ...payload },
+        }),
+      signupBody.password,
+    );
+    return { authorization };
   }
 
   it('is invisible (404) to users who are not platform admins', async () => {
@@ -1123,5 +1142,151 @@ describe('HTTP: fanpage comments', () => {
         })
       ).statusCode,
     ).toBe(400);
+  });
+});
+
+describe('HTTP: sessions, step-up and the back office second factor', () => {
+  const auth = (token: string, ws?: string) => ({
+    authorization: `Bearer ${token}`,
+    ...(ws ? { 'x-workspace-id': ws } : {}),
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('an access token stops working when its session is logged out', async () => {
+    const a = await app();
+    const { token } = await signup(a, `out-${Math.random()}@shop.vn`);
+    expect(
+      (await inject(a, { method: 'GET', url: '/api/v1/me', headers: auth(token) })).statusCode,
+    ).toBe(200);
+    const out = await inject(a, {
+      method: 'POST',
+      url: '/api/v1/auth/logout',
+      headers: auth(token),
+    });
+    expect(out.statusCode).toBe(204);
+    const after = await inject(a, { method: 'GET', url: '/api/v1/me', headers: auth(token) });
+    expect(after.statusCode).toBe(401);
+    expect(after.json().error.details.reason).toBe('session_revoked');
+  });
+
+  it('an access token stops working after a password reset', async () => {
+    const a = await app();
+    const email = `reset-${Math.random()}@shop.vn`;
+    const { token } = await signup(a, email);
+    await inject(a, { method: 'POST', url: '/api/v1/auth/password/forgot', payload: { email } });
+    const { lastEmailedCode } = await import('./support/signup.js');
+    const reset = await inject(a, {
+      method: 'POST',
+      url: '/api/v1/auth/password/reset',
+      payload: { email, code: lastEmailedCode(a, email), password: 'another long passphrase' },
+    });
+    expect(reset.statusCode).toBe(204);
+    expect(
+      (await inject(a, { method: 'GET', url: '/api/v1/me', headers: auth(token) })).statusCode,
+    ).toBe(401);
+  });
+
+  it('API key and data export creation need a recent step-up', async () => {
+    const a = await app();
+    const { token, body } = await signup(a, `step-${Math.random()}@shop.vn`);
+    const ws = (await bootstrap(a, token)).memberships[0]?.workspaceId ?? '';
+    const h = auth(token, ws);
+    const status = await inject(a, { method: 'GET', url: '/api/v1/auth/reauth', headers: h });
+    expect(status.json()).toMatchObject({ methods: ['password'], recent: true, mfa: false });
+
+    // The sign-in itself counts for the window; past it the actions answer 403 reauth_required.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now() + 11 * 60_000);
+    for (const [url, payload] of [
+      ['/api/v1/api-keys', { name: 'Zapier', scopes: ['contacts.view'], expiresAt: null }],
+      ['/api/v1/data-exports', {}],
+    ] as const) {
+      const res = await inject(a, { method: 'POST', url, headers: h, payload });
+      expect(res.statusCode, url).toBe(403);
+      expect(res.json().error.details.reason).toBe('reauth_required');
+    }
+    const wrong = await inject(a, {
+      method: 'POST',
+      url: '/api/v1/auth/reauth',
+      headers: h,
+      payload: { password: 'not the password' },
+    });
+    expect(wrong.statusCode).toBe(400);
+    const ok = await inject(a, {
+      method: 'POST',
+      url: '/api/v1/auth/reauth',
+      headers: h,
+      payload: { password: signupBody.password },
+    });
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect(ok.json()).toMatchObject({ recent: true });
+    const exp = await inject(a, {
+      method: 'POST',
+      url: '/api/v1/data-exports',
+      headers: h,
+      payload: {},
+    });
+    expect(exp.json().error?.details?.reason).not.toBe('reauth_required');
+    expect(body.user.email).toContain('@shop.vn');
+  });
+
+  it('lists linked sign-ins and refuses to remove an unknown one', async () => {
+    const a = await app();
+    const { token } = await signup(a, `links-${Math.random()}@shop.vn`);
+    const list = await inject(a, {
+      method: 'GET',
+      url: '/api/v1/auth/identities',
+      headers: auth(token),
+    });
+    expect(list.json()).toEqual({ data: [] });
+    for (const url of ['/api/v1/auth/identities/google/nope', '/api/v1/auth/identities/github/x']) {
+      const res = await inject(a, { method: 'DELETE', url, headers: auth(token) });
+      expect(res.statusCode, url).toBe(404);
+    }
+  });
+
+  it('a platform admin needs two-factor on, and a session that passed it', async () => {
+    const a = await app({ AUTH_SESSION_CACHE_TTL_MS: '0' });
+    const email = `ops-${Math.random()}@rapiz.vn`;
+    const { token } = await signup(a, email);
+    await a.get<UserRepository>(USER_REPOSITORY).setPlatformAdmin(email, true);
+    const url = '/api/v1/admin/llm/providers';
+    const noMfa = await inject(a, { method: 'GET', url, headers: auth(token) });
+    expect(noMfa.statusCode).toBe(403);
+    expect(noMfa.json().error.details.reason).toBe('admin_mfa_required');
+
+    const setup = await inject(a, {
+      method: 'POST',
+      url: '/api/v1/auth/mfa/setup',
+      headers: auth(token),
+      payload: { password: signupBody.password },
+    });
+    const secret = (setup.json() as { secret: string }).secret;
+    const step = stepAt(Date.now());
+    await inject(a, {
+      method: 'POST',
+      url: '/api/v1/auth/mfa/enable',
+      headers: auth(token),
+      payload: { code: totpAt(secret, step) },
+    });
+    expect((await inject(a, { method: 'GET', url, headers: auth(token) })).statusCode).toBe(200);
+
+    // A session from before the second factor was recorded (e.g. before migration 0076).
+    const sessions = a.get<SessionRepository>(SESSION_REPOSITORY) as InMemorySessionRepository;
+    for (const row of sessions.rows.values()) row.mfa = false;
+    const stale = await inject(a, { method: 'GET', url, headers: auth(token) });
+    expect(stale.statusCode).toBe(403);
+    expect(stale.json().error.details.reason).toBe('mfa_session_required');
+    const reauth = await inject(a, {
+      method: 'POST',
+      url: '/api/v1/auth/reauth',
+      headers: auth(token),
+      payload: { code: totpAt(secret, step + 1) },
+    });
+    expect(reauth.json()).toMatchObject({ recent: true, mfa: true });
+    expect((await inject(a, { method: 'GET', url, headers: auth(token) })).statusCode).toBe(200);
   });
 });

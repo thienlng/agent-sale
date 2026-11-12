@@ -9,6 +9,7 @@ import {
   ApiClientError,
   setAccessToken,
   setSessionExpiredHandler,
+  setStepUpHandler,
   setWorkspaceId,
 } from './api-client';
 
@@ -240,5 +241,82 @@ describe('apiUpload()', () => {
       url: '/media/v.mp4',
     });
     expect(FakeXhr.sent[1]?.headers['Authorization']).toBe('Bearer new-token');
+  });
+});
+
+describe('step-up (docs/09 §2)', () => {
+  const reauth = {
+    error: { code: 'FORBIDDEN', message: 'x', details: { reason: 'reauth_required' } },
+  };
+  afterEach(() => setStepUpHandler(null));
+
+  /** Answers 403 reauth_required until `confirmed`, then 201. */
+  function sensitive() {
+    const state = { confirmed: false, calls: 0 };
+    vi.stubGlobal('fetch', async () => {
+      state.calls += 1;
+      return state.confirmed
+        ? new Response(JSON.stringify({ ok: true }), { status: 201 })
+        : new Response(JSON.stringify(reauth), { status: 403 });
+    });
+    return state;
+  }
+
+  it('asks the user to confirm, then sends the request again', async () => {
+    const state = sensitive();
+    const handler = vi.fn(async () => {
+      state.confirmed = true;
+      return true;
+    });
+    setStepUpHandler(handler);
+    await expect(
+      api('/api-keys', z.object({ ok: z.boolean() }), { method: 'POST', body: {} }),
+    ).resolves.toEqual({ ok: true });
+    expect(handler).toHaveBeenCalledWith('reauth_required');
+    expect(state.calls).toBe(2);
+  });
+
+  it('keeps the refusal when the user cancels', async () => {
+    const state = sensitive();
+    setStepUpHandler(async () => false);
+    const error = await api('/api-keys', z.unknown(), { method: 'POST', body: {} }).catch((e) => e);
+    expect(error).toMatchObject({ status: 403, details: { reason: 'reauth_required' } });
+    expect(state.calls).toBe(1);
+  });
+
+  it('shares one prompt between concurrent requests', async () => {
+    const state = sensitive();
+    let release: (ok: boolean) => void = () => {};
+    const handler = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          release = (ok) => {
+            state.confirmed = ok;
+            resolve(ok);
+          };
+        }),
+    );
+    setStepUpHandler(handler);
+    const both = Promise.all([
+      api('/a', z.object({ ok: z.boolean() }), { method: 'POST', body: {} }),
+      api('/b', z.object({ ok: z.boolean() }), { method: 'POST', body: {} }),
+    ]);
+    await vi.waitFor(() => expect(handler).toHaveBeenCalled());
+    release(true);
+    await expect(both).resolves.toEqual([{ ok: true }, { ok: true }]);
+    expect(handler).toHaveBeenCalledOnce();
+  });
+
+  it('leaves other 403s alone', async () => {
+    const handler = vi.fn(async () => true);
+    setStepUpHandler(handler);
+    const { fetchStub } = stubFetch({
+      'POST /bots': { status: 403, body: { error: { code: 'FORBIDDEN', message: 'x' } } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    await expect(api('/bots', z.unknown(), { method: 'POST', body: {} })).rejects.toMatchObject({
+      status: 403,
+    });
+    expect(handler).not.toHaveBeenCalled();
   });
 });

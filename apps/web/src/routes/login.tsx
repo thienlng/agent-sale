@@ -8,12 +8,13 @@ import { completeGoogleSignIn, ensureSession } from '@/lib/session';
 
 /**
  * Only same-app paths are accepted as a post-login target (no open redirect). The server sends a
- * Google sign-in back here with `google=done` (refresh cookie set), `google=mfa` (code needed) or
+ * Google sign-in back here with `google=done` (refresh cookie set), `google=mfa` (code needed), `google=verify` (a new
+ * account waits for the code emailed to its address) or
  * `google_error=<reason>`.
  */
 const Search = z.object({
   redirect: z.string().startsWith('/').catch('/app/analytics').optional(),
-  google: z.enum(['done', 'mfa']).optional().catch(undefined),
+  google: z.enum(['done', 'mfa', 'verify']).optional().catch(undefined),
   google_error: z.string().max(40).optional().catch(undefined),
 });
 
@@ -34,11 +35,13 @@ function LoginPage() {
   const google: GoogleReturn | undefined =
     search.google === 'mfa'
       ? { step: 'mfa' }
-      : search.google === 'done'
-        ? { step: 'error', reason: 'expired' }
-        : search.google_error
-          ? { step: 'error', reason: search.google_error }
-          : undefined;
+      : search.google === 'verify'
+        ? { step: 'verify' }
+        : search.google === 'done'
+          ? { step: 'error', reason: 'expired' }
+          : search.google_error
+            ? { step: 'error', reason: search.google_error }
+            : undefined;
   return (
     <LoginLayout>
       <LoginForm

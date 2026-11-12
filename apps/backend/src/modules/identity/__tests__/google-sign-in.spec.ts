@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { LocalMailer } from '../../../common/email/mailer.js';
 import { SecretBox } from '../../../common/security/secret-box.js';
 
 import {
@@ -8,9 +9,11 @@ import {
   safeRedirect,
 } from '../application/google-sign-in.js';
 import { LoginHandler } from '../application/commands/auth.handlers.js';
+import { EmailCodeService } from '../application/email-codes.js';
 import { MfaService } from '../application/mfa.service.js';
 import type { GoogleOAuthClient, GoogleProfile } from '../application/ports/google-oauth.js';
 import type { PasswordHasher } from '../application/ports/security.js';
+import { DEFAULT_SESSION_POLICY } from '../application/session-state.js';
 import { SessionService } from '../application/sessions.js';
 import {
   GoogleSignInError,
@@ -21,6 +24,7 @@ import {
 import { stepAt, totpAt } from '../domain/totp.js';
 import { User } from '../domain/user.js';
 import {
+  InMemoryEmailCodeRepository,
   InMemoryExternalIdentityRepository,
   InMemoryMfaRepository,
   InMemorySessionRepository,
@@ -28,6 +32,7 @@ import {
 } from '../infrastructure/persistence/identity.in-memory-repositories.js';
 import { InMemoryAttemptLimiter } from '../infrastructure/security/in-memory-attempt-limiter.js';
 import { JoseAccessTokens } from '../infrastructure/security/jose-access-tokens.js';
+import { securityEvents } from './factories/security.js';
 
 const hasher: PasswordHasher = {
   hash: async (p) => `h:${p}`,
@@ -76,7 +81,11 @@ async function setup(enabled = true, callbackLimit = 20) {
   const sessions = new SessionService(
     sessionRepo,
     await JoseAccessTokens.create({ NODE_ENV: 'test' }),
+    DEFAULT_SESSION_POLICY,
   );
+  const mailer = new LocalMailer('test');
+  const events = securityEvents(users, mailer);
+  const codes = new EmailCodeService(new InMemoryEmailCodeRepository(), mailer);
   const box = SecretBox.insecureDevelopmentBox();
   const mfa = new MfaService(
     new InMemoryMfaRepository(),
@@ -85,6 +94,7 @@ async function setup(enabled = true, callbackLimit = 20) {
     new InMemoryAttemptLimiter(20, 60_000),
     box,
     sessions,
+    events.service,
   );
   const google = new FakeGoogle();
   const service = new GoogleSignInService(
@@ -97,6 +107,8 @@ async function setup(enabled = true, callbackLimit = 20) {
     mfa,
     new InMemoryAttemptLimiter(20, 60_000),
     new InMemoryAttemptLimiter(callbackLimit, 60_000),
+    codes,
+    events.service,
   );
   const login = new LoginHandler(
     users,
@@ -105,7 +117,18 @@ async function setup(enabled = true, callbackLimit = 20) {
     sessions,
     mfa,
   );
-  return { users, identities, sessionRepo, sessions, mfa, google, service, login };
+  return {
+    users,
+    identities,
+    sessionRepo,
+    sessions,
+    mfa,
+    google,
+    service,
+    login,
+    mailer,
+    events: events.repo,
+  };
 }
 
 type Setup = Awaited<ReturnType<typeof setup>>;
@@ -247,7 +270,7 @@ describe('Google sign-in', () => {
     await s.users.insert(user);
     const current = await s.sessions.start(user, meta);
     const sessionId = [...s.sessionRepo.rows.values()][0]?.id ?? '';
-    const { secret } = await s.mfa.beginSetup(user.id, 'secret-pass');
+    const { secret } = await s.mfa.beginSetup(user.id, 'secret-pass', sessionId);
     await s.mfa.enable(user.id, totpAt(secret, stepAt(Date.now())), sessionId);
     expect(current).toBeDefined();
     const sessionsBefore = s.sessionRepo.rows.size;
@@ -278,7 +301,7 @@ describe('Google sign-in', () => {
     await s.users.insert(user);
     await s.sessions.start(user, meta);
     const sessionId = [...s.sessionRepo.rows.values()][0]?.id ?? '';
-    const { secret } = await s.mfa.beginSetup(user.id, 'p4ssword');
+    const { secret } = await s.mfa.beginSetup(user.id, 'p4ssword', sessionId);
     await s.mfa.enable(user.id, totpAt(secret, stepAt(Date.now())), sessionId);
     const { flow } = s.service.start('/app', old);
     const result = await s.service.callback(
@@ -361,11 +384,77 @@ describe('Google sign-in', () => {
     expect(await s.identities.findUserId('google', 'google-sub-1')).toBe(existing.id);
   });
 
-  it('still creates a new user for a never-seen non-Gmail address', async () => {
+  it('creates a user for a never-seen non-Gmail address only after the emailed code', async () => {
+    const s = await setup();
+    s.google.profile = { email: 'new@shop.vn', hostedDomain: null };
+    const result = await signIn(s, '/app/inbox');
+    if (result.kind !== 'verify') throw new Error('expected verify');
+    expect(result.redirect).toBe('/app/inbox');
+    // Nothing exists yet: a Google account made for someone else's address gets no account.
+    expect(await s.users.findByEmail('new@shop.vn')).toBeNull();
+    expect(await s.identities.findUserId('google', 'google-sub-1')).toBeNull();
+    expect(s.mailer.sent.at(-1)?.to).toBe('new@shop.vn');
+    const code = s.mailer.sent.at(-1)?.subject.split(': ')[1] ?? '';
+
+    await expect(s.service.completeVerify(result.ticket, '000000', meta)).rejects.toMatchObject({
+      details: { reason: 'code_invalid' },
+    });
+    const issued = await s.service.completeVerify(result.ticket, code, meta);
+    expect(issued.user.email).toBe('new@shop.vn');
+    expect(issued.user.emailVerified).toBe(true);
+    expect(await s.identities.findUserId('google', 'google-sub-1')).toBe(issued.user.id);
+    expect(s.events.rows.map((e) => e.action)).toContain('identity.linked');
+    // The code is used up.
+    await expect(s.service.completeVerify(result.ticket, code, meta)).rejects.toBeDefined();
+  });
+
+  it('refuses a verify ticket that expired, is missing or is another kind of cookie', async () => {
     const s = await setup();
     s.google.profile = { email: 'new@shop.vn', hostedDomain: null };
     const result = await signIn(s);
+    if (result.kind !== 'verify') throw new Error('expected verify');
+    const code = s.mailer.sent.at(-1)?.subject.split(': ')[1] ?? '';
+    const later = new Date(Date.now() + 16 * 60_000);
+    await expect(s.service.completeVerify(result.ticket, code, meta, later)).rejects.toMatchObject({
+      reason: 'expired',
+    });
+    await expect(s.service.completeVerify(undefined, code, meta)).rejects.toMatchObject({
+      reason: 'expired',
+    });
+    const { flow } = s.service.start('/app');
+    await expect(s.service.completeVerify(flow, code, meta)).rejects.toMatchObject({
+      reason: 'expired',
+    });
+    expect(await s.users.findByEmail('new@shop.vn')).toBeNull();
+  });
+
+  it('a Workspace account of the domain still signs up at once', async () => {
+    const s = await setup();
+    s.google.profile = { email: 'new@shop.vn', hostedDomain: 'shop.vn' };
+    const result = await signIn(s);
     expect(result.kind === 'session' && result.issued.user.email).toBe('new@shop.vn');
+    expect(s.events.rows.map((e) => e.action)).toEqual(['identity.linked']);
+  });
+
+  it('a session after the second factor counts as two-factor', async () => {
+    const s = await setup();
+    const user = User.register({
+      email: 'lan@gmail.com',
+      name: 'Lan',
+      passwordHash: 'h:p4ssword',
+      emailVerifiedAt: new Date(),
+    });
+    await s.users.insert(user);
+    await s.sessions.start(user, meta);
+    const sessionId = [...s.sessionRepo.rows.values()][0]?.id ?? '';
+    const { secret } = await s.mfa.beginSetup(user.id, 'p4ssword', sessionId);
+    await s.mfa.enable(user.id, totpAt(secret, stepAt(Date.now())), sessionId);
+    const result = await signIn(s);
+    if (result.kind !== 'mfa') throw new Error('expected mfa');
+    await s.service.completeMfa(result.ticket, totpAt(secret, stepAt(Date.now()) + 1), meta);
+    const newest = [...s.sessionRepo.rows.values()].at(-1);
+    expect(newest?.mfa).toBe(true);
+    expect(newest?.authenticatedAt).toBeInstanceOf(Date);
   });
 
   it('links the Google account and claims an unverified address only after the second factor', async () => {
@@ -374,7 +463,7 @@ describe('Google sign-in', () => {
     await s.users.insert(user);
     await s.sessions.start(user, meta);
     const sessionId = [...s.sessionRepo.rows.values()][0]?.id ?? '';
-    const { secret } = await s.mfa.beginSetup(user.id, 'p4ssword');
+    const { secret } = await s.mfa.beginSetup(user.id, 'p4ssword', sessionId);
     await s.mfa.enable(user.id, totpAt(secret, stepAt(Date.now())), sessionId);
 
     const result = await signIn(s);

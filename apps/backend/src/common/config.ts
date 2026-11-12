@@ -141,6 +141,14 @@ export const EnvSchema = z
     GOOGLE_CLIENT_ID: z.string().min(10).optional(),
     GOOGLE_CLIENT_SECRET: z.string().min(10).optional(),
     GOOGLE_REDIRECT_URI: z.url().optional(),
+    /**
+     * How long each API process trusts what it read about a session (revoked, two-factor, last
+     * authentication) before reading it again. A logout or password reset reaches the other
+     * processes within this time; 0 reads the session on every request.
+     */
+    AUTH_SESSION_CACHE_TTL_MS: z.coerce.number().int().min(0).max(60_000).default(15_000),
+    /** How recent a password, code or Google sign-in must be for a step-up protected action. */
+    AUTH_STEP_UP_WINDOW_MINUTES: z.coerce.number().int().min(1).max(60).default(10),
   })
   .refine((env) => !env.GOOGLE_CLIENT_ID === !env.GOOGLE_CLIENT_SECRET, {
     message: 'Set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, or neither',

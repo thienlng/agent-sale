@@ -12,6 +12,10 @@ import {
   type ExternalIdentityRepository,
 } from '../src/modules/identity/domain/ports/external-identity.repository.js';
 import {
+  SECURITY_EVENT_REPOSITORY,
+  type SecurityEventRepository,
+} from '../src/modules/identity/domain/ports/security-event.repository.js';
+import {
   USER_REPOSITORY,
   type UserRepository,
 } from '../src/modules/identity/domain/ports/user.repository.js';
@@ -288,5 +292,53 @@ describe('identity on Postgres', () => {
     const confirmed = await users.findById(userId(squatter.id));
     expect(confirmed?.emailVerified).toBe(true);
     expect(confirmed?.hasPassword).toBe(false);
+  });
+
+  it('a reset revokes access tokens, removes Google links and records the event (migration 0076)', async () => {
+    const res = await signUpVerified(app, {
+      name: 'Vy',
+      email: 'vy@shop.vn',
+      password: 'a long enough password',
+    });
+    const { accessToken, user } = AuthResponse.parse(res.json());
+    const h = { authorization: `Bearer ${accessToken}` };
+    expect((await inject({ method: 'GET', url: '/api/v1/me', headers: h })).statusCode).toBe(200);
+    const identities = app.get<ExternalIdentityRepository>(EXTERNAL_IDENTITY_REPOSITORY);
+    await identities.link(
+      { provider: 'google', subject: 'sub-vy', userId: userId(user.id), email: 'vy@shop.vn' },
+      new Date(),
+    );
+    const listed = await inject({ method: 'GET', url: '/api/v1/auth/identities', headers: h });
+    expect(listed.json().data).toEqual([
+      expect.objectContaining({ provider: 'google', subject: 'sub-vy', email: 'vy@shop.vn' }),
+    ]);
+    const step = await inject({ method: 'GET', url: '/api/v1/auth/reauth', headers: h });
+    expect(step.json()).toMatchObject({ methods: ['password'], recent: true });
+
+    await inject({
+      method: 'POST',
+      url: '/api/v1/auth/password/forgot',
+      payload: { email: 'vy@shop.vn' },
+    });
+    const reset = await inject({
+      method: 'POST',
+      url: '/api/v1/auth/password/reset',
+      payload: {
+        email: 'vy@shop.vn',
+        code: lastEmailedCode(app, 'vy@shop.vn'),
+        password: 'a brand new passphrase',
+      },
+    });
+    expect(reset.statusCode).toBe(204);
+    // The guard checks the session on every request: the old access token is dead at once.
+    expect((await inject({ method: 'GET', url: '/api/v1/me', headers: h })).statusCode).toBe(401);
+    expect(await identities.findUserId('google', 'sub-vy')).toBeNull();
+    const events = await app
+      .get<SecurityEventRepository>(SECURITY_EVENT_REPOSITORY)
+      .listForUser(userId(user.id), 10);
+    expect(events.map((e) => e.action)).toEqual(
+      expect.arrayContaining(['password.reset', 'identity.unlinked']),
+    );
+    expect(events.find((e) => e.action === 'password.reset')?.data).toMatchObject({ unlinked: 1 });
   });
 });

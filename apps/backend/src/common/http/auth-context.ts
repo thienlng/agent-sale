@@ -39,6 +39,7 @@ export const IS_PUBLIC = 'rapiz:isPublic';
 export const IS_WORKSPACE_SCOPED = 'rapiz:isWorkspaceScoped';
 export const IS_PLATFORM_ADMIN = 'rapiz:isPlatformAdmin';
 export const REQUIRED_CAPABILITY = 'rapiz:requiredCapability';
+export const REQUIRES_RECENT_AUTH = 'rapiz:requiresRecentAuth';
 
 /** Route needs no authentication (health, signup, login, refresh). */
 export const Public = () => SetMetadata(IS_PUBLIC, true);
@@ -53,6 +54,8 @@ export const WorkspaceScoped = () => SetMetadata(IS_WORKSPACE_SCOPED, true);
 /**
  * Platform back-office route (LLM providers, plans…): the user must be a
  * platform admin. Anyone else gets 404 so the admin surface is not discoverable.
+ * An admin also needs two-factor turned on (403 `admin_mfa_required`) and a
+ * session that passed it (403 `mfa_session_required`: step up with a code).
  */
 export const PlatformAdmin = () => SetMetadata(IS_PLATFORM_ADMIN, true);
 
@@ -63,6 +66,13 @@ export const PlatformAdmin = () => SetMetadata(IS_PLATFORM_ADMIN, true);
  */
 export const RequireCapability = (capability: Capability) =>
   SetMetadata(REQUIRED_CAPABILITY, capability);
+
+/**
+ * Sensitive action (step-up): the session must have proved a factor within
+ * `AUTH_STEP_UP_WINDOW_MINUTES` (login, Google sign-in or `POST /auth/reauth`);
+ * otherwise 403 with `details.reason = 'reauth_required'`. Never satisfied by an API key.
+ */
+export const RequireRecentAuth = () => SetMetadata(REQUIRES_RECENT_AUTH, true);
 
 export const CurrentUser = createParamDecorator((_d: unknown, ctx: ExecutionContext): AuthState => {
   const req = ctx.switchToHttp().getRequest<FastifyRequest>();

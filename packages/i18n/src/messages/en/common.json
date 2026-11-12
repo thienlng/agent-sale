@@ -160,6 +160,13 @@
       "submitting": "Saving…",
       "done": "Password changed. Log in again.",
       "back": "Back to log in"
+    },
+    "googleVerify": {
+      "title": "Check your email",
+      "subtitle": "To finish signing up with Google, enter the 6-digit code we sent to your email.",
+      "code": "Verification code",
+      "submit": "Create account",
+      "invalid": "That code is wrong or expired. Sign in with Google again to get a new one."
     }
   },
   "industries": {
@@ -1570,7 +1577,21 @@
         "already_enabled": "Two-step verification is already on."
       },
       "enabledToast": "Two-step verification is on",
-      "disabledToast": "Two-step verification is off"
+      "disabledToast": "Two-step verification is off",
+      "linked": {
+        "title": "Linked sign-ins",
+        "hint": "Other ways to sign in to this account. Remove any you don't recognise.",
+        "empty": "No linked sign-ins.",
+        "google": "Google",
+        "since": "Linked {{date}}",
+        "remove": "Remove",
+        "removeTitle": "Remove Google sign-in?",
+        "removeBody": "{{email}} will no longer be able to sign in to this account through Google.",
+        "removed": "Google sign-in removed",
+        "lastMethod": "This is your only way to sign in. Set a password first (use \"Forgot password\" on the sign-in page).",
+        "loadError": "Could not load linked sign-ins."
+      },
+      "step1NoPassword": "1. Confirm it's you (you signed up with Google, so we email you a code)"
     },
     "industry": {
       "title": "Business industry",
@@ -2091,6 +2112,29 @@
       "disabled": "Notifications are off for this device",
       "blocked": "The browser blocks Rapiz notifications. Allow them in the browser settings.",
       "failed": "Could not turn on notifications. Try again later."
+    }
+  },
+  "stepUp": {
+    "title": "Confirm it's you",
+    "hint": "This is a sensitive action. Confirm it's you to continue.",
+    "adminHint": "The admin area needs a two-step verification code on this sign-in.",
+    "adminMfaRequired": "The admin area needs two-step verification on your account. Turn it on in Account security first.",
+    "required": "Confirm it's you to do this, then try again.",
+    "password": "Current password",
+    "code": "Verification or recovery code",
+    "emailCode": "Code sent to your email",
+    "sendCode": "Email me a code",
+    "resend": "Send again",
+    "sent": "We sent a 6-digit code to your email.",
+    "google": "Or sign in with Google again",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "errors": {
+      "invalid_password": "Wrong password.",
+      "invalid_code": "Wrong code. Try a fresh one.",
+      "code_invalid": "Wrong code. Check the latest email.",
+      "code_expired": "The code expired. Send a new one.",
+      "too_many": "Too many attempts. Wait a few minutes and try again."
     }
   }
 }

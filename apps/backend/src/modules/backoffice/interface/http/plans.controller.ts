@@ -13,6 +13,7 @@ import {
   type AuthState,
   CurrentUser,
   PlatformAdmin,
+  RequireRecentAuth,
 } from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
 import { BILLING_ADMIN_FACADE, type BillingAdminFacade } from '../../../billing/api/index.js';
@@ -30,6 +31,7 @@ export class PlansController {
   }
 
   @Post('plans')
+  @RequireRecentAuth()
   @HttpCode(201)
   async createPlan(
     @CurrentUser() user: AuthState,
@@ -39,6 +41,7 @@ export class PlansController {
   }
 
   @Post('plans/:code/versions')
+  @RequireRecentAuth()
   @HttpCode(201)
   async publishVersion(
     @CurrentUser() user: AuthState,
@@ -49,6 +52,7 @@ export class PlansController {
   }
 
   @Post('plans/:code/archive')
+  @RequireRecentAuth()
   @HttpCode(200)
   async archive(
     @CurrentUser() user: AuthState,
@@ -64,6 +68,7 @@ export class PlansController {
   }
 
   @Put('billing-settings')
+  @RequireRecentAuth()
   async putSettings(
     @CurrentUser() user: AuthState,
     @Body(new ZodValidationPipe(PutBillingSettingsRequest)) body: PutBillingSettingsRequest,

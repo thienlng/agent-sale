@@ -10,8 +10,13 @@ import type {
   ExternalIdentity,
   ExternalIdentityRepository,
   IdentityProvider,
+  LinkedIdentity,
 } from '../../domain/ports/external-identity.repository.js';
 import type { MfaRecord, MfaRepository } from '../../domain/ports/mfa.repository.js';
+import type {
+  SecurityEvent,
+  SecurityEventRepository,
+} from '../../domain/ports/security-event.repository.js';
 import type { SessionRecord, SessionRepository } from '../../domain/ports/session.repository.js';
 import type { UserRepository } from '../../domain/ports/user.repository.js';
 import { User } from '../../domain/user.js';
@@ -89,6 +94,20 @@ export class InMemorySessionRepository implements SessionRepository {
 
   async findByTokenHash(tokenHash: string): Promise<SessionRecord | null> {
     return [...this.rows.values()].find((s) => s.tokenHash === tokenHash) ?? null;
+  }
+
+  async findById(id: string): Promise<SessionRecord | null> {
+    const s = this.rows.get(id);
+    return s ? { ...s } : null;
+  }
+
+  async markAuthenticated(sessionId: string, at: Date, mfa: boolean): Promise<void> {
+    const family = this.rows.get(sessionId)?.familyId;
+    for (const s of this.rows.values())
+      if (family && s.familyId === family && !s.revokedAt) {
+        s.authenticatedAt = at;
+        if (mfa) s.mfa = true;
+      }
   }
 
   async markRotated(id: string, at: Date): Promise<boolean> {
@@ -188,7 +207,7 @@ export class InMemoryEmailCodeRepository implements EmailCodeRepository {
 }
 
 export class InMemoryExternalIdentityRepository implements ExternalIdentityRepository {
-  readonly rows = new Map<string, ExternalIdentity & { lastLoginAt: Date }>();
+  readonly rows = new Map<string, LinkedIdentity>();
 
   async findUserId(provider: IdentityProvider, subject: string): Promise<UserId | null> {
     return this.rows.get(`${provider}:${subject}`)?.userId ?? null;
@@ -198,6 +217,40 @@ export class InMemoryExternalIdentityRepository implements ExternalIdentityRepos
     const key = `${identity.provider}:${identity.subject}`;
     const existing = this.rows.get(key);
     if (existing && existing.userId !== identity.userId) return;
-    this.rows.set(key, { ...identity, lastLoginAt: at });
+    this.rows.set(key, { ...identity, createdAt: existing?.createdAt ?? at, lastLoginAt: at });
+  }
+
+  async listForUser(userId: UserId): Promise<LinkedIdentity[]> {
+    return [...this.rows.values()]
+      .filter((r) => r.userId === userId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .map((r) => ({ ...r }));
+  }
+
+  async unlink(userId: UserId, provider: IdentityProvider, subject: string): Promise<boolean> {
+    const key = `${provider}:${subject}`;
+    if (this.rows.get(key)?.userId !== userId) return false;
+    return this.rows.delete(key);
+  }
+
+  async unlinkAll(userId: UserId): Promise<number> {
+    let removed = 0;
+    for (const [key, r] of this.rows) if (r.userId === userId && this.rows.delete(key)) removed++;
+    return removed;
+  }
+}
+
+export class InMemorySecurityEventRepository implements SecurityEventRepository {
+  readonly rows: SecurityEvent[] = [];
+
+  async append(event: SecurityEvent): Promise<void> {
+    this.rows.push({ ...event });
+  }
+
+  async listForUser(userId: UserId, limit: number): Promise<SecurityEvent[]> {
+    return this.rows
+      .filter((e) => e.userId === userId)
+      .reverse()
+      .slice(0, limit);
   }
 }

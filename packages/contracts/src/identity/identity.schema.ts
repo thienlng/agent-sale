@@ -151,7 +151,11 @@ export const MfaStatus = z.object({
 });
 export type MfaStatus = z.infer<typeof MfaStatus>;
 
-export const MfaSetupRequest = z.object({ password: z.string().min(1).max(128) });
+/**
+ * The password again. A user without a password (Google sign-in only) leaves it out and needs a
+ * recent step-up of the session instead (`POST /auth/reauth`; 403 `reauth_required` otherwise).
+ */
+export const MfaSetupRequest = z.object({ password: z.string().min(1).max(128).optional() });
 export type MfaSetupRequest = z.infer<typeof MfaSetupRequest>;
 
 export const MfaSetup = z.object({
@@ -164,12 +168,76 @@ export type MfaSetup = z.infer<typeof MfaSetup>;
 export const MfaEnableRequest = z.object({ code: z.string().trim().length(6) });
 export type MfaEnableRequest = z.infer<typeof MfaEnableRequest>;
 
-/** Password again plus a current code: required to turn it off or to get new recovery codes. */
+/**
+ * Password again plus a current code: required to turn it off or to get new recovery codes. A user
+ * without a password leaves `password` out and needs a recent step-up instead (see MfaSetupRequest).
+ */
 export const MfaReauthRequest = z.object({
-  password: z.string().min(1).max(128),
+  password: z.string().min(1).max(128).optional(),
   code: z.string().trim().min(6).max(32),
 });
 export type MfaReauthRequest = z.infer<typeof MfaReauthRequest>;
 
 export const RecoveryCodes = z.object({ recoveryCodes: z.array(z.string()) });
 export type RecoveryCodes = z.infer<typeof RecoveryCodes>;
+
+// ─── step-up re-authentication (docs/09 §2) ──────────────────────────────────
+
+/**
+ * How the user can confirm it is them: `totp` (authenticator or recovery code, two-factor on),
+ * `password`, `email` (a code from `POST /auth/reauth/code`, users without a password) or `google`
+ * (a new Google sign-in, which opens a fresh session).
+ */
+export const StepUpMethod = z.enum(['totp', 'password', 'email', 'google']);
+export type StepUpMethod = z.infer<typeof StepUpMethod>;
+
+/** The current session's re-authentication state. */
+export const StepUpStatus = z.object({
+  /** Accepted proofs for this user, in order of preference. */
+  methods: z.array(StepUpMethod),
+  /** A factor was proved recently enough for step-up protected actions. */
+  recent: z.boolean(),
+  /** The session passed the second factor (platform admin routes need it). */
+  mfa: z.boolean(),
+  /** Until when `recent` holds (ISO); null when it does not. */
+  recentUntil: z.string().nullable(),
+  /**
+   * The account has a password. Without one (Google sign-in only) the two-factor actions take no
+   * password and need a recent step-up instead.
+   */
+  hasPassword: z.boolean(),
+});
+export type StepUpStatus = z.infer<typeof StepUpStatus>;
+
+/** One proof, matching the first of `StepUpStatus.methods` (`google` is a redirect, not a body). */
+export const StepUpRequest = z.object({
+  password: z.string().min(1).max(128).optional(),
+  /** Authenticator code or recovery code. */
+  code: z.string().trim().min(6).max(32).optional(),
+  /** The code from `POST /auth/reauth/code`. */
+  emailCode: emailCode.optional(),
+});
+export type StepUpRequest = z.infer<typeof StepUpRequest>;
+
+// ─── linked sign-ins (Google, ADR-007) ───────────────────────────────────────
+
+export const LinkedIdentityDto = z.object({
+  provider: z.enum(['google']),
+  /** The provider's account id. */
+  subject: z.string(),
+  /** The provider account's address at the last sign-in. */
+  email: z.string(),
+  createdAt: z.string(),
+  lastLoginAt: z.string(),
+});
+export type LinkedIdentityDto = z.infer<typeof LinkedIdentityDto>;
+
+export const LinkedIdentityList = z.object({ data: z.array(LinkedIdentityDto) });
+export type LinkedIdentityList = z.infer<typeof LinkedIdentityList>;
+
+/**
+ * Finishes a Google sign-up for an address Google is not authoritative for: the code emailed to
+ * the address (`google=verify` on /login) proves it before the account exists.
+ */
+export const GoogleVerifyRequest = z.object({ code: emailCode });
+export type GoogleVerifyRequest = z.infer<typeof GoogleVerifyRequest>;

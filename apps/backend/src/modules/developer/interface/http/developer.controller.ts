@@ -23,6 +23,7 @@ import {
   CurrentUser,
   CurrentWorkspace,
   RequireCapability,
+  RequireRecentAuth,
   WorkspaceScoped,
 } from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
@@ -50,6 +51,7 @@ export class DeveloperController {
   @Post('api-keys')
   @WorkspaceScoped()
   @RequireCapability('developer.manage')
+  @RequireRecentAuth()
   createApiKey(
     @CurrentWorkspace() ws: WorkspaceId,
     @CurrentUser() user: AuthState,
@@ -62,8 +64,12 @@ export class DeveloperController {
   @HttpCode(200)
   @WorkspaceScoped()
   @RequireCapability('developer.manage')
-  revokeApiKey(@CurrentWorkspace() ws: WorkspaceId, @Param('id') id: string) {
-    return this.apiKeys.revoke(ws, id);
+  revokeApiKey(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() user: AuthState,
+    @Param('id') id: string,
+  ) {
+    return this.apiKeys.revoke(ws, id, user.userId);
   }
 
   @Get('webhook-endpoints')

@@ -1,4 +1,15 @@
-import { and, type Database, eq, inArray, isNull, schema, sql, withSystem } from '@agent-sales/db';
+import {
+  and,
+  asc,
+  type Database,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  schema,
+  sql,
+  withSystem,
+} from '@agent-sales/db';
 import { type UserId, userId } from '@agent-sales/shared';
 
 import { EmailTakenError } from '../../domain/identity.errors.js';
@@ -6,6 +17,7 @@ import type {
   ExternalIdentity,
   ExternalIdentityRepository,
   IdentityProvider,
+  LinkedIdentity,
 } from '../../domain/ports/external-identity.repository.js';
 import type {
   EmailCodePurpose,
@@ -13,6 +25,11 @@ import type {
   EmailCodeRepository,
 } from '../../domain/ports/email-code.repository.js';
 import type { MfaRecord, MfaRepository } from '../../domain/ports/mfa.repository.js';
+import type {
+  SecurityAction,
+  SecurityEvent,
+  SecurityEventRepository,
+} from '../../domain/ports/security-event.repository.js';
 import type { SessionRecord, SessionRepository } from '../../domain/ports/session.repository.js';
 import type { UserRepository } from '../../domain/ports/user.repository.js';
 import { User } from '../../domain/user.js';
@@ -176,6 +193,58 @@ export class DrizzleExternalIdentityRepository implements ExternalIdentityReposi
         }),
     );
   }
+
+  listForUser(id: UserId): Promise<LinkedIdentity[]> {
+    const t = schema.userIdentities;
+    return withSystem(this.systemDb, async (tx) => {
+      const rows = await tx.select().from(t).where(eq(t.userId, id)).orderBy(asc(t.createdAt));
+      return rows.map((r) => ({ ...r, userId: userId(r.userId) }));
+    });
+  }
+
+  unlink(id: UserId, provider: IdentityProvider, subject: string): Promise<boolean> {
+    const t = schema.userIdentities;
+    return withSystem(this.systemDb, async (tx) => {
+      const rows = await tx
+        .delete(t)
+        .where(and(eq(t.userId, id), eq(t.provider, provider), eq(t.subject, subject)))
+        .returning({ subject: t.subject });
+      return rows.length === 1;
+    });
+  }
+
+  unlinkAll(id: UserId): Promise<number> {
+    const t = schema.userIdentities;
+    return withSystem(this.systemDb, async (tx) => {
+      const rows = await tx.delete(t).where(eq(t.userId, id)).returning({ subject: t.subject });
+      return rows.length;
+    });
+  }
+}
+
+export class DrizzleSecurityEventRepository implements SecurityEventRepository {
+  constructor(private readonly systemDb: Database) {}
+
+  async append(e: SecurityEvent): Promise<void> {
+    await withSystem(this.systemDb, (tx) => tx.insert(schema.userSecurityEvents).values({ ...e }));
+  }
+
+  listForUser(id: UserId, limit: number): Promise<SecurityEvent[]> {
+    const t = schema.userSecurityEvents;
+    return withSystem(this.systemDb, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(t)
+        .where(eq(t.userId, id))
+        .orderBy(desc(t.createdAt), desc(t.id))
+        .limit(limit);
+      return rows.map((r) => ({
+        ...r,
+        userId: userId(r.userId),
+        action: r.action as SecurityAction,
+      }));
+    });
+  }
 }
 
 export class DrizzleSessionRepository implements SessionRepository {
@@ -193,6 +262,32 @@ export class DrizzleSessionRepository implements SessionRepository {
         .where(eq(schema.sessions.tokenHash, tokenHash))
         .limit(1);
       return row ? { ...row, userId: userId(row.userId) } : null;
+    });
+  }
+
+  findById(id: string): Promise<SessionRecord | null> {
+    return withSystem(this.systemDb, async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(schema.sessions)
+        .where(eq(schema.sessions.id, id))
+        .limit(1);
+      return row ? { ...row, userId: userId(row.userId) } : null;
+    });
+  }
+
+  async markAuthenticated(sessionId: string, at: Date, mfa: boolean): Promise<void> {
+    await withSystem(this.systemDb, (tx) => {
+      const family = tx
+        .select({ familyId: schema.sessions.familyId })
+        .from(schema.sessions)
+        .where(eq(schema.sessions.id, sessionId));
+      return tx
+        .update(schema.sessions)
+        .set({ authenticatedAt: at, ...(mfa ? { mfa: true } : {}) })
+        .where(
+          and(isNull(schema.sessions.revokedAt), sql`${schema.sessions.familyId} = (${family})`),
+        );
     });
   }
 

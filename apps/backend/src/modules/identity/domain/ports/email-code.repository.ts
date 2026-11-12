@@ -1,5 +1,8 @@
-/** `signup`: proves the address before the account exists. `reset_password`: forgotten password. */
-export type EmailCodePurpose = 'signup' | 'reset_password';
+/**
+ * `signup`: proves the address before the account exists. `reset_password`: forgotten password.
+ * `reauth`: step-up of a signed-in user without a password (migration 0076).
+ */
+export type EmailCodePurpose = 'signup' | 'reset_password' | 'reauth';
 
 export interface EmailCodeRecord {
   /** Lower-cased address the code was sent to. */

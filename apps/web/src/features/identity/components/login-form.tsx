@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ApiClientError } from '@/lib/api-client';
-import { login, verifyGoogleSignIn } from '@/lib/session';
+import { login, verifyGoogleSignIn, verifyGoogleSignUp } from '@/lib/session';
 
 import { FormError } from './form-error';
 import { GoogleButton } from './google-button';
@@ -22,7 +22,7 @@ const GOOGLE_ERRORS = [
 ];
 
 /** A Google sign-in that came back to /login: still waiting for the code, or failed with a reason. */
-export type GoogleReturn = { step: 'mfa' } | { step: 'error'; reason: string };
+export type GoogleReturn = { step: 'mfa' } | { step: 'verify' } | { step: 'error'; reason: string };
 
 export function LoginForm({
   onSuccess,
@@ -47,6 +47,36 @@ export function LoginForm({
     { via: 'password'; email: string; password: string } | { via: 'google' } | null
   >(google?.step === 'mfa' ? { via: 'google' } : null);
   const [recovery, setRecovery] = useState(false);
+  // A Google sign-up for an address Google does not own waits for the code emailed to it.
+  const [verifying, setVerifying] = useState(google?.step === 'verify');
+
+  async function submitVerify(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const code = String(new FormData(e.currentTarget).get('code') ?? '').trim();
+    setPending(true);
+    setError(null);
+    try {
+      await verifyGoogleSignUp(code);
+      onSuccess();
+    } catch (err) {
+      const reason = err instanceof ApiClientError ? err.details?.['reason'] : undefined;
+      if (reason === 'google_expired' || reason === 'google_account_exists') {
+        setVerifying(false);
+        setError(t(`auth.googleErrors.${String(reason).replace('google_', '')}`));
+        return;
+      }
+      const status = err instanceof ApiClientError ? err.code : '';
+      setError(
+        status === 'RATE_LIMITED'
+          ? t('auth.errors.tooMany')
+          : status === 'VALIDATION_FAILED' || reason === 'code_invalid' || reason === 'code_expired'
+            ? t('auth.googleVerify.invalid')
+            : t('auth.errors.generic'),
+      );
+    } finally {
+      setPending(false);
+    }
+  }
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -87,6 +117,43 @@ export function LoginForm({
     } finally {
       setPending(false);
     }
+  }
+
+  if (verifying) {
+    return (
+      <form onSubmit={submitVerify} className="flex flex-col gap-5" noValidate>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">{t('auth.googleVerify.title')}</h1>
+          <p className="mt-1.5 text-muted-foreground">{t('auth.googleVerify.subtitle')}</p>
+        </div>
+        {error ? <FormError>{error}</FormError> : null}
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="verify-code">{t('auth.googleVerify.code')}</Label>
+          <Input
+            id="verify-code"
+            name="code"
+            autoComplete="one-time-code"
+            inputMode="numeric"
+            maxLength={6}
+            autoFocus
+            required
+          />
+        </div>
+        <Button type="submit" size="lg" disabled={pending}>
+          {pending ? t('auth.loggingIn') : t('auth.googleVerify.submit')}
+        </Button>
+        <button
+          type="button"
+          className="text-sm text-muted-foreground hover:underline"
+          onClick={() => {
+            setVerifying(false);
+            setError(null);
+          }}
+        >
+          {t('auth.mfa.back')}
+        </button>
+      </form>
+    );
   }
 
   if (pending2fa) {

@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useStepUpStatus } from '@/hooks/use-step-up';
 import { ApiClientError } from '@/lib/api-client';
 import { errorMessage } from '@/lib/errors';
 
@@ -29,10 +30,16 @@ function reasonMessage(t: ReturnType<typeof useTranslation>['t'], e: unknown): s
     : errorMessage(t, e);
 }
 
-/** Password → QR → first code → recovery codes. Closing before the last step abandons the setup. */
+/**
+ * Password → QR → first code → recovery codes. Closing before the last step abandons the setup.
+ * A user without a password (Google sign-in only) skips the password: the server asks for a
+ * step-up (emailed code or Google) instead, which the API client prompts for.
+ */
 export function EnableMfaDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useTranslation();
   const m = useMfaMutations();
+  const stepUp = useStepUpStatus(open);
+  const noPassword = stepUp.data?.hasPassword === false;
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [codes, setCodes] = useState<string[] | null>(null);
@@ -58,7 +65,7 @@ export function EnableMfaDialog({ open, onClose }: { open: boolean; onClose: () 
     e.preventDefault();
     setError(null);
     try {
-      if (!setup) await m.setup.mutateAsync(password);
+      if (!setup) await m.setup.mutateAsync(noPassword ? undefined : password);
       else {
         setCodes((await m.enable.mutateAsync(code)).recoveryCodes);
         toast.success(t('wsettings.security.enabledToast'));
@@ -83,7 +90,9 @@ export function EnableMfaDialog({ open, onClose }: { open: boolean; onClose: () 
         ) : (
           <form onSubmit={submit} className="flex flex-col gap-4">
             {error ? <FormError>{error}</FormError> : null}
-            {!setup ? (
+            {!setup && noPassword ? (
+              <p className="text-sm">{t('wsettings.security.step1NoPassword')}</p>
+            ) : !setup ? (
               <div className="flex flex-col gap-2">
                 <Label htmlFor="mfa-password">{t('wsettings.security.step1')}</Label>
                 <Input
@@ -131,7 +140,13 @@ export function EnableMfaDialog({ open, onClose }: { open: boolean; onClose: () 
               <Button type="button" variant="outline" onClick={close}>
                 {t('wsettings.security.cancel')}
               </Button>
-              <Button type="submit" disabled={pending || (setup ? code.length !== 6 : !password)}>
+              <Button
+                type="submit"
+                disabled={
+                  pending ||
+                  (setup ? code.length !== 6 : !noPassword && (!password || stepUp.isPending))
+                }
+              >
                 {setup ? t('wsettings.security.confirm') : t('wsettings.security.continue')}
               </Button>
             </DialogFooter>
@@ -152,6 +167,8 @@ export function ReauthMfaDialog({
 }) {
   const { t } = useTranslation();
   const m = useMfaMutations();
+  // Without a password (Google sign-in only) the code alone goes, after a step-up if needed.
+  const noPassword = useStepUpStatus(mode !== null).data?.hasPassword === false;
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [codes, setCodes] = useState<string[] | null>(null);
@@ -170,11 +187,14 @@ export function ReauthMfaDialog({
     setError(null);
     try {
       if (mode === 'disable') {
-        await m.disable.mutateAsync({ password, code });
+        await m.disable.mutateAsync(noPassword ? { code } : { password, code });
         toast.success(t('wsettings.security.disabledToast'));
         close();
       } else {
-        setCodes((await m.regenerate.mutateAsync({ password, code })).recoveryCodes);
+        setCodes(
+          (await m.regenerate.mutateAsync(noPassword ? { code } : { password, code }))
+            .recoveryCodes,
+        );
       }
     } catch (err) {
       setError(reasonMessage(t, err));
@@ -202,17 +222,19 @@ export function ReauthMfaDialog({
         ) : (
           <form onSubmit={submit} className="flex flex-col gap-4">
             {error ? <FormError>{error}</FormError> : null}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="re-password">{t('wsettings.security.password')}</Label>
-              <Input
-                id="re-password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
+            {noPassword ? null : (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="re-password">{t('wsettings.security.password')}</Label>
+                <Input
+                  id="re-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+            )}
             <div className="flex flex-col gap-2">
               <Label htmlFor="re-code">{t('wsettings.security.codeOrRecovery')}</Label>
               <Input
@@ -230,7 +252,12 @@ export function ReauthMfaDialog({
               <Button
                 type="submit"
                 variant={disabling ? 'destructive' : 'default'}
-                disabled={m.disable.isPending || m.regenerate.isPending || !password || !code}
+                disabled={
+                  m.disable.isPending ||
+                  m.regenerate.isPending ||
+                  (!noPassword && !password) ||
+                  !code
+                }
               >
                 {t('wsettings.security.confirm')}
               </Button>

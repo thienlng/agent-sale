@@ -1,5 +1,5 @@
 import { API_KEY_PREFIX, apiKeyRole, type Capability, roleCan } from '@agent-sales/contracts';
-import { type WorkspaceId, workspaceId as toWorkspaceId } from '@agent-sales/shared';
+import { type UserId, type WorkspaceId, workspaceId as toWorkspaceId } from '@agent-sales/shared';
 import { type CanActivate, type ExecutionContext, Inject, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -10,10 +10,13 @@ import {
   IS_PUBLIC,
   IS_WORKSPACE_SCOPED,
   REQUIRED_CAPABILITY,
+  REQUIRES_RECENT_AUTH,
 } from '../../../../common/http/auth-context.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../../workspace/api/index.js';
 import { ApiKeyService } from '../../application/api-key.service.js';
 import { AccountQueries } from '../../application/commands/auth.handlers.js';
+import { MfaService } from '../../application/mfa.service.js';
+import { SessionService } from '../../application/sessions.js';
 import { API_RATE_LIMITER, type ApiRateLimiter } from '../../application/ports/api-keys.js';
 import { ACCESS_TOKENS, type AccessTokens } from '../../application/ports/security.js';
 import { apiKeyRouteSet } from './api-key-routes.js';
@@ -22,11 +25,15 @@ const RATE_WINDOW_MS = 60_000;
 
 /**
  * The ONE global guard (registered as APP_GUARD by IdentityModule):
- * 1. every route requires a valid bearer access token unless @Public();
+ * 1. every route requires a valid bearer access token unless @Public(), whose session (`sid`) still
+ *    exists and is not revoked (cached per process, `AUTH_SESSION_CACHE_TTL_MS`) — otherwise 401;
  * 2. @WorkspaceScoped() routes also require X-Workspace-Id to name a workspace
  *    the user is an active member of — otherwise 404 (never 403, Rule 07);
- * 3. @PlatformAdmin() routes require users.is_platform_admin — otherwise 404;
- * 4. @RequireCapability() routes require the member's role to have it — otherwise 403.
+ * 3. @PlatformAdmin() routes require users.is_platform_admin — otherwise 404 — and then two-factor
+ *    turned on (403 `admin_mfa_required`) and a session that passed it (403 `mfa_session_required`);
+ * 4. @RequireCapability() routes require the member's role to have it — otherwise 403;
+ * 5. @RequireRecentAuth() routes require a step-up within the window — otherwise 403
+ *    `reauth_required` (read fresh, not from the cache).
  *
  * A `Bearer rpz_live_…` workspace API key (ADR-022) is accepted only on routes whose contract
  * says `apiKey: true` (any other route answers 404); the request then acts for the key's creator
@@ -42,6 +49,8 @@ export class AuthGuard implements CanActivate {
     @Inject(AccountQueries) private readonly accounts: AccountQueries,
     @Inject(ApiKeyService) private readonly apiKeys: ApiKeyService,
     @Inject(API_RATE_LIMITER) private readonly limiter: ApiRateLimiter,
+    @Inject(SessionService) private readonly sessions: SessionService,
+    @Inject(MfaService) private readonly mfa: MfaService,
   ) {}
 
   readonly #apiKeyRoutes = apiKeyRouteSet();
@@ -56,6 +65,12 @@ export class AuthGuard implements CanActivate {
     if (token?.startsWith(API_KEY_PREFIX)) return this.#apiKey(ctx, req, token);
     const claims = token ? await this.tokens.verify(token) : null;
     if (!claims) throw new ApiError('UNAUTHENTICATED', 'Authentication required');
+    const session = await this.sessions.state(claims.sessionId);
+    // Logout, password reset and two-factor changes revoke sessions: their access tokens end too.
+    if (!session || session.revoked || session.userId !== claims.userId)
+      throw new ApiError('UNAUTHENTICATED', 'Session is no longer valid', {
+        reason: 'session_revoked',
+      });
     let name: Promise<string | null> | undefined;
     req.auth = {
       userId: claims.userId,
@@ -67,6 +82,7 @@ export class AuthGuard implements CanActivate {
       if (!(await this.accounts.isPlatformAdmin(claims.userId))) {
         throw new ApiError('NOT_FOUND', 'Not found');
       }
+      await this.#adminTwoFactor(claims.userId, claims.sessionId, session.mfa);
     }
 
     if (this.reflector.getAllAndOverride<boolean>(IS_WORKSPACE_SCOPED, targets)) {
@@ -93,7 +109,33 @@ export class AuthGuard implements CanActivate {
         throw new ApiError('FORBIDDEN', 'Your role cannot do this', { capability: needed });
       }
     }
+
+    if (this.reflector.getAllAndOverride<boolean>(REQUIRES_RECENT_AUTH, targets)) {
+      // Fresh: a step-up made a moment ago, maybe in another process, must count.
+      const fresh = await this.sessions.state(claims.sessionId, true);
+      if (!fresh || !this.sessions.isRecent(fresh))
+        throw new ApiError('FORBIDDEN', 'Confirm it is you to continue', {
+          reason: 'reauth_required',
+        });
+    }
     return true;
+  }
+
+  /**
+   * The back office moves money and plans of every tenant: a password alone is not enough. The
+   * admin turns two-factor on in their account security (no admin route needed, so nobody is
+   * locked out) and steps up with a code when the session predates it.
+   */
+  async #adminTwoFactor(userId: UserId, sessionId: string, cachedMfa: boolean): Promise<void> {
+    if (!(await this.mfa.isEnabled(userId)))
+      throw new ApiError('FORBIDDEN', 'Turn on two-factor authentication to use the back office', {
+        reason: 'admin_mfa_required',
+      });
+    if (cachedMfa) return;
+    if (!(await this.sessions.state(sessionId, true))?.mfa)
+      throw new ApiError('FORBIDDEN', 'Confirm it is you with a two-factor code', {
+        reason: 'mfa_session_required',
+      });
   }
 
   async #apiKey(ctx: ExecutionContext, req: FastifyRequest, token: string): Promise<boolean> {

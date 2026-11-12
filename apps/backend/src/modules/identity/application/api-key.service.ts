@@ -19,6 +19,7 @@ import {
   PublicApiLockedError,
 } from '../domain/identity.errors.js';
 import { generateApiKey, keyPrefix, parseApiKey, secretMatches } from './api-key-secrets.js';
+import { SecurityEventService } from './security-events.js';
 import {
   API_KEY_STORE,
   API_PLAN_GATE,
@@ -64,6 +65,7 @@ export class ApiKeyService implements IdentityApiKeysFacade {
     @Inject(API_PLAN_GATE) private readonly plan: ApiPlanGate,
     @Inject(WORKSPACE_FACADE) private readonly workspaces: WorkspaceFacade,
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
+    @Inject(SecurityEventService) private readonly events: SecurityEventService,
   ) {}
 
   async list(ws: WorkspaceId): Promise<ApiKeyDto[]> {
@@ -98,13 +100,16 @@ export class ApiKeyService implements IdentityApiKeysFacade {
       createdAt: now,
     };
     await this.store.insert(record);
+    await this.events.record(actor, 'api_key.created', { workspaceId: ws, apiKeyId: record.id });
     const [dto] = await this.#toDtos([record], now);
     return { apiKey: dto as ApiKeyDto, key };
   }
 
-  async revoke(ws: WorkspaceId, id: string, now = new Date()): Promise<ApiKeyDto> {
+  async revoke(ws: WorkspaceId, id: string, actor?: UserId, now = new Date()): Promise<ApiKeyDto> {
     const record = isUuid(id) ? await this.store.revoke(ws, id, now) : null;
     if (!record) throw new ApiKeyNotFoundError();
+    if (actor)
+      await this.events.record(actor, 'api_key.revoked', { workspaceId: ws, apiKeyId: id });
     const [dto] = await this.#toDtos([record], now);
     return dto as ApiKeyDto;
   }
@@ -144,6 +149,21 @@ export class ApiKeyService implements IdentityApiKeysFacade {
   }
 
   /** Is the public API in the workspace's plan? */
+  /**
+   * Password reset: the keys the user created act for them in every workspace, and whoever took
+   * over the account may have made some, so all of them stop working (docs/09 §2).
+   */
+  async revokeAllCreatedBy(userId: UserId, now = new Date()): Promise<number> {
+    const revoked = await this.store.revokeAllCreatedBy(userId, now);
+    for (const r of revoked)
+      await this.events.record(userId, 'api_key.revoked', {
+        workspaceId: r.workspaceId,
+        apiKeyId: r.id,
+        reason: 'password_reset',
+      });
+    return revoked.length;
+  }
+
   async enabled(ws: WorkspaceId): Promise<boolean> {
     return (await this.plan.of(ws)).enabled;
   }

@@ -29,6 +29,7 @@ import {
   type AuthState,
   CurrentUser,
   PlatformAdmin,
+  RequireRecentAuth,
 } from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
 import { ACCOUNT_FACADE, type AccountFacade } from '../../../account/api/index.js';
@@ -59,6 +60,7 @@ export class AccountsController {
   }
 
   @Post(':accountId/plan')
+  @RequireRecentAuth()
   @HttpCode(200)
   async setPlan(
     @CurrentUser() user: AuthState,
@@ -69,6 +71,7 @@ export class AccountsController {
   }
 
   @Post(':accountId/trial')
+  @RequireRecentAuth()
   @HttpCode(200)
   async extendTrial(
     @CurrentUser() user: AuthState,
@@ -79,6 +82,7 @@ export class AccountsController {
   }
 
   @Put(':accountId/overrides/:key')
+  @RequireRecentAuth()
   async putOverride(
     @CurrentUser() user: AuthState,
     @Param('accountId') accountId: string,
@@ -89,6 +93,7 @@ export class AccountsController {
   }
 
   @Delete(':accountId/overrides/:key')
+  @RequireRecentAuth()
   @HttpCode(204)
   async deleteOverride(
     @CurrentUser() user: AuthState,
@@ -115,6 +120,7 @@ export class AccountsController {
   }
 
   @Post(':accountId/payments')
+  @RequireRecentAuth()
   @HttpCode(201)
   async createPayment(
     @CurrentUser() user: AuthState,

@@ -158,6 +158,13 @@
       "submitting": "Đang lưu…",
       "done": "Đã đổi mật khẩu. Hãy đăng nhập lại.",
       "back": "Quay lại đăng nhập"
+    },
+    "googleVerify": {
+      "title": "Kiểm tra email",
+      "subtitle": "Để hoàn tất đăng ký bằng Google, hãy nhập mã 6 số chúng tôi đã gửi tới email của bạn.",
+      "code": "Mã xác minh",
+      "submit": "Tạo tài khoản",
+      "invalid": "Mã không đúng hoặc đã hết hạn. Hãy đăng nhập lại bằng Google để nhận mã mới."
     }
   },
   "industries": {
@@ -1564,7 +1571,21 @@
         "already_enabled": "Xác minh 2 bước đã bật."
       },
       "enabledToast": "Đã bật xác minh 2 bước",
-      "disabledToast": "Đã tắt xác minh 2 bước"
+      "disabledToast": "Đã tắt xác minh 2 bước",
+      "linked": {
+        "title": "Đăng nhập liên kết",
+        "hint": "Các cách khác để đăng nhập vào tài khoản này. Hãy gỡ những cách bạn không nhận ra.",
+        "empty": "Chưa liên kết cách đăng nhập nào.",
+        "google": "Google",
+        "since": "Liên kết từ {{date}}",
+        "remove": "Gỡ",
+        "removeTitle": "Gỡ đăng nhập bằng Google?",
+        "removeBody": "{{email}} sẽ không thể đăng nhập vào tài khoản này qua Google nữa.",
+        "removed": "Đã gỡ đăng nhập bằng Google",
+        "lastMethod": "Đây là cách đăng nhập duy nhất của bạn. Hãy đặt mật khẩu trước (dùng \"Quên mật khẩu\" ở trang đăng nhập).",
+        "loadError": "Không tải được các cách đăng nhập liên kết."
+      },
+      "step1NoPassword": "1. Xác nhận đó là bạn (bạn đăng ký bằng Google nên chúng tôi sẽ gửi mã qua email)"
     },
     "industry": {
       "title": "Lĩnh vực doanh nghiệp",
@@ -2083,6 +2104,29 @@
       "disabled": "Đã tắt thông báo trên thiết bị này",
       "blocked": "Trình duyệt đang chặn thông báo của Rapiz. Hãy cho phép trong cài đặt trình duyệt.",
       "failed": "Chưa bật được thông báo. Thử lại sau."
+    }
+  },
+  "stepUp": {
+    "title": "Xác nhận đó là bạn",
+    "hint": "Đây là thao tác nhạy cảm. Hãy xác nhận đó là bạn để tiếp tục.",
+    "adminHint": "Khu vực quản trị cần mã xác minh hai bước cho lần đăng nhập này.",
+    "adminMfaRequired": "Khu vực quản trị yêu cầu bật xác minh hai bước cho tài khoản của bạn. Hãy bật trong Bảo mật tài khoản trước.",
+    "required": "Hãy xác nhận đó là bạn rồi thử lại.",
+    "password": "Mật khẩu hiện tại",
+    "code": "Mã xác minh hoặc mã khôi phục",
+    "emailCode": "Mã đã gửi tới email của bạn",
+    "sendCode": "Gửi mã qua email",
+    "resend": "Gửi lại",
+    "sent": "Đã gửi mã 6 số tới email của bạn.",
+    "google": "Hoặc đăng nhập lại bằng Google",
+    "confirm": "Xác nhận",
+    "cancel": "Huỷ",
+    "errors": {
+      "invalid_password": "Sai mật khẩu.",
+      "invalid_code": "Mã không đúng. Hãy thử mã mới.",
+      "code_invalid": "Mã không đúng. Hãy kiểm tra email mới nhất.",
+      "code_expired": "Mã đã hết hạn. Hãy gửi mã mới.",
+      "too_many": "Thử quá nhiều lần. Vui lòng đợi vài phút rồi thử lại."
     }
   }
 }

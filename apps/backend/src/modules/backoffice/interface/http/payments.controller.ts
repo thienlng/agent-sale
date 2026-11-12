@@ -13,6 +13,7 @@ import {
   type AuthState,
   CurrentUser,
   PlatformAdmin,
+  RequireRecentAuth,
 } from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
 import { BILLING_ADMIN_FACADE, type BillingAdminFacade } from '../../../billing/api/index.js';
@@ -36,6 +37,7 @@ export class PaymentsController {
   }
 
   @Post('payments/:paymentId/confirm')
+  @RequireRecentAuth()
   @HttpCode(200)
   async confirm(
     @CurrentUser() user: AuthState,

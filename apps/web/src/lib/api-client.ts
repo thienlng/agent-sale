@@ -11,6 +11,13 @@ let accessToken: string | null = null;
 let workspaceId: string | null = null;
 let onSessionExpired: () => void = () => {};
 let onWorkspaceLost: (workspaceId: string) => void = () => {};
+let onStepUpRequired: StepUpHandler | null = null;
+let steppingUp: Promise<boolean> | null = null;
+
+/** Why the server wants the user to confirm it is them before it runs a request. */
+export type StepUpReason = 'reauth_required' | 'mfa_session_required';
+/** Asks the user to confirm it is them; resolves true once the session passed a fresh step-up. */
+export type StepUpHandler = (reason: StepUpReason) => Promise<boolean>;
 
 export function setAccessToken(token: string | null): void {
   accessToken = token;
@@ -28,6 +35,15 @@ export function setSessionExpiredHandler(handler: () => void): void {
 /** Called when the server says the user is no longer a member of the business a request named. */
 export function setWorkspaceLostHandler(handler: (workspaceId: string) => void): void {
   onWorkspaceLost = handler;
+}
+
+/**
+ * Registers the step-up prompt. A 403 `reauth_required` (sensitive action, docs/09 §2) or
+ * `mfa_session_required` (platform admin) then opens it and, once the user confirmed, the request
+ * is sent again. Concurrent requests share one prompt.
+ */
+export function setStepUpHandler(handler: StepUpHandler | null): void {
+  onStepUpRequired = handler;
 }
 
 export class ApiClientError extends Error {
@@ -127,18 +143,33 @@ async function request(
       onSessionExpired();
     }
   }
+  if (res.status === 403 && onStepUpRequired && !path.startsWith('/auth/reauth')) {
+    const reason = await errorReason(res);
+    if (reason === 'reauth_required' || reason === 'mfa_session_required') {
+      const handler = onStepUpRequired;
+      steppingUp ??= handler(reason).finally(() => {
+        steppingUp = null;
+      });
+      if (await steppingUp) res = await send(path, method, body, scope, raw, accept, signal);
+    }
+  }
   if (res.status === 404 && scope && (await lostWorkspace(res))) onWorkspaceLost(scope);
   return res;
 }
 
-/** A 404 from the workspace guard (not a missing resource): the membership is gone. */
-async function lostWorkspace(res: Response): Promise<boolean> {
+/** The `details.reason` of an error answer, without consuming its body. */
+async function errorReason(res: Response): Promise<unknown> {
   const json: unknown = await res
     .clone()
     .json()
     .catch(() => null);
   const parsed = ErrorResponse.safeParse(json);
-  return parsed.success && parsed.data.error.details?.['reason'] === 'workspace_access';
+  return parsed.success ? parsed.data.error.details?.['reason'] : undefined;
+}
+
+/** A 404 from the workspace guard (not a missing resource): the membership is gone. */
+async function lostWorkspace(res: Response): Promise<boolean> {
+  return (await errorReason(res)) === 'workspace_access';
 }
 
 export async function api<T>(

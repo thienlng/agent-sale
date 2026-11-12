@@ -26,6 +26,7 @@ import {
   SignupBusinessHandler,
   SignupHandler,
 } from './application/commands/auth.handlers.js';
+import { CredentialResetService } from './application/credential-reset.js';
 import { EmailCodeService } from './application/email-codes.js';
 import { GoogleSignInService } from './application/google-sign-in.js';
 import {
@@ -41,17 +42,23 @@ import {
 } from './application/ports/api-keys.js';
 import { ACCESS_TOKENS, ATTEMPT_LIMITER, PASSWORD_HASHER } from './application/ports/security.js';
 import { DelegatedAccessService } from './application/delegated-access.js';
+import { LinkedIdentityService } from './application/linked-identities.js';
 import { MfaService } from './application/mfa.service.js';
+import { SecurityEventService } from './application/security-events.js';
+import { SESSION_POLICY } from './application/session-state.js';
 import { SessionService } from './application/sessions.js';
+import { StepUpService } from './application/step-up.js';
 import { EMAIL_CODE_REPOSITORY } from './domain/ports/email-code.repository.js';
 import { EXTERNAL_IDENTITY_REPOSITORY } from './domain/ports/external-identity.repository.js';
 import { MFA_REPOSITORY } from './domain/ports/mfa.repository.js';
+import { SECURITY_EVENT_REPOSITORY } from './domain/ports/security-event.repository.js';
 import { SESSION_REPOSITORY } from './domain/ports/session.repository.js';
 import { USER_REPOSITORY } from './domain/ports/user.repository.js';
 import {
   DrizzleEmailCodeRepository,
   DrizzleExternalIdentityRepository,
   DrizzleMfaRepository,
+  DrizzleSecurityEventRepository,
   DrizzleSessionRepository,
   DrizzleUserRepository,
 } from './infrastructure/persistence/identity.drizzle-repositories.js';
@@ -59,6 +66,7 @@ import {
   InMemoryEmailCodeRepository,
   InMemoryExternalIdentityRepository,
   InMemoryMfaRepository,
+  InMemorySecurityEventRepository,
   InMemorySessionRepository,
   InMemoryUserRepository,
 } from './infrastructure/persistence/identity.in-memory-repositories.js';
@@ -90,8 +98,28 @@ import { IdempotencyInterceptor } from './interface/http/idempotency.interceptor
   imports: [WorkspaceModule, AccountModule, BillingModule],
   controllers: [AuthController, GoogleAuthController],
   providers: [
+    {
+      provide: SESSION_POLICY,
+      useFactory: () => {
+        const env = getEnv();
+        return {
+          cacheTtlMs: env.AUTH_SESSION_CACHE_TTL_MS,
+          stepUpWindowMs: env.AUTH_STEP_UP_WINDOW_MINUTES * 60_000,
+        };
+      },
+    },
     SessionService,
     MfaService,
+    SecurityEventService,
+    StepUpService,
+    LinkedIdentityService,
+    CredentialResetService,
+    {
+      provide: SECURITY_EVENT_REPOSITORY,
+      inject: [{ token: DB_SYSTEM, optional: true }],
+      useFactory: (db: Database | null | undefined) =>
+        db ? new DrizzleSecurityEventRepository(db) : new InMemorySecurityEventRepository(),
+    },
     SignupHandler,
     SignupBusinessHandler,
     PasswordResetHandler,

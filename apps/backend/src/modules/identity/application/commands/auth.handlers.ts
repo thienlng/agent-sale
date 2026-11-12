@@ -33,6 +33,7 @@ import {
   type PasswordHasher,
 } from '../ports/security.js';
 import type { IdentityAdminFacade, IdentityFacade, UserRef } from '../../api/identity.facade.js';
+import { CredentialResetService } from '../credential-reset.js';
 import { EmailCodeService } from '../email-codes.js';
 import { MfaService } from '../mfa.service.js';
 import { type ClientMeta, type IssuedSession, SessionService, toUserDto } from '../sessions.js';
@@ -124,8 +125,9 @@ export class SignupBusinessHandler {
 
 /**
  * Forgotten password: a code by email, then a new password with it. Unknown addresses look the
- * same as known ones (no account enumeration). A reset verifies the email (the code proved it)
- * and signs out every session.
+ * same as known ones (no account enumeration). A reset verifies the email (the code proved it),
+ * signs out every session and removes linked sign-ins and the user's API keys
+ * (`CredentialResetService`).
  */
 @Injectable()
 export class PasswordResetHandler {
@@ -135,6 +137,7 @@ export class PasswordResetHandler {
     @Inject(ATTEMPT_LIMITER) private readonly limiter: AttemptLimiter,
     @Inject(SessionService) private readonly sessions: SessionService,
     @Inject(EmailCodeService) private readonly codes: EmailCodeService,
+    @Inject(CredentialResetService) private readonly credentials: CredentialResetService,
   ) {}
 
   async forgot(input: ForgotPasswordRequest, meta: ClientMeta): Promise<void> {
@@ -163,6 +166,7 @@ export class PasswordResetHandler {
     await this.codes.consume(input.email, 'reset_password', input.code);
     await this.users.setPassword(user.id, await this.hasher.hash(input.password), new Date());
     await this.sessions.revokeAll(user.id);
+    await this.credentials.afterPasswordReset(user.id, meta.ip);
     await this.limiter.reset(key);
   }
 }
@@ -191,12 +195,13 @@ export class LoginHandler {
       throw new InvalidCredentialsError();
     }
     // The attempt stays counted until the second factor passes too, so codes cannot be guessed freely.
-    if (await this.mfa.isEnabled(user.id)) {
+    const mfa = await this.mfa.isEnabled(user.id);
+    if (mfa) {
       if (!input.code) throw new MfaRequiredError();
       if (!(await this.mfa.verifyLogin(user.id, input.code))) throw new MfaCodeInvalidError();
     }
     await this.limiter.reset(key);
-    return this.sessions.start(user, meta);
+    return this.sessions.start(user, meta, { assurance: { authenticatedAt: new Date(), mfa } });
   }
 }
 
@@ -209,10 +214,10 @@ export class RefreshHandler {
 
   async execute(rawToken: string | undefined, meta: ClientMeta): Promise<IssuedSession> {
     if (!rawToken) throw new SessionInvalidError('missing');
-    const { userId, familyId } = await this.sessions.consume(rawToken);
+    const { userId, familyId, assurance } = await this.sessions.consume(rawToken);
     const user = await this.users.findById(userId);
     if (!user) throw new SessionInvalidError('user_gone');
-    return this.sessions.start(user, meta, familyId);
+    return this.sessions.start(user, meta, { familyId, assurance });
   }
 }
 

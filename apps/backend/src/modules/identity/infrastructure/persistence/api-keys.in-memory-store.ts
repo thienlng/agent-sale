@@ -1,4 +1,4 @@
-import type { WorkspaceId } from '@agent-sales/shared';
+import type { UserId, WorkspaceId } from '@agent-sales/shared';
 
 import type {
   ApiKeyRecord,
@@ -41,6 +41,16 @@ export class InMemoryApiKeyStore implements ApiKeyStore {
     const r = this.#rows.get(id);
     if (r) r.lastUsedAt = at;
     return Promise.resolve();
+  }
+
+  revokeAllCreatedBy(userId: UserId, at: Date): Promise<ApiKeyRecord[]> {
+    const revoked: ApiKeyRecord[] = [];
+    for (const r of this.#rows.values()) {
+      if (r.createdBy !== userId || r.revokedAt) continue;
+      r.revokedAt = at;
+      revoked.push({ ...r });
+    }
+    return Promise.resolve(revoked);
   }
 }
 

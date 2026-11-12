@@ -4,6 +4,7 @@ import {
   GoogleCallbackQuery,
   GoogleMfaRequest,
   GoogleStartQuery,
+  GoogleVerifyRequest,
 } from '@agent-sales/contracts';
 import {
   Body,
@@ -24,6 +25,7 @@ import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.j
 import {
   GOOGLE_FLOW_TTL_MS,
   GOOGLE_MFA_TTL_MS,
+  GOOGLE_VERIFY_TTL_MS,
   googleFailureReason,
   GoogleSignInService,
   safeRedirect,
@@ -38,7 +40,8 @@ import {
 
 const FLOW_COOKIE = 'rapiz_google';
 const MFA_COOKIE = 'rapiz_google_mfa';
-/** Both cookies only travel to the Google endpoints. */
+const VERIFY_COOKIE = 'rapiz_google_verify';
+/** These cookies only travel to the Google endpoints. */
 const COOKIE_PATH = '/api/v1/auth/google';
 
 /**
@@ -54,7 +57,8 @@ export function errorTag(e: unknown): string {
 
 /**
  * Sign in with Google (ADR-007). The browser goes to /start, Google, /callback, then back to the
- * SPA's /login with `google=done` (refresh cookie set), `google=mfa` (code still needed) or
+ * SPA's /login with `google=done` (refresh cookie set), `google=mfa` (code still needed),
+ * `google=verify` (a new account waits for the code emailed to its address) or
  * `google_error=<reason>`. The SPA never sees a Google token.
  */
 @Controller('auth')
@@ -103,6 +107,11 @@ export class GoogleAuthController {
         this.#toLogin(reply, { google: 'mfa' }, result.redirect);
         return;
       }
+      if (result.kind === 'verify') {
+        void reply.setCookie(VERIFY_COOKIE, result.ticket, this.#cookie(GOOGLE_VERIFY_TTL_MS));
+        this.#toLogin(reply, { google: 'verify' }, result.redirect);
+        return;
+      }
       setRefreshCookie(result.issued, reply, this.options);
       this.#toLogin(reply, { google: 'done' }, result.redirect);
     } catch (e) {
@@ -130,6 +139,24 @@ export class GoogleAuthController {
       clientMeta(req),
     );
     void reply.clearCookie(MFA_COOKIE, { path: COOKIE_PATH });
+    return issueSession(issued, 'web', reply, this.options);
+  }
+
+  @Public()
+  @Post('google/verify')
+  @HttpCode(200)
+  async verify(
+    @Body(new ZodValidationPipe(GoogleVerifyRequest)) body: GoogleVerifyRequest,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<AuthResponse> {
+    assertAllowedOrigin(req, this.options);
+    const issued = await this.google.completeVerify(
+      req.cookies[VERIFY_COOKIE],
+      body.code,
+      clientMeta(req),
+    );
+    void reply.clearCookie(VERIFY_COOKIE, { path: COOKIE_PATH });
     return issueSession(issued, 'web', reply, this.options);
   }
 

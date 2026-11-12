@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { LocalMailer } from '../../../common/email/mailer.js';
 import { SecretBox } from '../../../common/security/secret-box.js';
@@ -13,9 +13,15 @@ import {
   SignupBusinessHandler,
   SignupHandler,
 } from '../application/commands/auth.handlers.js';
+import { ApiKeyService } from '../application/api-key.service.js';
+import { CredentialResetService } from '../application/credential-reset.js';
+import { LinkedIdentityService } from '../application/linked-identities.js';
+import { StepUpService } from '../application/step-up.js';
 import { EmailCodeService, MAX_CODE_ATTEMPTS } from '../application/email-codes.js';
+import type { ApiPlanGate } from '../application/ports/api-keys.js';
 import type { PasswordHasher } from '../application/ports/security.js';
 import { MfaService } from '../application/mfa.service.js';
+import { DEFAULT_SESSION_POLICY, SessionStateCache } from '../application/session-state.js';
 import { SessionService } from '../application/sessions.js';
 import {
   EmailCodeError,
@@ -30,14 +36,18 @@ import {
   WeakPasswordError,
 } from '../domain/identity.errors.js';
 import { totpAt, stepAt } from '../domain/totp.js';
+import { User } from '../domain/user.js';
 import {
   InMemoryEmailCodeRepository,
+  InMemoryExternalIdentityRepository,
   InMemoryMfaRepository,
   InMemorySessionRepository,
   InMemoryUserRepository,
 } from '../infrastructure/persistence/identity.in-memory-repositories.js';
 import { InMemoryAttemptLimiter } from '../infrastructure/security/in-memory-attempt-limiter.js';
+import { InMemoryApiKeyStore } from '../infrastructure/persistence/api-keys.in-memory-store.js';
 import { JoseAccessTokens } from '../infrastructure/security/jose-access-tokens.js';
+import { securityEvents } from './factories/security.js';
 
 /** Fast fake hasher: the real Argon2 adapter is covered by the integration test. */
 const hasher: PasswordHasher = {
@@ -50,7 +60,7 @@ async function setup() {
   const users = new InMemoryUserRepository();
   const sessionRepo = new InMemorySessionRepository();
   const tokens = await JoseAccessTokens.create({ NODE_ENV: 'test' });
-  const sessions = new SessionService(sessionRepo, tokens);
+  const sessions = new SessionService(sessionRepo, tokens, DEFAULT_SESSION_POLICY);
   const created: string[] = [];
   const owners: unknown[] = [];
   const workspaces = {
@@ -83,6 +93,17 @@ async function setup() {
   const codeRepo = new InMemoryEmailCodeRepository();
   const codes = new EmailCodeService(codeRepo, mailer);
   const limiter = new InMemoryAttemptLimiter(3, 60_000);
+  const events = securityEvents(users, mailer);
+  const identities = new InMemoryExternalIdentityRepository();
+  const apiKeyStore = new InMemoryApiKeyStore();
+  const plan: ApiPlanGate = { of: () => Promise.resolve({ enabled: true, perMinute: null }) };
+  const apiKeys = new ApiKeyService(
+    apiKeyStore,
+    plan,
+    workspaces,
+    { findByIds: () => Promise.resolve([]) } as never,
+    events.service,
+  );
   const mfa = new MfaService(
     new InMemoryMfaRepository(),
     users,
@@ -90,9 +111,18 @@ async function setup() {
     new InMemoryAttemptLimiter(20, 60_000),
     SecretBox.insecureDevelopmentBox(),
     sessions,
+    events.service,
   );
   return {
     mfa,
+    codes,
+    stepUp: new StepUpService(users, identities, sessions, mfa, codes, events.service),
+    linked: new LinkedIdentityService(identities, users, events.service),
+    sessions,
+    events: events.repo,
+    identities,
+    apiKeys,
+    apiKeyStore,
     users,
     sessionRepo,
     tokens,
@@ -111,6 +141,7 @@ async function setup() {
       new InMemoryAttemptLimiter(3, 60_000),
       sessions,
       codes,
+      new CredentialResetService(identities, apiKeys, events.service),
     ),
     login: new LoginHandler(users, hasher, limiter, sessions, mfa),
     refresh: new RefreshHandler(users, sessions),
@@ -330,7 +361,7 @@ describe('auth flow (in-memory)', () => {
       const issued = await signUp(s);
       const userId = issued.user.id as never;
       const sessionId = currentSession(s);
-      const { secret } = await s.mfa.beginSetup(userId, input.password);
+      const { secret } = await s.mfa.beginSetup(userId, input.password, sessionId);
       const recovery = await s.mfa.enable(userId, totpAt(secret, stepAt(Date.now())), sessionId);
       return { ...s, userId, sessionId, secret, recovery };
     }
@@ -383,7 +414,7 @@ describe('auth flow (in-memory)', () => {
       const sessionId = currentSession(s);
       const other = await s.login.execute(creds, meta);
       const userId = mine.user.id as never;
-      const { secret } = await s.mfa.beginSetup(userId, input.password);
+      const { secret } = await s.mfa.beginSetup(userId, input.password, sessionId);
       await s.mfa.enable(userId, totpAt(secret, stepAt(Date.now())), sessionId);
       await expect(s.refresh.execute(other.refreshToken, meta)).rejects.toBeInstanceOf(
         SessionInvalidError,
@@ -394,8 +425,271 @@ describe('auth flow (in-memory)', () => {
     it('a pending setup does not gate login until confirmed', async () => {
       const s = await setup();
       const issued = await signUp(s);
-      await s.mfa.beginSetup(issued.user.id as never, input.password);
+      await s.mfa.beginSetup(issued.user.id as never, input.password, currentSession(s));
       await expect(s.login.execute(creds, meta)).resolves.toBeDefined();
+    });
+  });
+
+  describe('session revocation, step-up and linked sign-ins', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    /** The session id an access token names. */
+    async function sid(s: Setup, accessToken: string): Promise<string> {
+      return (await s.tokens.verify(accessToken))?.sessionId ?? '';
+    }
+
+    it('a logout revokes the session the access token names, at once in this process', async () => {
+      const s = await setup();
+      const issued = await signUp(s);
+      const userId = issued.user.id as never;
+      const sessionId = await sid(s, issued.accessToken);
+      expect(await s.sessions.state(sessionId)).toMatchObject({ revoked: false, userId });
+      await s.sessions.logout(userId, sessionId);
+      expect(await s.sessions.state(sessionId)).toMatchObject({ revoked: true });
+      await expect(s.refresh.execute(issued.refreshToken, meta)).rejects.toBeInstanceOf(
+        SessionInvalidError,
+      );
+    });
+
+    it('a logout ends earlier rotations of the family too', async () => {
+      const s = await setup();
+      const first = await signUp(s);
+      const second = await s.refresh.execute(first.refreshToken, meta);
+      await s.sessions.logout(second.user.id as never, await sid(s, second.accessToken));
+      expect(await s.sessions.state(await sid(s, first.accessToken))).toMatchObject({
+        revoked: true,
+      });
+    });
+
+    it('caches session state for the TTL; another process sees a revocation after it', async () => {
+      const cache = new SessionStateCache(15_000);
+      const state = {
+        userId: 'u1' as never,
+        revoked: false,
+        mfa: false,
+        authenticatedAt: null,
+      };
+      cache.set('s1', state, 0);
+      expect(cache.get('s1', 14_999)).toBe(state);
+      expect(cache.get('s1', 15_000)).toBeUndefined();
+      cache.set('s1', state, 0);
+      cache.forgetUser('u1' as never);
+      expect(cache.get('s1', 1)).toBeUndefined();
+      const off = new SessionStateCache(0);
+      off.set('s1', state, 0);
+      expect(off.get('s1', 0)).toBeUndefined();
+    });
+
+    it('a cached state is not re-read within the TTL, a fresh read sees the change', async () => {
+      const s = await setup();
+      const issued = await signUp(s);
+      const sessionId = await sid(s, issued.accessToken);
+      await s.sessions.state(sessionId);
+      // Another process revokes it: this process' cache still answers until the TTL.
+      await s.sessionRepo.revoke(sessionId, new Date());
+      expect(await s.sessions.state(sessionId)).toMatchObject({ revoked: false });
+      expect(await s.sessions.state(sessionId, true)).toMatchObject({ revoked: true });
+    });
+
+    it('login records the second factor on the session; refresh keeps it', async () => {
+      const s = await setup();
+      const issued = await signUp(s);
+      const userId = issued.user.id as never;
+      const sessionId = await sid(s, issued.accessToken);
+      expect(await s.sessions.state(sessionId)).toMatchObject({ mfa: false });
+      const { secret } = await s.mfa.beginSetup(userId, input.password, sessionId);
+      await s.mfa.enable(userId, totpAt(secret, stepAt(Date.now())), sessionId);
+      // Turning two-factor on proved the code on this session.
+      expect(await s.sessions.state(sessionId, true)).toMatchObject({ mfa: true });
+      const code = totpAt(secret, stepAt(Date.now()) + 1);
+      const login = await s.login.execute(
+        { email: input.email, password: input.password, client: 'web', code },
+        meta,
+      );
+      expect(await s.sessions.state(await sid(s, login.accessToken))).toMatchObject({
+        mfa: true,
+      });
+      const rotated = await s.refresh.execute(login.refreshToken, meta);
+      expect(await s.sessions.state(await sid(s, rotated.accessToken))).toMatchObject({
+        mfa: true,
+      });
+    });
+
+    it('a password reset removes linked sign-ins and the user’s API keys, and tells the user', async () => {
+      const s = await setup();
+      const issued = await signUp(s);
+      const userId = issued.user.id as never;
+      await s.identities.link(
+        { provider: 'google', subject: 'g-1', userId, email: input.email },
+        new Date(),
+      );
+      const ws = '00000000-0000-4000-8000-000000000001' as never;
+      const mine = await s.apiKeys.create(ws, userId, {
+        name: 'Zapier',
+        scopes: [],
+        expiresAt: null,
+      });
+      const theirs = await s.apiKeys.create(ws, '00000000-0000-4000-8000-0000000000bb' as never, {
+        name: 'Other member',
+        scopes: [],
+        expiresAt: null,
+      });
+      await s.reset.forgot({ email: input.email }, meta);
+      await s.reset.reset(
+        { email: input.email, code: lastCode(s.mailer), password: 'a brand new passphrase' },
+        meta,
+      );
+      expect(await s.identities.listForUser(userId)).toEqual([]);
+      const keys = await s.apiKeyStore.list(ws);
+      expect(keys.find((k) => k.id === mine.apiKey.id)?.revokedAt).toBeInstanceOf(Date);
+      expect(keys.find((k) => k.id === theirs.apiKey.id)?.revokedAt).toBeNull();
+      expect(await s.sessions.state(await sid(s, issued.accessToken))).toMatchObject({
+        revoked: true,
+      });
+      const actions = s.events.rows.filter((e) => e.userId === userId).map((e) => e.action);
+      expect(actions).toEqual(
+        expect.arrayContaining(['identity.unlinked', 'api_key.revoked', 'password.reset']),
+      );
+      // The notice names no secret: only that it happened.
+      expect(s.mailer.sent.at(-1)?.to).toBe(input.email);
+      expect(s.mailer.sent.at(-1)?.text).not.toContain('a brand new passphrase');
+    });
+
+    it('step-up: a fresh sign-in counts, then the window closes, then the password reopens it', async () => {
+      const s = await setup();
+      const issued = await signUp(s);
+      const userId = issued.user.id as never;
+      const sessionId = await sid(s, issued.accessToken);
+      const now = Date.now();
+      expect(await s.stepUp.status(userId, sessionId, now)).toMatchObject({
+        methods: ['password'],
+        recent: true,
+        hasPassword: true,
+      });
+      const later = now + DEFAULT_SESSION_POLICY.stepUpWindowMs + 1;
+      expect(await s.stepUp.status(userId, sessionId, later)).toMatchObject({ recent: false });
+
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(later);
+      await expect(
+        s.stepUp.verify(userId, sessionId, { password: 'wrong password!' }, null),
+      ).rejects.toBeInstanceOf(MfaReauthError);
+      const status = await s.stepUp.verify(userId, sessionId, { password: input.password }, null);
+      expect(status).toMatchObject({ recent: true, mfa: false });
+      expect(s.events.rows.at(-1)).toMatchObject({
+        action: 'session.step_up',
+        data: { method: 'password' },
+      });
+    });
+
+    it('step-up with two-factor on takes a code (not the password) and marks the session', async () => {
+      const s = await setup();
+      const issued = await signUp(s);
+      const userId = issued.user.id as never;
+      const sessionId = await sid(s, issued.accessToken);
+      const { secret } = await s.mfa.beginSetup(userId, input.password, sessionId);
+      await s.mfa.enable(userId, totpAt(secret, stepAt(Date.now())), sessionId);
+      expect((await s.stepUp.status(userId, sessionId)).methods).toEqual(['totp']);
+      await expect(
+        s.stepUp.verify(userId, sessionId, { password: input.password }, null),
+      ).rejects.toBeInstanceOf(MfaReauthError);
+      const code = totpAt(secret, stepAt(Date.now()) + 1);
+      await expect(s.stepUp.verify(userId, sessionId, { code }, null)).resolves.toMatchObject({
+        recent: true,
+        mfa: true,
+      });
+    });
+
+    it('a Google-only user steps up with an emailed code, then can turn two-factor on', async () => {
+      const s = await setup();
+      const user = User.registerFromProvider({
+        email: 'gg@shop.vn',
+        name: 'Google only',
+        emailVerifiedAt: new Date(),
+      });
+      await s.users.insert(user);
+      await s.identities.link(
+        { provider: 'google', subject: 'g-2', userId: user.id, email: 'gg@shop.vn' },
+        new Date(),
+      );
+      const started = new Date(Date.now() - DEFAULT_SESSION_POLICY.stepUpWindowMs - 60_000);
+      const issued = await s.sessions.start(user, meta, {
+        assurance: { authenticatedAt: started, mfa: false },
+      });
+      const sessionId = await sid(s, issued.accessToken);
+      expect(await s.stepUp.status(user.id, sessionId)).toMatchObject({
+        methods: ['email', 'google'],
+        recent: false,
+        hasPassword: false,
+      });
+      // Without a recent step-up there is nothing to check: refuse.
+      await expect(s.mfa.beginSetup(user.id, undefined, sessionId)).rejects.toMatchObject({
+        details: { reason: 'reauth_required' },
+      });
+      await s.stepUp.sendCode(user.id);
+      expect(s.mailer.sent.at(-1)?.to).toBe('gg@shop.vn');
+      await expect(
+        s.stepUp.verify(user.id, sessionId, { emailCode: '000000' }, null),
+      ).rejects.toBeInstanceOf(EmailCodeError);
+      await s.stepUp.verify(user.id, sessionId, { emailCode: lastCode(s.mailer) }, null);
+      const { secret } = await s.mfa.beginSetup(user.id, undefined, sessionId);
+      await expect(
+        s.mfa.enable(user.id, totpAt(secret, stepAt(Date.now())), sessionId),
+      ).resolves.not.toHaveLength(0);
+      // A user with a password has no emailed step-up.
+      const withPassword = await signUp(s);
+      await expect(s.stepUp.sendCode(withPassword.user.id as never)).rejects.toBeInstanceOf(
+        MfaReauthError,
+      );
+    });
+
+    it('lists and removes linked sign-ins, but never the last way in', async () => {
+      const s = await setup();
+      const user = User.registerFromProvider({
+        email: 'gg@shop.vn',
+        name: 'Google only',
+        emailVerifiedAt: new Date(),
+      });
+      await s.users.insert(user);
+      const link = (subject: string) =>
+        s.identities.link(
+          { provider: 'google', subject, userId: user.id, email: 'gg@shop.vn' },
+          new Date(),
+        );
+      await link('g-1');
+      expect(await s.linked.list(user.id)).toEqual([
+        expect.objectContaining({ provider: 'google', subject: 'g-1', email: 'gg@shop.vn' }),
+      ]);
+      await expect(s.linked.unlink(user.id, 'google', 'g-1', null)).rejects.toMatchObject({
+        details: { reason: 'last_sign_in_method' },
+      });
+      await expect(s.linked.unlink(user.id, 'google', 'nope', null)).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+      });
+      await link('g-2');
+      await s.linked.unlink(user.id, 'google', 'g-1', '10.0.0.1');
+      expect((await s.linked.list(user.id)).map((l) => l.subject)).toEqual(['g-2']);
+      expect(s.events.rows.at(-1)).toMatchObject({
+        action: 'identity.unlinked',
+        ip: '10.0.0.1',
+      });
+    });
+
+    it('two-factor changes are recorded and emailed', async () => {
+      const s = await setup();
+      const issued = await signUp(s);
+      const userId = issued.user.id as never;
+      const sessionId = await sid(s, issued.accessToken);
+      const { secret } = await s.mfa.beginSetup(userId, input.password, sessionId);
+      const recovery = await s.mfa.enable(userId, totpAt(secret, stepAt(Date.now())), sessionId);
+      const sentAfterEnable = s.mailer.sent.length;
+      await s.mfa.disable(userId, input.password, recovery[0] as string, sessionId);
+      expect(s.mailer.sent.length).toBe(sentAfterEnable + 1);
+      expect(s.events.rows.map((e) => e.action)).toEqual(
+        expect.arrayContaining(['mfa.enabled', 'mfa.recovery_code_used', 'mfa.disabled']),
+      );
     });
   });
 });

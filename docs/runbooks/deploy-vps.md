@@ -60,6 +60,7 @@ The server follows `/opt/infra/README.md` on the host: apps live in `/opt/apps/<
    - Variable `DEPLOY_ENABLED`: `true`. Until it is set, the Deploy workflow skips.
 7. **First platform admin.** Sign up in the dashboard, then make that account a platform admin:
    `docker compose exec api node apps/backend/dist/cli/platform-admin.js grant <email>`
+   Then turn on two-step verification for that account (avatar → Account security): `/admin` refuses an admin without it (403 `admin_mfa_required`). See [platform-admin-2fa.md](platform-admin-2fa.md).
 8. **LLM provider.** Add one in Admin → LLM. Without it, production answers 503 for bot turns.
 9. **Plans and trial.** In Admin (`/admin/plans` for the catalog, `/admin/settings` for trial, lifecycle and bank account): check the plan catalog and prices, set the VietQR bank account, then turn the signup trial on (it ships off, so a deploy alone changes nothing for new signups). The `worker` service runs the subscription lifecycle (trial end, past due, suspension) every 5 minutes; keep it running.
 10. **Website chat (optional).** Rapiz's own pages show a chat bubble once the edge has a site key. Sign up the owner, then run `docker compose exec api node apps/backend/dist/cli/rapiz-site-bot.js seed --owner <email> --domains <host>,www.<host>` (idempotent; also puts the plans in the bot's catalog with pictures fetched from the live site, so behind the beta gate add `--site http://edge`; prints `site key: wk_…`), add `RAPIZ_SITE_WIDGET_KEY=wk_…` to `.env` and run `docker compose --env-file .env up -d edge`. Unset, the pages load no widget. Details: [apps/site README](../../apps/site/README.md#website-chat).
@@ -178,4 +179,5 @@ Neither the password nor the gate token is in Git. The token sits in the NPM pro
 
 - No container publishes ports. Only `edge` is reachable, and only through NPM. Postgres, Redis and the S3 API sit on an internal network; `/metrics` is not routed.
 - Use SSH keys only. Once key login works, set `PasswordAuthentication no` in `/etc/ssh/sshd_config.d/` and restart `ssh`.
+- Sessions: an access token is checked against its session on every request; a logout or password reset reaches every `api` process within `AUTH_SESSION_CACHE_TTL_MS` (default 15000; `0` turns the cache off). Sensitive actions need a step-up within `AUTH_STEP_UP_WINDOW_MINUTES` (default 10). Both are optional in `.env`.
 - `.env` holds every secret. Never paste it into chat, logs or tickets. The pulls use the CI job's short-lived `GITHUB_TOKEN`, and the workflow logs out right after.

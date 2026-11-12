@@ -122,6 +122,34 @@ export type GoogleSignInFailure =
   /** Google answered with an error or a token that did not verify. */
   | 'failed';
 
+/**
+ * The action needs a recent re-authentication of this session (step-up: password, two-factor code,
+ * emailed code or a new Google sign-in). 403, not 401: the session itself is fine.
+ */
+export class ReauthRequiredError extends DomainError {
+  readonly code = 'FORBIDDEN';
+  constructor() {
+    super('Confirm it is you to continue', { reason: 'reauth_required' });
+  }
+}
+
+/** The last way to sign in cannot be removed (a user without a password keeps one link). */
+export class LastSignInMethodError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor() {
+    super('Set a password before removing your last sign-in method', {
+      reason: 'last_sign_in_method',
+    });
+  }
+}
+
+export class LinkedIdentityNotFoundError extends DomainError {
+  readonly code = 'NOT_FOUND';
+  constructor() {
+    super('Linked sign-in not found');
+  }
+}
+
 /** A Google sign-in that cannot finish; the reason is shown on the login page. */
 export class GoogleSignInError extends DomainError {
   readonly code = 'UNAUTHENTICATED';

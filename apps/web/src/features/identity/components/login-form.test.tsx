@@ -197,4 +197,41 @@ describe('LoginForm', () => {
     );
     expect(screen.getByLabelText('Mật khẩu')).toBeInTheDocument();
   });
+
+  it('asks for the emailed code to finish a Google sign-up, then signs in', async () => {
+    const { fetchStub, calls } = stubFetch({
+      'POST /auth/google/verify': {
+        status: 200,
+        body: { accessToken: 'a.b.c', expiresIn: 900, user },
+      },
+      'GET /bootstrap': { status: 200, body: { user, accounts: [], memberships: [] } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    const onSuccess = vi.fn();
+    renderWithRouter(() => <LoginForm onSuccess={onSuccess} google={{ step: 'verify' }} />);
+    expect(await screen.findByRole('heading', { name: 'Kiểm tra email' })).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Mã xác minh'), '654321');
+    await userEvent.click(screen.getByRole('button', { name: 'Tạo tài khoản' }));
+    await vi.waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(calls.find((c) => c.key === 'POST /auth/google/verify')?.body).toEqual({
+      code: '654321',
+    });
+  });
+
+  it('says so when the emailed code is wrong, and stays on the code step', async () => {
+    const { fetchStub } = stubFetch({
+      'POST /auth/google/verify': {
+        status: 400,
+        body: {
+          error: { code: 'VALIDATION_FAILED', message: 'x', details: { reason: 'code_invalid' } },
+        },
+      },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <LoginForm onSuccess={() => {}} google={{ step: 'verify' }} />);
+    await userEvent.type(await screen.findByLabelText('Mã xác minh'), '000000');
+    await userEvent.click(screen.getByRole('button', { name: 'Tạo tài khoản' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Mã không đúng hoặc đã hết hạn');
+    expect(screen.getByLabelText('Mã xác minh')).toBeInTheDocument();
+  });
 });
