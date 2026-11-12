@@ -13,9 +13,9 @@ import {
   PURGE_BACKOFF_MAX_MS,
   PURGE_SCAN_MS,
   purgeBackoffMs,
-  purgeErrorCode,
   WorkspacePurgeRunnerImpl,
 } from '../application/workspace-purge.runner.js';
+import { purgeErrorCode } from '../application/purge-failure.js';
 
 function fakes(due: WorkspaceId[] | DuePurge[], opts: { storage?: boolean } = {}) {
   const rows: DuePurge[] = due.map((d) =>
