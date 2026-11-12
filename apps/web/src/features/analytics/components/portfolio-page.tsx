@@ -208,9 +208,6 @@ export function PortfolioPage({
         </footer>
       ) : null}
       <p className="text-xs text-muted-foreground">{t('analytics.overview.recordsNote')}</p>
-      <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-        {t('analytics.overview.shopPending')}
-      </p>
     </section>
   );
 }
