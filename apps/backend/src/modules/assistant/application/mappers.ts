@@ -42,7 +42,14 @@ export function isVisibleMessage(msg: MessageRecord): boolean {
 }
 
 /** Visible messages only (see `isVisibleMessage`). */
-export function toMessageDtos(messages: MessageRecord[]): AssistantMessageDto[] {
+/**
+ * The visible messages; with `runs`, an assistant answer also carries its run's model, total
+ * tokens and time (`runMeta`).
+ */
+export function toMessageDtos(
+  messages: MessageRecord[],
+  runs?: ReadonlyMap<string, RunRecord>,
+): AssistantMessageDto[] {
   return messages.filter(isVisibleMessage).map((msg) => ({
     id: msg.id,
     seq: msg.seq,
@@ -54,9 +61,21 @@ export function toMessageDtos(messages: MessageRecord[]): AssistantMessageDto[] 
       return parsed.success ? [parsed.data] : [];
     }),
     runId: msg.runId,
+    ...(runs && msg.role === 'assistant' && msg.runId
+      ? { runMeta: runMeta(runs.get(msg.runId)) }
+      : {}),
     feedback: msg.feedback,
     createdAt: msg.createdAt.toISOString(),
   }));
+}
+
+function runMeta(run: RunRecord | undefined): AssistantMessageDto['runMeta'] {
+  if (!run) return null;
+  return {
+    model: run.model,
+    tokens: run.inputTokens + run.cachedTokens + run.outputTokens,
+    latencyMs: run.latencyMs,
+  };
 }
 
 export function toRunDto(run: RunRecord & { steps: StepRecord[] }): AssistantRunDto {

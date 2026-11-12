@@ -5,6 +5,8 @@ import {
   PROMPTS_DIR,
   PromptRegistry,
   runAgentLoop,
+  stepDetail,
+  type StepDetail,
 } from '@agent-sales/ai-core';
 import {
   defaultOfferingKind,
@@ -509,7 +511,7 @@ export class PlaygroundService implements AiFacade {
       this.summaries && summaryKey && history.times
         ? await this.summaries.get(ws, summaryKey)
         : null;
-    const steps: AgentStep[] = [];
+    const steps: (AgentStep & { detail?: StepDetail | null })[] = [];
     let loop: AgentLoopResult | null = null;
     let base: GenerateRequest | null = null;
     let historySummarized = false;
@@ -593,10 +595,11 @@ export class PlaygroundService implements AiFacade {
         // Once a message went out, an empty final answer is fine: no gateway retry for it.
         generate: (req) => meter.generate(output.sent.length ? { ...req, allowEmpty: true } : req),
         onStep: (step) => {
-          // The shop bot keeps no tool arguments or results in its steps (only the trace's
-          // allowlisted detail); the owner-assistant debug fields stay out of its result.
+          // A customer turn keeps no tool arguments or results in its steps (only the trace's
+          // allowlisted detail). The owner's test chat gets the same redacted debug detail as
+          // the assistant's trace: tokens per model call, arguments and result head per tool.
           const { input: _in, result: _out, usage: _u, requested: _r, ...kept } = step;
-          steps.push(kept);
+          steps.push(options.isTest ? { ...kept, detail: stepDetail(step) } : kept);
           recorder.onStep(step);
         },
         isTerminal: (call) => call.name === HANDOFF_TOOL,
@@ -737,6 +740,8 @@ export class PlaygroundService implements AiFacade {
       provider: run.provider,
       model: run.model,
       latencyMs: meter.latencyMs,
+      tier: bot.modelTier,
+      rounds: loop?.modelCalls ?? meter.calls,
       ...(actionState.calls.length ? { actions: actionState.calls } : {}),
       messages,
       steps,

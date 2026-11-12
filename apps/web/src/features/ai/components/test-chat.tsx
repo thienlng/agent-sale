@@ -198,7 +198,7 @@ export function TestChat({
               {greeting ? (
                 <Message>
                   <MessageContent>
-                    <Bubble className="max-w-[85%] *:data-[slot=bubble-content]:bg-bubble-bot *:data-[slot=bubble-content]:text-primary-foreground">
+                    <Bubble className="max-w-[85%] *:data-[slot=bubble-content]:bg-muted *:data-[slot=bubble-content]:text-foreground">
                       <BubbleContent className="rounded-[1.1rem] rounded-bl-md text-base">
                         {greeting}
                       </BubbleContent>
@@ -285,9 +285,7 @@ export function TestChat({
                             </span>
                           ) : null}
                           <Outcome result={turn.result} />
-                          {turn.result.steps?.length ? (
-                            <TestChatSteps steps={turn.result.steps} />
-                          ) : null}
+                          <TestChatSteps result={turn.result} />
                         </MessageFooter>
                       ) : null}
                     </MessageContent>
@@ -298,12 +296,12 @@ export function TestChat({
                 <div
                   role="status"
                   aria-label={t('playground.thinking')}
-                  className="flex gap-1 self-start rounded-[1.1rem] rounded-bl-md bg-primary-soft px-3.5 py-3"
+                  className="flex gap-1 self-start rounded-[1.1rem] rounded-bl-md bg-muted px-3.5 py-3"
                 >
                   {[0, 1, 2].map((i) => (
                     <span
                       key={i}
-                      className="typing-dot size-1.5 rounded-full bg-primary"
+                      className="typing-dot size-1.5 rounded-full bg-muted-foreground"
                       style={{ animationDelay: `${i * 200}ms` }}
                     />
                   ))}
@@ -380,11 +378,13 @@ function TurnBubbles({ turn, text }: { turn: Turn; text: string }) {
       align={turn.role === 'customer' ? 'end' : 'start'}
       className={cn(
         'max-w-[85%]',
+        // As in the owner assistant: the one typing (here the tester, as a customer) in the brand
+        // colour on the right, the bot's answers on a neutral bubble on the left.
         turn.role === 'customer'
-          ? '*:data-[slot=bubble-content]:bg-bubble-customer *:data-[slot=bubble-content]:text-foreground'
+          ? '*:data-[slot=bubble-content]:bg-primary *:data-[slot=bubble-content]:text-primary-foreground'
           : turn.error
             ? '*:data-[slot=bubble-content]:bg-destructive-soft *:data-[slot=bubble-content]:text-destructive'
-            : '*:data-[slot=bubble-content]:bg-bubble-bot *:data-[slot=bubble-content]:text-primary-foreground',
+            : '*:data-[slot=bubble-content]:bg-muted *:data-[slot=bubble-content]:text-foreground',
       )}
     >
       <BubbleContent

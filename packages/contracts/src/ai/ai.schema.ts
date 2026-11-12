@@ -87,6 +87,9 @@ export const PlaygroundResponse = z.object({
   provider: z.string(),
   model: z.string(),
   latencyMs: z.number().int(),
+  /** The bot's model tier and how many model calls the turn made (the test chat's trace). */
+  tier: z.string().optional(),
+  rounds: z.number().int().optional(),
   /** API actions the bot called while answering (name only, never arguments or data). */
   actions: z
     .array(z.object({ name: z.string(), ok: z.boolean(), statusCode: z.number().int().nullable() }))
@@ -112,7 +115,10 @@ export const PlaygroundResponse = z.object({
       }),
     )
     .optional(),
-  /** What the bot did while answering (kinds and names only). */
+  /**
+   * What the bot did while answering. In the test chat a step also carries its `detail`: a model
+   * call's tokens and requested tools, a tool's arguments and result head (redacted, cut short).
+   */
   steps: z
     .array(
       z.object({
@@ -120,6 +126,21 @@ export const PlaygroundResponse = z.object({
         name: z.string().optional(),
         ok: z.boolean().optional(),
         ms: z.number().optional(),
+        errorCode: z.string().optional(),
+        detail: z
+          .union([
+            z.object({
+              tokens: z.object({
+                input: z.number().int(),
+                cached: z.number().int(),
+                output: z.number().int(),
+              }),
+              requested: z.array(z.string()),
+            }),
+            z.object({ args: z.string(), resultChars: z.number().int(), result: z.string() }),
+          ])
+          .nullable()
+          .optional(),
       }),
     )
     .optional(),
