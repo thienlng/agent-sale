@@ -266,7 +266,11 @@ describe('pre-send guard on the reply path', () => {
   });
 
   it('lets the bot quote what the owner wrote for it (mission, situations), however long', async () => {
-    const { ask, sent } = build([sendCall(MISSION), `Dạ ${MISSION}`], false);
+    // The answer adds a question, so it is not a repeat of the sent message (VL-B8).
+    const { ask, sent } = build(
+      [sendCall(MISSION), `Dạ ${MISSION} Anh/chị cần em báo thêm gì không ạ?`],
+      false,
+    );
     const res = await ask('shop có chiết khấu đại lý không');
     expect(sent).toEqual([MISSION]);
     expect(res.guardrail).toBeNull();

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { normalizeReplyText, quotedSources } from '../domain/reply-text.js';
+import { normalizeReplyText, quotedSources, withoutSentLines } from '../domain/reply-text.js';
 
 describe('normalizeReplyText: literal "\\n" in the customer reply (T-135)', () => {
   it('turns every stand-alone literal \\n into a line break, wherever the model put it', () => {
@@ -81,5 +81,19 @@ describe('normalizeReplyText: a repeated line is sent once (TM-22)', () => {
       ),
     ).toBe('Dạ có ạ, TinyMind có bộ thực phẩm gỗ.\nGiá 450.000đ ạ.');
     expect(normalizeReplyText('A\n\nB\n\nC')).toBe('A\n\nB\n\nC');
+  });
+});
+
+describe('withoutSentLines (VL-B8)', () => {
+  it('drops the answer lines a send_message already said, a "Dạ" lead ignored', () => {
+    const sent = 'E27 có gói nhỏ nhất là Combo 4 phòng, tiêu chuẩn 10 người lớn ạ.';
+    expect(
+      withoutSentLines(
+        `Dạ E27 có gói nhỏ nhất là Combo 4 phòng, tiêu chuẩn 10 người lớn ạ.\nGiá Combo 4 phòng là 8.000.000đ ạ.`,
+        [sent],
+      ),
+    ).toBe('Giá Combo 4 phòng là 8.000.000đ ạ.');
+    expect(withoutSentLines('EVANI – EVANI 7PN', ['EVANI – EVANI 7PN'])).toBe('');
+    expect(withoutSentLines('Dạ còn ạ.', [])).toBe('Dạ còn ạ.');
   });
 });

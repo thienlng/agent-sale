@@ -13,7 +13,7 @@ import type { BotView } from '../../bot/api/index.js';
 import type { MessageSink, ReplyOptions } from '../api/reply-options.js';
 import { defaultFallbackMessage, defaultHandoffMessage } from '../domain/default-messages.js';
 import { correctionNote, type ReplyCheck } from '../domain/reply-guard.js';
-import { normalizeReplyText } from '../domain/reply-text.js';
+import { normalizeReplyText, withoutSentLines } from '../domain/reply-text.js';
 import { type ActionToolContext, playgroundConversationId, runActionTool } from './action-tools.js';
 import { CALCULATE_TOOL, calculateTool } from './calculator.js';
 import { customerSelfPronoun, phonesIn } from './reply-context.js';
@@ -317,15 +317,19 @@ export function decideReply(input: {
     return { outcome: 'handoff', guardrail: 'provider_refusal', final: handoffText(bot) };
   const forced = forcedGuardrail(loop, input.actionFallback);
   const text = forced ? '' : normalizeReplyText(loop.res?.text ?? '');
-  // The model repeated a message it already sent this turn (EV-5): the customer reads it once.
-  const same = (a: string) => a.replace(/\s+/g, ' ').trim().toLowerCase();
-  if (text && output.sent.some((m) => m.text && same(m.text) === same(text)))
-    return { outcome: 'answered', guardrail: null, final: null };
-  if (text)
+  // The model repeated what it already sent this turn (EV-5, VL-B8): the customer reads it once.
+  const fresh = text
+    ? withoutSentLines(
+        text,
+        output.sent.map((m) => m.text),
+      )
+    : '';
+  if (text && !fresh) return { outcome: 'answered', guardrail: null, final: null };
+  if (fresh)
     return {
       outcome: 'answered',
       guardrail: null,
-      final: withCustomerPronoun(text, input.customerTexts ?? [], output.sent),
+      final: withCustomerPronoun(fresh, input.customerTexts ?? [], output.sent),
     };
   // Cut short after a send (budget, round limit, invalid tools): close with the fallback line so
   // a promise like "em gửi ảnh từng mẫu nhé" is not left hanging.

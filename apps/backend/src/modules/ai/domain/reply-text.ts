@@ -33,6 +33,30 @@ export function withoutRepeatedLines(text: string): string {
     .join('\n');
 }
 
+/** A line as compared for repeats: no "Dạ"/"Vâng" lead, no accents, case, spacing or end mark. */
+const lineKey = (line: string): string =>
+  foldVietnamese(line)
+    .replace(/^\W*(da|vang|yes|ok)\b[\s,]*/u, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+/**
+ * VL-B8: the final answer must not repeat what `send_message` already sent this turn: every line
+ * of the answer that a sent message already said (a "Dạ" lead, case and punctuation ignored) is
+ * dropped. Returns '' when nothing new is left.
+ */
+export function withoutSentLines(answer: string, sent: readonly string[]): string {
+  const said = new Set(
+    sent.flatMap((text) => text.split('\n').map(lineKey)).filter((key) => key.length > 0),
+  );
+  if (!said.size) return answer;
+  return answer
+    .split('\n')
+    .filter((line) => !said.has(lineKey(line)))
+    .join('\n')
+    .trim();
+}
+
 const QUOTE_WORDS = 6;
 
 const words = (text: string): string[] =>
