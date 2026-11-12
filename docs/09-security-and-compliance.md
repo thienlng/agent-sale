@@ -150,3 +150,7 @@ Preny has weak legal documentation (policies dated before the company's founding
 ## 11. Certification goals
 
 Year 1: prepare according to ISO/IEC 27001 (policies, risk register, access management, backup testing). Once there are Enterprise customers: ISO 27001 audit; SOC 2 if selling internationally.
+
+## 12. Security audits
+
+Code audits live in `docs/security/`, one file per audit, with findings, status and the controls verified. Latest: [2026-11-12](security/2026-11-12-security-audit.md).

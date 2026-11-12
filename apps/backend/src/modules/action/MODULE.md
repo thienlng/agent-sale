@@ -13,7 +13,7 @@
 **Invariants:**
 
 - The URL is HTTPS; every `{placeholder}` has a `path` param of the same name; param names are unique (`ActionInput` in `packages/contracts/src/action`).
-- The auth secret is sealed with `SecretBox` on write, never returned (DTOs only expose `hasSecret`), never logged, never sent to the model. On update an absent `authSecret` keeps it, `''` clears it, and switching auth to `none` drops it.
+- The auth secret is sealed with `SecretBox` on write, never returned (DTOs only expose `hasSecret`), never logged, never sent to the model. On update an absent `authSecret` keeps it while the URL origin and the auth kind/header name stay the same; changing either without a new secret is refused (`InvalidActionError`, `reason: secret_required`), `''` clears it, and switching auth to `none` drops it. The contract refuses `{param}` in the URL authority and `buildRequest` refuses such stored URLs, so arguments never pick the host. `testDraft` borrows a stored secret under the same rule, so a secret is only ever sent where it was entered for.
 - `action_runs` stores no arguments and no response bodies (PII).
 - Callers must have verified `botId` belongs to the workspace; RLS still guarantees no cross-tenant read.
 

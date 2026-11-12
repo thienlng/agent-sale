@@ -16,6 +16,7 @@ import {
   confirmDefault,
   formFromDto,
   newForm,
+  secretMoved,
   toInput,
   validateForm,
   type ActionForm as FormState,
@@ -67,6 +68,7 @@ function AuthFields({
           id="action-secret"
           label={t('form.secret')}
           hint={t('form.secretHint')}
+          error={errorText('authSecret')}
           className="sm:col-span-2"
         >
           <Input
@@ -75,7 +77,12 @@ function AuthFields({
             type="password"
             autoComplete="new-password"
             value={form.secret}
-            placeholder={form.hasSecret ? t('form.secretSaved') : t('form.secretPlaceholder')}
+            aria-invalid={Boolean(errorText('authSecret'))}
+            placeholder={
+              form.hasSecret && !secretMoved(form)
+                ? t('form.secretSaved')
+                : t('form.secretPlaceholder')
+            }
             onChange={(e) => set({ secret: e.target.value })}
           />
         </Field>

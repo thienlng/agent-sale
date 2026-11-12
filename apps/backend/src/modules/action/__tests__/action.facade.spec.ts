@@ -1,4 +1,8 @@
-import type { ActionInput } from '@agent-sales/contracts';
+import {
+  SECRET_REQUIRED,
+  type ActionInput,
+  type UpdateActionRequest,
+} from '@agent-sales/contracts';
 import { newId, workspaceId } from '@agent-sales/shared';
 import { Test } from '@nestjs/testing';
 import { describe, expect, it, vi } from 'vitest';
@@ -68,6 +72,51 @@ describe('ActionFacade CRUD', () => {
     expect(box.open((await sealed()) ?? '')).toBe('second-key');
     expect((await facade.update(ws, botId, id, { authSecret: '' })).hasSecret).toBe(false);
     expect(await sealed()).toBeNull();
+  });
+
+  describe('a stored secret on update', () => {
+    const sealedOf = (uow: ReturnType<typeof setup>['uow'], id: string) =>
+      uow.run(ws, async (r) => (await r.find(botId, id))?.authSecretEnc);
+
+    it('is kept when the URL stays on the same origin', async () => {
+      const { facade, uow } = setup();
+      const { id } = await facade.create(ws, botId, input());
+      await facade.update(ws, botId, id, { url: 'https://shop.example.com:443/v2/orders/{code}' });
+      await facade.update(ws, botId, id, { auth: { kind: 'api_key', headerName: 'x-api-key' } });
+      expect(box.open((await sealedOf(uow, id)) ?? '')).toBe('super-secret-key');
+    });
+
+    it.each<[string, UpdateActionRequest]>([
+      ['another origin', { url: 'https://attacker.example/{code}' }],
+      ['another port', { url: 'https://shop.example.com:8443/api/orders/{code}' }],
+      ['another header', { auth: { kind: 'api_key', headerName: 'X-Leak' } }],
+      ['another auth kind', { auth: { kind: 'bearer' } }],
+    ])('is refused, not silently dropped, on %s without a new secret', async (_, patch) => {
+      const { facade, uow } = setup();
+      const { id } = await facade.create(ws, botId, input());
+      const before = await sealedOf(uow, id);
+      await expect(facade.update(ws, botId, id, patch)).rejects.toMatchObject({
+        code: 'VALIDATION_FAILED',
+        details: { reason: SECRET_REQUIRED },
+      });
+      expect(await sealedOf(uow, id)).toBe(before);
+    });
+
+    it('is replaced or cleared when the move comes with a new secret or an explicit clear', async () => {
+      const { facade, uow } = setup();
+      const { id } = await facade.create(ws, botId, input());
+      await facade.update(ws, botId, id, {
+        url: 'https://api.shop.example.com/{code}',
+        authSecret: 'new-host-key',
+      });
+      expect(box.open((await sealedOf(uow, id)) ?? '')).toBe('new-host-key');
+      const dto = await facade.update(ws, botId, id, {
+        url: 'https://other.example/{code}',
+        authSecret: '',
+      });
+      expect(dto.hasSecret).toBe(false);
+      expect(await sealedOf(uow, id)).toBeNull();
+    });
   });
 
   it('drops the secret when auth becomes none and stores none without a secret', async () => {
@@ -193,6 +242,37 @@ describe('ActionFacade testDraft', () => {
       args: { code: 'A' },
     });
     expect(JSON.stringify(http.mock.calls[0])).toContain('super-secret-key');
+  });
+
+  it('does not send the stored secret to another origin or under another header', async () => {
+    const http = okHttp({ status: 'ok' });
+    const { facade } = withHttp(http);
+    const saved = await facade.create(ws, botId, input());
+    for (const action of [
+      input({ authSecret: undefined, url: 'https://attacker.example/x/{code}' }),
+      input({ authSecret: undefined, url: 'https://shop.example.com:8443/api/orders/{code}' }),
+      input({ authSecret: undefined, auth: { kind: 'api_key', headerName: 'X-Leak' } }),
+      input({ authSecret: undefined, auth: { kind: 'bearer' } }),
+    ]) {
+      await facade.testDraft(ws, botId, { action, actionId: saved.id, args: { code: 'A' } });
+    }
+    expect(http).toHaveBeenCalledTimes(4);
+    expect(JSON.stringify(http.mock.calls)).not.toContain('super-secret-key');
+  });
+
+  it('lends the stored secret to a draft on the same origin and auth', async () => {
+    const http = okHttp({ status: 'ok' });
+    const { facade } = withHttp(http);
+    const saved = await facade.create(ws, botId, input());
+    for (const action of [
+      input({ authSecret: undefined, url: 'https://shop.example.com/v2/{code}' }),
+      input({ authSecret: undefined, url: 'https://shop.example.com:443/api/orders/{code}' }),
+      input({ authSecret: undefined, auth: { kind: 'api_key', headerName: 'x-api-key' } }),
+    ]) {
+      http.mockClear();
+      await facade.testDraft(ws, botId, { action, actionId: saved.id, args: { code: 'A' } });
+      expect(JSON.stringify(http.mock.calls[0]), action.url).toContain('super-secret-key');
+    }
   });
 
   it('sends no secret when the draft has none and no action is being edited', async () => {

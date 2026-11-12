@@ -19,13 +19,21 @@ import {
   Post,
 } from '@nestjs/common';
 
-import { CurrentWorkspace, WorkspaceScoped } from '../../../../common/http/auth-context.js';
+import {
+  CurrentWorkspace,
+  RequireCapability,
+  WorkspaceScoped,
+} from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
 import { ACTION_FACADE, type ActionFacade } from '../../../action/api/index.js';
 import { BOT_FACADE, type BotFacade } from '../../api/index.js';
 
-/** /bots/{botId}/actions — the bot is verified to belong to the workspace before every call. */
+/**
+ * /bots/{botId}/actions — the bot is verified to belong to the workspace before every call.
+ * Actions are bot configuration and carry third-party secrets, so every route needs `bots.manage`.
+ */
 @WorkspaceScoped()
+@RequireCapability('bots.manage')
 @Controller('bots/:botId/actions')
 export class ActionController {
   constructor(

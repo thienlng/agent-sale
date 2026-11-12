@@ -1,5 +1,7 @@
 import {
   ActionInput,
+  HOST_PLACEHOLDER,
+  sameSecretTarget,
   type ActionArgs,
   type ActionDto,
   type ActionMethod,
@@ -37,6 +39,8 @@ export interface ActionForm {
   /** Write-only: empty means "keep the saved secret". */
   secret: string;
   hasSecret: boolean;
+  /** Where the saved secret is sent (edit only); a new origin or auth needs the secret again. */
+  saved?: Pick<ActionDto, 'url' | 'auth'>;
   params: ParamRow[];
   responses: ResponseRow[];
   requiresConfirm: boolean;
@@ -96,6 +100,7 @@ export function formFromDto(dto: ActionDto): ActionForm {
     headerName: dto.auth.kind === 'api_key' ? dto.auth.headerName : 'X-API-Key',
     secret: '',
     hasSecret: dto.hasSecret,
+    saved: { url: dto.url, auth: dto.auth },
     params: dto.params.map((p) => ({ ...p, key: nextKey() })),
     responses: dto.responses.map((r) => ({
       key: nextKey(),
@@ -147,6 +152,8 @@ export type ErrorKey =
   | 'headerName'
   | 'tooLong'
   | 'statusCode'
+  | 'hostPlaceholder'
+  | 'secretMoved'
   | 'invalid';
 export interface FieldError {
   key: ErrorKey;
@@ -163,6 +170,7 @@ function classify(issue: { code: string; path: PropertyKey[]; message: string })
   if (issue.message === 'Body params are not allowed on GET') return { key: 'bodyOnGet' };
   const placeholder = /^\{(.*)\} needs a path param/.exec(issue.message);
   if (placeholder) return { key: 'placeholder', vars: { name: `{${placeholder[1]}}` } };
+  if (issue.message === HOST_PLACEHOLDER) return { key: 'hostPlaceholder' };
   if (last === 'url') return { key: issue.message.includes('HTTPS') ? 'https' : 'tooLong' };
   if (last === 'statusCode') return { key: 'statusCode' };
   if (issue.code === 'too_big') return { key: 'tooLong' };
@@ -175,13 +183,30 @@ function classify(issue: { code: string; path: PropertyKey[]; message: string })
 /** Validates with the contracts schema (the same one the API applies); returns errors by dotted path. */
 export function validateForm(form: ActionForm): Record<string, FieldError> {
   const result = ActionInput.safeParse(toInput(form));
-  if (result.success) return {};
   const errors: Record<string, FieldError> = {};
+  if (result.success) {
+    if (secretMoved(form)) errors['authSecret'] = { key: 'secretMoved' };
+    return errors;
+  }
   for (const issue of result.error.issues) {
     const path = issue.path.join('.');
     errors[path] ??= classify(issue);
   }
   return errors;
+}
+
+/**
+ * The saved secret cannot follow the form to another origin or auth (the API refuses it), so a
+ * blank secret field there is an error rather than "keep the saved one".
+ */
+export function secretMoved(form: ActionForm): boolean {
+  if (!form.hasSecret || !form.saved || form.authKind === 'none' || form.secret !== '')
+    return false;
+  const auth =
+    form.authKind === 'api_key'
+      ? { kind: 'api_key' as const, headerName: form.headerName.trim() }
+      : { kind: form.authKind };
+  return !sameSecretTarget({ url: form.url.trim(), auth }, form.saved);
 }
 
 /** Sample arguments from the typed values: blanks are skipped, numbers/booleans converted. */
