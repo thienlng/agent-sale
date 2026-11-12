@@ -10,6 +10,7 @@ import {
   type AllowedVideo,
   nextAlbumPage,
   productAlbums,
+  productIdOfImage,
   productImages,
   productVideos,
 } from '../domain/image-allowlist.js';
@@ -159,7 +160,7 @@ export class ImageAllowlist {
 const SEND_MESSAGE_DEFINITION: ToolDefinition = {
   name: SEND_MESSAGE_TOOL,
   description:
-    'Sends one chat message to the customer right away, while you keep working: optional text (max 2000 characters) and either up to 3 picture ids (from product "images" or the "Images you may send" list) or one albumId (from product "albums": sends the next 8 photos of that folder the customer has not received yet; the result says how many remain), plus at most one videoId (from product "videos"). Call it several times for more. Do not repeat its text in your answer.',
+    'Sends one chat message to the customer right away, while you keep working: optional text (max 2000 characters) and either up to 3 picture ids of one product (from its "images", or the "Images you may send" list) with a line naming that product as the catalog does or one albumId (from product "albums": sends the next 8 photos of that folder the customer has not received yet; the result says how many remain), plus at most one videoId (from product "videos"). Call it several times for more. Do not repeat its text in your answer.',
   input: SendMessageInput,
 };
 
@@ -213,6 +214,17 @@ export function outputTools(opts: {
       const albumId = args.albumId?.trim() ?? '';
       const videoId = args.videoId?.trim() ?? '';
       const { images: picked, dropped } = allowlist.resolve(args.imageIds ?? []);
+      // EV-5: one message per product, so each product's pictures arrive under its own name.
+      // Nothing is sent: the model sends each product in its own call.
+      const products = [...new Set(picked.flatMap((image) => productIdOfImage(image.id) ?? []))];
+      if (products.length > 1)
+        return {
+          content: safeJson({
+            error: 'one_product_per_message',
+            hint: 'Nothing was sent. Call send_message once per product: its pictures with a line naming it.',
+          }),
+          ok: false,
+        };
       const album = albumId ? allowlist.album(albumId) : undefined;
       const video = videoId ? allowlist.video(videoId) : undefined;
       if (albumId && !album) dropped.push(albumId.slice(0, 80));

@@ -212,6 +212,10 @@ export function decideReply(input: {
     return { outcome: 'handoff', guardrail: 'provider_refusal', final: handoffText(bot) };
   const forced = forcedGuardrail(loop, input.actionFallback);
   const text = forced ? '' : normalizeReplyText(loop.res?.text ?? '');
+  // The model repeated a message it already sent this turn (EV-5): the customer reads it once.
+  const same = (a: string) => a.replace(/\s+/g, ' ').trim().toLowerCase();
+  if (text && output.sent.some((m) => m.text && same(m.text) === same(text)))
+    return { outcome: 'answered', guardrail: null, final: null };
   if (text) return { outcome: 'answered', guardrail: null, final: text };
   // Cut short after a send (budget, round limit, invalid tools): close with the fallback line so
   // a promise like "em gửi ảnh từng mẫu nhé" is not left hanging.

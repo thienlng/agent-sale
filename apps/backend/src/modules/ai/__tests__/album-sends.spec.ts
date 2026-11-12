@@ -195,3 +195,43 @@ describe('send_message videos', () => {
     expect(res).toEqual({ status: 'sent', delivered: 1, video: 'video', incomplete: true });
   });
 });
+
+describe('send_message: one product per message (EV-5)', () => {
+  const toy = (id: string, n: number) =>
+    ({
+      id,
+      name: id,
+      imageUrls: Array.from({ length: n }, (_, i) => `https://cdn.example.com/${id}-${i}.jpg`),
+      accommodation: null,
+    }) as unknown as ProductDto;
+
+  it('refuses pictures of two products in one call and sends nothing', async () => {
+    const sent: OutgoingMessage[] = [];
+    const sink: MessageSink = {
+      send: vi.fn(async (m: OutgoingMessage) => {
+        sent.push(m);
+        return { delivered: 1 };
+      }),
+    };
+    const allowlist = new ImageAllowlist([], BASE);
+    allowlist.addProducts([toy('thu-go', 3), toy('xuong-rong', 2)]);
+    const state = newOutputState();
+    const tool = outputTools({ sink, allowlist, state, sendMessage: true }).runnable.find(
+      (t) => t.name === SEND_MESSAGE_TOOL,
+    )!;
+    const mixed = await tool.run({
+      text: 'Dạ ảnh hai mẫu ạ',
+      imageIds: ['p:thu-go:0', 'p:thu-go:1', 'p:xuong-rong:0'],
+    });
+    expect(mixed.ok).toBe(false);
+    expect(JSON.parse(mixed.content)).toMatchObject({ error: 'one_product_per_message' });
+    expect(sent).toHaveLength(0);
+    expect(state.sent).toHaveLength(0);
+
+    for (const ids of [['p:thu-go:0', 'p:thu-go:1'], ['p:xuong-rong:0']])
+      expect(JSON.parse((await tool.run({ text: 'Mẫu', imageIds: ids })).content)).toMatchObject({
+        status: 'sent',
+      });
+    expect(sent.map((m) => m.images.length)).toEqual([2, 1]);
+  });
+});
