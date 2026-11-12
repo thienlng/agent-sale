@@ -308,6 +308,8 @@
     "attach": "Đính kèm tệp Excel, CSV hoặc ảnh sản phẩm",
     "dropHere": "Thả tệp vào đây",
     "defaultSheetText": "Nhập sản phẩm từ tệp {{file}}",
+    "attachedSheet": "📎 Đính kèm: {{file}}",
+    "attachedPhotos": "📎 Đính kèm {{count}} ảnh",
     "defaultPhotoText": "Tạo sản phẩm từ {{count}} ảnh",
     "remove": "Bỏ {{name}}",
     "tray": "Tệp đính kèm",

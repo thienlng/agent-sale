@@ -156,7 +156,8 @@ describe('assistant attachments', { timeout: 20_000 }, () => {
       ],
     });
     expect(calls.find((c) => c.key === MESSAGES)?.body).toMatchObject({
-      text: 'Giá 200k cả hai',
+      // The sent text names what was attached (AS-24).
+      text: 'Giá 200k cả hai\n\n📎 Đính kèm 2 ảnh',
       importBatchId: ASSISTANT_IDS.batch,
     });
   });
