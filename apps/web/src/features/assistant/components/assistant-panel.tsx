@@ -442,6 +442,7 @@ export function AssistantPanel() {
 
   return (
     <>
+      <DockedMarker docked={open && !onPage} />
       {page}
       <Sheet open={open && !onPage} onOpenChange={setOpen} modal={false}>
         <SheetContent
@@ -501,4 +502,15 @@ export function AssistantPanel() {
       <AssistantSpotlight />
     </>
   );
+}
+
+/** Marks <html> while the side panel is open, so the dashboard makes room for it (AS-19). */
+function DockedMarker({ docked }: { docked: boolean }) {
+  useEffect(() => {
+    if (!docked) return;
+    const root = document.documentElement;
+    root.setAttribute('data-assistant-docked', '');
+    return () => root.removeAttribute('data-assistant-docked');
+  }, [docked]);
+  return null;
 }
