@@ -790,6 +790,23 @@ export class DrizzleAssistantRepository implements AssistantRepository {
     });
   }
 
+  failStaleRuns(s: OwnerScope, staleMs: number): Promise<RunRecord[]> {
+    return this.#in(s, async (tx) => {
+      const rows = await tx
+        .update(r)
+        .set({ status: 'failed', guardrail: 'interrupted', finishedAt: sql`now()` })
+        .where(
+          and(
+            ownsRun(s),
+            eq(r.status, 'running'),
+            sql`greatest(${r.createdAt}, coalesce((select max(${st.createdAt}) from ${st} where ${st.runId} = ${r.id}), ${r.createdAt})) < now() - make_interval(secs => ${staleMs / 1000})`,
+          ),
+        )
+        .returning();
+      return rows.map(toRun);
+    });
+  }
+
   finishRun(s: OwnerScope, runId: string, patch: Partial<RunRecord>): Promise<void> {
     return this.#in(s, async (tx) => {
       const { id: _i, threadId: _t, kind: _k, createdAt: _c, ...allowed } = patch;

@@ -425,6 +425,26 @@ export class InMemoryAssistantRepository implements AssistantRepository {
   async addStep(s: OwnerScope, step: StepRecord): Promise<void> {
     this.#run(s, step.runId);
     this.steps.push({ ...step, accountId: s.accountId });
+    this.#activity.set(step.runId, this.#now().getTime());
+  }
+
+  /** Last step time per run (the Postgres steps carry `created_at`). */
+  readonly #activity = new Map<string, number>();
+
+  async failStaleRuns(s: OwnerScope, staleMs: number): Promise<RunRecord[]> {
+    const now = this.#now();
+    const out: RunRecord[] = [];
+    for (const run of this.runs.values()) {
+      if (!mine(s, run) || run.status !== 'running') continue;
+      const last = Math.max(run.createdAt.getTime(), this.#activity.get(run.id) ?? 0);
+      if (now.getTime() - last < staleMs) continue;
+      run.status = 'failed';
+      run.guardrail = 'interrupted';
+      run.finishedAt = now;
+      const { accountId: _a, ownerUserId: _o, ...rest } = run;
+      out.push(structuredClone(rest));
+    }
+    return out;
   }
 
   async finishRun(s: OwnerScope, runId: string, patch: Partial<RunRecord>): Promise<void> {

@@ -662,6 +662,12 @@ export const SCHEDULE_RUN_LIST_LIMIT = 50;
 export const THREAD_LIST_LIMIT = 50;
 /** A running run older than this no longer blocks a new one (crashed process). */
 export const RUN_BUSY_WINDOW_MS = 3 * 60_000;
+/**
+ * A `running` run with no step for this long is orphaned (AS2-3: its process restarted or died
+ * mid-turn): the longest quiet gap of a live turn is a compaction (30 s) plus one model call
+ * (60 s).
+ */
+export const RUN_STALE_MS = 2 * 60_000;
 
 /**
  * Account-scoped storage of one owner's assistant data (ADR-024). Every method is limited to
@@ -730,6 +736,12 @@ export interface AssistantRepository {
     },
   ): Promise<'started' | 'busy' | 'duplicate'>;
   addStep(s: OwnerScope, step: StepRecord): Promise<void>;
+  /**
+   * The owner's `running` runs whose last activity (start or latest step) is older than
+   * `staleMs` become `failed` with guardrail `interrupted` (AS2-3); returns them, so the caller
+   * can answer their messages. Frees the owner's turn lock.
+   */
+  failStaleRuns(s: OwnerScope, staleMs: number): Promise<RunRecord[]>;
   finishRun(s: OwnerScope, runId: string, patch: Partial<RunRecord>): Promise<void>;
   getRun(s: OwnerScope, runId: string): Promise<(RunRecord & { steps: StepRecord[] }) | null>;
   /** The owner's runs among `runIds` (without steps), in no particular order. */

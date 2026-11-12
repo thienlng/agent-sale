@@ -148,7 +148,7 @@ describe('assistant threads on Postgres', () => {
       .select()
       .from(schema.assistantThreads)
       .where(eq(schema.assistantThreads.id, thread.id));
-    expect(stored).toMatchObject({ ownerUserId: lan.userId, promptVersion: 'assistant@4' });
+    expect(stored).toMatchObject({ ownerUserId: lan.userId, promptVersion: 'assistant@5' });
     expect(stored?.systemPrompt).toContain('personal assistant of Lan,');
     expect(stored?.systemPrompt).toContain(`- Shop Lan (fashion) — id ${lan.ownWorkspace}`);
     expect(stored?.systemPrompt).not.toContain('{{');
@@ -434,6 +434,19 @@ describe('assistant repository on Postgres', () => {
     expect(await repo.deleteRunMessages(scope, thread.id, runId)).toBe(3);
     expect(await repo.listMessages(scope, thread.id)).toEqual([]);
     expect((await repo.getRun(scope, runId))?.steps).toHaveLength(2);
+    // A running turn with no step for the stale window is failed and frees the lock (AS2-3).
+    expect(await repo.failStaleRuns(scope, 3_600_000)).toEqual([]);
+    const reaped = await repo.failStaleRuns(scope, 0);
+    expect(reaped.map((x) => [x.status, x.guardrail])).toEqual([['failed', 'interrupted']]);
+    expect(
+      await repo.startRun(scope, {
+        id: newId(),
+        threadId: thread.id,
+        tier: 'pro',
+        promptVersion: 'assistant@1',
+      }),
+    ).toBe('started');
+    await repo.failStaleRuns(scope, 0);
     // Hoa's run id cannot be reused by another owner of the account, nor by another account
     // (where RLS hides the row and only the primary key collides): 409, never a 500.
     for (const s of [sameAccount, otherAccount]) {
@@ -572,7 +585,7 @@ describe('assistant chat turns on Postgres', () => {
       .select()
       .from(schema.assistantRuns)
       .where(eq(schema.assistantRuns.id, turnId));
-    expect(stored).toMatchObject({ tier: 'pro', promptVersion: 'assistant@4', status: 'done' });
+    expect(stored).toMatchObject({ tier: 'pro', promptVersion: 'assistant@5', status: 'done' });
     expect(stored?.finishedAt).toBeInstanceOf(Date);
 
     // A retried turn returns the first answer; the thread took its title from the first text.

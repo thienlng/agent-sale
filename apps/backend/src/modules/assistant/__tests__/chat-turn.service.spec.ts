@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   BUSY_REPLY,
   ChatTurnService,
+  INTERRUPTED_REPLY,
   FALLBACK_REPLY,
   capHistory,
   PROPOSAL_FALLBACK_REPLY,
@@ -26,6 +27,7 @@ import {
   AssistantRunIdTakenError,
 } from '../domain/assistant.errors.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
+import { RUN_STALE_MS } from '../domain/ports/assistant.repository.js';
 import type { AccessDelegation } from '../domain/ports/access-delegation.port.js';
 import type { RouteInvocation, RouteInvocationResult } from '../domain/ports/route-invoker.port.js';
 import type { SqlRunner } from '../domain/ports/sql-runner.port.js';
@@ -355,6 +357,71 @@ describe('ChatTurnService', () => {
     expect(all.some((m) => m.content === BUSY_REPLY)).toBe(false);
     // The failed runs keep their trace.
     expect((await repo.getRun(scope, first.run.id))?.status).toBe('failed');
+  });
+
+  it('frees the owner from a turn cut off mid-way and offers Thử lại (AS2-3)', async () => {
+    const { service, scope, thread, repo } = await setup([ANSWER, ANSWER]);
+    // A turn whose process died: its run stays `running` with the question stored.
+    const orphan = newId();
+    await repo.startRun(scope, {
+      id: orphan,
+      threadId: thread.id,
+      tier: 'pro',
+      promptVersion: 'p',
+    });
+    await repo.appendMessages(scope, thread.id, [
+      {
+        id: newId(),
+        role: 'user',
+        content: 'doanh thu tuần này',
+        toolCalls: null,
+        toolCallId: null,
+        toolName: null,
+        pageContext: null,
+        uiActions: [],
+        runId: orphan,
+      },
+    ]);
+    await expect(
+      service.send(scope, thread.id, { turnId: newId(), text: 'doanh thu tuần này' }, AUTH),
+    ).rejects.toBeInstanceOf(AssistantBusyError);
+    // Two minutes without a step later it is stale.
+    repo.runs.get(orphan)!.createdAt = new Date(Date.now() - RUN_STALE_MS - 1_000);
+    await service.reapStaleRuns(scope);
+    const run = await repo.getRun(scope, orphan);
+    expect(run).toMatchObject({ status: 'failed', guardrail: 'interrupted' });
+    const dtos = toMessageDtos(
+      await repo.listMessages(scope, thread.id),
+      new Map([[orphan, run!]]),
+    );
+    expect(dtos.at(-1)).toMatchObject({ content: INTERRUPTED_REPLY, retryable: true });
+    // The retry runs, and the thread keeps the question once.
+    const done = await service.send(
+      scope,
+      thread.id,
+      { turnId: newId(), text: 'doanh thu tuần này' },
+      AUTH,
+    );
+    expect(done.run.status).toBe('done');
+    const users = (await repo.listMessages(scope, thread.id)).filter((m) => m.role === 'user');
+    expect(users).toHaveLength(1);
+  });
+
+  it('keeps a running turn that still writes steps', async () => {
+    const { scope, thread, repo } = await setup();
+    const live = newId();
+    await repo.startRun(scope, { id: live, threadId: thread.id, tier: 'pro', promptVersion: 'p' });
+    repo.runs.get(live)!.createdAt = new Date(Date.now() - RUN_STALE_MS - 1_000);
+    await repo.addStep(scope, {
+      runId: live,
+      idx: 0,
+      kind: 'model_call',
+      toolName: null,
+      ok: true,
+      ms: 1,
+      errorCode: null,
+    });
+    expect(await repo.failStaleRuns(scope, RUN_STALE_MS)).toEqual([]);
   });
 
   it('keeps the failed question when the owner asks something else', async () => {

@@ -32,6 +32,7 @@ import {
   type MessageRecord,
   type NewMessage,
   type RunRecord,
+  RUN_STALE_MS,
   type StepRecord,
   type ThreadRecord,
 } from '../domain/ports/assistant.repository.js';
@@ -47,7 +48,7 @@ import { DELEGATION_MARGIN_SECONDS, delegatedAuthorization } from './delegated-a
 import { withLocalTimes } from './local-time-tools.js';
 import { buildImportBlock } from './import-block.js';
 import { IMPORT_TOOL_DEFINITIONS, importTools } from './import-tools.js';
-import { isVisibleMessage } from './mappers.js';
+import { isVisibleMessage, RETRYABLE_GUARDRAILS } from './mappers.js';
 import { currentIndustry, industryOfBusiness } from './owner-access.js';
 import {
   historyIsTainted,
@@ -86,6 +87,9 @@ export const FALLBACK_REPLY = 'Dạ em chưa trả lời được lúc này, anh
  * The answer when the model itself failed (busy, rate-limited or down, AS-1): it says why, and
  * the app offers "Thử lại" under it (`retryable` on the message).
  */
+/** The answer stored for a turn that was cut off mid-way (AS2-3); retryable like BUSY_REPLY. */
+export const INTERRUPTED_REPLY =
+  'Dạ lượt trả lời này bị gián đoạn nên em chưa trả lời xong. Anh/chị bấm “Thử lại” giúp em nhé.';
 export const BUSY_REPLY =
   'Dạ hệ thống AI đang bận nên em chưa trả lời được câu này. Anh/chị bấm “Thử lại” sau ít giây giúp em nhé.';
 /** The fallback when the turn drafted a proposal before the model failed (QA TinyMind N5). */
@@ -311,6 +315,8 @@ export class ChatTurnService {
     const thread = await this.repo.getThread(scope, threadId);
     if (!thread) throw new AssistantNotFoundError('thread', threadId);
     const importBlock = await this.#importBlock(scope, threadId, req.importBatchId);
+    // A turn whose process died would hold the owner's lock for minutes (AS2-3).
+    await this.reapStaleRuns(scope);
     const started = await this.repo.startRun(scope, {
       id: req.turnId,
       threadId,
@@ -668,10 +674,34 @@ export class ChatTurnService {
         return;
       }
       const [run] = await this.repo.listRuns(scope, [question.runId]);
-      if (run?.status !== 'failed' || run.guardrail !== 'model_error') return;
+      if (run?.status !== 'failed' || !RETRYABLE_GUARDRAILS.has(run.guardrail ?? '')) return;
       await this.repo.deleteRunMessages(scope, threadId, question.runId);
     } catch (error) {
       this.#log.warn(`assistant thread ${threadId}: failed attempt kept (${errorClass(error)})`);
+    }
+  }
+
+  /**
+   * Fails the owner's orphaned runs (`RUN_STALE_MS` without a step: the process restarted or
+   * died mid-turn, AS2-3), which frees the turn lock, and gives each chat run's question the
+   * retryable `INTERRUPTED_REPLY`. Called before a turn starts and when a thread is read. Any
+   * error is logged and ignored.
+   */
+  async reapStaleRuns(scope: OwnerScope): Promise<void> {
+    try {
+      for (const run of await this.repo.failStaleRuns(scope, RUN_STALE_MS)) {
+        if (run.kind !== 'chat' || !run.threadId) continue;
+        const asked = (await this.repo.listMessages(scope, run.threadId)).some(
+          (m) => m.runId === run.id && m.role === 'user',
+        );
+        if (!asked) continue;
+        await this.repo.appendMessages(scope, run.threadId, [
+          row({ role: 'assistant', content: INTERRUPTED_REPLY, runId: run.id }),
+        ]);
+        this.#log.warn(`assistant run ${run.id}: interrupted, marked failed`);
+      }
+    } catch (error) {
+      this.#log.warn(`assistant stale runs not reaped (${errorClass(error)})`);
     }
   }
 
