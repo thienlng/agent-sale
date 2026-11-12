@@ -108,9 +108,12 @@ function OrderCards({ rows }: { rows: OrderSummaryDto[] }) {
             </div>
             <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
               <span className="tabular-nums">{formatDateTime(o.placedAt)}</span>
-              <span className="tabular-nums">
-                {t('orders.col.cod')}: {formatVnd(o.amounts.cod)}
-              </span>
+              {/* A cancelled order collects nothing (TM-5). */}
+              {o.status === 'cancelled' ? null : (
+                <span className="tabular-nums">
+                  {t('orders.col.cod')}: {formatVnd(o.amounts.cod)}
+                </span>
+              )}
             </div>
           </Link>
         </li>
@@ -304,7 +307,8 @@ export function OrdersList({
                     </TableHead>
                   );
                 })}
-                <TableHead className="h-9 w-10" />
+                {/* The row menu stays pinned at the right edge when the columns overflow (TM-4). */}
+                <TableHead className="sticky right-0 h-9 w-10 bg-background" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -342,7 +346,10 @@ export function OrdersList({
                           {c.cell(o, t)}
                         </TableCell>
                       ))}
-                      <TableCell className="align-top" onClick={(e) => e.stopPropagation()}>
+                      <TableCell
+                        className="sticky right-0 bg-background align-top"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <RowMenu
                           order={o}
                           onOpen={() => open(o)}

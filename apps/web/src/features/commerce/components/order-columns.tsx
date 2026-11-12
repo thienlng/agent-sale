@@ -42,6 +42,16 @@ export const ORDER_COLUMNS: readonly OrderColumn[] = [
     csv: (o) => o.code,
   },
   {
+    // Right after the code: a cancelled order must read as cancelled without scrolling sideways
+    // (TM-4), and the status filter lives in this header.
+    id: 'status',
+    header: 'orders.col.status',
+    defaultVisible: true,
+    fixed: true,
+    cell: (o) => <OrderStatusBadge status={o.status} />,
+    csv: (o, t) => t(`status.${o.status}`),
+  },
+  {
     id: 'tracking',
     header: 'orders.col.tracking',
     defaultVisible: false,
@@ -188,14 +198,6 @@ export const ORDER_COLUMNS: readonly OrderColumn[] = [
     fixed: true,
     cell: (o) => <OrderExternalChip order={o} />,
     csv: (o, t) => (o.external ? pushStateLabel(t, o.external) : ''),
-  },
-  {
-    id: 'status',
-    header: 'orders.col.status',
-    defaultVisible: true,
-    fixed: true,
-    cell: (o) => <OrderStatusBadge status={o.status} />,
-    csv: (o, t) => t(`status.${o.status}`),
   },
 ];
 
