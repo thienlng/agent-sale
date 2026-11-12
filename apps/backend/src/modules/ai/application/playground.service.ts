@@ -148,15 +148,18 @@ export { EMAIL_KNOWN_LINE, PHONE_KNOWN_LINE };
 // Steps 2 and 5 change bot behaviour: run the ai evals before/after. Measure first (prompt viewer).
 /** The sales-agent prompt version of a bot's industry; an industry not listed gets @15 (retail). */
 export const PROMPT_BY_INDUSTRY: Readonly<Record<string, SalesPromptVersion>> = {
-  // @20 + unit details, unit albums and bedroom packages (T-193). @20 = @18 + lodging media
-  // folders: albums by albumId, videos only on request (T-192).
-  hotel: 21,
-  // The request industries: @15 plus "Recording a request" and the course / service facts.
-  saas: 19,
-  education: 19,
-  spa: 19,
+  // @22 = @21 + "the catalog is live" (catalog wins over the hand-written profile for which
+  // properties exist, how many, prices and capacity). @21 = @20 + unit details, unit albums and
+  // bedroom packages (T-193). @20 = @18 + lodging media folders (T-192).
+  hotel: 22,
+  // The request industries: @23 = @19 + "the catalog is live"; @19 = @15 plus "Recording a
+  // request" and the course / service facts.
+  saas: 23,
+  education: 23,
+  spa: 23,
 };
-const DEFAULT_PROMPT_VERSION: SalesPromptVersion = 15;
+/** @24 = @15 + "the catalog is live". */
+const DEFAULT_PROMPT_VERSION: SalesPromptVersion = 24;
 /** The sales-agent prompt of a bot of `industry` (without the forcing option). */
 export function salesPromptFor(industry: string): {
   name: 'sales-agent';
@@ -165,7 +168,7 @@ export function salesPromptFor(industry: string): {
   return { name: 'sales-agent', version: PROMPT_BY_INDUSTRY[industry] ?? DEFAULT_PROMPT_VERSION };
 }
 /** The sales-agent prompt versions the option may force (13/14: before the order tools). */
-export type SalesPromptVersion = 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21;
+export type SalesPromptVersion = 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24;
 /** Optional DI token: forces the sales-agent prompt for every bot (default: `PROMPT_BY_INDUSTRY`). */
 export const PROMPT_VERSION_OPTION = Symbol('PROMPT_VERSION_OPTION');
 /**
