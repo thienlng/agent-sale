@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatRelativeTime, formatShortDate } from './format';
+import { formatPhone, formatRelativeTime, formatShortDate } from './format';
 
 describe('formatRelativeTime', () => {
   const now = Date.parse('2026-11-01T10:00:00.000Z');
@@ -21,5 +21,17 @@ describe('formatShortDate', () => {
     expect(formatShortDate('2026-03-05', '2026-11-13')).toBe('05/03');
     expect(formatShortDate('2027-01-01', '2026-11-13')).toBe('01/01/2027');
     expect(formatShortDate('2025-12-31', '2026-11-13')).toBe('31/12/2025');
+  });
+});
+
+describe('formatPhone', () => {
+  it('writes Vietnamese numbers the local way (LM-5)', () => {
+    expect(formatPhone('+84912000111')).toBe('0912 000 111');
+    expect(formatPhone('0912000111')).toBe('0912 000 111');
+    expect(formatPhone('+842438123456')).toBe('024 3812 3456');
+  });
+  it('keeps other numbers as stored', () => {
+    expect(formatPhone('+14155550123')).toBe('+14155550123');
+    expect(formatPhone('1900')).toBe('1900');
   });
 });

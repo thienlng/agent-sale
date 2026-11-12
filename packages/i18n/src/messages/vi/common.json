@@ -1228,8 +1228,6 @@
       "editNote": "Sửa",
       "saveNote": "Lưu",
       "cancel": "Huỷ",
-      "tasks": "Công việc",
-      "tasksSoon": "Nhắc lịch và công việc sẽ có ở bản sau.",
       "save": "Lưu thay đổi",
       "saved": "Đã lưu khách hàng",
       "tags": "Tag",
@@ -1311,7 +1309,7 @@
       "typeHint": {
         "classification": "Nhãn để phân loại khách (VIP, Khách sỉ…).",
         "attribute": "Nhãn kèm thông tin cần điền khi gắn (vd. Sự kiện: tên, ngày).",
-        "work": "Việc cần làm với khách; nhắc lịch sẽ có ở bản sau."
+        "work": "Việc cần làm với khách."
       },
       "addField": "Thêm trường",
       "fieldLabel": "Tên trường",

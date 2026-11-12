@@ -5,7 +5,7 @@ import type { CrmLookups } from '../hooks/use-crm-lookups';
 import { ContactHistoryTab } from './contact-history';
 import { statusFilter } from './contacts-search';
 import { CustomerRequestsCard } from './customer-requests-card';
-import { RequestSummaryStrip } from './request-summary-strip';
+import { balancedColumns, RequestSummaryStrip } from './request-summary-strip';
 
 const mocks = vi.hoisted(() => ({
   can: { 'contacts.view_all': true } as Record<string, boolean>,
@@ -160,5 +160,15 @@ describe('ContactHistoryTab', () => {
         'crm.requests.kind.placement_test · IELTS 6.5 · Cơ sở Cầu Giấy · Thứ Bảy 08/11/2026',
       ),
     ).toBeVisible();
+  });
+});
+
+describe('balancedColumns', () => {
+  it('keeps the rows of the strip even (LM-5)', () => {
+    expect(balancedColumns(9, 6)).toBe(5);
+    expect(balancedColumns(9, 4)).toBe(3);
+    expect(balancedColumns(6, 6)).toBe(6);
+    expect(balancedColumns(7, 6)).toBe(4);
+    expect(balancedColumns(2, 6)).toBe(2);
   });
 });

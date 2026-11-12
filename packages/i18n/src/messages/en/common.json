@@ -1234,8 +1234,6 @@
       "editNote": "Edit",
       "saveNote": "Save",
       "cancel": "Cancel",
-      "tasks": "Tasks",
-      "tasksSoon": "Reminders and tasks come in a later release.",
       "save": "Save changes",
       "saved": "Customer saved",
       "tags": "Tags",
@@ -1317,7 +1315,7 @@
       "typeHint": {
         "classification": "A label to group customers (VIP, Wholesale…).",
         "attribute": "A label with details to fill in when it is added (e.g. Event: name, date).",
-        "work": "Something to do for the customer; reminders come later."
+        "work": "Something to do for the customer."
       },
       "addField": "Add field",
       "fieldLabel": "Field name",

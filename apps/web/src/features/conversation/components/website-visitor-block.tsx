@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { formatPhone } from '@/lib/format';
 import { useWebsiteVisitor } from '../api/inbox';
 import { PanelBlock } from './panel-block';
 
@@ -71,7 +72,7 @@ export function WebsiteVisitorBlock({ conversationId }: { conversationId: string
             <dd>
               {data.phone ? (
                 <a href={`tel:${data.phone}`} className="hover:underline">
-                  {data.phone}
+                  {formatPhone(data.phone)}
                 </a>
               ) : (
                 <span className="text-muted-foreground">{v('noPhone')}</span>

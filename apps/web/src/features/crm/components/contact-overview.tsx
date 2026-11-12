@@ -1,5 +1,5 @@
 import type { ContactDto } from '@agent-sales/contracts';
-import { ListTodo, Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -249,13 +249,6 @@ export function ContactOverviewTab({
         ) : (
           <p className="text-sm text-muted-foreground">{t('crm.detail.noNotes')}</p>
         )}
-      </section>
-      <section>
-        <h3 className="mb-2 text-sm font-medium">{t('crm.detail.tasks')}</h3>
-        <p className="flex items-center gap-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-          <ListTodo className="size-4 text-brand-text" aria-hidden />
-          {t('crm.detail.tasksSoon')}
-        </p>
       </section>
     </div>
   );

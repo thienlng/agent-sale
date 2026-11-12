@@ -26,7 +26,7 @@ describe('website visitor block', () => {
     expect(screen.getByText('shop.test/ao-thun')).toBeInTheDocument();
     expect(screen.getByText('Áo thun')).toBeInTheDocument();
     expect(screen.getByText('www.google.com')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '+84912345679' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '0912 345 679' })).toHaveAttribute(
       'href',
       'tel:+84912345679',
     );

@@ -80,3 +80,21 @@ export function formatRelativeTime(iso: string, now: number = Date.now()): strin
   }
   return rtf.format(-Math.floor(value), 'year');
 }
+
+/**
+ * A phone number as Vietnamese people write it: "+84912000111" → "0912 000 111", a landline
+ * "+842438123456" → "024 3812 3456". Other numbers stay as stored. Display only: links and copy
+ * keep the stored E.164 form.
+ */
+export function formatPhone(phone: string): string {
+  const compact = phone.replace(/[\s.()-]/g, '');
+  const local = compact.startsWith('+84')
+    ? `0${compact.slice(3)}`
+    : compact.startsWith('84') && compact.length === 11
+      ? `0${compact.slice(2)}`
+      : compact;
+  if (!/^0\d+$/.test(local)) return phone;
+  if (local.length === 10) return `${local.slice(0, 4)} ${local.slice(4, 7)} ${local.slice(7)}`;
+  if (local.length === 11) return `${local.slice(0, 3)} ${local.slice(3, 7)} ${local.slice(7)}`;
+  return local;
+}

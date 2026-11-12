@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { formatPhone } from '@/lib/format';
 import { useInboxChannels } from '../api/inbox';
 import { customerDisplayName, providerLabel } from '../lib/inbox-list';
 import type { InboxConversation } from '../lib/inbox-v2-types';
@@ -52,7 +53,7 @@ export function CustomerSummary({
         {c.customerPhone ? (
           <>
             <a href={`tel:${c.customerPhone}`} className="hover:underline">
-              {c.customerPhone}
+              {formatPhone(c.customerPhone)}
             </a>
             <Button
               size="icon-sm"
