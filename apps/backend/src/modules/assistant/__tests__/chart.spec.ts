@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildChart,
   type ChartRequest,
+  dateSeries,
   defaultColumnLabel,
   withoutChartPlaceholders,
 } from '../application/sql/chart.js';
@@ -207,5 +208,50 @@ describe('withoutChartPlaceholders (NEW-4)', () => {
     // A link or a bracket inside a sentence stays.
     const kept = 'Xem [Đơn hàng](/app/orders) và [biểu đồ] trong câu.';
     expect(withoutChartPlaceholders(kept)).toBe(kept);
+  });
+});
+
+describe('dateSeries (AS2-5, AS2-10)', () => {
+  it('adds the days without orders as 0, between the first and the last day', () => {
+    expect(
+      dateSeries(
+        [
+          { day: '2026-10-30', orders: 4 },
+          { day: '2026-11-02', orders: 3 },
+        ],
+        'day',
+        ['orders'],
+      ),
+    ).toEqual([
+      { day: '2026-10-30', orders: 4 },
+      { day: '2026-10-31', orders: 0 },
+      { day: '2026-11-01', orders: 0 },
+      { day: '2026-11-02', orders: 3 },
+    ]);
+  });
+
+  it('names months in Vietnamese and fills the missing ones', () => {
+    expect(
+      dateSeries(
+        [
+          { month: '2026-08-01 00:00:00+07', revenue: 1 },
+          { month: '2026-10-01 00:00:00+07', revenue: 3 },
+        ],
+        'month',
+        ['revenue'],
+      ),
+    ).toEqual([
+      { month: 'Tháng 8/2026', revenue: 1 },
+      { month: 'Tháng 9/2026', revenue: 0 },
+      { month: 'Tháng 10/2026', revenue: 3 },
+    ]);
+  });
+
+  it('leaves other categories alone', () => {
+    const rows = [
+      { name: 'Áo', n: 1 },
+      { name: 'Quần', n: 2 },
+    ];
+    expect(dateSeries(rows, 'name', ['n'])).toBe(rows);
   });
 });

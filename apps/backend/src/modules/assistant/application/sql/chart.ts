@@ -133,12 +133,14 @@ export function buildChart(req: ChartRequest, result: SqlRunResult): BuildChartR
   const xi = at(req.x);
   const rows = result.rows.map((row) => {
     const xCell = row[xi] ?? null;
-    const out: Record<string, string | number | null> = {
+    const out: ChartRow = {
       [req.x]: xCell === null ? null : cut(String(xCell), MAX_CHART_CELL_CHARS),
     };
     for (const y of req.y) out[y] = (row[at(y)] ?? null) as number | null;
     return out;
   });
+  const series = req.kind === 'pie' ? rows : dateSeries(rows, req.x, req.y);
+  if (series.length > maxRows) return fail('chart_too_many_points');
   const label = (key: string) => ({
     key,
     label: cut(req.labels?.[key] ?? defaultColumnLabel(key), MAX_LABEL_CHARS),
@@ -151,9 +153,52 @@ export function buildChart(req: ChartRequest, result: SqlRunResult): BuildChartR
       x: label(req.x),
       series: req.y.map(label),
       unit: req.unit ?? 'number',
-      rows,
+      rows: series,
     },
   };
+}
+
+type ChartRow = Record<string, string | number | null>;
+
+const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[ T]00:00(?::00)?(?:[+-]\d{2}(?::?\d{2})?|Z)?)?$/;
+const DAY_MS = 86_400_000;
+
+/**
+ * A date series as the owner reads it (AS2-5, AS2-10): when every x is a calendar date, the
+ * missing days between the first and the last are added with 0 (a day without orders is a
+ * point, not a gap), and a series of first days of months becomes `Tháng 10/2026` per month,
+ * with the missing months added too. Anything else is returned as is. Rows stay in date order.
+ */
+export function dateSeries(rows: ChartRow[], x: string, ys: readonly string[]): ChartRow[] {
+  const days = rows.map((r) => DAY_RE.exec(String(r[x] ?? '')));
+  if (rows.length < 2 || days.some((d) => !d)) return rows;
+  const at = days.map((d) => Date.UTC(Number(d![1]), Number(d![2]) - 1, Number(d![3])));
+  const byKey = new Map<number, ChartRow>();
+  rows.forEach((r, i) => byKey.set(at[i]!, r));
+  const zero = (key: number, xValue: string): ChartRow => {
+    const found = byKey.get(key);
+    const out: ChartRow = { [x]: xValue };
+    for (const y of ys) out[y] = found ? (found[y] ?? null) : 0;
+    return out;
+  };
+  const first = Math.min(...at);
+  const last = Math.max(...at);
+  const monthly = days.every((d) => d![3] === '01');
+  const out: ChartRow[] = [];
+  if (monthly) {
+    const start = new Date(first);
+    for (let m = 0; out.length <= MAX_CHART_ROWS; m++) {
+      const key = Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + m, 1);
+      if (key > last) break;
+      const d = new Date(key);
+      out.push(zero(key, `Tháng ${d.getUTCMonth() + 1}/${d.getUTCFullYear()}`));
+    }
+    return out;
+  }
+  for (let key = first; key <= last && out.length <= MAX_CHART_ROWS; key += DAY_MS) {
+    out.push(zero(key, new Date(key).toISOString().slice(0, 10)));
+  }
+  return out;
 }
 
 /** A line that only stands in for a chart: `[Biểu đồ …]`, `[Chart: …]`, `*(biểu đồ bên dưới)*`. */
