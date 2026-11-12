@@ -126,6 +126,62 @@ describe('TestChat', () => {
     ).toBeInTheDocument();
   });
 
+  it('retries a busy reply without repeating the customer message (VL2-8)', async () => {
+    const key = `POST /bots/${botId}/playground`;
+    const routes: Record<string, { status: number; body?: unknown }> = {
+      [key]: {
+        status: 503,
+        body: {
+          error: {
+            code: 'AI_UNAVAILABLE',
+            message: 'The AI model is temporarily unavailable',
+            details: { reason: 'temporarily_unavailable' },
+          },
+        },
+      },
+    };
+    const { fetchStub, calls } = stubFetch(routes);
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithProviders(<TestChat botId={botId} greeting="" />);
+    await userEvent.type(screen.getByLabelText('Nhập tin nhắn của bạn'), 'alo{Enter}');
+    await screen.findByText(
+      'Mô hình AI đang bận, vui lòng thử lại sau ít phút.',
+      {},
+      { timeout: 8000 },
+    );
+    routes[key] = { status: 200, body: reply };
+    const before = calls.length;
+    await userEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+
+    expect(await screen.findByText('Dạ shop ở 12 Lê Lợi ạ')).toBeInTheDocument();
+    expect(screen.queryByText('Mô hình AI đang bận, vui lòng thử lại sau ít phút.')).toBeNull();
+    expect(screen.getAllByText('alo')).toHaveLength(1);
+    const retried = calls.slice(before).find((c) => c.key === key)?.body as {
+      messages: { role: string; content: string }[];
+    };
+    expect(retried.messages).toEqual([{ role: 'customer', content: 'alo' }]);
+  }, 15_000);
+
+  it('offers no retry when no model is configured', async () => {
+    const { fetchStub } = stubFetch({
+      [`POST /bots/${botId}/playground`]: {
+        status: 503,
+        body: {
+          error: {
+            code: 'AI_UNAVAILABLE',
+            message: 'No AI model is configured for this tier',
+            details: { tier: 'standard', reason: 'not_configured' },
+          },
+        },
+      },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithProviders(<TestChat botId={botId} greeting="" />);
+    await userEvent.type(screen.getByLabelText('Nhập tin nhắn của bạn'), 'alo{Enter}');
+    await screen.findByText('Chưa cấu hình mô hình AI cho gói này. Liên hệ quản trị hệ thống.');
+    expect(screen.queryByRole('button', { name: 'Thử lại' })).toBeNull();
+  });
+
   it('keeps one session per test chat and starts a new one on reset (TM-18)', async () => {
     const { fetchStub, calls } = stubFetch({
       [`POST /bots/${botId}/playground`]: { status: 200, body: reply },
