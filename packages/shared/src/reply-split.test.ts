@@ -53,3 +53,18 @@ describe('splitReply', () => {
     expect(splitReply('   ')).toEqual(['']);
   });
 });
+
+describe('splitReply: server summaries and line breaks (TM2-9)', () => {
+  it('keeps an order summary in one bubble with its line breaks', () => {
+    const summary =
+      'Dạ em tóm tắt đơn của mình ạ:\n• Thú gỗ xếp thăng bằng (Mặc định) ×2 — 680.000đ\nPhí ship: shop báo sau\nTổng: 680.000đ\nNgười nhận: Nguyễn Thị Lan · 0903 111 222\nĐịa chỉ: 12 Lê Lợi, phường Bến Nghé, quận 1, TP.HCM';
+    expect(splitReply(summary)).toEqual([summary]);
+  });
+
+  it('packs whole lines with a line break, never running them together', () => {
+    const text = 'A một.\nB hai.\nC ba.\nD bốn.\nE năm.';
+    const parts = splitReply(text, 4);
+    expect(parts).toHaveLength(4);
+    expect(parts.join('\n')).toBe(text);
+  });
+});
