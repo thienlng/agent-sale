@@ -454,6 +454,10 @@ Migration 0070 (additive) adds `data_exports`, a forced-RLS tenant table owned b
 
 The archive's files come from each data-owning module (`<MODULE>_EXPORT` in its `api/`, built with `exportTable()` in `packages/db/src/export.ts`: keyset pages of 500 rows by `id` (or by the `key` column of a table without one, e.g. `conversation_id` for `conversation_signals`), each page its own tenant transaction, filtered on `workspace_id`). `people.csv` (member names and emails) is assembled by `dataexport` through the `identity` facade because `users` is not tenant-readable.
 
+## Implemented business deletion (SET-10, migration 0077, ADR-032)
+
+Migration 0077 (additive) adds two nullable columns to `workspaces`: `purge_after` (end of the 30-day restore window, set with `deleted_at` when the owner deletes the business) and `purged_at` (when the purge finished), and the partial index `workspaces_purge_due_idx (purge_after) where status = 'pending_deletion'`. `workspaces.status` takes `active`, `pending_deletion` (deleted, restorable) and `deleted` (purged tombstone); `suspended` stays reserved. It grants `app_system` `SELECT, DELETE` on every table with `workspace_id` except `audit_events`. The purge (`packages/db/src/purge.ts`) deletes the business's rows from every table with `workspace_id` except `audit_events`, `message_usage` and `workspaces`, whose row becomes a tombstone: name `Deleted business`, `company_name`, `business_services`, `product_description` emptied, `logo_asset_id` and `profile_updated_by` cleared, `icon` reset.
+
 ## Implemented Business Brain and tasks (migration 0073, ADR-030)
 
 Migration 0073 (additive) adds five tenant tables owned by the `brain` module, `tasks` owned by `crm` and the global `brain_checkpoints` ([ADR-030](adr/ADR-030-business-brain-signals.md), spec [Business Brain v1 and Today](superpowers/specs/2026-11-11-business-brain-today-design.md)). The six tenant tables have `workspace_id` and forced RLS (`<table>_tenant` for `app_tenant`, `<table>_system` for `app_system`, the 0037 pattern); worker ticks use `app_system`. Drizzle mirrors: `packages/db/src/schema/brain.ts` and `schema/crm.ts`.
