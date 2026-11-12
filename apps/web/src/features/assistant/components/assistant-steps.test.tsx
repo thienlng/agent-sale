@@ -79,8 +79,8 @@ describe('assistant steps and threads', () => {
     expect(await screen.findByText('session_search ✕ TIMEOUT')).toBeInTheDocument();
     expect(screen.getByText('openai/gpt-5')).toBeInTheDocument();
     expect(screen.getByText('owner-assistant@4')).toBeInTheDocument();
-    expect(screen.getByText('2,000 in (800 cached, 1,200 new) · 45 out')).toBeInTheDocument();
-    expect(screen.getByText('2,000(800c)→45')).toBeInTheDocument();
+    expect(screen.getByText('2.000 in (800 cached, 1.200 new) · 45 out')).toBeInTheDocument();
+    expect(screen.getByText('2.000(800c)→45')).toBeInTheDocument();
     expect(screen.getByText('900ms')).toBeInTheDocument();
     expect(screen.getByText('{"query":"khoá học"}')).toBeInTheDocument();
     expect(screen.getByText('{"ok":false}')).toBeInTheDocument();

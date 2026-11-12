@@ -1,9 +1,13 @@
 import { ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { useSession } from '@/lib/session';
 import { cn } from '@/lib/utils';
 
-const num = (n: number) => n.toLocaleString('en-US');
+/** Vietnamese digits whatever the UI language: 56.461, 12,6 (AS-9). */
+const num = (n: number) => n.toLocaleString('vi-VN');
+const seconds = (ms: number) =>
+  (ms / 1000).toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /** One step of an agent turn, as the assistant run and the bot test chat both report it. */
 export interface TraceStep {
@@ -202,8 +206,9 @@ export function RunTrace({
 }
 
 /**
- * The line under an answer: "Xem các bước" with the model, total tokens and time; it opens the
- * trace below it (in a bordered box, `children`).
+ * The line under an answer: "Xem các bước" with the time, plus the model and total tokens for
+ * the platform team only (an owner has no use for them, AS-9); it opens the trace below it (in a
+ * bordered box, `children`).
  */
 export function RunTraceToggle({
   open,
@@ -215,6 +220,7 @@ export function RunTraceToggle({
   meta: TraceMeta | null | undefined;
 }) {
   const { t } = useTranslation();
+  const admin = useSession()?.user.isPlatformAdmin === true;
   return (
     <button
       type="button"
@@ -230,11 +236,13 @@ export function RunTraceToggle({
       {meta ? (
         <span className="min-w-0 truncate tabular-nums opacity-80">
           ·{' '}
-          {t('trace.meta', {
-            model: meta.model ?? '—',
-            tokens: num(meta.tokens),
-            seconds: (meta.latencyMs / 1000).toFixed(1),
-          })}
+          {admin
+            ? t('trace.meta', {
+                model: meta.model ?? '—',
+                tokens: num(meta.tokens),
+                seconds: seconds(meta.latencyMs),
+              })
+            : t('trace.metaTime', { seconds: seconds(meta.latencyMs) })}
         </span>
       ) : null}
     </button>

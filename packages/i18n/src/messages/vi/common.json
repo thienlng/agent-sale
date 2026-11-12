@@ -2200,6 +2200,7 @@
     "show": "Xem các bước",
     "hide": "Ẩn các bước",
     "meta": "{{model}} · {{tokens}} token · {{seconds}} giây",
+    "metaTime": "{{seconds}} giây",
     "noSteps": "Lượt này không dùng công cụ nào.",
     "loading": "Đang tải các bước…",
     "failed": "failed",

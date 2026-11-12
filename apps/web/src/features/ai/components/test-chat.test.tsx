@@ -383,7 +383,7 @@ describe('TestChat', () => {
         ],
       });
       const toggle = await screen.findByRole('button', { name: /Xem các bước/ });
-      expect(toggle).toHaveAccessibleName(/Xem các bước\s*· grounded-echo · 52 token · 0.4 giây/);
+      expect(toggle).toHaveAccessibleName(/Xem các bước\s*· 0,4 giây$/);
       expect(toggle).toHaveAttribute('aria-expanded', 'false');
       expect(screen.queryByText('search_products')).toBeNull();
 

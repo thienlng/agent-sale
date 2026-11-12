@@ -2210,6 +2210,7 @@
     "show": "Show steps",
     "hide": "Hide steps",
     "meta": "{{model}} · {{tokens}} tokens · {{seconds}} s",
+    "metaTime": "{{seconds}} s",
     "noSteps": "This turn used no tools.",
     "loading": "Loading steps…",
     "failed": "failed",
