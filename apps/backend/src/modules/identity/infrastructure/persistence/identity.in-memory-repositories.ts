@@ -101,12 +101,17 @@ export class InMemorySessionRepository implements SessionRepository {
     return s ? { ...s } : null;
   }
 
-  async markAuthenticated(sessionId: string, at: Date, mfa: boolean): Promise<void> {
+  async markAuthenticated(
+    sessionId: string,
+    at: Date,
+    proof: { mfa: boolean; steppedUp: boolean },
+  ): Promise<void> {
     const family = this.rows.get(sessionId)?.familyId;
     for (const s of this.rows.values())
       if (family && s.familyId === family && !s.revokedAt) {
         s.authenticatedAt = at;
-        if (mfa) s.mfa = true;
+        if (proof.mfa) s.mfa = true;
+        if (proof.steppedUp) s.steppedUpAt = at;
       }
   }
 

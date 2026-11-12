@@ -105,6 +105,7 @@ export class AccountsController {
   }
 
   @Post(':accountId/status')
+  @RequireRecentAuth()
   @HttpCode(204)
   async setStatus(
     @CurrentUser() user: AuthState,

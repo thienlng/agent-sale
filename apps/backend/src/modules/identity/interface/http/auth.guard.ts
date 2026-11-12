@@ -35,6 +35,10 @@ const RATE_WINDOW_MS = 60_000;
  * 5. @RequireRecentAuth() routes require a step-up within the window — otherwise 403
  *    `reauth_required` (read fresh, not from the cache).
  *
+ * A delegated token (ADR-024, the assistant acting for its owner) never passes @PlatformAdmin()
+ * or @RequireRecentAuth() routes (404, like any route it has no business on): the assistant only
+ * calls workspace routes of its catalog, and none of those is either.
+ *
  * A `Bearer rpz_live_…` workspace API key (ADR-022) is accepted only on routes whose contract
  * says `apiKey: true` (any other route answers 404); the request then acts for the key's creator
  * in the key's workspace with the capabilities `scopes ∩ creator's role`, within the plan's
@@ -71,6 +75,12 @@ export class AuthGuard implements CanActivate {
       throw new ApiError('UNAUTHENTICATED', 'Session is no longer valid', {
         reason: 'session_revoked',
       });
+    const platformAdmin = this.reflector.getAllAndOverride<boolean>(IS_PLATFORM_ADMIN, targets);
+    const recentAuth = this.reflector.getAllAndOverride<boolean>(REQUIRES_RECENT_AUTH, targets);
+    // Defense in depth: a delegated token carries the owner's session (and its step-up), but the
+    // assistant has no business in the back office or on step-up actions.
+    if (claims.delegated && (platformAdmin || recentAuth))
+      throw new ApiError('NOT_FOUND', 'Not found');
     let name: Promise<string | null> | undefined;
     req.auth = {
       userId: claims.userId,
@@ -78,7 +88,7 @@ export class AuthGuard implements CanActivate {
       displayName: () => (name ??= this.accounts.displayName(claims.userId)),
     };
 
-    if (this.reflector.getAllAndOverride<boolean>(IS_PLATFORM_ADMIN, targets)) {
+    if (platformAdmin) {
       if (!(await this.accounts.isPlatformAdmin(claims.userId))) {
         throw new ApiError('NOT_FOUND', 'Not found');
       }
@@ -110,7 +120,7 @@ export class AuthGuard implements CanActivate {
       }
     }
 
-    if (this.reflector.getAllAndOverride<boolean>(REQUIRES_RECENT_AUTH, targets)) {
+    if (recentAuth) {
       // Fresh: a step-up made a moment ago, maybe in another process, must count.
       const fresh = await this.sessions.state(claims.sessionId, true);
       if (!fresh || !this.sessions.isRecent(fresh))

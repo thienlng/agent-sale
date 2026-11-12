@@ -78,7 +78,11 @@ export class StepUpService {
       await this.codes.consume(user.snapshot().email, 'reauth', input.emailCode);
       method = 'email';
     }
-    await this.sessions.markAuthenticated(userId, sessionId, method === 'totp');
+    // The only place that records an explicit step-up (`steppedUpAt`): a sign-in never does.
+    await this.sessions.markAuthenticated(userId, sessionId, {
+      mfa: method === 'totp',
+      steppedUp: true,
+    });
     await this.events.record(userId, 'session.step_up', { method }, ip);
     return this.status(userId, sessionId);
   }

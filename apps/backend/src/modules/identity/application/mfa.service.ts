@@ -38,7 +38,9 @@ const ISSUER = 'Rapiz';
  * TOTP second factor (ADM-04). Turning it on needs a confirmed first code;
  * changing it needs the password again (a stolen access token must not be
  * enough to disable it); a user without a password (Google sign-in only) needs a
- * recent step-up of the session instead (emailed code or a new Google sign-in).
+ * recent explicit step-up of the session instead (`POST /auth/reauth`: an emailed code) —
+ * a recent sign-in alone does not count, or a stolen token of a fresh Google session could
+ * turn two-factor on and lock the owner out.
  * Codes are single use (lastUsedStep), recovery codes are hashed and burn on use.
  * Every change signs out the user's other sessions (turning 2FA on after a suspected
  * compromise must also end the intruder's session), is logged in the user's security
@@ -93,11 +95,13 @@ export class MfaService {
       throw new MfaStateError('already_enabled');
     }
     await this.limiter.reset(`mfa:${userId}`);
-    await this.sessions.revokeOthers(userId, sessionId);
-    // The code just proved the second factor on this session.
-    await this.sessions.markAuthenticated(userId, sessionId, true);
+    // Log and email first: the notice goes to the account address whatever happens to sessions,
+    // so an owner whose stolen session turned two-factor on learns it at once.
     await this.events.record(userId, 'mfa.enabled');
     await this.events.notify(userId, 'mfa_enabled');
+    await this.sessions.revokeOthers(userId, sessionId);
+    // The code just proved the second factor on this session (not an explicit step-up).
+    await this.sessions.markAuthenticated(userId, sessionId, { mfa: true });
     return codes;
   }
 
@@ -197,8 +201,12 @@ export class MfaService {
   }
 
   /**
-   * The password again; a user without one (Google sign-in only) has no password to give, so their
-   * session must have stepped up recently instead (`ReauthRequiredError` otherwise).
+   * The password again. A user without one (Google sign-in only) has no password to give:
+   * - two-factor off (setup): the session must have passed an explicit step-up recently
+   *   (`steppedUpAt`, set only by `POST /auth/reauth`); a recent sign-in does not count
+   *   (`ReauthRequiredError(explicit)`, reason `step_up_required`);
+   * - two-factor on (disable, new recovery codes): the session passed two-factor recently (its
+   *   sign-in or a step-up asked for a code), and the action itself asks for one more code.
    */
   private async reauth(userId: UserId, password: string | undefined, sessionId: string) {
     await this.throttle(userId);
@@ -206,8 +214,12 @@ export class MfaService {
     if (!user) throw new SessionInvalidError('user_gone');
     if (!user.hasPassword) {
       const state = await this.sessions.state(sessionId, true);
-      if (!state || state.userId !== userId || !this.sessions.isRecent(state))
-        throw new ReauthRequiredError();
+      if (!state || state.userId !== userId) throw new ReauthRequiredError(true);
+      if (await this.isEnabled(userId)) {
+        if (!state.mfa || !this.sessions.isRecent(state)) throw new ReauthRequiredError();
+      } else if (!this.sessions.isSteppedUp(state)) {
+        throw new ReauthRequiredError(true);
+      }
       return user;
     }
     if (!password || !(await this.hasher.verify(user.passwordHash, password))) {

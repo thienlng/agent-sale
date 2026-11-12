@@ -36,7 +36,8 @@ function stepUpError(t: ReturnType<typeof useTranslation>['t'], error: unknown):
 /**
  * "Confirm it's you" (docs/09 §2): one proof, as the server asks for it — a two-factor code when
  * two-factor is on, else the password, else a code emailed to the address (Google sign-in only,
- * who may also sign in with Google again). `onDone(true)` once the session passed it.
+ * who may also sign in with Google again, except for `step_up_required`: a new Google sign-in
+ * opens another session and is not an explicit step-up). `onDone(true)` once the session passed it.
  */
 export function StepUpDialog({
   open,
@@ -107,7 +108,11 @@ export function StepUpDialog({
         <DialogHeader>
           <DialogTitle>{t('stepUp.title')}</DialogTitle>
           <DialogDescription>
-            {reason === 'mfa_session_required' ? t('stepUp.adminHint') : t('stepUp.hint')}
+            {reason === 'mfa_session_required'
+              ? t('stepUp.adminHint')
+              : reason === 'step_up_required'
+                ? t('stepUp.explicitHint')
+                : t('stepUp.hint')}
           </DialogDescription>
         </DialogHeader>
         {status.isPending ? (
@@ -152,7 +157,7 @@ export function StepUpDialog({
                 />
               </div>
             ) : null}
-            {methods.includes('google') ? (
+            {methods.includes('google') && reason !== 'step_up_required' ? (
               <a
                 href={googleSignInUrl(here)}
                 className="text-sm font-medium text-brand-text hover:underline"

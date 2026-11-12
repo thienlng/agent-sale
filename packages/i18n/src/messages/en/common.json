@@ -2118,6 +2118,7 @@
     "title": "Confirm it's you",
     "hint": "This is a sensitive action. Confirm it's you to continue.",
     "adminHint": "The admin area needs a two-step verification code on this sign-in.",
+    "explicitHint": "Changing two-step verification needs a code sent to your email, even right after signing in.",
     "adminMfaRequired": "The admin area needs two-step verification on your account. Turn it on in Account security first.",
     "required": "Confirm it's you to do this, then try again.",
     "password": "Current password",

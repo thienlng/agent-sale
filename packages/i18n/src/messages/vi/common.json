@@ -2110,6 +2110,7 @@
     "title": "Xác nhận đó là bạn",
     "hint": "Đây là thao tác nhạy cảm. Hãy xác nhận đó là bạn để tiếp tục.",
     "adminHint": "Khu vực quản trị cần mã xác minh hai bước cho lần đăng nhập này.",
+    "explicitHint": "Để thay đổi xác minh hai bước, bạn cần nhập mã gửi tới email, kể cả khi vừa đăng nhập.",
     "adminMfaRequired": "Khu vực quản trị yêu cầu bật xác minh hai bước cho tài khoản của bạn. Hãy bật trong Bảo mật tài khoản trước.",
     "required": "Hãy xác nhận đó là bạn rồi thử lại.",
     "password": "Mật khẩu hiện tại",

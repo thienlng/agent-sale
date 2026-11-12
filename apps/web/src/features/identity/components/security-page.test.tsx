@@ -67,14 +67,19 @@ describe('SecurityPage: linked sign-ins', () => {
 
 describe('SecurityPage: two-step verification without a password', () => {
   it('skips the password for a Google-only user and confirms with an emailed code', async () => {
+    // A recent sign-in does not count here (step_up_required): no "sign in with Google" offer.
+    const explicit = {
+      status: 403,
+      body: { error: { code: 'FORBIDDEN', message: 'x', details: { reason: 'step_up_required' } } },
+    };
     const calls = render({
       'GET /auth/reauth': {
         status: 200,
-        body: stepUpStatus({ methods: ['email'], hasPassword: false }),
+        body: stepUpStatus({ methods: ['email', 'google'], hasPassword: false, recent: true }),
       },
       'GET /auth/identities': { status: 200, body: { data: [] } },
       'POST /auth/mfa/setup': [
-        reauth,
+        explicit,
         { status: 200, body: { secret: 'JBSWY3DPEHPK3PXP', otpauthUri: 'otpauth://totp/x' } },
       ],
       'POST /auth/reauth/code': { status: 204 },
@@ -90,6 +95,8 @@ describe('SecurityPage: two-step verification without a password', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Tiếp tục' }));
 
     const stepUp = await screen.findByRole('dialog', { name: 'Xác nhận đó là bạn' });
+    expect(within(stepUp).queryByText('Hoặc đăng nhập lại bằng Google')).toBeNull();
+    expect(within(stepUp).getByText(/kể cả khi vừa đăng nhập/)).toBeInTheDocument();
     await user.click(within(stepUp).getByRole('button', { name: 'Gửi mã qua email' }));
     await user.type(within(stepUp).getByLabelText('Mã đã gửi tới email của bạn'), '123456');
     await user.click(within(stepUp).getByRole('button', { name: 'Xác nhận' }));

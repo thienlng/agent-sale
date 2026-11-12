@@ -12,7 +12,7 @@ On every `@PlatformAdmin()` request, after the admin flag:
 |-------|----------------------|-----|
 | Two-step verification is on for the account | 403 `admin_mfa_required` | Turn it on in Account security |
 | This session passed it (login code, a two-step step-up, or turning it on in this session) | 403 `mfa_session_required` | Enter an authenticator code when `/admin` asks |
-| A recent step-up for payment confirmation and plan, override, trial and billing-settings changes | 403 `reauth_required` | Enter an authenticator code when asked (valid `AUTH_STEP_UP_WINDOW_MINUTES`, default 10) |
+| A recent step-up for payment confirmation, plan, override, trial, billing-settings and account status changes, and every LLM provider or tier change | 403 `reauth_required` | Enter an authenticator code when asked (valid `AUTH_STEP_UP_WINDOW_MINUTES`, default 10) |
 
 The first check reads the database on every request; the second reads it whenever the cached
 session state does not already show the second factor, so a fresh code takes effect at once.

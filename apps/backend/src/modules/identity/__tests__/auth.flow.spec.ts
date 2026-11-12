@@ -470,6 +470,7 @@ describe('auth flow (in-memory)', () => {
         revoked: false,
         mfa: false,
         authenticatedAt: null,
+        steppedUpAt: null,
       };
       cache.set('s1', state, 0);
       expect(cache.get('s1', 14_999)).toBe(state);
@@ -626,7 +627,7 @@ describe('auth flow (in-memory)', () => {
       });
       // Without a recent step-up there is nothing to check: refuse.
       await expect(s.mfa.beginSetup(user.id, undefined, sessionId)).rejects.toMatchObject({
-        details: { reason: 'reauth_required' },
+        details: { reason: 'step_up_required' },
       });
       await s.stepUp.sendCode(user.id);
       expect(s.mailer.sent.at(-1)?.to).toBe('gg@shop.vn');
@@ -643,6 +644,52 @@ describe('auth flow (in-memory)', () => {
       await expect(s.stepUp.sendCode(withPassword.user.id as never)).rejects.toBeInstanceOf(
         MfaReauthError,
       );
+    });
+
+    it('a Google-only user needs an explicit step-up for two-factor: a fresh sign-in is not enough', async () => {
+      const s = await setup();
+      const user = User.registerFromProvider({
+        email: 'fresh@shop.vn',
+        name: 'Google only',
+        emailVerifiedAt: new Date(),
+      });
+      await s.users.insert(user);
+      // A sign-in a second ago (what a stolen access token of a new Google session carries).
+      const issued = await s.sessions.start(user, meta, {
+        assurance: { authenticatedAt: new Date(), mfa: false },
+      });
+      const sessionId = await sid(s, issued.accessToken);
+      const other = await s.sessions.start(user, meta);
+      expect(await s.stepUp.status(user.id, sessionId)).toMatchObject({ recent: true });
+      await expect(s.mfa.beginSetup(user.id, undefined, sessionId)).rejects.toMatchObject({
+        details: { reason: 'step_up_required' },
+      });
+
+      await s.stepUp.sendCode(user.id);
+      await s.stepUp.verify(user.id, sessionId, { emailCode: lastCode(s.mailer) }, null);
+      // The step-up is kept on refresh rotation.
+      const rotated = await s.refresh.execute(issued.refreshToken, meta);
+      const rotatedId = await sid(s, rotated.accessToken);
+      expect((await s.sessions.state(rotatedId, true))?.steppedUpAt).toBeInstanceOf(Date);
+      const { secret } = await s.mfa.beginSetup(user.id, undefined, rotatedId);
+
+      // The notice is mailed before the other sessions end.
+      const revokeOthers = s.sessions.revokeOthers.bind(s.sessions);
+      const sentBefore = s.mailer.sent.length;
+      let mailedFirst = false;
+      vi.spyOn(s.sessions, 'revokeOthers').mockImplementation(async (u, keep) => {
+        mailedFirst = s.mailer.sent.length > sentBefore;
+        return revokeOthers(u, keep);
+      });
+      await s.mfa.enable(user.id, totpAt(secret, stepAt(Date.now())), rotatedId);
+      expect(mailedFirst).toBe(true);
+      expect(s.mailer.sent.at(-1)?.to).toBe('fresh@shop.vn');
+      expect(await s.sessions.state(await sid(s, other.accessToken), true)).toMatchObject({
+        revoked: true,
+      });
+      // Turning two-factor on is not a step-up: it does not set `steppedUpAt` anew.
+      const after = await s.sessions.state(rotatedId, true);
+      expect(after).toMatchObject({ mfa: true });
     });
 
     it('lists and removes linked sign-ins, but never the last way in', async () => {

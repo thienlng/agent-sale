@@ -7,8 +7,11 @@
 --   creation, data export, platform payment/plan changes) need it to be recent.
 -- sessions.mfa: the session passed the second factor (login code or a TOTP step-up). Platform
 --   admin routes need it.
+-- sessions.stepped_up_at: the last explicit step-up (POST /auth/reauth); a sign-in never sets it.
+--   A user without a password needs it recent to change two-factor; copied on refresh rotation.
 alter table sessions add column if not exists authenticated_at timestamptz;
 alter table sessions add column if not exists mfa boolean not null default false;
+alter table sessions add column if not exists stepped_up_at timestamptz;
 
 -- A third code purpose: the step-up code emailed to a user without a password.
 alter table email_codes drop constraint if exists email_codes_purpose_check;

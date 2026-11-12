@@ -8,6 +8,8 @@ export interface SessionState {
   mfa: boolean;
   /** When the user last proved a factor on this session; null when never recorded. */
   authenticatedAt: Date | null;
+  /** The last explicit step-up (`POST /auth/reauth`); a sign-in never sets it. */
+  steppedUpAt: Date | null;
 }
 
 /** Session timing knobs (`AUTH_SESSION_CACHE_TTL_MS`, `AUTH_STEP_UP_WINDOW_MINUTES`). */

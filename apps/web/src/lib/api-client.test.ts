@@ -7,6 +7,7 @@ import {
   api,
   apiUpload,
   ApiClientError,
+  replayable,
   setAccessToken,
   setSessionExpiredHandler,
   setStepUpHandler,
@@ -305,6 +306,60 @@ describe('step-up (docs/09 §2)', () => {
     release(true);
     await expect(both).resolves.toEqual([{ ok: true }, { ok: true }]);
     expect(handler).toHaveBeenCalledOnce();
+  });
+
+  it('sends the same JSON body again, serialised anew', async () => {
+    const bodies: unknown[] = [];
+    let confirmed = false;
+    vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+      bodies.push(init.body);
+      return confirmed
+        ? new Response(JSON.stringify({ ok: true }), { status: 201 })
+        : new Response(JSON.stringify(reauth), { status: 403 });
+    });
+    setStepUpHandler(async () => (confirmed = true));
+    await api('/admin/accounts/a/status', z.unknown(), {
+      method: 'POST',
+      body: { status: 'suspended', reason: 'Chargeback' },
+    });
+    expect(bodies).toEqual([
+      '{"status":"suspended","reason":"Chargeback"}',
+      '{"status":"suspended","reason":"Chargeback"}',
+    ]);
+  });
+
+  it('prompts for an explicit step-up too (step_up_required)', async () => {
+    let confirmed = false;
+    vi.stubGlobal('fetch', async () =>
+      confirmed
+        ? new Response(JSON.stringify({ ok: true }), { status: 200 })
+        : new Response(
+            JSON.stringify({ error: { ...reauth.error, details: { reason: 'step_up_required' } } }),
+            { status: 403 },
+          ),
+    );
+    const handler = vi.fn(async () => (confirmed = true));
+    setStepUpHandler(handler);
+    await expect(
+      api('/auth/mfa/setup', z.object({ ok: z.boolean() }), { method: 'POST', body: {} }),
+    ).resolves.toEqual({ ok: true });
+    expect(handler).toHaveBeenCalledWith('step_up_required');
+  });
+
+  it('never resends a one-shot body', async () => {
+    const state = sensitive();
+    setStepUpHandler(async () => (state.confirmed = true));
+    const stream = new ReadableStream();
+    const error = await api('/api-keys', z.unknown(), { method: 'POST', body: stream }).catch(
+      (e) => e,
+    );
+    expect(error).toMatchObject({ status: 403 });
+    expect(state.calls).toBe(1);
+    expect(replayable({ a: 1 })).toBe(true);
+    expect(replayable(undefined)).toBe(true);
+    expect(replayable(undefined, { data: new Blob(['x']), contentType: 'image/png' })).toBe(true);
+    expect(replayable(new FormData())).toBe(false);
+    expect(replayable(new Uint8Array(2))).toBe(false);
   });
 
   it('leaves other 403s alone', async () => {

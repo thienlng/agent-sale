@@ -276,7 +276,11 @@ export class DrizzleSessionRepository implements SessionRepository {
     });
   }
 
-  async markAuthenticated(sessionId: string, at: Date, mfa: boolean): Promise<void> {
+  async markAuthenticated(
+    sessionId: string,
+    at: Date,
+    proof: { mfa: boolean; steppedUp: boolean },
+  ): Promise<void> {
     await withSystem(this.systemDb, (tx) => {
       const family = tx
         .select({ familyId: schema.sessions.familyId })
@@ -284,7 +288,11 @@ export class DrizzleSessionRepository implements SessionRepository {
         .where(eq(schema.sessions.id, sessionId));
       return tx
         .update(schema.sessions)
-        .set({ authenticatedAt: at, ...(mfa ? { mfa: true } : {}) })
+        .set({
+          authenticatedAt: at,
+          ...(proof.mfa ? { mfa: true } : {}),
+          ...(proof.steppedUp ? { steppedUpAt: at } : {}),
+        })
         .where(
           and(isNull(schema.sessions.revokedAt), sql`${schema.sessions.familyId} = (${family})`),
         );

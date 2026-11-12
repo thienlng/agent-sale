@@ -41,6 +41,7 @@ import {
   USER_REPOSITORY,
   type UserRepository,
 } from '../src/modules/identity/domain/ports/user.repository.js';
+import { DelegatedAccessService } from '../src/modules/identity/application/delegated-access.js';
 import { stepAt, totpAt } from '../src/modules/identity/domain/totp.js';
 import type { InMemorySessionRepository } from '../src/modules/identity/infrastructure/persistence/identity.in-memory-repositories.js';
 import { enableTwoFactor } from './support/mfa.js';
@@ -1288,5 +1289,107 @@ describe('HTTP: sessions, step-up and the back office second factor', () => {
     });
     expect(reauth.json()).toMatchObject({ recent: true, mfa: true });
     expect((await inject(a, { method: 'GET', url, headers: auth(token) })).statusCode).toBe(200);
+  });
+  it('back office LLM writes and account suspension need a recent step-up', async () => {
+    const a = await app({ AUTH_SESSION_CACHE_TTL_MS: '0' });
+    const email = `llm-ops-${Math.random()}@rapiz.vn`;
+    const { token } = await signup(a, email);
+    await a.get<UserRepository>(USER_REPOSITORY).setPlatformAdmin(email, true);
+    const h = auth(token);
+    const secret = await enableTwoFactor(
+      (path, payload) =>
+        inject(a, { method: 'POST', url: `/api/v1${path}`, headers: h, payload: { ...payload } }),
+      signupBody.password,
+    );
+    const pid = '00000000-0000-7000-8000-000000000001';
+    const writes = [
+      ['POST', '/api/v1/admin/llm/providers', { name: 'late', kind: 'anthropic' }],
+      ['POST', '/api/v1/admin/llm/providers/models', { providerId: pid }],
+      ['PATCH', `/api/v1/admin/llm/providers/${pid}`, { isEnabled: false }],
+      ['DELETE', `/api/v1/admin/llm/providers/${pid}`, undefined],
+      ['POST', `/api/v1/admin/llm/providers/${pid}/hermes-login`, undefined],
+      ['DELETE', `/api/v1/admin/llm/providers/${pid}/hermes-login`, undefined],
+      [
+        'PUT',
+        '/api/v1/admin/llm/tiers/smart',
+        { primary: { providerId: pid, model: 'm', effort: 'low' }, fallback: null },
+      ],
+      [
+        'POST',
+        `/api/v1/admin/accounts/${pid}/status`,
+        { status: 'suspended', reason: 'Chargeback on the last invoice' },
+      ],
+    ] as const;
+
+    // The window after turning two-factor on has passed: every write asks to confirm.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now() + 11 * 60_000);
+    for (const [method, url, payload] of writes) {
+      const res = await inject(a, { method, url, headers: h, ...(payload ? { payload } : {}) });
+      expect(res.statusCode, `${method} ${url}`).toBe(403);
+      expect(res.json().error.details.reason, `${method} ${url}`).toBe('reauth_required');
+    }
+    // Reads stay open.
+    expect(
+      (await inject(a, { method: 'GET', url: '/api/v1/admin/llm/providers', headers: h }))
+        .statusCode,
+    ).toBe(200);
+
+    const reauth = await inject(a, {
+      method: 'POST',
+      url: '/api/v1/auth/reauth',
+      headers: h,
+      payload: { code: totpAt(secret, stepAt(Date.now())) },
+    });
+    expect(reauth.statusCode, reauth.body).toBe(200);
+    const created = await inject(a, {
+      method: 'POST',
+      url: '/api/v1/admin/llm/providers',
+      headers: h,
+      payload: { name: 'late', kind: 'anthropic' },
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    for (const [method, url, payload] of writes.slice(1)) {
+      const res = await inject(a, { method, url, headers: h, ...(payload ? { payload } : {}) });
+      expect(res.json().error?.details?.reason, `${method} ${url}`).not.toBe('reauth_required');
+    }
+  });
+
+  it('a delegated (assistant) token never passes step-up or back office routes', async () => {
+    const a = await app({ AUTH_SESSION_CACHE_TTL_MS: '0' });
+    const email = `dlg-${Math.random()}@rapiz.vn`;
+    const { token } = await signup(a, email);
+    await a.get<UserRepository>(USER_REPOSITORY).setPlatformAdmin(email, true);
+    await enableTwoFactor(
+      (path, payload) =>
+        inject(a, {
+          method: 'POST',
+          url: `/api/v1${path}`,
+          headers: auth(token),
+          payload: { ...payload },
+        }),
+      signupBody.password,
+    );
+    const ws = (await bootstrap(a, token)).memberships[0]?.workspaceId ?? '';
+    // The owner's session passed two-factor and stepped up a moment ago: only the token differs.
+    const owner = auth(token, ws);
+    expect(
+      (await inject(a, { method: 'GET', url: '/api/v1/admin/llm/providers', headers: owner }))
+        .statusCode,
+    ).toBe(200);
+    const delegated = await a.get(DelegatedAccessService).delegate(`Bearer ${token}`, 60);
+    const d = auth(delegated ?? '', ws);
+    // Ordinary workspace routes work with it (what the assistant's tools call).
+    expect((await inject(a, { method: 'GET', url: '/api/v1/me', headers: d })).statusCode).toBe(
+      200,
+    );
+    for (const [method, url, payload] of [
+      ['GET', '/api/v1/admin/llm/providers', undefined],
+      ['POST', '/api/v1/api-keys', { name: 'Zapier', scopes: ['contacts.view'], expiresAt: null }],
+      ['POST', '/api/v1/data-exports', {}],
+    ] as const) {
+      const res = await inject(a, { method, url, headers: d, ...(payload ? { payload } : {}) });
+      expect(res.statusCode, `${method} ${url}`).toBe(404);
+    }
   });
 });

@@ -19,6 +19,12 @@ export interface SessionRecord {
   authenticatedAt: Date | null;
   /** The session passed the second factor (login code, Google + code, or a TOTP step-up). */
   mfa: boolean;
+  /**
+   * When the session last passed an explicit step-up (`POST /auth/reauth`); copied on rotation.
+   * Unlike `authenticatedAt`, a sign-in never sets it. A user without a password needs it recent to
+   * change two-factor (a stolen token of a fresh sign-in must not turn it on). Null until then.
+   */
+  steppedUpAt: Date | null;
 }
 
 export interface SessionRepository {
@@ -34,10 +40,15 @@ export interface SessionRepository {
   revoke(id: string, at: Date): Promise<void>;
   revokeFamily(familyId: string, at: Date): Promise<void>;
   /**
-   * A successful step-up on the session's family: sets `authenticatedAt` on its active rows, and
-   * `mfa` when the step-up used the second factor (never clears it).
+   * A successful step-up on the session's family: sets `authenticatedAt` on its active rows,
+   * `mfa` when it used the second factor (never clears it) and `steppedUpAt` when it was an
+   * explicit step-up (`POST /auth/reauth`).
    */
-  markAuthenticated(sessionId: string, at: Date, mfa: boolean): Promise<void>;
+  markAuthenticated(
+    sessionId: string,
+    at: Date,
+    proof: { mfa: boolean; steppedUp: boolean },
+  ): Promise<void>;
   /** Revokes every active session of the user outside the family of `keepSessionId`. */
   revokeOtherFamilies(userId: UserId, keepSessionId: string, at: Date): Promise<void>;
 }

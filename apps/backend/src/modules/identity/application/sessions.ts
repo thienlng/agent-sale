@@ -36,6 +36,8 @@ export interface SessionAssurance {
   authenticatedAt: Date | null;
   /** The second factor was checked. */
   mfa: boolean;
+  /** The last explicit step-up (`POST /auth/reauth`); a new sign-in has none. */
+  steppedUpAt?: Date | null;
 }
 
 export function hashToken(raw: string): string {
@@ -104,6 +106,7 @@ export class SessionService {
       revokedAt: null,
       authenticatedAt: assurance.authenticatedAt,
       mfa: assurance.mfa,
+      steppedUpAt: assurance.steppedUpAt ?? null,
     });
     const access = await this.tokens.issue({ userId: user.id, sessionId });
     return {
@@ -136,7 +139,11 @@ export class SessionService {
     return {
       userId: session.userId,
       familyId: session.familyId,
-      assurance: { authenticatedAt: session.authenticatedAt, mfa: session.mfa },
+      assurance: {
+        authenticatedAt: session.authenticatedAt,
+        mfa: session.mfa,
+        steppedUpAt: session.steppedUpAt,
+      },
     };
   }
 
@@ -156,15 +163,28 @@ export class SessionService {
       revoked: row.revokedAt !== null,
       mfa: row.mfa,
       authenticatedAt: row.authenticatedAt,
+      steppedUpAt: row.steppedUpAt,
     };
     this.#cache.set(sessionId, state, now);
     return state;
   }
 
-  /** Whether the session proved a factor within the step-up window. */
+  /** Whether the session proved a factor (sign-in or step-up) within the step-up window. */
   isRecent(state: Pick<SessionState, 'authenticatedAt'>, now = Date.now()): boolean {
-    const at = state.authenticatedAt?.getTime();
-    return at !== undefined && now - at <= this.policy.stepUpWindowMs;
+    return this.#within(state.authenticatedAt, now);
+  }
+
+  /**
+   * Whether the session passed an explicit step-up (`POST /auth/reauth`) within the window. A
+   * sign-in alone does not count: a stolen access token of a fresh session must not pass.
+   */
+  isSteppedUp(state: Pick<SessionState, 'steppedUpAt'>, now = Date.now()): boolean {
+    return this.#within(state.steppedUpAt, now);
+  }
+
+  #within(at: Date | null, now: number): boolean {
+    const t = at?.getTime();
+    return t !== undefined && now - t <= this.policy.stepUpWindowMs;
   }
 
   /** How long a step-up counts, in seconds. */
@@ -172,9 +192,19 @@ export class SessionService {
     return Math.floor(this.policy.stepUpWindowMs / 1000);
   }
 
-  /** A successful step-up on the session (and the rest of its family). */
-  async markAuthenticated(userId: UserId, sessionId: string, mfa: boolean): Promise<void> {
-    await this.sessions.markAuthenticated(sessionId, new Date(), mfa);
+  /**
+   * A factor proved on the session (and the rest of its family): `mfa` when it was the second
+   * factor, `steppedUp` only for an explicit step-up (`StepUpService.verify`).
+   */
+  async markAuthenticated(
+    userId: UserId,
+    sessionId: string,
+    proof: { mfa: boolean; steppedUp?: boolean },
+  ): Promise<void> {
+    await this.sessions.markAuthenticated(sessionId, new Date(), {
+      mfa: proof.mfa,
+      steppedUp: proof.steppedUp ?? false,
+    });
     this.#cache.forgetUser(userId);
   }
 

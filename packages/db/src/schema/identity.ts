@@ -48,6 +48,8 @@ export const sessions = pgTable(
     authenticatedAt: timestamp('authenticated_at', { withTimezone: true }),
     /** The session passed the second factor (login code or TOTP step-up; migration 0076). */
     mfa: boolean('mfa').notNull().default(false),
+    /** The last explicit step-up (`POST /auth/reauth`); a sign-in never sets it (migration 0076). */
+    steppedUpAt: timestamp('stepped_up_at', { withTimezone: true }),
   },
   (t) => [index('sessions_user_idx').on(t.userId), index('sessions_family_idx').on(t.familyId)],
 );

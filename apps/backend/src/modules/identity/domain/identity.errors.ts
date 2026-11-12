@@ -125,11 +125,16 @@ export type GoogleSignInFailure =
 /**
  * The action needs a recent re-authentication of this session (step-up: password, two-factor code,
  * emailed code or a new Google sign-in). 403, not 401: the session itself is fine.
+ *
+ * `explicit`: a recent sign-in does not count, only `POST /auth/reauth` does (reason
+ * `step_up_required`; a new Google sign-in opens another session, so it does not help either).
  */
 export class ReauthRequiredError extends DomainError {
   readonly code = 'FORBIDDEN';
-  constructor() {
-    super('Confirm it is you to continue', { reason: 'reauth_required' });
+  constructor(explicit = false) {
+    super('Confirm it is you to continue', {
+      reason: explicit ? 'step_up_required' : 'reauth_required',
+    });
   }
 }
 
