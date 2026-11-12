@@ -170,19 +170,24 @@ export const fallbackText = (bot: BotView): string =>
 const handoffText = (bot: BotView): string =>
   bot.handoffMessage.trim() || defaultHandoffMessage(bot);
 
+// An order recipient's details: a phone sent with these is for the order, not a call-back.
+const ADDRESS_WORDS =
+  /(?<!\p{L})(địa chỉ|dia chi|đường|duong|phường|phuong|quận|quan|ngõ|ngo|ngách|số nhà|tp|thành phố|huyện|xã)(?!\p{L})/iu;
+
 /**
- * VL-B9 / LM-14 / EV-2: the latest phone number the customer wrote in the conversation is read
- * back before the shop's hand-over message, so the customer knows which number staff will call
- * (the prompt asks for it; the model often hands off bare). Nothing when the customer never wrote
- * a phone or the turn's texts already repeat it.
+ * VL-B9 / LM-14: a phone number the customer gives in their newest message, for the first time in
+ * the conversation, is read back before the shop's hand-over message (the model often hands off
+ * bare). Once only (TM2-1: it was repeated on every later hand-off and even answered "số tài
+ * khoản bên em là gì?"), never for an order recipient's phone sent with an address, and not when
+ * the turn's texts already repeat it.
  */
 export function phoneReadBack(customerTexts: readonly string[], said: readonly string[]): string {
-  let phone: string | undefined;
-  for (let i = customerTexts.length - 1; i >= 0 && !phone; i -= 1)
-    phone = phonesIn(customerTexts[i] ?? '').at(-1);
-  if (!phone) return '';
+  const last = customerTexts.at(-1) ?? '';
+  const phone = phonesIn(last).at(-1);
+  if (!phone || ADDRESS_WORDS.test(last)) return '';
   const digits = (t: string) => t.replace(/\D/g, '');
   const tail = digits(phone).slice(-9);
+  if (customerTexts.slice(0, -1).some((t) => digits(t).includes(tail))) return '';
   if (said.some((t) => digits(t).includes(tail))) return '';
   return `Dạ em đã ghi nhận số ${phone} ạ.`;
 }

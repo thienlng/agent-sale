@@ -66,10 +66,16 @@ describe('phoneReadBack (VL-B9, LM-14)', () => {
     expect(phoneReadBack([last], ['Dạ em đã ghi nhận số 0909888777 ạ.'])).toBe('');
     expect(phoneReadBack(['gặp người thật đi'], [''])).toBe('');
     expect(phoneReadBack([], [''])).toBe('');
-    // EV-2: a phone from early in the conversation, the newest one when there are several.
+    // TM2-1: once only, when newly given in the newest message.
+    expect(phoneReadBack(['số 0912 000 111', 'Số tài khoản bên em là gì?'], [''])).toBe('');
+    expect(phoneReadBack(['số 0912 000 111', 'gọi chị số 0912000111 nhé'], [''])).toBe('');
+    expect(phoneReadBack(['số 0912 000 111', 'à đổi sang số 0987 654 321'], [''])).toBe(
+      'Dạ em đã ghi nhận số 0987 654 321 ạ.',
+    );
+    // An order recipient's phone, sent with the address, is not read back.
     expect(
-      phoneReadBack(['số 0912 000 111', 'à đổi sang số 0987 654 321', 'số nào ấy nhỉ?'], ['']),
-    ).toBe('Dạ em đã ghi nhận số 0987 654 321 ạ.');
+      phoneReadBack(['Tên Hà, sđt 0912 345 001, địa chỉ số 12 ngõ 45 Trần Duy Hưng'], ['']),
+    ).toBe('');
   });
 
   it('puts the read-back between the lead and the hand-over message', () => {
