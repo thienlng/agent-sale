@@ -132,7 +132,9 @@ describe('AssistantPanel', () => {
     vi.stubGlobal('fetch', fetchStub);
     renderApp();
 
-    expect(await screen.findByText('Hôm nay anh/chị cần mình giúp gì?')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Rapiz Agent — trợ lý vận hành của chủ doanh nghiệp'),
+    ).toBeInTheDocument();
     expect(useAssistantUi.getState()).toMatchObject({
       workspaceId: WS,
       threadId: null,

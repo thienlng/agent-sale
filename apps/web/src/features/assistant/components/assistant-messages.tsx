@@ -30,8 +30,8 @@ const CAPABILITIES = [
   { key: 'numbers', Icon: BarChart3 },
   { key: 'bot', Icon: Bot },
   { key: 'catalog', Icon: Package },
-  { key: 'channels', Icon: Plug },
   { key: 'reports', Icon: CalendarClock },
+  { key: 'channels', Icon: Plug },
   { key: 'guide', Icon: MousePointerClick },
 ] as const;
 /** Starter questions of the empty conversation: concrete asks that send on click. */
@@ -208,12 +208,12 @@ export function AssistantMessages({
           <p
             className={cn(
               'font-semibold text-balance',
-              roomy ? 'text-2xl tracking-tight' : 'text-base',
+              roomy ? 'text-xl tracking-tight sm:text-2xl' : 'text-base',
             )}
           >
             {t('starters.title')}
           </p>
-          <p className="mt-1.5 max-w-xl text-sm text-pretty text-muted-foreground">
+          <p className="mt-2 max-w-2xl text-sm text-pretty text-muted-foreground">
             {t('starters.body')}
           </p>
           <ul
@@ -236,6 +236,9 @@ export function AssistantMessages({
               </li>
             ))}
           </ul>
+          <p className="mt-5 max-w-2xl text-xs text-pretty text-muted-foreground">
+            {t('starters.learning')}
+          </p>
           <p className="mt-7 text-xs font-medium text-muted-foreground">{t('starters.label')}</p>
           <ul
             aria-label={t('starters.label')}

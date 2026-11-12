@@ -59,13 +59,19 @@ describe('AssistantMessages empty conversation', () => {
         onStarter={onStarter}
       />,
     );
-    expect(screen.getByText('Hôm nay anh/chị cần mình giúp gì?')).toBeInTheDocument();
-    expect(screen.getByRole('list', { name: 'Rapiz Agent làm được' })).toBeInTheDocument();
-    expect(screen.getByText('Dạy và sửa bot')).toBeInTheDocument();
+    expect(
+      screen.getByText('Rapiz Agent — trợ lý vận hành của chủ doanh nghiệp'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Năng lực của Rapiz Agent' })).toBeInTheDocument();
+    expect(screen.getByText('Chẩn đoán và huấn luyện bot')).toBeInTheDocument();
     await userEvent.click(
-      screen.getByRole('button', { name: 'So sánh doanh thu 7 ngày qua với tuần trước' }),
+      screen.getByRole('button', {
+        name: 'So sánh doanh thu và số đơn tuần này với tuần trước, kèm biểu đồ theo ngày.',
+      }),
     );
-    expect(onStarter).toHaveBeenCalledWith('So sánh doanh thu 7 ngày qua với tuần trước');
+    expect(onStarter).toHaveBeenCalledWith(
+      'So sánh doanh thu và số đơn tuần này với tuần trước, kèm biểu đồ theo ngày.',
+    );
   });
 
   it('disables the starters while a message is on its way', () => {
