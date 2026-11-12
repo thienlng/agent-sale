@@ -95,6 +95,16 @@ export class AssistantController {
     return this.facade.updateThread(actor(user, ws), threadId, body);
   }
 
+  @Delete('threads/:threadId')
+  @HttpCode(204)
+  async deleteThread(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('threadId') threadId: string,
+  ): Promise<void> {
+    await this.facade.deleteThread(actor(user, ws), threadId);
+  }
+
   @Get('threads/:threadId/messages')
   listMessages(
     @CurrentUser() user: AuthState,

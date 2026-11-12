@@ -34,7 +34,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ACCOUNT_FACADE, type AccountFacade } from '../../account/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import type { AssistantActor, AssistantFacade } from '../api/assistant.facade.js';
-import { AssistantNotFoundError } from '../domain/assistant.errors.js';
+import { AssistantNotFoundError, AssistantThreadRunningError } from '../domain/assistant.errors.js';
 import {
   businessOfStore,
   businessStore,
@@ -137,6 +137,12 @@ export class AssistantFacadeImpl implements AssistantFacade {
       await this.repo.cancelJob(scope, { threadId: thread.id, kind: 'review' });
     }
     return toThreadDto(thread);
+  }
+
+  async deleteThread(actor: AssistantActor, threadId: string): Promise<void> {
+    const scope = await this.#scope(actor);
+    const outcome = await this.repo.deleteThread(scope, knownId('thread', threadId));
+    if (outcome === 'running') throw new AssistantThreadRunningError();
   }
 
   async listMessages(actor: AssistantActor, threadId: string): Promise<AssistantMessageList> {
