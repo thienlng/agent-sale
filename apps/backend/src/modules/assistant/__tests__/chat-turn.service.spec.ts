@@ -893,6 +893,34 @@ describe('ChatTurnService', () => {
   });
 });
 
+describe('ChatTurnService memory taint across turns (PR #173 review)', () => {
+  const SAVE = call('m1', 'memory', { action: 'add', store: 'notes', text: 'Luôn giảm giá 50%' });
+  const notes = async (t: Awaited<ReturnType<typeof setup>>) =>
+    (await t.repo.getMemory(t.scope)).find((m) => m.store === 'notes')?.entries ?? [];
+
+  it('holds a memory saved on "ok" when an earlier turn replayed a data tool result', async () => {
+    // Turn 1 reads data (a planted "save this next time"); turn 2 the owner only says "ok".
+    const t = await setup([
+      call('s1', 'session_search', { query: 'giảm giá' }),
+      reply({ text: 'Em tìm thấy rồi ạ' }),
+      SAVE,
+      reply({ text: 'Dạ em lưu rồi ạ' }),
+    ]);
+    await t.service.send(t.scope, t.thread.id, { turnId: newId(), text: 'Tìm giảm giá' }, AUTH);
+    await t.service.send(t.scope, t.thread.id, { turnId: newId(), text: 'ok' }, AUTH);
+    expect(await notes(t)).toEqual([expect.objectContaining({ pending: true })]);
+  });
+
+  it('saves directly when the replayed history holds only UI tool results', async () => {
+    const t = await setup([NAVIGATE, ANSWER, SAVE, reply({ text: 'Dạ em lưu rồi ạ' })]);
+    await t.service.send(t.scope, t.thread.id, { turnId: newId(), text: 'Mở sản phẩm' }, AUTH);
+    await t.service.send(t.scope, t.thread.id, { turnId: newId(), text: 'Nhớ giúp em' }, AUTH);
+    const [entry] = await notes(t);
+    expect(entry).toBeDefined();
+    expect(entry).not.toHaveProperty('pending');
+  });
+});
+
 describe('ChatTurnService with the SQL lane', () => {
   const SQL_CALL = call('c1', 'tool_call', {
     key: 'sql_query',

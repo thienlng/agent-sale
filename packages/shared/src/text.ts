@@ -29,6 +29,16 @@ export function fillPlaceholders(text: string, values: Readonly<Record<string, s
   });
 }
 
+/**
+ * Untrusted text (a customer's message, a crawled page, a tool result) placed inside a
+ * pseudo-XML prompt block: `<` becomes `&lt;`, so the text can neither close its block
+ * (`</customer>`) nor open a tag that looks authoritative (`<shop_situations>`, `<tool_result>`).
+ * The model still reads the text; it just cannot change the block structure.
+ */
+export function escapeTags(text: string): string {
+  return text.replaceAll('<', '&lt;');
+}
+
 const CONTACT_DETAILS = /(?:\b0[0-9 .-]{8,14}\b|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i;
 
 /** True when a text carries a phone number or email: public comment replies must not repeat them. */

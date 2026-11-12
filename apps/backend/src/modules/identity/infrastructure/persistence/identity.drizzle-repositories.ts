@@ -385,7 +385,7 @@ export class DrizzleEmailCodeRepository implements EmailCodeRepository {
   }
 }
 
-/** Claims keyed by the sha256 of the canonical email (migration 0076). */
+/** Claims keyed by the sha256 of the canonical email (migration 0077). */
 export class DrizzleTrialClaimRepository implements TrialClaimRepository {
   constructor(private readonly systemDb: Database) {}
 

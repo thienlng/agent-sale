@@ -89,6 +89,16 @@ export interface AssistantFacade {
     entryId: string,
   ): Promise<AssistantMemoryDto>;
   /**
+   * The owner approves a memory entry waiting for approval (saved by the review, or by a chat turn
+   * after it read tool output), so the assistant uses it from the next prompt on. Approving an
+   * approved entry is a no-op; NOT_FOUND for an unknown store or entry. Rejecting is `deleteMemoryEntry`.
+   */
+  approveMemoryEntry(
+    actor: AssistantActor,
+    store: string,
+    entryId: string,
+  ): Promise<AssistantMemoryDto>;
+  /**
    * What the background review and the curator learned in the last `days` days (ruling 1c-R2):
    * skill ledger rows and memory entries with origin `review`, newest first, at most 20, each
    * with its undo handle.

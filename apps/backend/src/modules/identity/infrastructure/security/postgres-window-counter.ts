@@ -8,7 +8,7 @@ import type { WindowCounter } from '../../application/ports/security.js';
 const SWEEP_EVERY = 200;
 
 /**
- * `WindowCounter` on `auth_counters` (migration 0076), shared by every API process. One atomic
+ * `WindowCounter` on `auth_counters` (migration 0077), shared by every API process. One atomic
  * upsert per hit: an ended window restarts at 1, a live one adds 1. Keys name an address, so only
  * their sha256 is stored.
  */

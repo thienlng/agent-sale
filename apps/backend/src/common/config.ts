@@ -77,6 +77,13 @@ export const EnvSchema = z
      */
     META_HUMAN_AGENT_TAG: z.enum(['true', 'false']).optional(),
     /**
+     * `true`: the bot's replies pass the number guard before sending (docs/06 §3.3): a money figure
+     * or a number ≥ 1000 found in no trusted text makes the model rewrite once, then the fallback
+     * line is sent. Off by default: ADR-015 took the guard off the reply path and ADR-032 asks the
+     * owner to turn it back on.
+     */
+    BOT_REPLY_FIGURE_GUARD: z.enum(['true', 'false']).optional(),
+    /**
      * Comma-separated extra hosts the customer-image fetcher may reach (dev/test only, ignored in
      * production). They are exempt from the private-address block and may use plain http, so
      * tests can serve images from a loopback server.

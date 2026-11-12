@@ -1,4 +1,4 @@
--- 0076_auth_counters_trial_claims: shared auth limits and one signup trial per person.
+-- 0077_auth_counters_trial_claims: shared auth limits and one signup trial per person.
 -- Both global, app_system only (like users). Additive; the backfill only inserts.
 
 -- Fixed-window counters every API process shares (identity `WindowCounter`): logins per account,

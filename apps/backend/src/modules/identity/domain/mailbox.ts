@@ -5,7 +5,7 @@ const GMAIL_DOMAINS = new Set(['gmail.com', 'googlemail.com']);
  * dots and treats googlemail.com as gmail.com) the dots dropped too. Used where the person or the
  * inbox matters, not the spelling: the signup trial (one per person, ADR-021 §6) and the caps on
  * code emails (no bombing one inbox through its variants). Accounts and stored codes stay keyed on
- * the exact (lower-cased) address. Migration 0076 backfills trial claims with the same rule in
+ * the exact (lower-cased) address. Migration 0077 backfills trial claims with the same rule in
  * SQL; change both together.
  */
 export function canonicalMailbox(address: string): string {

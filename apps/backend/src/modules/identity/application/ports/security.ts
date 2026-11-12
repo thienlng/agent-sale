@@ -37,7 +37,7 @@ export const ATTEMPT_LIMITER = Symbol('ATTEMPT_LIMITER');
 
 /**
  * Shared fixed-window counter: every API process sees the same counts (Postgres in production,
- * migration 0076). Generic on purpose, so a Redis adapter can replace it without touching callers.
+ * migration 0077). Generic on purpose, so a Redis adapter can replace it without touching callers.
  */
 export interface WindowCounter {
   /**

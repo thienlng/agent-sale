@@ -81,6 +81,7 @@ export async function learningFeed(
         entryId: entry.id,
         text: entry.text,
         previousText: entry.previousText ?? null,
+        pending: entry.pending === true,
         at: at.toISOString(),
       });
     }
@@ -100,12 +101,31 @@ export function undoReviewEntry(entries: MemoryEntry[], entryId: string): Memory
   if (entry.origin !== 'review' || entry.previousText === undefined) {
     return entries.filter((e) => e !== entry);
   }
-  const { previousText, previousOrigin, ...rest } = entry;
+  const { previousText, previousOrigin, previousPending, pending: _pending, ...rest } = entry;
+  // The restored text waits for approval again if it was still waiting when the review rewrote it.
   const restored: MemoryEntry = {
     ...rest,
     text: previousText,
     origin: previousOrigin ?? 'assistant',
     updatedAt: new Date().toISOString(),
+    ...(previousPending ? { pending: true as const } : {}),
   };
   return entries.map((e) => (e === entry ? restored : e));
+}
+
+/**
+ * The store's entries once the owner approved `entryId` (the same array when it was not waiting),
+ * or null when there is no such entry. A review rewrite keeps its undo handle (the learning feed
+ * can still undo it); a chat rewrite drops the text it replaced.
+ */
+export function approveEntry(entries: MemoryEntry[], entryId: string): MemoryEntry[] | null {
+  const entry = entries.find((e) => e.id === entryId);
+  if (!entry) return null;
+  if (!entry.pending) return entries;
+  const { pending: _pending, previousPending: _p, previousText, previousOrigin, ...rest } = entry;
+  const approved: MemoryEntry =
+    entry.origin === 'review' && previousText !== undefined
+      ? { ...rest, previousText, ...(previousOrigin ? { previousOrigin } : {}) }
+      : rest;
+  return entries.map((e) => (e === entry ? approved : e));
 }

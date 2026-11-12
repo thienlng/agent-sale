@@ -12,6 +12,7 @@ import { newId } from '@agent-sales/shared';
 import type { BotView } from '../../bot/api/index.js';
 import type { MessageSink, ReplyOptions } from '../api/reply-options.js';
 import { defaultFallbackMessage, defaultHandoffMessage } from '../domain/default-messages.js';
+import { correctionNote, type ReplyCheck } from '../domain/reply-guard.js';
 import { normalizeReplyText } from '../domain/reply-text.js';
 import { type ActionToolContext, playgroundConversationId, runActionTool } from './action-tools.js';
 import { CALCULATE_TOOL, calculateTool } from './calculator.js';
@@ -68,6 +69,8 @@ export function turnTools(opts: {
   output: OutputState;
   sink?: MessageSink;
   sendMessage: boolean;
+  /** The pre-send guard every `send_message` text passes (docs/06 §3.3). */
+  check?: (text: string) => ReplyCheck;
   actions: { definitions: ToolDefinition[]; context: ActionToolContext } | null;
   /** Present only for a bot that takes orders, in a private conversation (or the playground). */
   orders?: OrderToolContext | null;
@@ -101,6 +104,7 @@ export function turnTools(opts: {
       allowlist,
       state: opts.output,
       sendMessage: opts.sendMessage,
+      ...(opts.check ? { check: opts.check } : {}),
       ...(opts.sentMediaUrls ? { sentMediaUrls: opts.sentMediaUrls } : {}),
     }),
     opts.website
@@ -185,6 +189,8 @@ export function decideReply(input: {
   output: OutputState;
   bot: BotView;
   actionFallback: string | null | undefined;
+  /** The pre-send guard: a hand-off's model-written lead that fails it is dropped. */
+  check?: (text: string) => ReplyCheck;
 }): ReplyDecision {
   const { loop, output, bot } = input;
   const sentAny = output.sent.length > 0;
@@ -194,7 +200,8 @@ export function decideReply(input: {
       : { outcome: 'fallback', guardrail: 'interrupted', final: null };
   }
   if (output.handoff !== null) {
-    const lead = normalizeReplyText(loop.res?.text ?? '');
+    const written = normalizeReplyText(loop.res?.text ?? '');
+    const lead = written && input.check && !input.check(written).ok ? '' : written;
     return {
       outcome: 'handoff',
       guardrail: null,
@@ -211,6 +218,36 @@ export function decideReply(input: {
   if (sentAny)
     return { outcome: 'answered', guardrail: forced, final: forced ? fallbackText(bot) : null };
   return { outcome: 'fallback', guardrail: forced, final: fallbackText(bot) };
+}
+
+/**
+ * The pre-send guard on the final reply (docs/06 §3.3), for a turn that ends with the model's own
+ * text: a reply that quotes the shop's instructions becomes the fallback line; a reply with a
+ * figure from nowhere is rewritten once with a correction note (one extra model call, only on
+ * failure), then falls back if the rewrite fails too.
+ */
+export async function guardFinal(input: {
+  decision: ReplyDecision;
+  check: (text: string) => ReplyCheck;
+  /** One rewrite of `draft` given `note`; null when the call fails or returns nothing. */
+  rewrite: (draft: string, note: string) => Promise<string | null>;
+  bot: BotView;
+  sentAny: boolean;
+}): Promise<ReplyDecision> {
+  const { decision } = input;
+  if (decision.outcome !== 'answered' || decision.guardrail !== null || !decision.final)
+    return decision;
+  const first = input.check(decision.final);
+  if (first.ok) return decision;
+  const refuse = (guardrail: string): ReplyDecision => ({
+    outcome: input.sentAny ? 'answered' : 'fallback',
+    guardrail,
+    final: fallbackText(input.bot),
+  });
+  if (first.reason === 'instruction_leak') return refuse('instruction_leak');
+  const rewritten = await input.rewrite(decision.final, correctionNote(first));
+  if (rewritten && input.check(rewritten).ok) return { ...decision, final: rewritten };
+  return refuse('ungrounded_figures');
 }
 
 /**

@@ -453,7 +453,7 @@ describe('accounts', () => {
   });
 });
 
-describe('signup trial abuse (migration 0076)', () => {
+describe('signup trial abuse (migration 0077)', () => {
   it('gives one signup trial per person: Gmail dots, +tags and disposable inboxes', async () => {
     await putSettings({ trialEnabled: true, trialPlanCode: 'sales_pro', trialDays: 14 });
     const first = await hx.user('hoa.tran@gmail.com', 'Hoa');
