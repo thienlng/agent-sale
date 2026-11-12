@@ -157,6 +157,9 @@ describe('education and spa profiles', () => {
     });
     expect(REQUEST_PROFILES.spa.description).toContain(
       'preferredDate is YYYY-MM-DD only when the customer named a day; otherwise put their words in preferredTime',
+    ); // EV-7: the first question about a placement test already asks for the name and phone.
+    expect(REQUEST_PROFILES.education.description).toContain(
+      'Ask in one message for what is still missing: the name and a phone number (needed to record it)',
     );
   });
 

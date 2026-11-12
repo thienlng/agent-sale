@@ -192,7 +192,7 @@ const EDUCATION_PROFILE: RequestProfile = {
   toolName: 'record_request',
   actionName: 'Record a placement test, trial class or consultation request',
   description:
-    "Records that the customer wants a placement test, a trial class or a consultation on a learning path, so staff contact them. Call it when the customer clearly asks to register for a test or a trial class, or to be advised. First collect the course or goal, the student's age or level, the preferred branch or online, and a preferred time, then the name and a phone number; call it once the name and phone are known. Call it again when the customer adds or corrects details. Returns recorded true when the request is saved on the customer; `missing` lists details still worth asking for once. Staff confirm: never promise a slot, a teacher or a result.",
+    "Records that the customer wants a placement test, a trial class or a consultation on a learning path, so staff contact them. Call it when the customer clearly asks to register for a test or a trial class, or to be advised. Ask in one message for what is still missing: the name and a phone number (needed to record it), plus the course or goal, the student's age or level, the preferred branch or online, and a preferred time; call it once the name and phone are known. Call it again when the customer adds or corrects details. Returns recorded true when the request is saved on the customer; `missing` lists details still worth asking for once. Staff confirm: never promise a slot, a teacher or a result.",
   kinds: ['placement_test', 'trial', 'consultation'],
   kindLabels: {
     placement_test: 'Đăng ký kiểm tra trình độ',

@@ -195,6 +195,11 @@ describe('hold tools: gating (spec §4)', () => {
       CONFIRM_HOLD_TOOL,
       CANCEL_HOLD_DRAFT_TOOL,
     ]);
+    // EV-8: a hold lost before the confirm is apologised for, then the alternatives offered.
+    const confirm = holdTools({ ...ctx, confirmable: true }).definitions.find(
+      (d) => d.name === CONFIRM_HOLD_TOOL,
+    );
+    expect(confirm?.description).toContain('apologise that it was just taken');
   });
 });
 

@@ -95,7 +95,7 @@ const PREPARE_DEFINITION: ToolDefinition = {
 const CONFIRM_DEFINITION: ToolDefinition = {
   name: CONFIRM_HOLD_TOOL,
   description:
-    'The customer agreed to the hold summary sent earlier ("Giữ chỗ", "ok", "chốt"): places the hold exactly as summarised and returns its code and until when it is held. Staff call the customer to confirm the booking.',
+    'The customer agreed to the hold summary sent earlier ("Giữ chỗ", "ok", "chốt"): places the hold exactly as summarised and returns its code and until when it is held. Staff call the customer to confirm the booking. If another booking took the nights since the summary (ok false), apologise that it was just taken, then offer the alternatives it returns.',
   input: z.object({}),
 };
 
