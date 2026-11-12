@@ -355,6 +355,8 @@ export const QuoteRequest = StaySelection.extend({
    * omitted. Used only when `packageIds` is empty.
    */
   keepPackageIds: z.array(z.uuid()).max(100).optional(),
+  /** A booking edit's preview: that booking's own nights are not reported in `takenBy` (VL-A3). */
+  excludeBookingId: z.uuid().optional(),
 });
 export type QuoteRequest = z.infer<typeof QuoteRequest>;
 export const QuoteNight = z.object({

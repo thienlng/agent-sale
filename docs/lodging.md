@@ -104,7 +104,7 @@ Booking events go to the outbox: `lodging.booking.created.v1` and `lodging.booki
 
 `prepare_hold`, `confirm_hold` and `cancel_hold_draft` need the bot's **Chốt đơn** switch; without it the bot only checks availability. Hotel bots have no retail order tools.
 
-Holds placed from the bot's test chat (playground) are real holds: they block the nights and count in the waiting badge. Cancel them in **Booking** after testing.
+Holds placed from the bot's test chat (playground, channel `playground`) are real holds, but marked as tests (VL-A11): they carry the tag **Chat thử**, link no conversation and last at most 15 minutes (or the business's hold time when shorter), so they lapse on their own instead of blocking real guests. While they last they block the nights and count in the waiting badge; cancel them in **Booking** after testing to free the nights at once. Each test chat has its own drafts (TM-18): a new or reset test chat cannot confirm another chat's hold.
 
 ## Not done yet
 

@@ -132,7 +132,9 @@ export function requestTools(ctx: RequestToolContext): {
         recorded: true,
         updated: r.outcome === 'updated',
         kind,
-        missing: r.missing,
+        // LM-13: the details still missing were asked for when the request was first recorded;
+        // an update does not ask for them again (the bot asked an adult her age 4 times).
+        missing: r.outcome === 'updated' ? [] : r.missing,
         dateLabel: r.dateLabel,
       });
     },
