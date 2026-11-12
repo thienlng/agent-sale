@@ -66,6 +66,7 @@ function ProductRow({
   const { t: common } = useTranslation();
   const k = groupWording(industry, 'data.products', 'data.services');
   const navigate = useNavigate();
+  const [imageFailed, setImageFailed] = useState(false);
   return (
     <TableRow
       className="cursor-pointer"
@@ -86,10 +87,21 @@ function ProductRow({
         {index}
       </TableCell>
       <TableCell className="whitespace-normal">
-        <div className="flex items-center gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border bg-muted">
-            <Package className="size-5 text-muted-foreground" aria-hidden />
-          </span>
+        <div className="flex min-w-44 items-center gap-3">
+          {product.imageUrls[0] && !imageFailed ? (
+            <img
+              src={product.imageUrls[0]}
+              alt=""
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              onError={() => setImageFailed(true)}
+              className="size-10 shrink-0 rounded-lg border object-cover"
+            />
+          ) : (
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border bg-muted">
+              <Package className="size-5 text-muted-foreground" aria-hidden />
+            </span>
+          )}
           <span className="min-w-0">
             <Link
               to="/app/products/$productId"
@@ -106,10 +118,10 @@ function ProductRow({
       <TableCell className="tabular-nums">
         {priceLabel(product, industryGroup(industry) === 'service', common)}
       </TableCell>
-      <TableCell className="whitespace-normal text-sm text-muted-foreground">
+      <TableCell className="hidden text-sm whitespace-normal text-muted-foreground @3xl:table-cell">
         <span className="line-clamp-2 break-words">{product.description || '—'}</span>
       </TableCell>
-      <TableCell className="text-right text-sm text-muted-foreground tabular-nums">
+      <TableCell className="hidden text-right text-sm text-muted-foreground tabular-nums @2xl:table-cell">
         {formatDateTime(product.updatedAt)}
       </TableCell>
     </TableRow>
@@ -180,7 +192,7 @@ export function BotProductsTable({
         </p>
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full sm:w-80">
+        <div className="relative min-w-48 flex-1 sm:max-w-80">
           <Search
             aria-hidden
             className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
@@ -224,9 +236,11 @@ export function BotProductsTable({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border">
+      {/* Beside the Chat thử dock the page is narrow (TM-11): the name keeps its room and the
+          description and update time only show when the table has space for them. */}
+      <div className="@container overflow-hidden rounded-xl border">
         <div className="overflow-x-auto">
-          <Table className="min-w-[760px]">
+          <Table className="min-w-[26rem]">
             <TableHeader>
               <TableRow className="bg-muted hover:bg-muted [&>th]:font-medium [&>th]:text-brand-text">
                 {selecting ? (
@@ -234,9 +248,11 @@ export function BotProductsTable({
                 ) : null}
                 <TableHead className="w-14 text-center">{t(k('colIndex'))}</TableHead>
                 <TableHead>{t(k('colProduct'))}</TableHead>
-                <TableHead className="w-44">{t(k('colPrice'))}</TableHead>
-                <TableHead>{t(k('colDescription'))}</TableHead>
-                <TableHead className="w-40 text-right">{t(k('colUpdated'))}</TableHead>
+                <TableHead className="w-36">{t(k('colPrice'))}</TableHead>
+                <TableHead className="hidden @3xl:table-cell">{t(k('colDescription'))}</TableHead>
+                <TableHead className="hidden w-40 text-right @2xl:table-cell">
+                  {t(k('colUpdated'))}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
