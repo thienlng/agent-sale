@@ -13,6 +13,8 @@
 # hash lives in the Nginx Proxy Manager data volume, the gate token in the NPM proxy host config;
 # nothing secret goes to Git.
 # The new credentials are written to ~/beta-access.txt (mode 600) for the owner.
+# One login and one gate cookie are shared by every tester: rotate (`./beta-gate.sh on`) whenever
+# someone leaves the beta or the password may have spread; that also ends every gate cookie.
 set -euo pipefail
 
 mode=${1:?usage: beta-gate.sh on [user] | off}
@@ -21,6 +23,13 @@ host=$(grep -E '^PUBLIC_HOST=' "$(dirname "$0")/.env" | cut -d= -f2)
 npm=${NPM_CONTAINER:-infra-proxy-npm-1}
 api=http://127.0.0.1:81/api
 creds=~/npm-admin.txt
+[[ $user =~ ^[a-z][a-z0-9_-]{0,31}$ ]] || { echo "user must match [a-z][a-z0-9_-]{0,31}" >&2; exit 2; }
+# The NPM admin login opens every proxy host: owner-only, like the credentials this script writes.
+[[ -f $creds ]] || { echo "$creds is missing" >&2; exit 1; }
+if [[ $(stat -c %a "$creds") != 600 ]]; then
+  chmod 600 "$creds"
+  echo "tightened $creds to mode 600" >&2
+fi
 
 email=$(sed -n 's/^Email: //p' "$creds")
 secret=$(sed -n 's/^Password: //p' "$creds")
@@ -39,8 +48,8 @@ if [[ $mode == off ]]; then
 else
   pass=$(openssl rand -base64 24 | tr -d '/+=' | cut -c1-24)
   gate=$(openssl rand -hex 32)
-  printf '%s\n' "$pass" | docker exec -i "$npm" sh -c \
-    "mkdir -p /data/rapiz-beta && htpasswd -niB -C 12 '$user' > /data/rapiz-beta/htpasswd.new &&
+  printf '%s\n' "$pass" | docker exec -i -e GATE_USER="$user" "$npm" sh -c \
+    "mkdir -p /data/rapiz-beta && htpasswd -niB -C 12 \"\$GATE_USER\" > /data/rapiz-beta/htpasswd.new &&
      chmod 644 /data/rapiz-beta/htpasswd.new && mv /data/rapiz-beta/htpasswd.new /data/rapiz-beta/htpasswd"
   config="$base
 
