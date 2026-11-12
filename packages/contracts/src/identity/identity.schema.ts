@@ -12,10 +12,13 @@ const emailCode = z
   .trim()
   .regex(/^\d{6}$/);
 
-/** Signup, before the form is sent: emails a code to the address (one per minute). */
+/**
+ * Signup, before the form is sent: emails a code to the address (one per minute, capped per hour and
+ * day). A registered address gets the same 204 and a "you already have an account" email instead.
+ */
 export const SignupCodeRequest = z.object({
   email,
-  /** Greets the reader of the email when the form already has it. */
+  /** Ignored: kept for older clients. Code emails never carry text a requester typed. */
   name: z.string().trim().max(120).optional(),
 });
 export type SignupCodeRequest = z.infer<typeof SignupCodeRequest>;

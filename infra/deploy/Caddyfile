@@ -5,9 +5,13 @@
 # public host and forwards here, so the image knows nothing about the domain.
 {
 	auto_https off
+	# Only NPM (a private Docker address) is believed. Strict mode reads X-Forwarded-For from the
+	# right, so a value the client wrote itself never becomes the client IP. reverse_proxy appends
+	# NPM's address for the upstreams, which trust the same private ranges (TRUST_PROXY).
 	servers {
 		trusted_proxies static private_ranges
-		client_ip_headers X-Forwarded-For X-Real-IP
+		trusted_proxies_strict
+		client_ip_headers X-Forwarded-For
 	}
 }
 
