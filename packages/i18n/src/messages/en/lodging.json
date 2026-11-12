@@ -383,6 +383,7 @@
     "standardChildren": "Standard children",
     "maxGuests": "Maximum guests",
     "maxGuestsHint": "Leave empty if unknown.",
+    "maxBelowStandard": "Maximum {{max}} guests, but the standard party is already {{standard}} — please check.",
     "amenities": "Amenities",
     "amenitiesHint": "One per line.",
     "layout": "Bedroom layout",

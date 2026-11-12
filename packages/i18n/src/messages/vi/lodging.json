@@ -383,6 +383,7 @@
     "standardChildren": "Trẻ em tiêu chuẩn",
     "maxGuests": "Sức chứa tối đa",
     "maxGuestsHint": "Để trống nếu chưa xác định.",
+    "maxBelowStandard": "Tối đa {{max}} khách nhưng tiêu chuẩn đã {{standard}} khách — kiểm tra lại.",
     "amenities": "Tiện ích",
     "amenitiesHint": "Mỗi dòng một tiện ích.",
     "layout": "Bố trí phòng ngủ",
