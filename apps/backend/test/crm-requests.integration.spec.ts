@@ -280,16 +280,18 @@ describe('education requests', () => {
       true,
     );
 
+    // One card per request: the update is folded into it, with its first time (LM-4).
     const requests = (await call(a.headers, 'GET', `/contacts/${id}/requests`)).json().data;
-    expect(requests).toHaveLength(2);
+    expect(requests).toHaveLength(1);
     expect(requests[0]).toMatchObject({
       contactId: id,
       kind: 'placement_test',
       update: true,
+      updates: 1,
+      firstRecordedAt: expect.any(String),
       details: { name: 'Chị Hoa', course: 'IELTS', studentAge: '15', branch: 'online' },
     });
     expect(requests[0].details).not.toHaveProperty('phone');
-    expect(requests[1]).toMatchObject({ update: false, dateLabel: null });
 
     // An enrolled student stays enrolled; a lost one comes back to test_requested.
     const enrolled = await contact(a.headers, '0983456702');

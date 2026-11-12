@@ -128,7 +128,7 @@ export class CustomerRequestService {
       const contact = isUuid(contactId) ? await tx.contacts.find(contactId) : null;
       if (!contact || !canSee(contact, viewer)) throw new ContactNotFoundError(contactId);
       const rows = await tx.history.requestEntries(contactId, CONTACT_REQUESTS_LIMIT);
-      return { data: rows.flatMap((r) => toRequestDto(r) ?? []) };
+      return { data: foldUpdates(rows.flatMap((r) => toRequestDto(r) ?? [])) };
     });
   }
 
@@ -211,6 +211,32 @@ export class CustomerRequestService {
 }
 
 /** A history entry as a request; null for an entry whose data is not one (never written so). */
+/**
+ * One card per request (LM-4): entries come newest first, and the bot's updates of a request
+ * (`update`) are folded into its newest entry, which already holds the merged details. A request's
+ * chain ends at its first (not update) entry of the same kind.
+ */
+export function foldUpdates(entries: readonly CustomerRequestDto[]): CustomerRequestDto[] {
+  const out: CustomerRequestDto[] = [];
+  const open = new Map<string, CustomerRequestDto>();
+  for (const e of entries) {
+    const head = open.get(e.kind);
+    if (head) {
+      if (e.update) head.updates = (head.updates ?? 0) + 1;
+      else {
+        head.firstRecordedAt = e.recordedAt;
+        open.delete(e.kind);
+      }
+      continue;
+    }
+    const card: CustomerRequestDto = { ...e, updates: e.update ? 1 : 0 };
+    if (!e.update) card.firstRecordedAt = e.recordedAt;
+    else open.set(e.kind, card);
+    out.push(card);
+  }
+  return out;
+}
+
 function toRequestDto(r: HistoryRecord): CustomerRequestDto | null {
   const kind = CustomerRequestKind.safeParse(r.data['kind']);
   if (!kind.success) return null;

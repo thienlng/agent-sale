@@ -444,6 +444,13 @@ export const CustomerRequestDto = z.object({
   /** "Thứ Bảy 08/11/2026" when `preferredDate` was given. */
   dateLabel: z.string().nullable(),
   recordedAt: z.iso.datetime(),
+  /**
+   * `GET /contacts/{id}/requests` only: the bot updates folded into this request (its latest
+   * state, LM-4) and when the request was first recorded (absent when the first entry is older
+   * than the entries read).
+   */
+  updates: z.number().int().min(0).optional(),
+  firstRecordedAt: z.iso.datetime().optional(),
 });
 export type CustomerRequestDto = z.infer<typeof CustomerRequestDto>;
 
