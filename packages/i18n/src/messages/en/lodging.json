@@ -764,7 +764,7 @@
   },
   "delete": {
     "title": "Delete property",
-    "hint": "Only a property that has never had a booking can be deleted. Pause a property with bookings instead.",
+    "hint": "Delete the property with its rooms, rates and pictures. Its bookings, if any, are deleted too; to keep the booking history, pause the property instead.",
     "action": "Delete property",
     "confirmTitle": "Delete property {{name}}?",
     "confirmBody": "The property, its rooms, rates, night notes and media list are deleted for good, and the bot stops offering it. This cannot be undone.",
@@ -772,8 +772,17 @@
     "deleting": "Deleting…",
     "cancel": "Cancel",
     "deleted": "Property {{name}} deleted.",
-    "hasBookings": "This property has bookings, so it cannot be deleted (its booking history is kept). Pause it: the bot stops offering it and past bookings stay.",
-    "hasBookingsPaused": "This property has bookings, so it cannot be deleted (its booking history is kept). It is paused, so the bot no longer offers it.",
+    "hasBookings_one": "This property has {{count}} booking. Deleting the property also deletes it and its booking history.",
+    "hasBookings_other": "This property has {{count}} bookings. Deleting the property also deletes them and its booking history.",
+    "upcoming_one": "{{count}} of them is still live (upcoming or the guest is staying): tell the guest before deleting.",
+    "upcoming_other": "{{count}} of them are still live (upcoming or the guest is staying): tell the guests before deleting.",
+    "keepHistory": "To keep the booking history, pause the property instead: the bot stops offering it and the bookings stay.",
+    "confirmCodeLabel": "Type the property code to confirm",
+    "confirmCodeHint": "Type exactly:",
+    "copyCode": "Copy the code {{code}}",
+    "codeCopied": "Property code copied",
+    "confirmWithBookings_one": "Delete the property and {{count}} booking",
+    "confirmWithBookings_other": "Delete the property and {{count}} bookings",
     "pauseInstead": "Pause property",
     "paused": "Property {{name}} paused."
   }

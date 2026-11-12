@@ -115,16 +115,21 @@ function lodgingTx(tx: TenantTx, ws: WorkspaceId): LodgingTx {
       );
     },
 
-    async propertyHasBookings(propertyId) {
+    async propertyBookings(propertyId) {
       const [r] = await tx
-        .select({ x: sql`1` })
+        .select({
+          total: sql<number>`count(*)::int`,
+          upcoming: sql<number>`(count(*) filter (where ${B.status} in ('hold', 'confirmed', 'checked_in', 'active') and ${B.checkOut} >= current_date))::int`,
+        })
         .from(B)
-        .where(and(eq(B.workspaceId, ws), eq(B.propertyId, propertyId)))
-        .limit(1);
-      return Boolean(r);
+        .where(and(eq(B.workspaceId, ws), eq(B.propertyId, propertyId)));
+      return { total: r?.total ?? 0, upcoming: r?.upcoming ?? 0 };
     },
 
-    async deleteProperty(propertyId) {
+    async deleteProperty(propertyId, opts) {
+      if (opts?.withBookings) {
+        await tx.delete(B).where(and(eq(B.workspaceId, ws), eq(B.propertyId, propertyId)));
+      }
       try {
         await tx.delete(P).where(and(eq(P.workspaceId, ws), eq(P.id, propertyId)));
       } catch (e) {

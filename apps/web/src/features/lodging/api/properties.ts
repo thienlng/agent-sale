@@ -114,16 +114,20 @@ export function useDeleteOverride() {
 }
 
 /**
- * Hard delete of a property that has never had a booking (otherwise 409
- * `details.reason = 'property_has_bookings'`). Drops its cached detail and refreshes lodging.
+ * Hard delete of a property. One with bookings answers 409 `details.reason =
+ * 'property_has_bookings'` with `details.bookings`/`details.upcoming`, unless `withBookings` (the
+ * owner confirmed deleting them too). Drops its cached detail and refreshes lodging.
  */
 export function useDeleteProperty() {
   const ws = useWorkspaceId();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      api(`/lodging/properties/${id}`, z.null(), { method: 'DELETE', workspaceId: ws }),
-    onSuccess: (_data, id) => {
+    mutationFn: ({ id, withBookings = false }: { id: string; withBookings?: boolean }) =>
+      api(`/lodging/properties/${id}${withBookings ? '?withBookings=true' : ''}`, z.null(), {
+        method: 'DELETE',
+        workspaceId: ws,
+      }),
+    onSuccess: (_data, { id }) => {
       qc.removeQueries({ queryKey: lodgingKeys.property(ws, id) });
       void qc.invalidateQueries({ queryKey: lodgingKeys.all(ws) });
     },

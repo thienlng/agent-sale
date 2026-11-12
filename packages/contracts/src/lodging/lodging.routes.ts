@@ -13,6 +13,7 @@ import {
   CreateBookingRequest,
   CreateOverrideRequest,
   DeleteOverrideQuery,
+  DeletePropertyQuery,
   LodgingSettings,
   NightNoteResult,
   PropertyDto,
@@ -83,9 +84,12 @@ export const lodgingV2Routes = defineRoutes([
     method: 'delete',
     path: '/lodging/properties/{id}',
     // Irreversible: only the owner, in the editor. A property with bookings answers 409
-    // `details.reason = 'property_has_bookings'` (pause it instead).
+    // `details.reason = 'property_has_bookings'` with the counts, unless `withBookings=true`
+    // (the owner confirmed deleting its bookings too).
     assistant: { use: 'never' },
-    summary: 'Delete a property that has never had a booking, with its rooms, rates and media list',
+    summary:
+      'Delete a property with its rooms, rates and media list (and its bookings, if confirmed)',
+    query: DeletePropertyQuery,
     responses: { 204: null },
   },
   {

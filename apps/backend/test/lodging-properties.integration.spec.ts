@@ -717,8 +717,41 @@ describe('lodging v2 properties over HTTP', () => {
     const r = await call(o.headers, 'DELETE', `/lodging/properties/${p.id}`);
     expect(r.statusCode, r.body).toBe(409);
     expect(r.json()).toMatchObject({
-      error: { code: 'CONFLICT', details: { reason: 'property_has_bookings' } },
+      error: {
+        code: 'CONFLICT',
+        details: { reason: 'property_has_bookings', bookings: 1, upcoming: 0 },
+      },
     });
     expect((await call(o.headers, 'GET', `/lodging/properties/${p.id}`)).statusCode).toBe(200);
+  });
+
+  it('deletes a property with its bookings and nights once the owner confirms', async () => {
+    const o = await signup();
+    const p = await create(o.headers, villa());
+    const today = localToday(new Date());
+    await seedBooking(
+      o.ws,
+      booking(p.id, [p.units[0]?.id ?? ''], addNights(today, 3), addNights(today, 5)),
+    );
+    const refused = await call(o.headers, 'DELETE', `/lodging/properties/${p.id}`);
+    expect(refused.statusCode, refused.body).toBe(409);
+    expect(refused.json()).toMatchObject({
+      error: { details: { reason: 'property_has_bookings', bookings: 1, upcoming: 1 } },
+    });
+    const r = await call(o.headers, 'DELETE', `/lodging/properties/${p.id}?withBookings=true`);
+    expect(r.statusCode, r.body).toBe(204);
+    expect((await call(o.headers, 'GET', `/lodging/properties/${p.id}`)).statusCode).toBe(404);
+    for (const table of ['lodging_bookings', 'lodging_units']) {
+      const rows = (await owner.db.execute(
+        sql.raw(`select count(*)::int as n from ${table} where property_id = '${p.id}'`),
+      )) as unknown as { n: number }[];
+      expect(rows[0]?.n, table).toBe(0);
+    }
+    const nights = (await owner.db.execute(
+      sql.raw(
+        `select count(*)::int as n from lodging_unit_nights where unit_id = '${p.units[0]?.id ?? ''}'`,
+      ),
+    )) as unknown as { n: number }[];
+    expect(nights[0]?.n).toBe(0);
   });
 });

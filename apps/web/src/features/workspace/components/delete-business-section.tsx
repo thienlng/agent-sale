@@ -1,7 +1,7 @@
 import { BUSINESS_RESTORE_DAYS } from '@agent-sales/contracts';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Check, Copy, Loader2, Trash2 } from 'lucide-react';
 import { type FormEvent, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -106,7 +106,8 @@ function DeleteBusinessDialog({
   const [error, setError] = useState<string | null>(null);
   const inputId = useId();
   const hintId = useId();
-  const matches = typed.trim() === name.trim();
+  const [copied, setCopied] = useState(false);
+  const matches = comparableName(typed) === comparableName(name);
   const days = BUSINESS_RESTORE_DAYS;
 
   const close = (next: boolean) => {
@@ -114,8 +115,19 @@ function DeleteBusinessDialog({
     if (!next) {
       setTyped('');
       setError(null);
+      setCopied(false);
     }
     onOpenChange(next);
+  };
+
+  const copyName = () => {
+    void navigator.clipboard
+      .writeText(name)
+      .then(() => {
+        setCopied(true);
+        toast.success(t('business.delete.nameCopied'));
+      })
+      .catch(() => undefined);
   };
 
   const onSubmit = (e: FormEvent) => {
@@ -167,9 +179,22 @@ function DeleteBusinessDialog({
                 setError(null);
               }}
             />
-            <p id={hintId} className="text-xs text-muted-foreground">
-              {t('business.delete.confirmHint', { name })}
-            </p>
+            <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              <span id={hintId}>
+                {t('business.delete.confirmHint')}{' '}
+                <span className="font-medium text-foreground select-all">{name}</span>
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label={t('business.delete.copyName', { name })}
+                title={t('business.delete.copyName', { name })}
+                onClick={copyName}
+              >
+                {copied ? <Check className="text-success" /> : <Copy />}
+              </Button>
+            </div>
             {error ? (
               <p role="alert" className="text-sm text-destructive">
                 {error}
@@ -191,4 +216,9 @@ function DeleteBusinessDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+/** The name as the server compares it (ADR-033): NFC, single spaces, trimmed. */
+function comparableName(name: string): string {
+  return name.normalize('NFC').replace(/\s+/g, ' ').trim();
 }

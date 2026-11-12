@@ -121,6 +121,16 @@ describe('DeleteBusinessSection', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
+  it('copies the exact name and accepts it typed with decomposed accents', async () => {
+    setup({ status: 200, body: DELETED });
+    const user = await openDialog();
+    await user.click(screen.getByRole('button', { name: 'Chép tên Tiệm Hoa Mai' }));
+    expect(await navigator.clipboard.readText()).toBe('Tiệm Hoa Mai');
+    await user.click(screen.getByLabelText('Nhập tên business để xác nhận'));
+    await user.paste('Tiệm Hoa Mai'.normalize('NFD'));
+    expect(screen.getByRole('button', { name: 'Xoá business' })).toBeEnabled();
+  });
+
   it('tells a member who is not the owner that only the owner can delete', async () => {
     role.value = 'admin';
     setup({ status: 403 });
