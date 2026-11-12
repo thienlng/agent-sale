@@ -251,6 +251,9 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
         mode: 'human' as const,
         takeover: 'temporary' as const,
         autoResumeAt: this.resumeAt(bot),
+        // The bot's hand-over line answered nobody: the customer now waits for staff, so the
+        // conversation is "Chờ trả lời" in the inbox and "Chưa trả lời" on Today (MS2-11).
+        awaitingSince: c.awaitingSince ?? c.lastInboundAt,
         // A control change: new revision, same place in the list.
         revision: c.revision + 1,
       };

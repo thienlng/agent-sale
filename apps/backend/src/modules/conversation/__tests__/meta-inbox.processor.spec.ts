@@ -601,6 +601,8 @@ describe('MetaInboxProcessor', () => {
     ]);
     await processor.tick();
     expect((await inbox.get(ws, c!.id)).conversation.mode).toBe('human');
+    // The customer waits for staff: listed as waiting, so Today shows it as unanswered (MS2-11).
+    expect((await inbox.get(ws, c!.id)).conversation.awaitingSince).not.toBeNull();
     expect(channels.completeEvent).toHaveBeenCalled();
     // The customer is told staff will answer instead of getting nothing (MS-9, LM-1).
     expect(channels.deliver).toHaveBeenCalledTimes(1);
