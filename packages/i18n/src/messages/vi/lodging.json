@@ -274,7 +274,7 @@
     "nights": "{{count}} đêm",
     "overdue": "Quá hạn",
     "expiresAt": "hết hạn {{time}}",
-    "expiresOn": "{{date}} {{time}}",
+    "expiresOn": "hết hạn {{time}} {{date}}",
     "block": "Khoá lịch: {{reason}}",
     "empty": {
       "today": "Hôm nay không có khách nhận hoặc trả phòng.",

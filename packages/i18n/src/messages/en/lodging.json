@@ -274,7 +274,7 @@
     "nights": "{{count}} nights",
     "overdue": "Overdue",
     "expiresAt": "expires {{time}}",
-    "expiresOn": "{{date}} {{time}}",
+    "expiresOn": "expires {{time}} {{date}}",
     "block": "Blocked: {{reason}}",
     "empty": {
       "today": "No arrivals or departures today.",

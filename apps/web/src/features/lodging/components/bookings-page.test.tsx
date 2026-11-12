@@ -306,4 +306,16 @@ describe('BookingsPage bot holds', () => {
       ).toBe(true),
     );
   });
+
+  it('shows each hold as a card with its dates and expiry on a phone (VL-A10)', async () => {
+    stub();
+    vi.stubGlobal('innerWidth', 390);
+    renderPage();
+    await userEvent.click(await screen.findByRole('tab', { name: 'Giữ chỗ' }));
+    const card = await screen.findByRole('button', { name: /BK-0011/ });
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(card).toHaveTextContent('Chị Lan');
+    expect(card).toHaveTextContent('→');
+    expect(card).toHaveTextContent(/hết hạn \d{2}:\d{2} 01\/11\/2099/);
+  });
 });

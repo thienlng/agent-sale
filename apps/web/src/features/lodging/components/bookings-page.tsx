@@ -135,8 +135,9 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
           ))}
         </TabsList>
       </Tabs>
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-0 flex-1 sm:max-w-80">
+      {/* Phone: search on its own full-width line, filters two per line (VL-A10). */}
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+        <div className="relative col-span-2 min-w-0 sm:max-w-80 sm:flex-1">
           <Search
             className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden
@@ -145,14 +146,14 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
             type="search"
             aria-label={t('list.searchLabel')}
             placeholder={t('list.search')}
-            className="pl-8"
+            className="pl-8 sm:h-9"
             maxLength={100}
             value={q}
             onChange={(e) => reset(setQ)(e.target.value)}
           />
         </div>
         <Select value={propertyId} onValueChange={reset(setPropertyId)}>
-          <SelectTrigger size="sm" className="w-44" aria-label={t('list.property')}>
+          <SelectTrigger size="sm" className="w-full sm:w-44" aria-label={t('list.property')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -165,7 +166,7 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
           </SelectContent>
         </Select>
         <Select value={tag} onValueChange={reset(setTag)}>
-          <SelectTrigger size="sm" className="w-40" aria-label={t('list.tag')}>
+          <SelectTrigger size="sm" className="w-full sm:w-40" aria-label={t('list.tag')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -178,7 +179,7 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
           </SelectContent>
         </Select>
         <Select value={source} onValueChange={reset(setSource)}>
-          <SelectTrigger size="sm" className="w-36" aria-label={t('list.source')}>
+          <SelectTrigger size="sm" className="w-full sm:w-36" aria-label={t('list.source')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -192,7 +193,7 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
         </Select>
         {view === 'all' && (
           <Select value={status} onValueChange={reset(setStatus)}>
-            <SelectTrigger size="sm" className="w-40" aria-label={t('list.status')}>
+            <SelectTrigger size="sm" className="w-full sm:w-40" aria-label={t('list.status')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

@@ -11,10 +11,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 
 import { botHoldPending } from '../lib/bot-hold';
-import { clockTime, dayMonth, formatVnd, nightsBetween } from '../lib/format';
+import { clockTime, formatVnd, localDayMonth, nightsBetween, stayDate } from '../lib/format';
 import { BookingStatusBadge } from './booking-status-badge';
 import { TagChips } from './tag-input';
 
@@ -26,18 +27,13 @@ export function HoldExpiry({ at, now }: { at: string | null; now: number }) {
   if (!at) return null;
   const left = new Date(at).getTime() - now;
   if (left <= 0) return <span className="font-semibold text-destructive">{t('list.overdue')}</span>;
-  const date = new Date(at);
   const sameDay = left < 24 * 3_600_000;
   return (
     <span className={cn('tabular-nums', left < SOON_MS && 'font-semibold text-destructive')}>
       {sameDay
         ? t('list.expiresAt', { time: clockTime(at) })
         : t('list.expiresOn', {
-            date: new Intl.DateTimeFormat('vi-VN', {
-              timeZone: 'Asia/Ho_Chi_Minh',
-              day: '2-digit',
-              month: '2-digit',
-            }).format(date),
+            date: localDayMonth(at),
             time: clockTime(at),
           })}
     </span>
@@ -61,7 +57,10 @@ export function BotBadge({ pending }: { pending: boolean }) {
   );
 }
 
-/** Booking rows; a row (or its code button, for the keyboard) opens the booking sheet. */
+/**
+ * Booking rows; a row (or its code button, for the keyboard) opens the booking sheet. On a
+ * phone the seven columns do not fit, so each booking is a card instead (VL-A10).
+ */
 export function BookingsTable({
   bookings,
   showExpiry,
@@ -76,6 +75,18 @@ export function BookingsTable({
 }) {
   const { t } = useTranslation('lodging');
   const now = Date.now();
+  const isMobile = useIsMobile();
+  if (isMobile) {
+    return (
+      <ul className="divide-y">
+        {bookings.map((b) => (
+          <li key={b.id}>
+            <BookingCard booking={b} showExpiry={showExpiry} now={now} onOpen={onOpen} />
+          </li>
+        ))}
+      </ul>
+    );
+  }
   return (
     <Table className="min-w-[760px] text-[13px]">
       <TableHeader>
@@ -144,7 +155,7 @@ export function BookingsTable({
               </TableCell>
               <TableCell className="tabular-nums">
                 <span className="block">
-                  {dayMonth(b.checkIn)} → {dayMonth(b.checkOut)}
+                  {stayDate(b.checkIn)} → {stayDate(b.checkOut)}
                 </span>
                 <span className="block text-xs text-muted-foreground">
                   {t('list.nights', { count: nightsBetween(b.checkIn, b.checkOut) })}
@@ -171,5 +182,64 @@ export function BookingsTable({
         })}
       </TableBody>
     </Table>
+  );
+}
+
+/** One booking on a phone: code + status, guest, place, dates, party, total and hold expiry. */
+function BookingCard({
+  booking: b,
+  showExpiry,
+  now,
+  onOpen,
+}: {
+  booking: BookingDto;
+  showExpiry: boolean;
+  now: number;
+  onOpen: (id: string) => void;
+}) {
+  const { t } = useTranslation('lodging');
+  const block = b.kind === 'block';
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(b.id)}
+      className="grid w-full gap-1 px-3 py-3 text-left text-sm focus-visible:bg-muted focus-visible:outline-none"
+    >
+      <span className="flex flex-wrap items-center gap-1.5">
+        <span className="font-semibold tabular-nums">{b.code}</span>
+        <BookingStatusBadge status={b.status} />
+        {b.source === 'bot' && <BotBadge pending={botHoldPending(b)} />}
+        <span className="ml-auto font-medium tabular-nums">
+          {b.totalSell === null ? '—' : formatVnd(b.totalSell)}
+        </span>
+      </span>
+      <span className="truncate font-medium">
+        {block ? t('list.block', { reason: b.blockReason }) : b.guestName}
+        {!block && b.guestPhone && (
+          <span className="font-normal text-muted-foreground tabular-nums"> · {b.guestPhone}</span>
+        )}
+      </span>
+      <span className="truncate text-muted-foreground">
+        <span className="font-medium text-foreground tabular-nums">{b.propertyCode}</span>
+        {' · '}
+        {b.whole ? t('sheet.whole') : b.unitNames.join(', ')}
+      </span>
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-muted-foreground tabular-nums">
+        <span className="text-foreground">
+          {stayDate(b.checkIn)} → {stayDate(b.checkOut)}
+        </span>
+        <span>{t('list.nights', { count: nightsBetween(b.checkIn, b.checkOut) })}</span>
+        {!block && (
+          <span>
+            {t('cal.capacity', { adults: b.party.adults, children: b.party.childAges.length })}
+          </span>
+        )}
+        {showExpiry && b.holdExpiresAt && (
+          <span className="ml-auto">
+            <HoldExpiry at={b.holdExpiresAt} now={now} />
+          </span>
+        )}
+      </span>
+    </button>
   );
 }
