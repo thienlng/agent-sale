@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { collectPageContext, fillAssistantForm } from '@/lib/assistant-context';
 import { renderWithRouter, stubFetch } from '@/testing/render';
 
-import { ProductForm } from './product-form';
+import { fillMissingSkus, ProductForm } from './product-form';
 
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
@@ -147,7 +147,7 @@ describe('ProductForm and the owner assistant', () => {
       fields: expect.arrayContaining([
         expect.objectContaining({ name: 'name', type: 'text', empty: true }),
         expect.objectContaining({ name: 'price', type: 'number', empty: true }),
-        expect.objectContaining({ name: 'sku', type: 'text', empty: true, required: true }),
+        expect.objectContaining({ name: 'sku', type: 'text', empty: true }),
         expect.objectContaining({ name: 'cost', type: 'number', empty: true }),
         expect.objectContaining({ name: 'weightGram', type: 'number', empty: true }),
       ]),
@@ -212,6 +212,19 @@ describe('ProductForm of a spa or education business', () => {
     type(NAME, 'Chăm sóc da');
     type(/^SKU/, 'DV01-60');
   }
+
+  it('saves a new service without a package SKU, making it from the code (LM-3b)', async () => {
+    const calls = renderNew('service');
+    await screen.findByLabelText(CODE);
+    type(CODE, 'DV09');
+    type(NAME, 'Gội đầu');
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu dịch vụ' }));
+    await waitFor(() => expect(calls.find((c) => c.key === 'POST /products')).toBeDefined());
+    expect(calls.find((c) => c.key === 'POST /products')?.body).toMatchObject({
+      code: 'DV09',
+      variants: [expect.objectContaining({ sku: 'DV09' })],
+    });
+  });
 
   it('sends the service details of a new spa service', async () => {
     const calls = renderNew('service');
@@ -498,5 +511,14 @@ describe('ProductForm SKU errors (TM-7)', () => {
     await waitFor(() =>
       expect(sku).toHaveAccessibleDescription('SKU này đã dùng cho một sản phẩm khác.'),
     );
+  });
+});
+
+describe('fillMissingSkus', () => {
+  it('makes empty SKUs from the code and skips the ones already used', () => {
+    expect(fillMissingSkus('KH01', ['', ''])).toEqual(['KH01', 'KH01-2']);
+    expect(fillMissingSkus('KH01', ['KH01-2', '', ''])).toEqual(['KH01-2', 'KH01-3', 'KH01-4']);
+    expect(fillMissingSkus('KH01', [' A ', ''])).toEqual(['A', 'KH01-2']);
+    expect(fillMissingSkus('', [''])).toEqual(['']);
   });
 });

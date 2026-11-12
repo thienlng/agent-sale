@@ -48,6 +48,24 @@ interface VariantDraft {
   weightGram: number;
 }
 
+/**
+ * SKUs left empty are made from the code, like the variants added with "Thêm mẫu mã" are
+ * (`<code>-<n>`): the first variant takes the code itself, the others `<code>-<n>`, skipping any
+ * SKU already in the list. A course or service no longer needs an invented package SKU (LM-3b).
+ */
+export function fillMissingSkus(code: string, skus: readonly string[]): string[] {
+  const base = code.trim();
+  const taken = new Set(skus.map((s) => s.trim().toLowerCase()).filter(Boolean));
+  return skus.map((sku, i) => {
+    if (sku.trim() || !base) return sku.trim();
+    let n = i + 1;
+    let next = i === 0 ? base : `${base}-${n}`;
+    while (taken.has(next.toLowerCase())) next = `${base}-${++n}`;
+    taken.add(next.toLowerCase());
+    return next;
+  });
+}
+
 let seq = 0;
 const blankVariant = (code = ''): VariantDraft => ({
   key: `v${++seq}`,
@@ -136,7 +154,7 @@ export function ProductForm({
     );
 
   // The owner assistant may fill a new product's main fields (the first variant's SKU, price,
-  // cost and weight; the SKU is required to save), and the details of a course or service
+  // cost and weight; an empty SKU is made from the code on save), and the details of a course or service
   // (length, sessions, format, level, period, schedule, audience, price note);
   // the owner reviews them and saves. Editing an existing product is a proposal, not a fill.
   const first = variants[0];
@@ -178,7 +196,6 @@ export function ProductForm({
         label: t('products.form.sku'),
         type: 'text',
         empty: !first?.sku.trim(),
-        required: true,
         value: first?.sku ?? '',
       },
       { name: 'price', label: word('price'), type: 'number', empty: !first?.price },
@@ -317,6 +334,10 @@ export function ProductForm({
       if (first) document.getElementById(`pv-sku-${first.key}`)?.focus();
       return;
     }
+    const skus = fillMissingSkus(
+      code,
+      variants.map((v) => v.sku),
+    );
     const body: UpsertProductRequest = {
       code: code.trim(),
       name: name.trim(),
@@ -328,9 +349,9 @@ export function ProductForm({
       status: archived ? 'archived' : 'active',
       ...(!product && botId ? { botId } : {}),
       ...(editKind ? { offering: retail ? null : toOffering(offering, editKind) } : {}),
-      variants: variants.map((v) => ({
+      variants: variants.map((v, i) => ({
         ...(v.id ? { id: v.id } : {}),
-        sku: v.sku.trim(),
+        sku: skus[i] ?? v.sku.trim(),
         name: v.name.trim(),
         price: v.price,
         cost: v.cost,
@@ -537,8 +558,8 @@ export function ProductForm({
                   <Input
                     id={`pv-sku-${v.key}`}
                     {...lockedField('pv-locked-hint')}
-                    required
                     maxLength={64}
+                    placeholder={t('products.form.skuAuto')}
                     value={v.sku}
                     {...(skuProblems.has(v.key)
                       ? { 'aria-invalid': true, 'aria-describedby': `pv-sku-${v.key}-error` }
