@@ -297,7 +297,11 @@ export function quoteStay(
   const extraAdults = Math.max(0, input.adults + older - standard.adults);
   const extraChildren = Math.max(0, small + child - standard.children);
   const chargeableChildren = Math.min(extraChildren, child);
-  if (extraChildren > chargeableChildren) warnings.add('over_standard');
+  // Free children above the child standard take the standard's unused adult places (VL-A1): a
+  // toddler fits wherever an adult would, so it never makes a party unfit that a paid child fits.
+  // Paid children keep their surcharge (pricing unchanged).
+  const spareAdultPlaces = Math.max(0, standard.adults - input.adults - older);
+  if (extraChildren - chargeableChildren > spareAdultPlaces) warnings.add('over_standard');
 
   const surcharges: QuoteLineSurcharge[] = [];
   const addSurcharge = (

@@ -999,3 +999,42 @@ describe('prompts 15 and 16 (T-138)', () => {
     expect(last.match(/<\/business_profile>/g)).toHaveLength(1);
   });
 });
+
+describe('phones from summarised turns (EV-2)', () => {
+  it('reaches the model when the summarizer fails and the first turn is cut', async () => {
+    const requests: GenerateRequest[] = [];
+    const llm = {
+      generate: async (req: GenerateRequest) => {
+        requests.push(req);
+        // The summarizer (no tools) fails like a provider 429; the reply call answers.
+        if (!req.tools) throw new Error('429');
+        return {
+          text: 'Dạ số chị là 0987 654 321 ạ.',
+          toolCalls: [],
+          stopReason: 'end',
+          usage: { inputTokens: 1, outputTokens: 1, cachedInputTokens: 0 },
+          provider: 'fake',
+          model: 'echo',
+          latencyMs: 1,
+        };
+      },
+    } as unknown as LlmRuntime;
+    const { svc } = service(llm);
+    const long = 'x'.repeat(1_000);
+    const messages = [
+      { role: 'customer' as const, content: `Chào shop, số của mình là 0987 654 321. ${long}` },
+      ...Array.from({ length: 40 }, (_, i) => ({
+        role: i % 2 === 0 ? ('bot' as const) : ('customer' as const),
+        content: `lượt ${i} ${long}`,
+      })),
+      { role: 'customer' as const, content: 'mình để lại số nào ấy nhỉ?' },
+    ];
+    await svc.playground(ws, botId, { messages });
+    const reply = requests.find((r) => r.tools);
+    const last = reply?.messages.at(-1)?.content ?? '';
+    expect(JSON.stringify(reply?.messages.slice(1, -1))).not.toContain('0987 654 321');
+    expect(last).toContain(
+      'Phone numbers the customer wrote in earlier messages (now summarized): 0987 654 321.',
+    );
+  });
+});

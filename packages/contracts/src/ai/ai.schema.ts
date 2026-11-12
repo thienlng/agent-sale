@@ -48,8 +48,20 @@ export const PlaygroundRequest = z.object({
    * `send_message` with an `albumId` sends the folder's photos not among them first (T-192).
    */
   sentMediaUrls: z.array(z.string().max(2000)).max(200).optional(),
+  /**
+   * One test chat of the dashboard (a new id per "Chat thử" session, a fresh one after reset): the
+   * pending order, hold and action drafts are kept per session, so one test chat never confirms
+   * another's draft (TM-18). Absent: one shared session per bot (older clients, evals).
+   */
+  sessionId: z.uuid().optional(),
 });
 export type PlaygroundRequest = z.infer<typeof PlaygroundRequest>;
+
+/**
+ * The channel of a dashboard test chat ("Chat thử"): an order or hold it creates is marked as a
+ * test (VL-A11) and is never linked to an inbox conversation.
+ */
+export const PLAYGROUND_CHANNEL = 'playground';
 
 /**
  * answered: grounded reply; fallback: the bot did not know (bot's fallback
