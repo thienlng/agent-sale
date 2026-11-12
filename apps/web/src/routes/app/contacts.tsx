@@ -16,6 +16,7 @@ import {
   useSubscriptionColumns,
 } from '@/features/saas/components/subscription-columns';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
+import { ContactTasks } from '@/features/brain/components/conversation-brain';
 import { industryGroup } from '@/lib/industry-group';
 import { useCan } from '@/lib/permissions';
 import { loadNamespace } from '@/lib/i18n';
@@ -40,7 +41,9 @@ export const Route = createFileRoute('/app/contacts')({
   validateSearch: Search,
   // The KiotViet badge and field hint read the `integration` namespace (kept out of common.json).
   // A failed load shows raw keys there instead of the error page.
-  loader: () => loadNamespace('integration').catch(() => undefined),
+  // "brain" words the customer's tasks (MS2-8); a failed load shows raw keys, not an error page.
+  loader: () =>
+    Promise.all([loadNamespace('integration'), loadNamespace('brain')]).catch(() => undefined),
   component: function ContactsPage() {
     const search = Route.useSearch();
     const navigate = useNavigate({ from: '/app/contacts' });
@@ -67,13 +70,17 @@ export const Route = createFileRoute('/app/contacts')({
         search={search}
         onSearch={(next) => void navigate({ search: next, replace: true })}
         renderConversations={(contactId) => <ContactConversations contactId={contactId} />}
-        renderOverviewExtra={
-          saas
-            ? (contactId) => <SubscriptionCard contactId={contactId} />
-            : service
-              ? (contactId) => <CustomerRequestsCard contactId={contactId} industry={service} />
-              : undefined
-        }
+        // Every business lists the customer's open tasks (MS2-8), then its industry block.
+        renderOverviewExtra={(contactId) => (
+          <div className="flex flex-col gap-4">
+            <ContactTasks contactId={contactId} />
+            {saas ? (
+              <SubscriptionCard contactId={contactId} />
+            ) : service ? (
+              <CustomerRequestsCard contactId={contactId} industry={service} />
+            ) : null}
+          </div>
+        )}
         summary={
           saas ? (
             <SaasSummaryStrip onStage={showStage} onOpenContact={openContact} />

@@ -27,8 +27,8 @@ export const brainKeys = {
   settings: (ws: string) => ['ws', ws, 'brain', 'settings'] as const,
   usage: (ws: string) => ['ws', ws, 'brain', 'usage'] as const,
   signal: (ws: string, id: string) => ['ws', ws, 'brain', 'signal', id] as const,
-  tasks: (ws: string, conversationId: string) =>
-    ['ws', ws, 'brain', 'tasks', conversationId] as const,
+  /** Open tasks of a conversation or of a customer (`subjectId` is either id). */
+  tasks: (ws: string, subjectId: string) => ['ws', ws, 'brain', 'tasks', subjectId] as const,
 };
 
 /** The Today page re-reads its queues every minute while it is open. */
@@ -225,16 +225,29 @@ export function useSetStage() {
 
 /** Open tasks of one conversation (the inbox panel); everyone's with `contacts.view_all`. */
 export function useConversationTasks(conversationId: string, scope: 'mine' | 'all') {
+  return useOpenTasks({ conversationId }, scope);
+}
+
+/** Open tasks of one customer (the customer sheet, MS2-8); everyone's with `contacts.view_all`. */
+export function useContactTasks(contactId: string, scope: 'mine' | 'all') {
+  return useOpenTasks({ contactId }, scope);
+}
+
+function useOpenTasks(
+  of: { conversationId: string } | { contactId: string },
+  scope: 'mine' | 'all',
+) {
   const ws = useWorkspaceId();
+  const id = 'conversationId' in of ? of.conversationId : of.contactId;
   return useQuery({
-    queryKey: [...brainKeys.tasks(ws, conversationId), scope],
+    queryKey: [...brainKeys.tasks(ws, id), scope],
     queryFn: ({ signal }) => {
-      const q = new URLSearchParams({ conversationId, scope, status: 'open' });
+      const q = new URLSearchParams({ ...of, scope, status: 'open' });
       return api(`/tasks?${q.toString()}`, TaskList, { workspaceId: ws, signal }).then(
         (r) => r.data,
       );
     },
-    enabled: Boolean(ws && conversationId),
+    enabled: Boolean(ws && id),
   });
 }
 

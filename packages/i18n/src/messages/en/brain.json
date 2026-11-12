@@ -127,7 +127,8 @@
     "followUp": "Follow up {{time}}",
     "evaluatedAt": "Evaluated {{time}}",
     "tasks": "Tasks",
-    "noTasks": "No task for this conversation yet."
+    "noTasks": "No task for this conversation yet.",
+    "contactTasks": "To do"
   },
   "settings": {
     "title": "AI conversation evaluation",

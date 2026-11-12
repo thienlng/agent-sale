@@ -123,7 +123,8 @@
     "followUp": "Chăm lại {{time}}",
     "evaluatedAt": "Đánh giá {{time}}",
     "tasks": "Việc",
-    "noTasks": "Chưa có việc nào cho hội thoại này."
+    "noTasks": "Chưa có việc nào cho hội thoại này.",
+    "contactTasks": "Việc cần làm"
   },
   "settings": {
     "title": "Đánh giá hội thoại bằng AI",
