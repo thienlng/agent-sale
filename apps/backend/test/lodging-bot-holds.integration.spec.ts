@@ -601,7 +601,8 @@ describe('bot holds', () => {
       o.ws,
       holdInput(o.botId, a.id, conversationId, { channel: 'playground' }),
     );
-    expect(ready.status).toBe('ready');
+    expect(ready).toMatchObject({ status: 'ready', holdMinutes: 15 });
+    if (ready.status === 'ready') expect(ready.summary).toContain('15 phút');
     const held = await facade().confirmBotHold(o.ws, { conversationId });
     expect(held.status).toBe('held');
     if (held.status !== 'held') return;

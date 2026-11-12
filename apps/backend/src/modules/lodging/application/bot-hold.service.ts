@@ -222,7 +222,10 @@ export class LodgingBotHolds implements LodgingBotFacade {
       };
       draft.quoteHash = quoteHash(draft, resolved, quote);
       await tx.saveBotHoldDraft(draft);
-      const { holdMinutes } = await tx.settings();
+      // A test-chat hold lasts at most TEST_HOLD_MINUTES: its summary says so (VL-A11).
+      const business = await holdMinutesOf(tx);
+      const holdMinutes =
+        input.channel === PLAYGROUND_CHANNEL ? Math.min(TEST_HOLD_MINUTES, business) : business;
       return {
         status: 'ready',
         holdMinutes,
