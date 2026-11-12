@@ -70,6 +70,15 @@ export const assistantRoutes = defineRoutes([
   },
   {
     ...scoped,
+    method: 'delete',
+    path: '/assistant/threads/{threadId}',
+    assistant: { use: 'never' },
+    summary:
+      'Delete an assistant thread with its messages, runs, proposals and imports (409 thread_running while it answers)',
+    responses: { 204: null },
+  },
+  {
+    ...scoped,
     method: 'get',
     path: '/assistant/threads/{threadId}/messages',
     assistant: { use: 'never' },

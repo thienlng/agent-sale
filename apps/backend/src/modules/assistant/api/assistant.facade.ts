@@ -53,6 +53,11 @@ export interface AssistantFacade {
     threadId: string,
     patch: UpdateAssistantThreadRequest,
   ): Promise<AssistantThreadDto>;
+  /**
+   * Deletes the thread with its messages, runs, proposals and import batches. CONFLICT
+   * `thread_running` while the assistant is answering in it or one of its proposals is executing.
+   */
+  deleteThread(actor: AssistantActor, threadId: string): Promise<void>;
   /** Visible messages only (user, assistant, event); tool rows never leave the backend. */
   listMessages(actor: AssistantActor, threadId: string): Promise<AssistantMessageList>;
   /**
