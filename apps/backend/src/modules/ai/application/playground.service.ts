@@ -444,7 +444,7 @@ export class PlaygroundService implements AiFacade {
     // Byte-stable per bot: everything that changes per turn rides on the last user message.
     const system = renderBotSystemPrompt(bot, workspace, template);
     // Pre-send guard (docs/06 §3.3): figures must come from the shop's own text or a tool result
-    // of this turn, and no reply may reproduce the private instructions.
+    // of this turn, and the turn's replies may not reproduce the platform's instructions.
     const guard = new ReplyGuard({
       trusted: [
         profile,
@@ -463,7 +463,10 @@ export class PlaygroundService implements AiFacade {
         ...input.messages.filter((m) => m.role !== 'customer').map((m) => m.content),
       ],
       customer: customerTexts,
-      secrets: [system, guidance, ...actionViews.map((a) => `${a.name}: ${a.description}`)],
+      // The platform's prompt and the action descriptions stay private; what the owner wrote for
+      // the bot to say (mission, situations) may be quoted, whatever its length (ADR-032).
+      secrets: [system, ...actionViews.map((a) => `${a.name}: ${a.description}`)],
+      owned: [bot.mission, guidance],
       figures: this.figureGuard === true,
     });
     const check = (text: string) => guard.check(text);
@@ -745,9 +748,11 @@ export class PlaygroundService implements AiFacade {
   }
 
   /**
-   * The verified customer values that action params with a non-model `source` are filled from
+   * The customer values that action params with a non-model `source` are filled from
    * (docs/actions.md#params-filled-by-the-server): the conversation contact's phone and email in
-   * CRM, never what the model or the customer typed. Null in the owner's playground: the owner is
+   * CRM, never what the model chose or the customer typed in this turn. The binding stops the model
+   * from picking another value mid-turn; it does not prove ownership (the CRM value may have been
+   * typed by the customer earlier). Null in the owner's playground: the owner is
    * testing, so the model fills every param. Read only when some action needs it; a lookup failure
    * leaves the values unknown, so those actions are not offered this turn.
    */

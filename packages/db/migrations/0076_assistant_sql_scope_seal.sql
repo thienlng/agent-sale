@@ -13,8 +13,13 @@
 -- released early). Every reader policy also requires `assistant_sql.scope_sealed()`, so GUCs
 -- rewritten inside the query, or a seal copied from another transaction, read nothing.
 --
--- The functions set no search_path (a SET clause would undo the GUCs at exit): every name is
--- schema-qualified. Runs as the migration login, like 0060.
+-- Both SECURITY DEFINER functions pin `SET search_path = pg_catalog, pg_temp`, so a caller's
+-- search_path cannot put its own function or operator in front of the ones they use; pg_temp comes
+-- last so a temporary object cannot shadow anything either. A function's SET clause only restores
+-- search_path itself at exit: the app.* GUCs that bind_scope sets with set_config(..., true)
+-- survive into the caller's transaction. Every name is schema-qualified as well. (The caller is
+-- the assistant login inside a READ ONLY transaction, which cannot create objects anyway.)
+-- Runs as the migration login, like 0060.
 
 -- 1. The key: random per database, readable by the reader only.
 CREATE TABLE IF NOT EXISTS public.assistant_sql_scope_key (
@@ -30,6 +35,7 @@ INSERT INTO public.assistant_sql_scope_key (key)
 -- 2. Whether the current GUCs carry the seal bind_scope gave them in this transaction.
 CREATE OR REPLACE FUNCTION assistant_sql.scope_sealed() RETURNS boolean
   LANGUAGE sql STABLE SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
 AS $$
   SELECT coalesce(pg_catalog.current_setting('app.assistant_scope_seal', true) =
     pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(k.key || pg_catalog.encode(
@@ -45,6 +51,7 @@ $$;
 -- 3. Sets the scope GUCs and their seal, once per transaction.
 CREATE OR REPLACE FUNCTION assistant_sql.bind_scope(p_account text, p_businesses text)
   RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
 AS $$
 DECLARE k text;
 BEGIN

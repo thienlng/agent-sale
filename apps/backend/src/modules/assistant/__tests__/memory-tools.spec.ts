@@ -8,6 +8,7 @@ import {
   isLikelyDuplicate,
   isNearDuplicate,
   MEMORY_TOOL,
+  historyIsTainted,
   MEMORY_TOOL_DEFINITION,
   memoryTool,
   taintOnToolOutput,
@@ -249,7 +250,31 @@ describe('memory undo of a review rewrite', () => {
     expect(undoReviewEntry([rewritten!], 'nope')).toBeNull();
   });
 
-  it('drops the kept text when the chat rewrites the entry again', async () => {
+  it('drops the kept text when the chat rewrites the approved entry again', async () => {
+    const { scope, repo } = setup();
+    await run(memoryTool({ scope, repo }), { action: 'add', store: 'notes', text: 'A một' });
+    await run(memoryTool({ scope, repo, origin: 'review' }), {
+      action: 'replace',
+      store: 'notes',
+      match: 'A',
+      text: 'B hai',
+    });
+    const [waiting] = (await repo.getMemory(scope))[0]!.entries;
+    await repo.saveMemoryStore(scope, 'notes', approveEntry([waiting!], waiting!.id)!);
+    await run(memoryTool({ scope, repo }), {
+      action: 'replace',
+      store: 'notes',
+      match: 'B',
+      text: 'C ba',
+    });
+    const [entry] = (await repo.getMemory(scope))[0]!.entries;
+    expect(entry).toMatchObject({ text: 'C ba', origin: 'assistant' });
+    expect(entry).not.toHaveProperty('previousText');
+    expect(entry).not.toHaveProperty('previousOrigin');
+    expect(entry).not.toHaveProperty('pending');
+  });
+
+  it('keeps a waiting review rewrite pending (and its approved text) when the chat rewrites it', async () => {
     const { scope, repo } = setup();
     await run(memoryTool({ scope, repo }), { action: 'add', store: 'notes', text: 'A một' });
     await run(memoryTool({ scope, repo, origin: 'review' }), {
@@ -265,9 +290,8 @@ describe('memory undo of a review rewrite', () => {
       text: 'C ba',
     });
     const [entry] = (await repo.getMemory(scope))[0]!.entries;
-    expect(entry).toMatchObject({ text: 'C ba', origin: 'assistant' });
-    expect(entry).not.toHaveProperty('previousText');
-    expect(entry).not.toHaveProperty('previousOrigin');
+    expect(entry).toMatchObject({ text: 'C ba', pending: true, previousText: 'A một' });
+    expect(renderMemoryBlock(await repo.getMemory(scope))).toContain('- A một');
   });
 });
 
@@ -361,6 +385,41 @@ describe('memory writes waiting for approval (security audit #12)', () => {
     });
     expect(approveEntry(approved, entry!.id)).toBe(approved);
     expect(approveEntry(approved, 'nope')).toBeNull();
+  });
+
+  it('keeps a waiting entry pending when an untainted chat turn replaces it', async () => {
+    const { scope, repo } = setup();
+    await run(memoryTool({ scope, repo, origin: 'review' }), {
+      action: 'add',
+      store: 'notes',
+      text: 'Giao chiều',
+    });
+    const out = await run(memoryTool({ scope, repo }), {
+      action: 'replace',
+      store: 'notes',
+      match: 'Giao',
+      text: 'Giao sáng',
+    });
+    expect(out).toMatchObject({ ok: true, awaitingOwnerApproval: true });
+    const [entry] = (await repo.getMemory(scope))[0]!.entries;
+    expect(entry).toMatchObject({ text: 'Giao sáng', pending: true });
+    expect(renderMemoryBlock(await repo.getMemory(scope))).toBe('');
+  });
+
+  it('reads replayed data tool rows, import blocks and summaries as tainted history', () => {
+    const msg = (over: Partial<Parameters<typeof historyIsTainted>[0][number]>) => ({
+      role: 'user' as const,
+      toolName: null,
+      content: 'Chào em',
+      isSummary: false,
+      ...over,
+    });
+    expect(historyIsTainted([msg({})])).toBe(false);
+    expect(historyIsTainted([msg({ role: 'tool', toolName: 'ui_navigate' })])).toBe(false);
+    expect(historyIsTainted([msg({ role: 'tool', toolName: 'tool_call' })])).toBe(true);
+    expect(historyIsTainted([msg({ role: 'assistant', isSummary: true })])).toBe(true);
+    const block = '<import_batch id="b" kind="sheet" file="a.xlsx">\nrow\n</import_batch>\nok';
+    expect(historyIsTainted([msg({ content: block })])).toBe(true);
   });
 
   it('keeps the undo handle of an approved review rewrite; undo of a waiting-on-waiting rewrite waits again', async () => {

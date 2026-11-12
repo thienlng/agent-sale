@@ -20,7 +20,9 @@ import type {
   AssistantRepository,
   MemoryEntry,
   MemoryOrigin,
+  MessageRecord,
 } from '../domain/ports/assistant.repository.js';
+import { IMPORT_BLOCK_PREFIX } from './import-block.js';
 
 export const MEMORY_TOOL = 'memory';
 /** After this many failed memory calls in one turn, every further call answers `stop_retrying`. */
@@ -89,6 +91,23 @@ export function taintOnToolOutput(
             }
           },
         },
+  );
+}
+
+/**
+ * True when the replayed history already carries text the owner did not type: a data tool's
+ * result from an earlier turn, an `<import_batch>` block, or a compaction summary (which may
+ * restate such results). A turn starts tainted then, so "ok, save it" in turn N+1 cannot store
+ * an instruction that a tool result planted in turn N as an approved memory (PR #173 review).
+ */
+export function historyIsTainted(
+  history: readonly Pick<MessageRecord, 'role' | 'toolName' | 'content' | 'isSummary'>[],
+): boolean {
+  return history.some(
+    (m) =>
+      m.isSummary ||
+      (m.role === 'tool' && !NO_DATA_TOOLS.has(m.toolName ?? '')) ||
+      (m.role === 'user' && IMPORT_BLOCK_PREFIX.test(m.content)),
   );
 }
 
@@ -230,6 +249,9 @@ export function memoryTool(ctx: MemoryToolContext): RunnableTool {
 
     // Text that may come from tool output (or the review) never reaches a prompt unapproved.
     const pending = origin === 'review' || ctx.tainted?.() === true;
+    // A rewrite of an entry that still waits keeps waiting: only the owner's approval endpoint
+    // approves, never a later untainted chat write (PR #173 review).
+    const stillPending = pending || target?.pending === true;
     let next: MemoryEntry[];
     if (action === 'remove') {
       next = entries.filter((e) => e !== target);
@@ -248,7 +270,9 @@ export function memoryTool(ctx: MemoryToolContext): RunnableTool {
       ];
     } else {
       const updatedAt = new Date().toISOString();
-      next = entries.map((e) => (e === target ? replaced(e, text, origin, updatedAt, pending) : e));
+      next = entries.map((e) =>
+        e === target ? replaced(e, text, origin, updatedAt, stillPending) : e,
+      );
     }
 
     const used = memoryUsed(next);
@@ -268,7 +292,7 @@ export function memoryTool(ctx: MemoryToolContext): RunnableTool {
         : undefined;
     await ctx.repo.saveMemoryStore(ctx.scope, store, next, tombstones);
     const verb = action === 'add' ? 'Saved' : action === 'replace' ? 'Replaced' : 'Removed';
-    const waits = pending && action !== 'remove';
+    const waits = stillPending && action !== 'remove';
     return {
       ok: true,
       message: waits

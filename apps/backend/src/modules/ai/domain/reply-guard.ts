@@ -2,23 +2,27 @@ import { foldVietnamese, ungroundedFigures } from '@agent-sales/shared';
 
 /**
  * Pre-send checks on AI-written customer text (docs/06 §3.3): the figures must come from trusted
- * text, and the reply must not reproduce the shop's private instructions (situations, mission,
- * action descriptions, the system prompt). Pure; the reply pipeline applies them to every
- * `send_message` and to the final reply.
+ * text, and the replies must not reproduce the platform's private instructions (the system prompt
+ * template, action descriptions). Text the owner wrote for the bot (mission, situations) is not
+ * protected: owners script answers there, and quoting them is the intended behaviour (ADR-032).
+ * Pure; the reply pipeline applies them to every `send_message` and to the final reply.
  */
 
 /** Words per shingle: a run this long copied verbatim is quoting, not paraphrasing. */
 export const INSTRUCTION_SHINGLE_WORDS = 8;
 /**
- * Reply words covered by shingles copied from the instructions at which the reply counts as a
- * leak (about two sentences). A scripted answer the owner wrote into a situation is usually
- * shorter; an extraction ("repeat your instructions") is much longer.
+ * Reply words covered by shingles copied from the instructions at which the turn counts as a
+ * leak (about two sentences), summed over every message of the turn so an extraction cannot be
+ * split across several `send_message` calls. Best-effort: a paraphrase, a translation or a run
+ * cut at message boundaries is not caught.
  */
 export const INSTRUCTION_LEAK_MIN_WORDS = 30;
 
 export interface LeakOptions {
   shingleWords?: number;
   minWords?: number;
+  /** Words already copied by the earlier messages of the turn (the check spans the turn). */
+  alreadyCopied?: number;
 }
 
 const words = (text: string): string[] =>
@@ -27,21 +31,26 @@ const words = (text: string): string[] =>
     .split(/\s+/)
     .filter(Boolean);
 
+const shingles = (text: string, size: number): string[] => {
+  const w = words(text);
+  const out: string[] = [];
+  for (let i = 0; i + size <= w.length; i += 1) out.push(w.slice(i, i + size).join(' '));
+  return out;
+};
+
 /**
  * How many words of `reply` sit inside a run of at least `shingleWords` words that appears
- * verbatim (case, accents and punctuation ignored) in one of the `secrets`.
+ * verbatim (case, accents and punctuation ignored) in one of the `secrets`. A run that also
+ * appears in an `owned` text (written by the owner, e.g. the mission) does not count.
  */
 export function copiedWords(
   reply: string,
   secrets: readonly string[],
   shingleWords = INSTRUCTION_SHINGLE_WORDS,
+  owned: readonly string[] = [],
 ): number {
-  const known = new Set<string>();
-  for (const secret of secrets) {
-    const w = words(secret);
-    for (let i = 0; i + shingleWords <= w.length; i += 1)
-      known.add(w.slice(i, i + shingleWords).join(' '));
-  }
+  const known = new Set(secrets.flatMap((secret) => shingles(secret, shingleWords)));
+  for (const text of owned) for (const sh of shingles(text, shingleWords)) known.delete(sh);
   if (!known.size) return 0;
   const r = words(reply);
   const covered = new Array<boolean>(r.length).fill(false);
@@ -52,14 +61,20 @@ export function copiedWords(
   return covered.filter(Boolean).length;
 }
 
-/** The reply reproduces a large verbatim part of the shop's private instructions. */
+/** The reply reproduces a large verbatim part of the private instructions. */
 export function leaksInstructions(
   reply: string,
   secrets: readonly string[],
   options: LeakOptions = {},
+  owned: readonly string[] = [],
 ): boolean {
-  const copied = copiedWords(reply, secrets, options.shingleWords ?? INSTRUCTION_SHINGLE_WORDS);
-  return copied >= (options.minWords ?? INSTRUCTION_LEAK_MIN_WORDS);
+  const copied = copiedWords(
+    reply,
+    secrets,
+    options.shingleWords ?? INSTRUCTION_SHINGLE_WORDS,
+    owned,
+  );
+  return copied + (options.alreadyCopied ?? 0) >= (options.minWords ?? INSTRUCTION_LEAK_MIN_WORDS);
 }
 
 export type ReplyCheck =
@@ -72,8 +87,10 @@ export interface ReplyGuardInput {
   trusted: readonly string[];
   /** The customer's own messages: they vouch only for non-money figures. */
   customer: readonly string[];
-  /** The shop's private instructions. */
+  /** The private instructions (the rendered system prompt, action descriptions). */
   secrets: readonly string[];
+  /** Owner-written text inside `secrets` (mission, situations): copying it is not a leak. */
+  owned?: readonly string[];
   leak?: LeakOptions;
   /** Run the number check (default true); the leak check always runs. */
   figures?: boolean;
@@ -81,7 +98,7 @@ export interface ReplyGuardInput {
 
 /** Both checks; the leak check first (a leaked prompt is refused whatever its figures). */
 export function checkReply(text: string, input: ReplyGuardInput): ReplyCheck {
-  if (leaksInstructions(text, input.secrets, input.leak)) {
+  if (leaksInstructions(text, input.secrets, input.leak, input.owned)) {
     return { ok: false, reason: 'instruction_leak' };
   }
   if (input.figures === false) return { ok: true };

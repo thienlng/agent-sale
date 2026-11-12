@@ -65,7 +65,7 @@
     "paramRequired": "Required",
     "paramDescription": "Description",
     "paramSource": "Filled by",
-    "paramSourceHint": "Values from the customer record are filled by the server; the bot cannot set or change them, so a customer cannot look up somebody else's data. When the customer has no phone or email on file, the bot does not use this action. In the test chat the bot fills them so you can try it.",
+    "paramSourceHint": "Values from the customer record are filled by the server; the bot cannot set or change them during the chat, so a customer cannot make it use another number or email. The value on file may have been typed by the customer earlier, so it does not prove they own it. When the customer has no phone or email on file, the bot does not use this action. In the test chat the bot fills them so you can try it.",
     "sources": {
       "model": "The bot, from the conversation",
       "customer_phone": "Customer's phone on file",

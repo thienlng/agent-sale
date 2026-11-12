@@ -472,7 +472,7 @@ describe('params filled by the server (source)', () => {
     expect(Object.keys(z.toJSONSchema(tool!.input).properties ?? {})).toEqual(['note']);
   });
 
-  it('fills the bound param from the verified record and ignores a model-supplied value', async () => {
+  it('fills the bound param from the CRM record and ignores a model-supplied value', async () => {
     const { run, invocations, state } = setup({
       actions: [callback],
       binding: { customer_phone: '0912345678' },

@@ -47,7 +47,12 @@ import { buildImportBlock } from './import-block.js';
 import { IMPORT_TOOL_DEFINITIONS, importTools } from './import-tools.js';
 import { isVisibleMessage } from './mappers.js';
 import { currentIndustry, industryOfBusiness } from './owner-access.js';
-import { MEMORY_TOOL_DEFINITION, memoryTool, taintOnToolOutput } from './memory-tools.js';
+import {
+  historyIsTainted,
+  MEMORY_TOOL_DEFINITION,
+  memoryTool,
+  taintOnToolOutput,
+} from './memory-tools.js';
 import { buildTurnMessage } from './prompt-builder.js';
 import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
 import { ROUTE_TOOL_DEFINITIONS, routeTools } from './route-tools.js';
@@ -390,7 +395,8 @@ export class ChatTurnService {
       scope.businessId,
       importBlock,
     );
-    const history = capHistory(stored).map((m) =>
+    const replayed = capHistory(stored);
+    const history = replayed.map((m) =>
       m.id === user.id ? { role: 'user' as const, content: turnText } : toChatMessage(m),
     );
 
@@ -418,7 +424,9 @@ export class ChatTurnService {
       authorization,
       Math.ceil(budgetMs / 1000) + DELEGATION_MARGIN_SECONDS,
     );
-    const turnTaint = { tainted: false };
+    // Replayed tool data, an import block or a summary may carry planted instructions that the
+    // owner then confirms in this turn: the turn starts tainted (PR #173 review).
+    const turnTaint = { tainted: historyIsTainted(replayed) };
     try {
       result = await runAgentLoop({
         base: {
