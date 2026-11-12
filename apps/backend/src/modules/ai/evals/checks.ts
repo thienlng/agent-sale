@@ -50,8 +50,9 @@ export interface CheckInput {
 /** How many days after the turn's date count as derived from `<current_time>` (this and next week). */
 export const NEAR_DATE_DAYS = 14;
 const SHOP_TIME_ZONE = 'Asia/Ho_Chi_Minh';
-// d/m, dd/mm, optionally /yy or /yyyy; not part of a longer slash or digit run.
-const DATE = /(?<![\d/])(\d{1,2})\/(\d{1,2})(?:\/(\d{4}|\d{2}))?(?![\d/])/g;
+// d/m, dd/mm, optionally /yy or /yyyy, optionally a range "14–16/11" (the first day shares the
+// month); not part of a longer slash or digit run.
+const DATE = /(?<![\d/])(?:(\d{1,2})\s*[–-]\s*)?(\d{1,2})\/(\d{1,2})(?:\/(\d{4}|\d{2}))?(?![\d/])/g;
 
 /** The shop's calendar date of `now`, as UTC midnight (only the y/m/d fields are read). */
 function shopDay(now: Date): Date {
@@ -69,7 +70,8 @@ function shopDay(now: Date): Date {
 
 /**
  * The reply without the dates the model derived from the turn's `<current_time>` block: a d/m date
- * (with an optional year) that is the turn's day or one of the next {@link NEAR_DATE_DAYS} days.
+ * (with an optional year), or a range "14–16/11", whose days are the turn's day or the next
+ * {@link NEAR_DATE_DAYS} days.
  * Any other date stays and is checked like every figure.
  */
 export function withoutNearDates(reply: string, now: Date): string {
@@ -79,12 +81,20 @@ export function withoutNearDates(reply: string, now: Date): string {
     const day = new Date(start.getTime() + i * 86_400_000);
     near.add(`${day.getUTCDate()}/${day.getUTCMonth() + 1}/${day.getUTCFullYear()}`);
   }
-  return reply.replace(DATE, (whole, d: string, m: string, y: string | undefined) => {
-    const years = y
-      ? [y.length === 2 ? 2000 + Number(y) : Number(y)]
-      : [start.getUTCFullYear(), start.getUTCFullYear() + 1];
-    return years.some((year) => near.has(`${Number(d)}/${Number(m)}/${year}`)) ? ' ' : whole;
-  });
+  return reply.replace(
+    DATE,
+    (whole, from: string | undefined, d: string, m: string, y: string | undefined) => {
+      const years = y
+        ? [y.length === 2 ? 2000 + Number(y) : Number(y)]
+        : [start.getUTCFullYear(), start.getUTCFullYear() + 1];
+      const days = from ? [from, d] : [d];
+      return years.some((year) =>
+        days.every((day) => near.has(`${Number(day)}/${Number(m)}/${year}`)),
+      )
+        ? ' '
+        : whole;
+    },
+  );
 }
 
 // A greeting anywhere in the reply: a multi-turn answer must not open the conversation again.

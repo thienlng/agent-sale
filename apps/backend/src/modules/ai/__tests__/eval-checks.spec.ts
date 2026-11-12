@@ -96,6 +96,10 @@ describe('eval checks', () => {
     expect(check('Dạ ngày 12/11 ạ.')?.pass).toBe(false);
     // A near date vouches only for itself, not for the same numbers elsewhere in the reply.
     expect(check('Dạ 14/11 còn 15 phòng ạ.')?.detail).toEqual('figures not in the sources: ["15"]');
+    // A range of near days ("cuối tuần này (14–16/11/2026)"); one far day keeps the whole range.
+    expect(check('Dạ cuối tuần này (14–16/11/2026) ạ.')?.pass).toBe(true);
+    expect(check('Dạ 14-16/11 ạ.')?.pass).toBe(true);
+    expect(check('Dạ 12–14/11 ạ.')?.pass).toBe(false);
     // The year rolls over: 31/12 → 3/1 of the next year.
     const late = new Date('2026-12-30T03:00:00Z');
     expect(
