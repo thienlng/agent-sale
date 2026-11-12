@@ -6,6 +6,7 @@ import {
 } from '@agent-sales/ai-core';
 import { REQUEST_PROFILES, requestDetailsSchema } from '@agent-sales/contracts';
 import { newId, workspaceId } from '@agent-sales/shared';
+import { weekdayMismatch } from '../domain/weekday-date.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { BotFacade, BotView } from '../../bot/api/index.js';
@@ -342,5 +343,16 @@ describe('contactVouched', () => {
     seen.push('Gói Pro');
     await runnable[0]!.run(args);
     expect(recordBotRequest.mock.calls[0]?.[1]).toMatchObject({ catalogNames: ['Gói Pro'] });
+  });
+});
+
+describe('weekdayMismatch (LM-17)', () => {
+  it('names the real weekday when the customer paired a date with another weekday', () => {
+    const texts = ['chiều thứ 7 ngày 15/11/2027 lúc 4h'];
+    expect(weekdayMismatch('2027-11-15', texts)).toBe('Thứ Hai');
+    expect(weekdayMismatch('2027-11-13', ['thứ 7 13/11/2027'])).toBeNull();
+    expect(weekdayMismatch('2026-11-15', ['chủ nhật 15/11'])).toBeNull();
+    expect(weekdayMismatch('2026-11-16', ['Đổi sang 9h sáng chủ nhật 16/11 nhé'])).toBe('Thứ Hai');
+    expect(weekdayMismatch('2027-11-15', ['ngày 15/11/2027'])).toBeNull();
   });
 });

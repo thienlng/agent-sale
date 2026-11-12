@@ -4,6 +4,7 @@ import type { WorkspaceId } from '@agent-sales/shared';
 import { z } from 'zod';
 
 import type { BotRequestResult, CrmFacade } from '../../crm/api/index.js';
+import { weekdayMismatch } from '../domain/weekday-date.js';
 import { type ActionCall, safeJson } from './action-tools.js';
 
 /**
@@ -113,6 +114,9 @@ export function requestTools(ctx: RequestToolContext): {
       const { kind, ...rest } = input as { kind: CustomerRequestKind } & Record<string, unknown>;
       if (!contactVouched(rest, ctx.customerTexts))
         return done(false, { ok: false, error: 'contact_not_from_customer' });
+      const date = typeof rest['preferredDate'] === 'string' ? rest['preferredDate'] : '';
+      const actual = date ? weekdayMismatch(date, ctx.customerTexts) : null;
+      if (actual) return done(false, { ok: false, error: 'weekday_date_mismatch', dateIs: actual });
       const details = Object.fromEntries(
         Object.entries(rest).filter(([, v]) => typeof v === 'string' && v.trim() !== ''),
       );
