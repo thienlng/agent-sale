@@ -4,7 +4,12 @@
  * sentence ends, and adjacent pieces are packed back together when there are too many.
  */
 const MAX_BUBBLE_CHARS = 1000;
-const SENTENCE_END = /[.!?…;]["”’)\]]*\s+/g;
+/**
+ * A sentence end: `.`, `!`, `?` or `…` (closing quotes or brackets allowed) and a space. Never `;`
+ * or `,`, and never before a lowercase letter: those continue the sentence, and a bubble must
+ * not start mid-sentence (LM-16, MS-6).
+ */
+const SENTENCE_END = /[.!?…]["”’)\]]*\s+(?!\p{Ll})/gu;
 const ABBREVIATIONS = new Set([
   'tp.',
   'tt.',
