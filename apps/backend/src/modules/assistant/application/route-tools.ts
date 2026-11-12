@@ -253,7 +253,7 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
     if (Math.min(MAX_ROUTE_RESULT_CHARS, TURN_READ_BUDGET_CHARS - readChars) <= TRUNCATED.length) {
       return fail('turn_budget_exhausted');
     }
-    const parsed = entry.input.safeParse(body ?? {});
+    const parsed = entry.input.safeParse((entry.normalize ?? ((b: unknown) => b))(body ?? {}));
     if (!parsed.success) {
       return spend(fail('invalid_input', { issues: issuesOf(parsed.error) }));
     }

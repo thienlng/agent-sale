@@ -7,6 +7,7 @@ import {
   MAX_SQL_CALLS_PER_TURN,
   MAX_SQL_CELL_CHARS,
   MAX_SQL_RESULT_CHARS,
+  normalizeSqlQueryBody,
   ROWS_DROPPED_NOTE,
   SQL_QUERY_KEY,
   SQL_SCHEMA_KEY,
@@ -232,6 +233,30 @@ describe('sql_query', () => {
     expect(input.safeParse({ sql: SQL, chart: { kind: 'bar' } }).success).toBe(false);
     expect(input.safeParse({ sql: SQL, chart: { ...chart, y: [] } }).success).toBe(false);
     expect(input.safeParse({ sql: SQL, chart: { ...chart, title: ' ' } }).success).toBe(false);
+  });
+});
+
+describe('sql_query near-miss input shapes (AS2-9)', () => {
+  it('accepts query for sql, chart null, chart.type, a single y and an x object', () => {
+    const B_ID = newId();
+    const { entries } = setup();
+    const entry = entries.find((e) => e.key === SQL_QUERY_KEY)!;
+    expect(entry.normalize).toBe(normalizeSqlQueryBody);
+    const body = normalizeSqlQueryBody({
+      query: SQL,
+      chart: { type: 'bar', title: 'Đơn', x: { key: 'day' }, y: 'n' },
+      businessIds: B_ID,
+    });
+    expect(body).toEqual({
+      sql: SQL,
+      chart: { kind: 'bar', title: 'Đơn', x: 'day', y: ['n'] },
+      businessIds: [B_ID],
+    });
+    expect(entry.input.safeParse(body).success).toBe(true);
+    expect(normalizeSqlQueryBody({ sql: SQL, chart: null })).toEqual({ sql: SQL });
+    // A body that is right already is unchanged.
+    const ok = { sql: SQL, chart: { kind: 'line', title: 't', x: 'day', y: ['n'] } };
+    expect(normalizeSqlQueryBody(ok)).toEqual(ok);
   });
 });
 
