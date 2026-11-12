@@ -175,13 +175,11 @@ describe('TodayPage', () => {
     expect(screen.queryByText(/Đã hết lượt đánh giá hôm nay/)).toBeNull();
   });
 
-  it('lists the empty queues on one line instead of empty cards, and does not link their chips', async () => {
+  it('shows empty queues only as plain chips, no empty cards and no repeated "Không có" line (AS-21)', async () => {
     vi.stubGlobal('fetch', stubFetch({ 'GET /today': { status: 200, body: today() } }).fetchStub);
     renderApp();
     await screen.findByRole('region', { name: 'Phàn nàn / cần người' }, { timeout: 5000 });
-    expect(
-      screen.getByText('Không có: Sắp chốt · Hỏi giá rồi im · Đến hạn chăm lại'),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/^Không có:/)).toBeNull();
     expect(screen.queryByRole('region', { name: 'Sắp chốt' })).toBeNull();
     expect(screen.queryByText('Chưa có khách nào sắp chốt.')).toBeNull();
     const chips = within(screen.getByRole('navigation', { name: 'Tóm tắt các hàng' }));
@@ -261,11 +259,15 @@ describe('TodayPage', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Bỏ qua' }));
 
     // Gone while the request is still held: the optimistic removal, not a refetch. The queue is
-    // empty now, so its card leaves too and the queue joins the "Không có" line.
+    // empty now, so its card leaves too and its chip turns plain.
     await waitFor(() => expect(isHeld(DISMISS)).toBe(true));
     expect(attention).not.toBeInTheDocument();
     expect(screen.queryByText('Chị Lan')).toBeNull();
-    expect(screen.getByText(/^Không có: Phàn nàn \/ cần người · /)).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('navigation', { name: 'Tóm tắt các hàng' }))
+        .getByText('Phàn nàn / cần người')
+        .closest('a'),
+    ).toBeNull();
     release(DISMISS);
 
     // The toast follows the re-read of every brain query (Today, "AI đã làm"…): allow for load.

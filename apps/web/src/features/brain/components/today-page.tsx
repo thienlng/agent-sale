@@ -102,7 +102,6 @@ export function TodayPage({
   const data = today.data;
   const queues = useMemo(() => (data ? visibleQueues(data, now) : []), [data, now]);
   const active = queues.filter((q) => !isIdle(q));
-  const idle = queues.filter(isIdle);
   // The cards beside "Chờ duyệt" (which spans the row on its own), two to a row on wide screens.
   const cards = active.filter((q) => q.key !== 'approval');
   const usage = data?.usage;
@@ -256,13 +255,6 @@ export function TodayPage({
                   />
                 ))}
               </div>
-              {idle.length > 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  {t('today.noneLine', {
-                    list: idle.map((q) => t(`queues.${q.key}.title`)).join(' · '),
-                  })}
-                </p>
-              ) : null}
             </>
           )
         ) : today.isError ? (

@@ -132,7 +132,7 @@
   "today": {
     "briefing": {
       "title": "Hôm nay: {{parts}}",
-      "body": "{{business}} · Mở màn hình Hôm nay để xử lý",
+      "body": "{{business}} · Mở Thống kê → Việc hôm nay để xử lý",
       "separator": ", ",
       "attention": "{{count}} cần chú ý",
       "unanswered": "{{count}} chưa trả lời",
