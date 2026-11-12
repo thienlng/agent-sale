@@ -99,4 +99,13 @@ describe('RatesTab', () => {
     ).toBeInTheDocument();
     expect(calls.some((c) => c.key.startsWith('PUT'))).toBe(false);
   });
+
+  it('captions both surcharge boxes as sell and cost (VL-A6)', async () => {
+    stub();
+    renderWithRouter(() => <RatesTab property={rooms} canEdit onDirtyChange={() => {}} />);
+    const group = await screen.findByRole('group', { name: 'Phụ thu người lớn' });
+    expect(within(group).getByText('Giá bán')).toBeVisible();
+    expect(within(group).getByText('Giá nhập')).toBeVisible();
+    expect(within(group).getByLabelText('Phụ thu người lớn · Giá nhập')).toBeInTheDocument();
+  });
 });

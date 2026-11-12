@@ -214,7 +214,7 @@
     "extra_child": "Trẻ em thêm × {{persons}} × {{nights}} đêm",
     "adjustment": "Điều chỉnh (+/−)",
     "adjustmentReason": "Lý do điều chỉnh",
-    "manualTotal": "Giá nhập tay (tiền phòng)",
+    "manualTotal": "Tự nhập tổng tiền phòng",
     "manualHint": "Để trống để dùng giá tính tự động.",
     "manualRequired": "Ngày, phòng hoặc số khách đã đổi. Nhập giá thủ công mới hoặc chọn dùng giá tính tự động.",
     "missingPrice": "Một số đêm chưa có giá. Nhập giá thủ công cho cả kỳ ở.",

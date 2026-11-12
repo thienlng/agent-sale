@@ -214,7 +214,7 @@
     "extra_child": "Extra child × {{persons}} × {{nights}} nights",
     "adjustment": "Adjustment (+/−)",
     "adjustmentReason": "Adjustment reason",
-    "manualTotal": "Manual price (rooms)",
+    "manualTotal": "Enter the room total yourself",
     "manualHint": "Leave empty to use the calculated price.",
     "manualRequired": "Dates, rooms or guests changed. Enter a new manual price or use the calculated price.",
     "missingPrice": "Some nights have no price. Enter a manual price for the stay.",

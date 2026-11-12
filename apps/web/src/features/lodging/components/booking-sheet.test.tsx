@@ -236,7 +236,7 @@ describe('BookingSheet view', () => {
     expect(within(sheet).getByText(/Nhập giá thủ công mới/)).toBeInTheDocument();
     await user.click(within(sheet).getByRole('button', { name: 'Lưu' }));
     expect(calls.some((c) => c.key.startsWith('PATCH'))).toBe(false);
-    const manual = within(sheet).getByLabelText('Giá nhập tay (tiền phòng)');
+    const manual = within(sheet).getByLabelText('Tự nhập tổng tiền phòng');
     await user.clear(manual);
     await user.type(manual, '30000000');
     await user.click(within(sheet).getByRole('button', { name: 'Lưu' }));
