@@ -110,8 +110,8 @@ export class WebchatService {
     @Inject(VISITOR_STORE) private readonly visitors: VisitorStore,
     @Inject(WEBCHAT_UPLOAD_STORAGE) private readonly storage: WebchatUploadStorage,
     @Inject(RATE_LIMITER) private readonly limiter: RateLimiter,
-    @Optional()
     @Inject(WEBCHAT_OPTIONS)
+    @Optional()
     private readonly options: WebchatOptions = DEFAULT_WEBCHAT_OPTIONS,
   ) {}
 
