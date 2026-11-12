@@ -26,9 +26,9 @@ import { useCan } from '@/lib/permissions';
 import { useBooking, useChangeBookingStatus } from '../api/bookings';
 import {
   clockTime,
-  dayMonth,
   localDayMonth,
   nightsBetween,
+  stayDate,
   todayNight,
   weekdayShort,
 } from '../lib/format';
@@ -130,7 +130,7 @@ export function BookingView({
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {t('sheet.checkInTooEarly', { date: dayMonth(b.checkIn) })}
+                    {t('sheet.checkInTooEarly', { date: stayDate(b.checkIn) })}
                   </TooltipContent>
                 </Tooltip>
               ) : (
@@ -186,8 +186,8 @@ export function BookingView({
           {byBot && <BotBookingBanner booking={b} />}
           <SheetSection title={t('sheet.sectionDates')}>
             <p className="tabular-nums">
-              {weekdayShort(t, b.checkIn)} {dayMonth(b.checkIn)} → {weekdayShort(t, b.checkOut)}{' '}
-              {dayMonth(b.checkOut)}{' '}
+              {weekdayShort(t, b.checkIn)} {stayDate(b.checkIn)} → {weekdayShort(t, b.checkOut)}{' '}
+              {stayDate(b.checkOut)}{' '}
               <span className="text-muted-foreground">
                 · {t('sheet.nights', { count: nightsBetween(b.checkIn, b.checkOut) })}
               </span>

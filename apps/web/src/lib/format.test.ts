@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatRelativeTime } from './format';
+import { formatRelativeTime, formatShortDate } from './format';
 
 describe('formatRelativeTime', () => {
   const now = Date.parse('2026-11-01T10:00:00.000Z');
@@ -13,5 +13,13 @@ describe('formatRelativeTime', () => {
 
   it('reads a just-now or future instant as now', () => {
     expect(formatRelativeTime('2026-11-01T10:00:05.000Z', now)).toBe('bây giờ');
+  });
+});
+
+describe('formatShortDate', () => {
+  it('drops the year inside the current year and keeps it outside (VL-A8)', () => {
+    expect(formatShortDate('2026-03-05', '2026-11-13')).toBe('05/03');
+    expect(formatShortDate('2027-01-01', '2026-11-13')).toBe('01/01/2027');
+    expect(formatShortDate('2025-12-31', '2026-11-13')).toBe('31/12/2025');
   });
 });

@@ -42,6 +42,16 @@ export function formatDay(iso: string): string {
   }).format(new Date(`${iso}T00:00:00`));
 }
 
+/**
+ * A yyyy-mm-dd day in the one short Vietnamese form: "05/03", or "05/03/2027" when it is not
+ * in the year of `today` (yyyy-mm-dd, default: the browser's today). Built by hand because
+ * Intl's vi-VN day+month pattern prints "05-03".
+ */
+export function formatShortDate(iso: string, today: string = isoDate(new Date())): string {
+  const dm = `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+  return iso.slice(0, 4) === today.slice(0, 4) ? dm : `${dm}/${iso.slice(0, 4)}`;
+}
+
 /** yyyy-mm-dd of a local Date (the browser's day; the API buckets by the shop's time zone). */
 export function isoDate(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
