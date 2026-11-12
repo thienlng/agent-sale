@@ -24,6 +24,7 @@ import { NightNotesService } from './application/night-notes.service.js';
 import { LODGING_MEDIA_STORAGE } from './application/ports/lodging-media-storage.js';
 import { LODGING_STORE, type LodgingStore } from './application/ports/lodging-store.js';
 import { PropertyService } from './application/property.service.js';
+import { PropertyRemovalService } from './application/property-removal.service.js';
 import { RatesService } from './application/rates.service.js';
 import { LodgingUnavailableError } from './domain/lodging.errors.js';
 import { LodgingExportSource } from './infrastructure/export/lodging.export.js';
@@ -53,6 +54,7 @@ import { PropertiesController } from './interface/http/properties.controller.js'
     },
     LodgingAccess,
     PropertyService,
+    PropertyRemovalService,
     RatesService,
     LodgingSettingsService,
     BookingService,

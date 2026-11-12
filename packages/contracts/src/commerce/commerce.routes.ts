@@ -154,6 +154,16 @@ export const commerceRoutes = defineRoutes([
     responses: { 200: ProductDto },
   }),
   route({
+    method: 'delete',
+    path: '/products/{productId}',
+    // Irreversible: only the owner, in the catalog. 409 `details.reason`: `product_in_orders`
+    // (archive it instead) or `product_synced` (a PMS product comes back on the next sync).
+    assistant: { use: 'never' },
+    summary: 'Delete a product that no order uses, with its variants and stock',
+    tag: 'commerce',
+    responses: { 204: null },
+  }),
+  route({
     method: 'patch',
     path: '/products/{productId}/bot-settings',
     assistant: {

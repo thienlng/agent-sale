@@ -9,7 +9,7 @@ import {
   type UpdatePropertyRequest,
 } from '@agent-sales/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { z } from 'zod';
+import { z } from 'zod';
 
 import { api } from '@/lib/api-client';
 import { withQuery } from '@/lib/url';
@@ -111,4 +111,21 @@ export function useDeleteOverride() {
         workspaceId: ws,
       }),
   );
+}
+
+/**
+ * Hard delete of a property that has never had a booking (otherwise 409
+ * `details.reason = 'property_has_bookings'`). Drops its cached detail and refreshes lodging.
+ */
+export function useDeleteProperty() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api(`/lodging/properties/${id}`, z.null(), { method: 'DELETE', workspaceId: ws }),
+    onSuccess: (_data, id) => {
+      qc.removeQueries({ queryKey: lodgingKeys.property(ws, id) });
+      void qc.invalidateQueries({ queryKey: lodgingKeys.all(ws) });
+    },
+  });
 }

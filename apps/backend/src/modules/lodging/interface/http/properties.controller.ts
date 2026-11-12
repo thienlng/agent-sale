@@ -37,6 +37,7 @@ import {
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
 import { LodgingSettingsService } from '../../application/lodging-settings.service.js';
 import { PropertyService } from '../../application/property.service.js';
+import { PropertyRemovalService } from '../../application/property-removal.service.js';
 import { RatesService } from '../../application/rates.service.js';
 
 const Id = new ZodValidationPipe(z.uuid());
@@ -47,6 +48,7 @@ const Id = new ZodValidationPipe(z.uuid());
 export class PropertiesController {
   constructor(
     @Inject(PropertyService) private readonly properties: PropertyService,
+    @Inject(PropertyRemovalService) private readonly removal: PropertyRemovalService,
     @Inject(RatesService) private readonly rates: RatesService,
     @Inject(LodgingSettingsService) private readonly settings: LodgingSettingsService,
   ) {}
@@ -83,6 +85,18 @@ export class PropertiesController {
     @Body(new ZodValidationPipe(UpdatePropertyRequest)) body: UpdatePropertyRequest,
   ): Promise<PropertyDto> {
     return this.properties.update(ws, id, body, actor.userId);
+  }
+
+  /** Only a property without any booking; otherwise 409 `property_has_bookings` (pause it). */
+  @Delete('properties/:id')
+  @HttpCode(204)
+  @RequireCapability('catalog.manage')
+  remove(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() actor: AuthState,
+    @Param('id', Id) id: string,
+  ): Promise<void> {
+    return this.removal.remove(ws, id, actor.userId);
   }
 
   @Put('properties/:id/units')
