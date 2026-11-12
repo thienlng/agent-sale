@@ -9,7 +9,13 @@ import type {
   PendingMetaEvent,
 } from '../../application/ports/channel-store.js';
 import { ChannelError } from '../../domain/channel.errors.js';
-import { EVENT_MAX_WAIT_MS, EVENT_QUIET_MS, MAX_EVENT_ATTEMPTS } from '../../api/channel.facade.js';
+import {
+  EVENT_MAX_WAIT_MS,
+  EVENT_QUIET_MS,
+  MAX_EVENT_ATTEMPTS,
+  type ClaimOptions,
+} from '../../api/channel.facade.js';
+import { pickFair, scanLimit } from '../../domain/fair-claim.js';
 import { connection, flow } from './record-mappers.js';
 import { findDiscovery, selectDiscoveredAccounts } from './oauth-discovery.js';
 import { enqueueWebsiteEvent, findWebsiteRecord, hasPendingMessage } from './website.store.js';
@@ -126,9 +132,9 @@ export class DrizzleChannelStore implements ChannelStore {
   select(ws: WorkspaceId, userId: string, id: string, accounts: ConnectionRecord[]) {
     return selectDiscoveredAccounts(this.db, ws, userId, id, accounts);
   }
-  claimEvents(limit: number) {
+  claimEvents(limit: number, options: ClaimOptions = {}) {
     return withSystem(this.system, async (tx) => {
-      const rows = await tx
+      const candidates = await tx
         .select()
         .from(e)
         .where(
@@ -147,8 +153,20 @@ export class DrizzleChannelStore implements ChannelStore {
           ),
         )
         .orderBy(e.createdAt)
-        .limit(limit)
+        // Read a bounded window past `limit` so a flooded workspace cannot hide the others.
+        .limit(options.perWorkspace ? scanLimit(limit) : limit)
         .for('update', { skipLocked: true });
+      // Rows read but not picked stay untouched (their lock ends with this transaction).
+      const rows = pickFair(
+        candidates.map((row) => ({
+          row,
+          workspaceId: row.workspaceId,
+          connectionId: row.connectionId,
+          senderExternalId: (row.payload as { senderExternalId?: string }).senderExternalId ?? '',
+        })),
+        limit,
+        options.perWorkspace,
+      ).map((c) => c.row);
       const result: PendingMetaEvent[] = [];
       for (const row of rows) {
         const claimToken = newId();
@@ -246,6 +264,17 @@ export class DrizzleChannelStore implements ChannelStore {
         .where(and(eq(e.id, id), eq(e.claimToken, claimToken), sql`${e.processedAt} is null`));
     });
   }
+  async deferEvent(id: string, claimToken: string, delayMs: number) {
+    await withSystem(this.system, async (tx) => {
+      await tx
+        .update(e)
+        .set({
+          leaseUntil: new Date(Date.now() + Math.max(0, delayMs)),
+          attempts: sql`greatest(${e.attempts} - 1, 0)`,
+        })
+        .where(and(eq(e.id, id), eq(e.claimToken, claimToken), sql`${e.processedAt} is null`));
+    });
+  }
   hasNewerCustomerEvent(connectionId: string, senderExternalId: string, afterEventId: string) {
     return withSystem(this.system, async (tx) => {
       const rows = await tx
@@ -327,6 +356,9 @@ export class UnavailableChannelStore implements ChannelStore {
     return this.fail();
   }
   requeueEvent(): Promise<void> {
+    return this.fail();
+  }
+  deferEvent(): Promise<void> {
     return this.fail();
   }
   hasNewerCustomerEvent(): Promise<boolean> {

@@ -19,7 +19,12 @@ import {
   type BotFacade,
   type BotLifecycle,
 } from '../../bot/api/index.js';
-import type { ChannelFacade, OutboundInboxMessage, WebsiteSite } from '../api/channel.facade.js';
+import type {
+  ChannelFacade,
+  ClaimOptions,
+  OutboundInboxMessage,
+  WebsiteSite,
+} from '../api/channel.facade.js';
 import { ChannelError } from '../domain/channel.errors.js';
 import { hostAllowed, newSiteKey, signVisitor, verifyVisitor } from '../domain/website-key.js';
 import { CHANNEL_STORE, type ChannelStore, type ConnectionRecord } from './ports/channel-store.js';
@@ -375,8 +380,8 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
       return null;
     }
   }
-  claimEvents(limit: number) {
-    return this.store.claimEvents(limit);
+  claimEvents(limit: number, options?: ClaimOptions) {
+    return this.store.claimEvents(limit, options);
   }
   renewEvent(id: string, claimToken: string) {
     return this.store.renewEvent(id, claimToken);
@@ -395,6 +400,9 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
   }
   requeueEvent(id: string, claimToken: string) {
     return this.store.requeueEvent(id, claimToken);
+  }
+  deferEvent(id: string, claimToken: string, delayMs: number) {
+    return this.store.deferEvent(id, claimToken, delayMs);
   }
   hasNewerCustomerEvent(connectionId: string, senderExternalId: string, afterEventId: string) {
     return this.store.hasNewerCustomerEvent(connectionId, senderExternalId, afterEventId);

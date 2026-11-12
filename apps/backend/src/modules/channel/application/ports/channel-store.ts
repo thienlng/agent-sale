@@ -21,6 +21,11 @@ export interface OAuthFlow {
   accountsSealed: string | null;
   expiresAt: Date;
 }
+/** Options of one inbox claim (mirrors `ClaimOptions` of the facade). */
+export interface ClaimOptions {
+  /** At most this many distinct conversations per workspace in one claim. */
+  perWorkspace?: number;
+}
 export interface PendingMetaEvent {
   claimToken: string;
   id: string;
@@ -72,7 +77,7 @@ export interface ChannelStore {
     id: string,
     accounts: ConnectionRecord[],
   ): Promise<ConnectionRecord[]>;
-  claimEvents(limit: number): Promise<PendingMetaEvent[]>;
+  claimEvents(limit: number, options?: ClaimOptions): Promise<PendingMetaEvent[]>;
   renewEvent(id: string, claimToken: string): Promise<boolean>;
   completeEvent(id: string, claimToken: string): Promise<void>;
   /** Terminal failure: keeps the payload for replay and stops further claims. */
@@ -83,6 +88,8 @@ export interface ChannelStore {
   releaseEvent(id: string, claimToken: string, retryInMs: number): Promise<void>;
   /** Gives the event back untouched (no attempt consumed) so the next claim can merge it with newer ones. */
   requeueEvent(id: string, claimToken: string): Promise<void>;
+  /** Gives the event back without spending an attempt, claimable again after `delayMs`. */
+  deferEvent(id: string, claimToken: string, delayMs: number): Promise<void>;
   /** True when the same customer sent another unprocessed message after the event `afterEventId`. */
   hasNewerCustomerEvent(
     connectionId: string,

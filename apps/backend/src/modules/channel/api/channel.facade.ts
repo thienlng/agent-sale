@@ -19,6 +19,14 @@ export const MAX_EVENT_ATTEMPTS = 3;
 /** A customer's messages are answered together once they pause this long (or after the max wait). */
 export const EVENT_QUIET_MS = 700;
 export const EVENT_MAX_WAIT_MS = 4000;
+/** Options of one inbox claim. */
+export interface ClaimOptions {
+  /**
+   * At most this many distinct conversations (connection + customer) per workspace in one claim,
+   * oldest first, so one flooded shop cannot fill the claim (security audit 2026-11-12 #3).
+   */
+  perWorkspace?: number;
+}
 type OutboundAttachment = { type: 'image' | 'video' | 'audio' | 'file'; url: string };
 /** Either text or attachments (one, or several delivered as one album), as Meta accepts per message. */
 export interface OutboundInboxMessage {
@@ -94,7 +102,7 @@ export interface ChannelFacade {
   ): Promise<CustomerProfile | null>;
   /** Detaches a bot from every page that uses it, so conversations there fall back to staff. */
   unbindBot(ws: WorkspaceId, botId: string): Promise<number>;
-  claimEvents(limit: number): Promise<PendingMetaEvent[]>;
+  claimEvents(limit: number, options?: ClaimOptions): Promise<PendingMetaEvent[]>;
   renewEvent(id: string, claimToken: string): Promise<boolean>;
   completeEvent(id: string, claimToken: string): Promise<void>;
   /** Terminal failure: keeps the payload for replay and stops further claims. */
@@ -109,6 +117,11 @@ export interface ChannelFacade {
    * before the newer message's own quiet window has passed.
    */
   requeueEvent(id: string, claimToken: string): Promise<void>;
+  /**
+   * Hands the event back without spending an attempt, claimable again after `delayMs` (the
+   * workspace's inbox budget is spent for now; nothing failed).
+   */
+  deferEvent(id: string, claimToken: string, delayMs: number): Promise<void>;
   /** Whether the same customer wrote again after this event (its answer would already be stale). */
   hasNewerCustomerEvent(
     connectionId: string,

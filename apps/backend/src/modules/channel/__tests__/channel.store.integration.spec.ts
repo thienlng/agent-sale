@@ -396,6 +396,47 @@ describe('Inbox queue', () => {
     expect(ours((await store.claimEvents(10)).map((j) => j.id)).sort()).toEqual([e1, e2].sort());
   });
 
+  it('takes at most N conversations per workspace in one claim, so a flooded shop leaves room', async () => {
+    // Drain whatever earlier tests left claimable, so only this test's events compete.
+    for (const j of await store.claimEvents(200)) await store.completeEvent(j.id, j.claimToken);
+    const flooded = await connect(a, 'page-flood');
+    const quiet = await connect(b, 'page-fair-other');
+    const insert = async (ws: WorkspaceId, connectionId: string, sender: string, ageMs: number) => {
+      const id = newId();
+      await owner.insert(schema.channelWebhookEvents).values({
+        id,
+        workspaceId: ws,
+        connectionId,
+        externalId: id,
+        payload: { kind: 'facebook', type: 'message', senderExternalId: sender },
+        createdAt: new Date(Date.now() - ageMs),
+      });
+      return id;
+    };
+    const floodIds: string[] = [];
+    for (let i = 0; i < 6; i++)
+      floodIds.push(await insert(a, flooded.id, `flood-${i}`, 20_000 - i * 10));
+    // The same customer again: a burst stays together.
+    floodIds.push(await insert(a, flooded.id, 'flood-0', 15_000));
+    const other = await insert(b, quiet.id, 'quiet-1', 10_000);
+    const claimed = await store.claimEvents(4, { perWorkspace: 2 });
+    const ids = claimed.map((j) => j.id);
+    expect(ids).toContain(other);
+    const fromFlood = claimed.filter((j) => j.workspaceId === a);
+    expect(new Set(fromFlood.map((j) => j.event.senderExternalId))).toEqual(
+      new Set(['flood-0', 'flood-1']),
+    );
+    expect(ids).toContain(floodIds[6]);
+    // A deferred event comes back later without spending an attempt.
+    const deferred = fromFlood[0]!;
+    await store.deferEvent(deferred.id, deferred.claimToken, 60_000);
+    const row = await event(deferred.id);
+    expect(row?.attempts).toBe(0);
+    expect(row!.leaseUntil!.getTime()).toBeGreaterThan(Date.now() + 50_000);
+    for (const j of claimed) await store.completeEvent(j.id, j.claimToken);
+    for (const j of await store.claimEvents(200)) await store.completeEvent(j.id, j.claimToken);
+  });
+
   it('dead-letters failed and exhausted events so they leave the queue with their payload', async () => {
     const c = await connect(a, 'page-dead');
     const [failed, crashed] = await enqueue(a, c.id, 2);

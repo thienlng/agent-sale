@@ -146,6 +146,7 @@ export class MemoryChannelStore implements ChannelStore {
   }
   async releaseEvent() {}
   async requeueEvent() {}
+  async deferEvent() {}
   async hasNewerCustomerEvent() {
     return false;
   }

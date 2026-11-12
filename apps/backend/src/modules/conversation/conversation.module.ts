@@ -16,6 +16,8 @@ import { CONVERSATION_EXPORT } from './api/conversation-export.js';
 import { ConversationExportSource } from './infrastructure/export/conversation.export.js';
 import { ConversationFacadeImpl, HUMAN_AGENT_TAG } from './application/conversation.facade.impl.js';
 import { InboxAlerts } from './application/inbox-alerts.js';
+import { INBOX_GUARDS, InboxGuards, inboxLimitsFromEnv } from './application/inbox-guards.js';
+import { sharedLimiter } from '../../common/limits/limiter.js';
 import { NOTIFICATION_FACADE, type NotificationFacade } from '../notification/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../workspace/api/index.js';
 import { CONVERSATION_STORE } from './application/ports/conversation-store.js';
@@ -59,6 +61,17 @@ import { ConversationController } from './interface/http/conversation.controller
       provide: InboxAlerts,
       useFactory: (n: NotificationFacade, w: WorkspaceFacade) => new InboxAlerts(n, w),
       inject: [NOTIFICATION_FACADE, WORKSPACE_FACADE],
+    },
+    {
+      // Abuse caps and per-workspace fairness of the bot inbox (security audit 2026-11-12).
+      provide: INBOX_GUARDS,
+      useFactory: (alerts: InboxAlerts) => {
+        const limiter = sharedLimiter();
+        return new InboxGuards(inboxLimitsFromEnv(getEnv()), limiter, limiter, (ws, cap) =>
+          alerts.aiCapped(ws, cap),
+        );
+      },
+      inject: [InboxAlerts],
     },
     { provide: HUMAN_AGENT_TAG, useFactory: () => getEnv().META_HUMAN_AGENT_TAG === 'true' },
     ConversationFacadeImpl,
