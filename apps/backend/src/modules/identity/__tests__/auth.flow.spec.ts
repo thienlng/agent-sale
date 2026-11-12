@@ -30,13 +30,16 @@ import {
   WeakPasswordError,
 } from '../domain/identity.errors.js';
 import { totpAt, stepAt } from '../domain/totp.js';
+import { User } from '../domain/user.js';
 import {
   InMemoryEmailCodeRepository,
   InMemoryMfaRepository,
   InMemorySessionRepository,
+  InMemoryTrialClaimRepository,
   InMemoryUserRepository,
 } from '../infrastructure/persistence/identity.in-memory-repositories.js';
 import { InMemoryAttemptLimiter } from '../infrastructure/security/in-memory-attempt-limiter.js';
+import { InMemoryWindowCounter } from '../infrastructure/security/in-memory-window-counter.js';
 import { JoseAccessTokens } from '../infrastructure/security/jose-access-tokens.js';
 
 /** Fast fake hasher: the real Argon2 adapter is covered by the integration test. */
@@ -46,7 +49,15 @@ const hasher: PasswordHasher = {
   dummyVerify: async () => undefined,
 };
 
-async function setup() {
+/** A clock the tests move forward (shared windows: per account, per address). */
+function testClock() {
+  let t = Date.now();
+  return { now: () => t, advance: (ms: number) => void (t += ms) };
+}
+
+async function setup(opts: { blockedDomains?: string[] } = {}) {
+  const clock = testClock();
+  const counter = new InMemoryWindowCounter(clock.now);
   const users = new InMemoryUserRepository();
   const sessionRepo = new InMemorySessionRepository();
   const tokens = await JoseAccessTokens.create({ NODE_ENV: 'test' });
@@ -81,7 +92,8 @@ async function setup() {
   } as unknown as AccountFacade;
   const mailer = new LocalMailer('test');
   const codeRepo = new InMemoryEmailCodeRepository();
-  const codes = new EmailCodeService(codeRepo, mailer);
+  const codes = new EmailCodeService(codeRepo, mailer, counter);
+  const claims = new InMemoryTrialClaimRepository();
   const limiter = new InMemoryAttemptLimiter(3, 60_000);
   const mfa = new MfaService(
     new InMemoryMfaRepository(),
@@ -103,16 +115,23 @@ async function setup() {
     mailer,
     codeRepo,
     ownedAccounts,
+    clock,
+    counter,
+    claims,
+    codes,
     signup: new SignupHandler(users, hasher, limiter, sessions, codes),
-    business: new SignupBusinessHandler(users, accounts, workspaces, billing),
+    business: new SignupBusinessHandler(users, accounts, workspaces, billing, claims, {
+      blockedDomains: opts.blockedDomains ?? [],
+    }),
     reset: new PasswordResetHandler(
       users,
       hasher,
       new InMemoryAttemptLimiter(3, 60_000),
       sessions,
       codes,
+      counter,
     ),
-    login: new LoginHandler(users, hasher, limiter, sessions, mfa),
+    login: new LoginHandler(users, hasher, limiter, sessions, mfa, counter),
     refresh: new RefreshHandler(users, sessions),
   };
 }
@@ -269,11 +288,17 @@ describe('auth flow (in-memory)', () => {
     ).rejects.toBeInstanceOf(WeakPasswordError);
     await signUp(s);
     const again = { ...meta, ip: '10.0.0.2' };
-    await expect(s.signup.requestCode({ email: 'LAN@shop.vn' }, again)).rejects.toBeInstanceOf(
-      EmailTakenError,
-    );
+    // A registered address gets no code, so a second signup fails like a wrong code.
+    await s.signup.requestCode({ email: 'LAN@shop.vn' }, again);
     await expect(
       s.signup.execute({ ...input, email: 'LAN@shop.vn', code: '123456' }, again),
+    ).rejects.toBeInstanceOf(EmailCodeError);
+    // Only a race (the address registered after its code was sent) answers email_taken.
+    await s.signup.requestCode({ email: 'race@shop.vn' }, again);
+    const code = lastCode(s.mailer);
+    await s.users.insert(User.register({ email: 'race@shop.vn', name: 'R', passwordHash: 'h:x' }));
+    await expect(
+      s.signup.execute({ ...input, email: 'race@shop.vn', code }, again),
     ).rejects.toBeInstanceOf(EmailTakenError);
   });
 
@@ -322,6 +347,165 @@ describe('auth flow (in-memory)', () => {
     const tampered =
       accessToken.slice(0, at) + (accessToken[at] === 'A' ? 'B' : 'A') + accessToken.slice(at + 1);
     expect(await s.tokens.verify(tampered)).toBeNull();
+  });
+
+  describe('enumeration, email caps and code guessing', () => {
+    /** Moves the shared clock to `ms` after the start and returns that instant. */
+    function at(s: Setup, start: number, ms: number): Date {
+      s.clock.advance(start + ms - s.clock.now());
+      return new Date(s.clock.now());
+    }
+
+    it('answers a signup-code request for a registered address like a new one', async () => {
+      const s = await setup();
+      await signUp(s);
+      const other = { ...meta, ip: '10.0.0.2' };
+      await expect(
+        s.signup.requestCode({ email: input.email, name: 'Lan' }, other),
+      ).resolves.toBeUndefined();
+      const notice = s.mailer.sent.at(-1);
+      expect(notice?.to).toBe(input.email);
+      expect(notice?.subject).toContain('đã có tài khoản');
+      expect(notice?.text).not.toMatch(/\d{6}/);
+      // Within the minute it waits like a new address does.
+      await expect(s.signup.requestCode({ email: input.email }, other)).rejects.toBeInstanceOf(
+        TooManyAttemptsError,
+      );
+      // Wrong guesses wear out the never-sent code exactly like a real one.
+      for (let i = 0; i < MAX_CODE_ATTEMPTS; i++)
+        await expect(
+          s.signup.execute({ ...input, code: '000000' }, { ...meta, ip: `10.0.2.${i}` }),
+        ).rejects.toMatchObject({ details: { reason: 'code_invalid' } });
+      await expect(
+        s.signup.execute({ ...input, code: '000000' }, { ...meta, ip: '10.0.2.9' }),
+      ).rejects.toMatchObject({ details: { reason: 'code_expired' } });
+    });
+
+    it('never puts the name an anonymous caller typed into the signup code email', async () => {
+      const s = await setup();
+      await s.signup.requestCode({ email: 'new@shop.vn', name: 'Visit evil.example now' }, meta);
+      const mail = s.mailer.sent.at(-1);
+      expect(mail?.text).not.toContain('evil');
+      expect(mail?.html).not.toContain('evil');
+    });
+
+    it('caps code emails per address per hour and per day', async () => {
+      const s = await setup();
+      const start = s.clock.now();
+      const send = (ms: number) =>
+        s.codes.send({ email: 'cap@shop.vn' }, 'signup', at(s, start, ms));
+      for (const ms of [0, 61_000, 122_000]) await send(ms);
+      await expect(send(183_000)).rejects.toBeInstanceOf(TooManyAttemptsError);
+      // Next hour: two more, then the day is full even though the hour is not.
+      const hour = 60 * 60_000;
+      await send(hour + 1_000);
+      await send(hour + 62_000);
+      await expect(send(hour + 123_000)).rejects.toBeInstanceOf(TooManyAttemptsError);
+      expect(s.mailer.sent).toHaveLength(5);
+      await send(24 * hour + 1_000);
+      expect(s.mailer.sent).toHaveLength(6);
+    });
+
+    it('caps code checks per address per day across resends and warns the owner once', async () => {
+      const s = await setup();
+      await signUp(s);
+      const hour = 60 * 60_000;
+      // A day after signup, so its code email does not count against today's caps.
+      const start = s.clock.now() + 24 * hour;
+      const sendAt = [0, 61_000, 122_000, hour + 1_000];
+      for (const ms of sendAt) {
+        await s.codes.send({ email: input.email }, 'reset_password', at(s, start, ms));
+        for (let k = 0; k < MAX_CODE_ATTEMPTS; k++)
+          await expect(
+            s.codes.consume(input.email, 'reset_password', '000000', at(s, start, ms + k)),
+          ).rejects.toBeInstanceOf(EmailCodeError);
+      }
+      // 20 checks used: even the right code of a fresh one is refused, and the owner hears once.
+      await s.codes.send({ email: input.email }, 'reset_password', at(s, start, hour + 62_000));
+      const good = lastCode(s.mailer);
+      const sent = s.mailer.sent.length;
+      for (let k = 0; k < 2; k++)
+        await expect(
+          s.codes.consume(input.email, 'reset_password', good, at(s, start, hour + 63_000)),
+        ).rejects.toBeInstanceOf(TooManyAttemptsError);
+      expect(s.mailer.sent).toHaveLength(sent + 1);
+      expect(s.mailer.sent.at(-1)?.subject).toContain('Cảnh báo');
+      // A day later the cap is gone (a fresh code, the old one expired).
+      await s.codes.send({ email: input.email }, 'reset_password', at(s, start, 25 * hour));
+      await expect(
+        s.codes.consume(
+          input.email,
+          'reset_password',
+          lastCode(s.mailer),
+          at(s, start, 25 * hour + 1),
+        ),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('per-account login limit', () => {
+    const wrong = { email: input.email, password: 'wrong-password', client: 'web' as const };
+    const right = { email: input.email, password: input.password, client: 'web' as const };
+    const from = (n: number) => ({ ...meta, ip: `10.9.${Math.floor(n / 250)}.${n % 250}` });
+
+    async function lockedOut() {
+      const s = await setup();
+      await signUp(s);
+      // A different IP for every guess: the per-IP limiter never sees more than one.
+      for (let i = 0; i < 20; i++)
+        await expect(s.login.execute(wrong, from(i))).rejects.toBeInstanceOf(
+          InvalidCredentialsError,
+        );
+      await expect(s.login.execute(right, from(100))).rejects.toBeInstanceOf(TooManyAttemptsError);
+      return s;
+    }
+
+    it('locks the account after 20 attempts from any IPs until the window ends', async () => {
+      const s = await lockedOut();
+      s.clock.advance(60 * 60_000);
+      await expect(s.login.execute(right, from(101))).resolves.toBeDefined();
+    });
+
+    it('counts the same address however it is spelled', async () => {
+      const s = await lockedOut();
+      await expect(
+        s.login.execute({ ...right, email: ' LAN@Shop.VN ' }, from(102)),
+      ).rejects.toBeInstanceOf(TooManyAttemptsError);
+    });
+
+    it('ends the lockout with a password reset by the owner', async () => {
+      const s = await lockedOut();
+      await s.reset.forgot({ email: input.email }, meta);
+      const password = 'a brand new passphrase';
+      await s.reset.reset({ email: input.email, code: lastCode(s.mailer), password }, meta);
+      await expect(s.login.execute({ ...right, password }, from(103))).resolves.toBeDefined();
+    });
+  });
+
+  describe('signup trial, one per person', () => {
+    async function firstBusiness(s: Setup, email: string, ip: string) {
+      const issued = await signUp(s, { email }, { ...meta, ip });
+      await s.business.execute(issued.user.id as never, business);
+    }
+
+    it('gives no second trial to a Gmail dot or +tag variant of an address', async () => {
+      const s = await setup();
+      await firstBusiness(s, 'lan.nguyen+shop@gmail.com', '10.3.0.1');
+      await firstBusiness(s, 'lannguyen@googlemail.com', '10.3.0.2');
+      await firstBusiness(s, 'l.a.n.nguyen@gmail.com', '10.3.0.3');
+      expect(s.created).toHaveLength(3);
+      expect(s.trials).toEqual(['acc-1']);
+    });
+
+    it('gives no trial to a disposable or operator-blocked domain', async () => {
+      const s = await setup({ blockedDomains: ['burner.example'] });
+      await firstBusiness(s, 'a@mailinator.com', '10.3.1.1');
+      await firstBusiness(s, 'b@mx.burner.example', '10.3.1.2');
+      expect(s.created).toHaveLength(2);
+      expect(s.trials).toEqual([]);
+      await firstBusiness(s, 'c@shop.vn', '10.3.1.3');
+      expect(s.trials).toEqual(['acc-1']);
+    });
   });
 
   describe('two-factor', () => {

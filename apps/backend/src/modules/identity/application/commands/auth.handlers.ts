@@ -24,13 +24,23 @@ import {
   SignupBusinessDoneError,
   TooManyAttemptsError,
 } from '../../domain/identity.errors.js';
+import {
+  TRIAL_CLAIM_REPOSITORY,
+  type TrialClaimRepository,
+} from '../../domain/ports/trial-claim.repository.js';
 import { USER_REPOSITORY, type UserRepository } from '../../domain/ports/user.repository.js';
+import { canonicalTrialEmail, isDisposableEmail } from '../../domain/trial-identity.js';
 import { assertPasswordAcceptable, User } from '../../domain/user.js';
+import { AUTH_LIMITS, overLimit } from '../auth-limits.js';
 import {
   ATTEMPT_LIMITER,
   type AttemptLimiter,
+  AUTH_COUNTER,
   PASSWORD_HASHER,
   type PasswordHasher,
+  SIGNUP_TRIAL_OPTIONS,
+  type SignupTrialOptions,
+  type WindowCounter,
 } from '../ports/security.js';
 import type { IdentityAdminFacade, IdentityFacade, UserRef } from '../../api/identity.facade.js';
 import { EmailCodeService } from '../email-codes.js';
@@ -52,20 +62,27 @@ export class SignupHandler {
     @Inject(EmailCodeService) private readonly codes: EmailCodeService,
   ) {}
 
-  /** `EmailTakenError` for an address with an account; `TooManyAttemptsError` within the minute. */
+  /**
+   * Same answer whether or not the address has an account (no enumeration): a new address gets
+   * the code, a registered one a "sign in or reset your password" email. `TooManyAttemptsError`
+   * within the minute or over the address's email caps. `input.name` is not used: the code email
+   * never carries text an anonymous caller typed.
+   */
   async requestCode(input: SignupCodeRequest, meta: ClientMeta): Promise<void> {
     const wait = await this.limiter.hit(`signup-code:${meta.ip ?? 'unknown'}`);
     if (wait > 0) throw new TooManyAttemptsError(wait);
-    if (await this.users.findByEmail(input.email)) throw new EmailTakenError();
-    await this.codes.send({ email: input.email, name: input.name }, 'signup');
+    if (await this.users.findByEmail(input.email)) await this.codes.sendAccountExists(input.email);
+    else await this.codes.send({ email: input.email }, 'signup');
   }
 
+  /** The code is checked before the address: a registered one only fails like a wrong code. */
   async execute(input: SignupRequest, meta: ClientMeta): Promise<IssuedSession> {
     const wait = await this.limiter.hit(`signup:${meta.ip ?? 'unknown'}`);
     if (wait > 0) throw new TooManyAttemptsError(wait);
     assertPasswordAcceptable(input.password, { email: input.email, name: input.name });
-    if (await this.users.findByEmail(input.email)) throw new EmailTakenError();
     await this.codes.consume(input.email, 'signup', input.code);
+    // Only a race (the address registered after its code was sent) gets here with an account.
+    if (await this.users.findByEmail(input.email)) throw new EmailTakenError();
     const user = User.register({
       email: input.email,
       name: input.name,
@@ -82,7 +99,9 @@ export class SignupHandler {
  * Signup, step 2: the first business of a verified user who owns no account yet (a new account
  * under the user), then the signup trial (ADR-021 §6). Later businesses use `POST /workspaces`.
  * The two writes are in different transactions on purpose: a failed trial never blocks the
- * business, and an operator can start it from /admin.
+ * business, and an operator can start it from /admin. One trial per person: none for a
+ * disposable-inbox domain, nor when another user already claimed the same canonical email
+ * (`canonicalTrialEmail`: Gmail dots and `+tags` do not make a new person).
  */
 @Injectable()
 export class SignupBusinessHandler {
@@ -93,6 +112,8 @@ export class SignupBusinessHandler {
     @Inject(ACCOUNT_FACADE) private readonly accounts: AccountFacade,
     @Inject(WORKSPACE_FACADE) private readonly workspaces: WorkspaceFacade,
     @Inject(BILLING_FACADE) private readonly billing: BillingFacade,
+    @Inject(TRIAL_CLAIM_REPOSITORY) private readonly claims: TrialClaimRepository,
+    @Inject(SIGNUP_TRIAL_OPTIONS) private readonly trial: SignupTrialOptions,
   ) {}
 
   async execute(userId: UserId, input: SignupBusinessRequest): Promise<{ workspaceId: string }> {
@@ -107,13 +128,21 @@ export class SignupBusinessHandler {
       ownerUserId: user.id,
       owner: { name: snapshot.name, email: snapshot.email, phone: snapshot.phone },
     });
-    await this.#startTrial(workspace.id);
+    await this.#startTrial(workspace.id, user.id, snapshot.email);
     return { workspaceId: workspace.id };
   }
 
   /** The signup trial (ADR-021 §6) never blocks the first business: an operator can start it from /admin. */
-  async #startTrial(ws: string): Promise<void> {
+  async #startTrial(ws: string, owner: UserId, email: string): Promise<void> {
     try {
+      if (isDisposableEmail(email, this.trial.blockedDomains)) {
+        this.#log.log(`Workspace ${ws}: no signup trial (disposable email domain)`);
+        return;
+      }
+      if (!(await this.claims.claim(canonicalTrialEmail(email), owner))) {
+        this.#log.log(`Workspace ${ws}: no signup trial (the email already had one)`);
+        return;
+      }
       const accountId = await this.workspaces.accountOf(workspaceId(ws));
       if (accountId) await this.billing.startSignupTrial(accountId);
     } catch {
@@ -135,6 +164,7 @@ export class PasswordResetHandler {
     @Inject(ATTEMPT_LIMITER) private readonly limiter: AttemptLimiter,
     @Inject(SessionService) private readonly sessions: SessionService,
     @Inject(EmailCodeService) private readonly codes: EmailCodeService,
+    @Inject(AUTH_COUNTER) private readonly counter: WindowCounter,
   ) {}
 
   async forgot(input: ForgotPasswordRequest, meta: ClientMeta): Promise<void> {
@@ -164,6 +194,8 @@ export class PasswordResetHandler {
     await this.users.setPassword(user.id, await this.hasher.hash(input.password), new Date());
     await this.sessions.revokeAll(user.id);
     await this.limiter.reset(key);
+    // The emailed code proved the owner: a lockout from someone else's guesses ends here.
+    await this.counter.reset(accountLoginKey(input.email));
   }
 }
 
@@ -175,12 +207,22 @@ export class LoginHandler {
     @Inject(ATTEMPT_LIMITER) private readonly limiter: AttemptLimiter,
     @Inject(SessionService) private readonly sessions: SessionService,
     @Inject(MfaService) private readonly mfa: MfaService,
+    @Inject(AUTH_COUNTER) private readonly counter: WindowCounter,
   ) {}
 
+  /**
+   * Two limits: per IP + address (in process, a burst guard), and per address from any IP on the
+   * shared counter (`AUTH_LIMITS.loginPerAccount`): over it the account is locked until the window
+   * ends, or until a password reset. Unknown addresses are counted the same way.
+   */
   async execute(input: LoginRequest, meta: ClientMeta): Promise<IssuedSession> {
-    const key = `login:${meta.ip ?? 'unknown'}:${input.email}`;
+    const email = input.email.trim().toLowerCase();
+    const key = `login:${meta.ip ?? 'unknown'}:${email}`;
     const wait = await this.limiter.hit(key);
     if (wait > 0) throw new TooManyAttemptsError(wait);
+    const accountKey = accountLoginKey(email);
+    const locked = await overLimit(this.counter, accountKey, AUTH_LIMITS.loginPerAccount);
+    if (locked > 0) throw new TooManyAttemptsError(locked);
     const user = await this.users.findByEmail(input.email);
     // A Google-only user has no password yet: same answer and cost as an unknown email.
     if (!user?.hasPassword) {
@@ -196,8 +238,14 @@ export class LoginHandler {
       if (!(await this.mfa.verifyLogin(user.id, input.code))) throw new MfaCodeInvalidError();
     }
     await this.limiter.reset(key);
+    await this.counter.reset(accountKey);
     return this.sessions.start(user, meta);
   }
+}
+
+/** The shared per-account login counter key. */
+function accountLoginKey(email: string): string {
+  return `login-account:${email.trim().toLowerCase()}`;
 }
 
 @Injectable()

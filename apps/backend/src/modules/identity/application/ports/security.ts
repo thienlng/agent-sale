@@ -24,10 +24,33 @@ export interface AccessTokens {
 }
 export const ACCESS_TOKENS = Symbol('ACCESS_TOKENS');
 
-/** Fixed-window attempt limiter per key (IP + email). Redis-backed in production later. */
+/**
+ * Fixed-window attempt limiter per key (IP + email), in process: a burst guard per API replica.
+ * Limits that must hold across replicas (per account, per address) use `WindowCounter`.
+ */
 export interface AttemptLimiter {
   /** Records an attempt; returns seconds to wait when over the limit, else 0. */
   hit(key: string): Promise<number>;
   reset(key: string): Promise<void>;
 }
 export const ATTEMPT_LIMITER = Symbol('ATTEMPT_LIMITER');
+
+/**
+ * Shared fixed-window counter: every API process sees the same counts (Postgres in production,
+ * migration 0076). Generic on purpose, so a Redis adapter can replace it without touching callers.
+ */
+export interface WindowCounter {
+  /**
+   * Counts one event for `key` in its window of `windowMs` (a new window starts when the last
+   * one ended); returns the count so far, this one included, and the seconds left in the window.
+   */
+  hit(key: string, windowMs: number): Promise<{ count: number; retryAfterSeconds: number }>;
+  reset(key: string): Promise<void>;
+}
+export const AUTH_COUNTER = Symbol('AUTH_COUNTER');
+
+/** Signup-trial policy from config: extra disposable domains (`TRIAL_BLOCKED_EMAIL_DOMAINS`). */
+export interface SignupTrialOptions {
+  blockedDomains: readonly string[];
+}
+export const SIGNUP_TRIAL_OPTIONS = Symbol('SIGNUP_TRIAL_OPTIONS');
