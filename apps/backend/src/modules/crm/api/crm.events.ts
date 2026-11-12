@@ -2,6 +2,7 @@
 export {
   ContactAssignedV1,
   ContactCreatedV1,
+  ContactDeletedV1,
   ContactStatusChangedV1,
   ContactUpdatedV1,
   CrmEvents,
@@ -17,4 +18,5 @@ export const CRM_EVENT_TYPES = [
   'crm.contact.assigned.v1',
   'crm.tag.assigned.v1',
   'crm.tag.removed.v1',
+  'crm.contact.deleted.v1',
 ] as const;

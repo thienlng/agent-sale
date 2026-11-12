@@ -84,7 +84,7 @@ describe('TaskReminderRunner.tick', () => {
       workspaceId: ws,
       type: 'task.due',
       params: { taskId: row({}).id },
-      target: { kind: 'path', path: '/app/today' },
+      target: { kind: 'path', path: '/app/analytics' },
       channels: ['in_app', 'push'],
       dedupKey: `task:${row({}).id}:due:${row({}).dueAt.getTime()}`,
     });

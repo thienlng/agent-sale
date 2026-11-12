@@ -1,4 +1,4 @@
-import { and, eq, type Database, schema, withTenant } from '@agent-sales/db';
+import { and, eq, type Database, schema, sql, withTenant } from '@agent-sales/db';
 import type { WorkspaceId } from '@agent-sales/shared';
 
 import type {
@@ -46,6 +46,21 @@ export class DrizzleConversationSummaryRepository implements ConversationSummary
         }),
     );
   }
+
+  async deleteFor(ws: WorkspaceId, conversationIds: readonly string[]): Promise<void> {
+    if (!conversationIds.length) return;
+    const s = schema.conversationSummaries;
+    await withTenant(this.db, ws, (tx) =>
+      tx
+        .delete(s)
+        .where(
+          and(
+            eq(s.workspaceId, ws),
+            sql`${s.conversationId} = any(${`{${conversationIds.join(',')}}`}::uuid[])`,
+          ),
+        ),
+    );
+  }
 }
 
 export class InMemoryConversationSummaryRepository implements ConversationSummaryRepository {
@@ -61,5 +76,9 @@ export class InMemoryConversationSummaryRepository implements ConversationSummar
     value: ConversationSummaryValue,
   ): Promise<void> {
     this.rows.set(`${ws}:${conversationId}`, { ...value });
+  }
+
+  async deleteFor(ws: WorkspaceId, conversationIds: readonly string[]): Promise<void> {
+    for (const id of conversationIds) this.rows.delete(`${ws}:${id}`);
   }
 }

@@ -1075,4 +1075,94 @@ describe('commerce on Postgres', () => {
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain(a.id);
   });
+
+  it('deletes an unordered product with its stock and selections; refuses ordered or synced ones', async () => {
+    const h = await owner('delete-product@shop.vn');
+    const other = await owner('delete-product-other@shop.vn');
+    const { warehouse, product: ordered, l } = await setup(h);
+    const created = await call(
+      h,
+      'POST',
+      '/orders',
+      orderBody(warehouse.id, [{ variantId: l.id, qty: 1 }]),
+    );
+    expect(created.statusCode, created.body).toBe(201);
+
+    const spare = ProductDto.parse(
+      (
+        await call(h, 'POST', '/products', {
+          code: 'XOA01',
+          name: 'Sản phẩm tạo nhầm',
+          variants: [{ sku: 'XOA01-1', price: 50_000 }],
+        })
+      ).json(),
+    );
+    const stock = await call(h, 'POST', `/products/${spare.id}/stock`, {
+      variantId: spare.variants[0]!.id,
+      warehouseId: warehouse.id,
+      onHand: 4,
+    });
+    expect(stock.statusCode, stock.body).toBe(200);
+    const bot = BotDto.parse(
+      (await call(h, 'POST', '/bots', { name: 'Bot xoá', industry: 'fashion' })).json(),
+    );
+    await call(h, 'PUT', `/bots/${bot.id}/products`, { productIds: [spare.id, ordered.id] });
+
+    // Another shop cannot see it, whatever workspace header it sends.
+    expect((await call(other, 'DELETE', `/products/${spare.id}`)).statusCode).toBe(404);
+    expect((await call(h, 'DELETE', `/products/not-a-uuid`)).statusCode).toBe(404);
+
+    const inOrders = await call(h, 'DELETE', `/products/${ordered.id}`);
+    expect(inOrders.statusCode, inOrders.body).toBe(409);
+    expect(inOrders.json()).toMatchObject({
+      error: { code: 'CONFLICT', details: { reason: 'product_in_orders' } },
+    });
+
+    const db = createDb({ url: pg.ownerUrl, max: 1 });
+    try {
+      const synced = ProductDto.parse(
+        (
+          await call(h, 'POST', '/products', {
+            code: 'KV01',
+            name: 'Hàng KiotViet',
+            variants: [{ sku: 'KV01-1', price: 70_000 }],
+          })
+        ).json(),
+      );
+      await db.db.execute(
+        sql`update products set external_source = 'kiotviet', external_id = '1001'
+            where id = ${synced.id}`,
+      );
+      const r = await call(h, 'DELETE', `/products/${synced.id}`);
+      expect(r.statusCode, r.body).toBe(409);
+      expect(r.json()).toMatchObject({ error: { details: { reason: 'product_synced' } } });
+
+      const gone = await call(h, 'DELETE', `/products/${spare.id}`);
+      expect(gone.statusCode, gone.body).toBe(204);
+      expect((await call(h, 'GET', `/products/${spare.id}`)).statusCode).toBe(404);
+      expect((await call(h, 'GET', `/products/${ordered.id}`)).statusCode).toBe(200);
+      const count = async (q: ReturnType<typeof sql>) =>
+        ((await db.db.execute(q)) as unknown as { n: number }[])[0]?.n;
+      const variantId = spare.variants[0]!.id;
+      expect(
+        await count(sql`select count(*)::int as n from inventory where variant_id = ${variantId}`),
+      ).toBe(0);
+      expect(
+        await count(
+          sql`select count(*)::int as n from inventory_movements where variant_id = ${variantId}`,
+        ),
+      ).toBe(0);
+      expect(
+        await count(
+          sql`select count(*)::int as n from audit_events
+              where target_id = ${spare.id} and action = 'commerce.product.deleted'`,
+        ),
+      ).toBe(1);
+    } finally {
+      await db.close();
+    }
+    expect(
+      BotProductsDto.parse((await call(h, 'GET', `/bots/${bot.id}/products`)).json()).productIds,
+    ).toEqual([ordered.id]);
+  });
 });

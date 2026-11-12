@@ -30,7 +30,7 @@ Techniques (mandatory patterns, enforced in review):
 | Webhook ack | ≤ 200 ms (p99 ≤ 500 ms) | verify + insert + enqueue only |
 | List endpoints (conversations, contacts, orders) | ≤ 150 ms for a page of 50 | keyset pagination, covering indexes, no N+1 |
 | Entity read / write | ≤ 100 ms / ≤ 200 ms | — |
-| Auth/entitlement checks | ≤ 5 ms | Redis cache (60 s) + in-process LRU; the session check on every request (token revocation, migration 0078) is a per-process cache of `AUTH_SESSION_CACHE_TTL_MS` (default 15 s, one primary-key read per session per window) |
+| Auth/entitlement checks | ≤ 5 ms | Redis cache (60 s) + in-process LRU; the session check on every request (token revocation, migration 0081) is a per-process cache of `AUTH_SESSION_CACHE_TTL_MS` (default 15 s, one primary-key read per session per window) |
 | Realtime fan-out | ≤ 50 ms server-side | Redis pub/sub → SSE |
 | AI reply (end-to-end, normal load) | ≤ 8 s p95 | external; streamed only to the website widget (SSE); Messenger/Zalo cannot stream. The pre-send guard (ADR-032) adds no model call on a passing reply (leak and number checks are in-process, a few ms); with `BOT_REPLY_FIGURE_GUARD` on, a final reply with an ungrounded figure costs one extra model call (rewrite once, `toolChoice: 'none'`), then the fallback line |
 | Owner assistant SQL lane (T-171) | 3 s statement timeout, ≤ 500 rows (501 fetched to detect truncation), ≤ 8 000 chars of result to the model, ≤ 8 `sql_query` calls and ≤ 3 charts per turn | own login with a pool of 4 per `api` process (`CONNECTION LIMIT 10`), `READ ONLY` transaction, 1 s lock timeout, 16 MB `work_mem`; runs on the primary inside the 90 s turn and counts against the 40 000-char tool output budget |

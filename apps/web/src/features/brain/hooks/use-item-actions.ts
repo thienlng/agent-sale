@@ -29,7 +29,7 @@ export function useItemActions() {
     // From the mutation itself: the draft is kept even when the member left Today meanwhile.
     onDrafted: (conversationId, text) => {
       putPendingDraft(ws, conversationId, text);
-      if (router.state.location.pathname === '/app/today') {
+      if (router.state.location.pathname === '/app/analytics') {
         toast.success(t('draft.ready'), { id: draftToast(conversationId) });
         open(conversationId);
       } else {

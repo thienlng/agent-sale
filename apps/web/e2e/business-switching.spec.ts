@@ -143,10 +143,13 @@ test('losing the current business mid-session lands on the overview with a notic
       ? route.fulfill({ status: 404, json: lost })
       : route.fallback(),
   );
+  // The next request for B loses it: this click, or a background refresh of the statistics page
+  // (Today's counts) that can win the race and unmount the sidebar first.
   await page
     .getByRole('navigation', { name: 'Điều hướng chính' })
     .getByRole('link', { name: /Đào tạo Bot/ })
-    .click();
+    .click({ timeout: 5_000 })
+    .catch(() => undefined);
   await expect(page).toHaveURL(/\/app\/overview\?lost=true$/);
   await expect(page.getByRole('alert')).toContainText('Bạn không còn quyền truy cập business đó');
   await page

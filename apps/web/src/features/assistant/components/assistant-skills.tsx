@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useAssistantSkill, useAssistantSkills, useSkillAction } from '../api/assistant-skills';
 import { AssistantSkillEditor } from './assistant-skill-editor';
 import { useSkillErrorToast } from './skill-errors';
+import { ViewHeader } from './view-header';
 
 interface SkillSections {
   pending: AssistantSkillSummaryDto[];
@@ -161,10 +162,10 @@ function Section({
 }) {
   if (!skills.length && !empty) return null;
   return (
-    <section aria-label={title} className="flex flex-col gap-1">
+    <section aria-label={title} className="flex flex-col gap-2">
       <h3 className="text-sm font-semibold">{title}</h3>
       {skills.length ? (
-        <ul className="-mx-2 flex flex-col">
+        <ul className="flex flex-col divide-y rounded-xl border bg-card p-1">
           {skills.map((skill) => (
             <SkillRow key={skill.ref} skill={skill} onOpen={onOpen} />
           ))}
@@ -194,8 +195,7 @@ export function AssistantSkills() {
   const sections = skills.data ? sectionsOf(skills.data) : null;
   return (
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
-      <h2 className="font-semibold">{t('skills.title')}</h2>
-      <p className="mt-1 text-sm text-muted-foreground">{t('skills.hint')}</p>
+      <ViewHeader title={t('skills.title')} hint={t('skills.hint')} />
       {skills.isPending ? (
         <div className="mt-4 flex flex-col gap-3">
           <Skeleton className="h-16" />
@@ -206,7 +206,7 @@ export function AssistantSkills() {
           {t('loadError')}
         </p>
       ) : (
-        <div className="mt-4 flex flex-col gap-5">
+        <div className="mt-6 flex flex-col gap-6">
           {sections.pending.length ? (
             <section aria-label={t('skills.sections.pending')} className="flex flex-col gap-2">
               <h3 className="text-sm font-semibold">{t('skills.sections.pending')}</h3>

@@ -34,6 +34,11 @@ export const CAPABILITIES = [
   'contacts.edit',
   /** Change who is Sales / CSKH of a customer. */
   'contacts.assign',
+  /**
+   * Delete a customer and their conversations on request (docs/09 §3, PDPA). Owner and admin
+   * only; never an API scope.
+   */
+  'contacts.delete',
   /** Make a saved view visible to the whole shop. */
   'views.share',
   /** Read the audit trail of workspace and security changes. */

@@ -1,11 +1,23 @@
-import { and, desc, eq, schema, sql, withSystem, withTenant, type Database } from '@agent-sales/db';
+import {
+  and,
+  desc,
+  eq,
+  schema,
+  sql,
+  withSystem,
+  withTenant,
+  writeAudit,
+  type Database,
+} from '@agent-sales/db';
 import { newId, type WorkspaceId } from '@agent-sales/shared';
 import type { MetaProvider } from '@agent-sales/contracts';
 import type { NormalizedEvent } from '@agent-sales/channels';
 import type {
   ChannelStore,
   ConnectionRecord,
+  DataDeletionRecord,
   OAuthFlow,
+  PendingDataDeletion,
   PendingMetaEvent,
 } from '../../application/ports/channel-store.js';
 import { ChannelError } from '../../domain/channel.errors.js';
@@ -15,7 +27,10 @@ import { findDiscovery, selectDiscoveredAccounts } from './oauth-discovery.js';
 import { enqueueWebsiteEvent, findWebsiteRecord, hasPendingMessage } from './website.store.js';
 const c = schema.channelConnections,
   f = schema.channelOauthFlows,
-  e = schema.channelWebhookEvents;
+  e = schema.channelWebhookEvents,
+  dd = schema.metaDataDeletionRequests;
+/** A request that failed this often is left for an operator (it stays `pending`). */
+const MAX_DELETION_ATTEMPTS = 10;
 export class DrizzleChannelStore implements ChannelStore {
   constructor(
     private readonly db: Database,
@@ -55,14 +70,76 @@ export class DrizzleChannelStore implements ChannelStore {
       return r ? connection(r) : null;
     });
   }
-  remove(ws: WorkspaceId, id: string, tokenSealed: string) {
+  remove(
+    ws: WorkspaceId,
+    id: string,
+    tokenSealed: string,
+    audit?: { action: string; data: Record<string, unknown> },
+  ) {
     return withTenant(this.db, ws, async (tx) => {
       const [r] = await tx
         .update(c)
-        .set({ status: 'removed', botId: null, tokenSealed, expiresAt: null })
+        .set({ status: 'removed', botId: null, tokenSealed, expiresAt: null, metaUserHash: null })
         .where(and(eq(c.workspaceId, ws), eq(c.id, id), sql`${c.status} <> 'removed'`))
         .returning();
+      if (r && audit)
+        await writeAudit(tx, {
+          workspaceId: ws,
+          actorUserId: null,
+          actorName: null,
+          action: audit.action,
+          targetType: 'channel',
+          targetId: id,
+          data: audit.data,
+        });
       return r ? connection(r) : null;
+    });
+  }
+  connectionsOfMetaUser(userHash: string) {
+    return withSystem(this.system, async (tx) =>
+      (
+        await tx
+          .select()
+          .from(c)
+          .where(and(eq(c.metaUserHash, userHash), sql`${c.status} <> 'removed'`))
+      ).map(connection),
+    );
+  }
+  claimDataDeletions(limit: number): Promise<PendingDataDeletion[]> {
+    return withSystem(this.system, async (tx) => {
+      const rows = await tx.execute<{ id: string; user_hash: string }>(sql`
+        update ${dd} set attempts = attempts + 1
+         where id in (
+           select id from ${dd}
+            where status = 'pending' and attempts < ${MAX_DELETION_ATTEMPTS}
+            order by requested_at
+            limit ${limit}
+            for update skip locked)
+        returning id, user_hash`);
+      return [...rows].map((r) => ({ id: r.id, userHash: r.user_hash }));
+    });
+  }
+  async completeDataDeletion(id: string, connectionsRemoved: number) {
+    await withSystem(this.system, (tx) =>
+      tx
+        .update(dd)
+        .set({ status: 'completed', completedAt: new Date(), userHash: null, connectionsRemoved })
+        .where(and(eq(dd.id, id), eq(dd.status, 'pending'))),
+    );
+  }
+  dataDeletion(confirmationCode: string): Promise<DataDeletionRecord | null> {
+    return withSystem(this.system, async (tx) => {
+      const [r] = await tx
+        .select({
+          confirmationCode: dd.confirmationCode,
+          status: dd.status,
+          requestedAt: dd.requestedAt,
+          completedAt: dd.completedAt,
+          connectionsRemoved: dd.connectionsRemoved,
+        })
+        .from(dd)
+        .where(eq(dd.confirmationCode, confirmationCode));
+      return r ?? null;
     });
   }
   create(rec: ConnectionRecord) {
@@ -95,6 +172,23 @@ export class DrizzleChannelStore implements ChannelStore {
         .set({ botId: null })
         .where(and(eq(c.workspaceId, ws), eq(c.botId, botId)))
         .returning({ id: c.id });
+      return rows.length;
+    });
+  }
+  forgetCustomerEvents(ws: WorkspaceId, connectionId: string, senderExternalId: string) {
+    return withTenant(this.db, ws, async (tx) => {
+      // Unprocessed events stay: the agent is about to handle them (a new message starts afresh).
+      const rows = await tx
+        .delete(e)
+        .where(
+          and(
+            eq(e.workspaceId, ws),
+            eq(e.connectionId, connectionId),
+            sql`${e.payload}->>'senderExternalId' = ${senderExternalId}`,
+            sql`${e.processedAt} is not null`,
+          ),
+        )
+        .returning({ id: e.id });
       return rows.length;
     });
   }
@@ -295,6 +389,21 @@ export class UnavailableChannelStore implements ChannelStore {
   }
   unbindBot(): Promise<number> {
     return Promise.resolve(0);
+  }
+  forgetCustomerEvents(): Promise<number> {
+    return Promise.resolve(0);
+  }
+  connectionsOfMetaUser(): Promise<ConnectionRecord[]> {
+    return Promise.resolve([]);
+  }
+  claimDataDeletions(): Promise<PendingDataDeletion[]> {
+    return Promise.resolve([]);
+  }
+  completeDataDeletion(): Promise<void> {
+    return this.fail();
+  }
+  dataDeletion(): Promise<null> {
+    return Promise.resolve(null);
   }
   createFlow(): Promise<void> {
     return this.fail();

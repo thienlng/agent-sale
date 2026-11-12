@@ -372,6 +372,8 @@ export function AssistantPanel() {
         loading={Boolean(threadId) && messages.isPending}
         pendingTurn={pendingTurn}
         unavailable={unavailable}
+        onStarter={sending ? undefined : (text) => void send(text)}
+        roomy={onPage}
       />
       <AssistantSuggestions />
       {busy ? (
@@ -402,10 +404,18 @@ export function AssistantPanel() {
   /** The current view's body; the threads view exists in the sheet only. */
   function body(): ReactNode {
     if (view === 'threads' && !onPage)
-      return <AssistantThreadList currentId={threadId} onPick={pickThread} />;
+      return (
+        <AssistantThreadList
+          currentId={threadId}
+          onPick={pickThread}
+          onCurrentRemoved={newThread}
+        />
+      );
     if (view === 'memory') return <AssistantMemory />;
     if (view === 'skills') return <AssistantSkills />;
-    if (view === 'settings') return <AssistantSettings onOpenMemory={() => setView('memory')} />;
+    // On the page, memory has its own place in the rail: no second way to it.
+    if (view === 'settings')
+      return <AssistantSettings onOpenMemory={onPage ? undefined : () => setView('memory')} />;
     if (view === 'schedules') return <AssistantSchedules />;
     return chat;
   }
@@ -418,6 +428,7 @@ export function AssistantPanel() {
           onView={setView}
           onPickThread={pickThread}
           onNewThread={newThread}
+          onCurrentRemoved={newThread}
           onCollapse={collapse}
           dropHandlers={dropHandlers}
         >
@@ -446,7 +457,8 @@ export function AssistantPanel() {
           <header className="flex items-center gap-0.5 border-b py-2 pr-2 pl-4">
             <div className="min-w-0 flex-1">
               <SheetTitle className="truncate font-semibold">{t('title')}</SheetTitle>
-              <SheetDescription className="truncate text-xs">{t('subtitle')}</SheetDescription>
+              {/* Read by screen readers; no room beside the view toggles. */}
+              <SheetDescription className="sr-only">{t('subtitle')}</SheetDescription>
             </div>
             {VIEW_TOGGLES.map(({ view: target, Icon, label }) => (
               <Button

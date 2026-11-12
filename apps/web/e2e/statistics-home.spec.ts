@@ -70,9 +70,11 @@ test('opens business statistics as home while preserving existing module navigat
     4,
   );
   const nav = page.getByRole('navigation', { name: 'Điều hướng chính' });
-  // Today (Business Brain) leads the sidebar; statistics follows and stays the business home.
-  await expect(nav.getByRole('link').nth(0)).toHaveText('Hôm nay');
-  await expect(nav.getByRole('link').nth(1)).toHaveText('Thống kê');
+  // Statistics leads the sidebar and is the business home; Today lives on it ("Việc hôm nay").
+  await expect(nav.getByRole('link').nth(0)).toHaveText('Thống kê');
+  await expect(nav.getByRole('link', { name: 'Hôm nay', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { level: 2, name: 'Việc hôm nay' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Báo cáo' })).toBeVisible();
   await expect(nav.getByRole('link', { name: 'Thống kê', exact: true })).toHaveAttribute(
     'aria-current',
     'page',

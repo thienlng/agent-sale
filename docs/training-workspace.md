@@ -58,7 +58,7 @@ Since T-143 the bot answers with prompt `sales-agent@11` (`@12` for hotel bots) 
 
 ## Owner assistant drafts (T-175)
 
-The owner assistant ("Thỏ Rapiz", [shop autofill spec](superpowers/specs/2026-11-02-owner-assistant-shop-autofill-design.md)) can draft the content of these pages for the account owner. A fill only sets the form's draft state: the page's dirty bar, leave guard and **Lưu** button work as for typing, and nothing is saved until the owner saves. Several records at once, or a page the owner is not on, become proposals the owner approves in the chat (FAQ import of at most 15 rows; starter rules first, then at most 5 scenario or quick-reply proposals per turn).
+The owner assistant ("Rapiz Agent", [shop autofill spec](superpowers/specs/2026-11-02-owner-assistant-shop-autofill-design.md)) can draft the content of these pages for the account owner. A fill only sets the form's draft state: the page's dirty bar, leave guard and **Lưu** button work as for typing, and nothing is saved until the owner saves. Several records at once, or a page the owner is not on, become proposals the owner approves in the chat (FAQ import of at most 15 rows; starter rules first, then at most 5 scenario or quick-reply proposals per turn).
 
 - **Information page** (`/app/bots/{botId}/knowledge`): the business profile form (`bot-profile`: the industry's profile fields and notes, never the Google Maps link) and a new FAQ (`faq`: question and answer; the fill opens the add dialog with the draft).
 - **Instructions page** (`/app/bots/{botId}/instructions`): the personality (`bot-personality`: mission, greeting, pronouns, reply length, tone, emoji) and a new scenario (`scenario`: title, trigger, instruction, section; the fill opens the editor).

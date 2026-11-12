@@ -75,7 +75,8 @@ export function AssistantComposer({
       {attachments ? <AttachmentTray attachments={attachments} /> : null}
       <form
         data-measure
-        className="flex items-end gap-2 border-t p-3"
+        // One box: the attach button, the text and the send button inside the same border.
+        className="mx-3 mb-3 flex items-end gap-1 rounded-2xl border bg-background p-1.5 shadow-xs transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/30"
         onSubmit={(event: FormEvent) => {
           event.preventDefault();
           submit();
@@ -98,8 +99,9 @@ export function AssistantComposer({
             />
             <Button
               type="button"
-              size="icon-lg"
+              size="icon"
               variant="ghost"
+              className="text-muted-foreground"
               aria-label={t('import.attach')}
               disabled={sending || attachments.creating}
               onClick={() => picker.current?.click()}
@@ -115,11 +117,17 @@ export function AssistantComposer({
           value={text}
           maxLength={ASSISTANT_MESSAGE_MAX}
           rows={1}
-          className="max-h-40 min-h-10 resize-none"
+          className="max-h-40 min-h-9 resize-none border-0 bg-transparent px-2 py-2 shadow-none focus-visible:ring-0 dark:bg-transparent"
           onChange={(event) => setText(event.target.value)}
           {...enterToSend}
         />
-        <Button type="submit" size="icon-lg" aria-label={t('send')} disabled={!canSend}>
+        <Button
+          type="submit"
+          size="icon"
+          aria-label={t('send')}
+          disabled={!canSend}
+          className="rounded-xl disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+        >
           <SendHorizontal />
         </Button>
       </form>

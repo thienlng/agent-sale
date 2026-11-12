@@ -3,7 +3,7 @@ import { userId, workspaceId, type UserId, type WorkspaceId } from '@agent-sales
 
 import type { MemberRepository, Membership } from '../../domain/ports/member.repository.js';
 import type { WorkspaceRepository } from '../../domain/ports/workspace.repository.js';
-import { Workspace } from '../../domain/workspace.js';
+import { Workspace, type WorkspaceStatus } from '../../domain/workspace.js';
 
 /**
  * Drizzle adapters bound to one tenant transaction (created by the unit of
@@ -12,12 +12,13 @@ import { Workspace } from '../../domain/workspace.js';
 export class DrizzleWorkspaceRepository implements WorkspaceRepository {
   constructor(private readonly tx: TenantTx) {}
 
-  async findById(id: WorkspaceId): Promise<Workspace | null> {
-    const [row] = await this.tx
+  async findById(id: WorkspaceId, opts?: { lock?: boolean }): Promise<Workspace | null> {
+    const query = this.tx
       .select()
       .from(schema.workspaces)
       .where(eq(schema.workspaces.id, id))
       .limit(1);
+    const [row] = opts?.lock ? await query.for('update') : await query;
     if (!row) return null;
     return Workspace.rehydrate({
       id: workspaceId(row.id),
@@ -26,8 +27,10 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
       timezone: row.timezone,
       ownerUserId: userId(row.ownerUserId),
       accountId: row.accountId,
-      status: row.status as 'active' | 'suspended' | 'deleted',
+      status: row.status as WorkspaceStatus,
       createdAt: row.createdAt,
+      deletedAt: row.deletedAt,
+      purgeAfter: row.purgeAfter,
     });
   }
 
@@ -53,9 +56,21 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
           industry: s.industry,
           timezone: s.timezone,
           status: s.status,
+          deletedAt: s.deletedAt ?? null,
+          purgeAfter: s.purgeAfter ?? null,
           updatedAt: new Date(),
         },
       });
+  }
+
+  async restoreWithinWindow(id: WorkspaceId): Promise<boolean> {
+    const rows = await this.tx.execute<{ id: string }>(sql`
+      update workspaces
+      set status = 'active', deleted_at = null, purge_after = null, purge_attempts = 0,
+          purge_next_at = null, purge_last_error = null, updated_at = now()
+      where id = ${id} and status = 'pending_deletion' and purge_after > now()
+      returning id`);
+    return rows.length > 0;
   }
 }
 

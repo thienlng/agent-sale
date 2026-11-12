@@ -14,10 +14,12 @@ export function TodayQueue({
   queue,
   handlers,
   now,
+  className,
 }: {
   queue: TodayQueueDto;
   handlers: ItemHandlers;
   now: number;
+  className?: string | undefined;
 }) {
   const { t } = useTranslation('brain');
   const headingId = `today-queue-${queue.key}`;
@@ -26,7 +28,10 @@ export function TodayQueue({
     <section
       aria-labelledby={headingId}
       id={`queue-${queue.key}`}
-      className="flex min-w-0 scroll-mt-20 flex-col overflow-hidden rounded-xl border bg-card"
+      className={cn(
+        'flex min-w-0 scroll-mt-20 flex-col overflow-hidden rounded-xl border bg-card',
+        className,
+      )}
     >
       <header className="flex items-center gap-2 border-b px-4 py-3">
         <h2 id={headingId} className="min-w-0 truncate text-sm font-semibold">

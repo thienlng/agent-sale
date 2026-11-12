@@ -36,6 +36,8 @@ export const queryKeys = {
   logo: (ws: string, version: string | null) => ['ws', ws, 'logo', version] as const,
   audit: (ws: string) => ['ws', ws, 'audit'] as const,
   dataExports: (ws: string) => ['ws', ws, 'data-exports'] as const,
+  /** Account level (no business): the signed-in owner's deleted, still restorable businesses. */
+  deletedBusinesses: () => ['account', 'deleted-businesses'] as const,
   llmProviders: ['admin', 'llm', 'providers'] as const,
   hermesLogin: (providerId: string) => ['admin', 'llm', 'hermes-login', providerId] as const,
   providerModels: (providerId: string) => ['admin', 'llm', 'models', providerId] as const,

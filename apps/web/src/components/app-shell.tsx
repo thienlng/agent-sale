@@ -10,7 +10,7 @@ import { useSignedInFavicon } from '@/lib/favicon';
 import { useSession } from '@/lib/session';
 
 import { AccountMenu, type MenuDialogProps } from './layout/account-menu';
-import { AccountSidebar, ACCOUNT_PATHS } from './layout/account-sidebar';
+import { AccountSidebar, ACCOUNT_SIDEBAR_PATHS } from './layout/account-sidebar';
 import { ADMIN_NAV } from './layout/admin-nav';
 import { AppSidebar, type NavCounts } from './layout/app-sidebar';
 
@@ -80,7 +80,7 @@ export function AppShell({
       ? 'nav.newBusiness'
       : ((segment === 'products' ? CATALOG_SECTION[industry ?? ''] : undefined) ??
         SECTION[segment]);
-  const accountLayer = ACCOUNT_PATHS.test(pathname);
+  const accountLayer = ACCOUNT_SIDEBAR_PATHS.test(pathname);
 
   return (
     // Collapsed-sidebar items show their label as a tooltip; only the dashboard needs tooltips.

@@ -22,6 +22,15 @@ const MEDIA_PATH = new RegExp(
 );
 const LODGING_VIDEO_PATH = new RegExp(`^/media/lodging/${UUID}/${UUID}\\.mp4$`, 'i');
 
+/**
+ * Every key prefix of the public media bucket that holds one business's objects (the layouts
+ * above). The business purge (ADR-033) deletes everything under them; a new kind of stored object
+ * must live under one of these or add its prefix here.
+ */
+export function businessMediaPrefixes(workspaceId: string): string[] {
+  return ['products', 'workspaces', 'webchat', 'lodging'].map((root) => `${root}/${workspaceId}/`);
+}
+
 /** True for a plain `/media/<key>` path of a Rapiz object (no traversal, query or encoding). */
 export function isMediaPath(value: string): boolean {
   return MEDIA_PATH.test(value);

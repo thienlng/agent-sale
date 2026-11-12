@@ -14,6 +14,8 @@
 
 **Events consumed:** none. Uses the `bot`, `knowledge`, `workspace`, `commerce`, `lodging`, `crm` (the request writer, `CRM_FACADE`, optional) and `action` facades; no longer the `saas` facade (T-187). Catalog source (T-160): a hotel bot (`bot.industry === 'hotel'`) reads its catalog from `LODGING_CATALOG_FACADE` (lodging properties as accommodation `ProductDto`s, selection from `lodging_bot_properties`, `catalogMode` ignored) everywhere the catalog is used (focus products, carried ids, `search_products` / `product_details`); every other bot reads the commerce `CATALOG_FACADE`.
 
+**Customer deletion (docs/09 §10):** `SummaryErasure` (`detach` step on crm's `CONTACT_LIFECYCLE`) deletes the `conversation_summaries` of the customer's conversations. Turn traces (redacted, 30 days) and metering rows (`ai_runs`, no text) stay.
+
 **Invariants:**
 
 - LLM calls go through `packages/ai-core` providers only, via `LlmRuntime`; the tier → provider/model mapping comes from the database, never from env or code.

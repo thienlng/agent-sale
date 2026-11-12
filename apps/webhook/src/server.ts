@@ -5,6 +5,7 @@ import type { TrustProxySetting } from '@agent-sales/shared';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 
 import { redactUrl, registerKiotVietRoute, type KiotVietIngressStore } from './kiotviet.js';
+import { type MetaDataDeletionDeps, registerMetaDataDeletionRoute } from './meta-data-deletion.js';
 
 /**
  * Ingress ports. Production adapters: Postgres `inbound_events` (+ key table for
@@ -35,6 +36,8 @@ export interface ServerDeps {
   verifyToken?: string;
   /** KiotViet deliveries per connection (`POST /webhooks/kiotviet/:token`); route omitted when absent. */
   kiotviet?: KiotVietIngressStore;
+  /** Meta's data deletion callback (`POST /webhooks/meta/data-deletion`); route omitted when absent. */
+  metaDataDeletion?: MetaDataDeletionDeps;
   /** Proxy hops believed for the logged client address (`parseTrustProxy`); default none. */
   trustProxy?: TrustProxySetting;
 }
@@ -89,6 +92,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   });
 
   if (deps.kiotviet) registerKiotVietRoute(app, deps.kiotviet);
+  if (deps.metaDataDeletion) registerMetaDataDeletionRoute(app, deps.metaDataDeletion);
 
   app.get('/health', async () => ({ status: 'ok' }));
 

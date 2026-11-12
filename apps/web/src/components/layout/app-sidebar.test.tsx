@@ -106,17 +106,18 @@ describe('AppSidebar', () => {
     expect(within(item).getByText('3 giữ chỗ của bot chờ xử lý')).toHaveClass('sr-only');
   });
 
-  it('lists Hôm nay first, with the number of things to do today', async () => {
+  it('lists Thống kê first, with the number of things waiting today, and no Hôm nay entry', async () => {
     renderAt('/app/inbox', 'retail', {
-      '/app/today': { count: 7, label: '7 việc cần làm hôm nay' },
+      '/app/analytics': { count: 7, label: '7 việc đang chờ' },
     });
     const nav = await screen.findByRole('navigation', { name: /./ });
     const first = within(nav).getAllByRole('link')[0];
-    expect(first).toHaveAccessibleName('Hôm nay');
-    expect(first).toHaveAttribute('href', '/app/today');
+    expect(first).toHaveAccessibleName('Thống kê');
+    expect(first).toHaveAttribute('href', '/app/analytics');
     const item = first?.closest('li') as HTMLElement;
     expect(within(item).getByText('7')).toBeVisible();
-    expect(within(item).getByText('7 việc cần làm hôm nay')).toHaveClass('sr-only');
+    expect(within(item).getByText('7 việc đang chờ')).toHaveClass('sr-only');
+    expect(within(nav).queryByRole('link', { name: 'Hôm nay' })).toBeNull();
   });
 
   it('hides a zero count', async () => {
@@ -242,19 +243,10 @@ describe('AppSidebar', () => {
     expect(within(nav).queryByRole('link', { name: 'Tích hợp PMS' })).toBeNull();
   });
 
-  it('hides the assistant page from members who do not own the account', async () => {
+  it('never lists the assistant: it belongs to the account sidebar', async () => {
+    owner.value = true;
     renderAt('/app/orders');
     expect(await screen.findByRole('link', { name: 'Thống kê' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Trợ lý' })).toBeNull();
-  });
-
-  it('lists the assistant page for an account owner, right after statistics', async () => {
-    owner.value = true;
-    renderAt('/app/assistant');
-    const link = await screen.findByRole('link', { name: 'Trợ lý' });
-    expect(link).toHaveAttribute('href', '/app/assistant');
-    expect(link).toHaveAttribute('data-active', 'true');
-    const links = screen.getAllByRole('link').map((l) => l.textContent);
-    expect(links.indexOf('Trợ lý')).toBe(links.indexOf('Thống kê') + 1);
+    expect(screen.queryByRole('link', { name: 'Trợ lý cá nhân' })).toBeNull();
   });
 });

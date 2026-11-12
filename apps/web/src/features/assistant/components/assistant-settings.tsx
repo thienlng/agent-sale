@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 
 import { useAssistantSettings, useUpdateAssistantSettings } from '../api/assistant-settings';
+import { ViewHeader } from './view-header';
 
 function ToolsetRow({
   toolset,
@@ -23,7 +24,7 @@ function ToolsetRow({
   const { t } = useTranslation('assistant');
   const id = useId();
   return (
-    <li className="flex items-center gap-3 py-2">
+    <li className="flex items-center gap-3 px-4 py-3">
       <label htmlFor={id} className="min-w-0 flex-1">
         <span className="block text-sm font-medium">{t(toolset.labelKey)}</span>
         <span className="block text-xs text-muted-foreground">
@@ -43,7 +44,7 @@ function ToolsetRow({
 }
 
 /** "Cài đặt trợ lý": background review on/off, the toolsets, and the way to the memory view. */
-export function AssistantSettings({ onOpenMemory }: { onOpenMemory: () => void }) {
+export function AssistantSettings({ onOpenMemory }: { onOpenMemory?: (() => void) | undefined }) {
   const { t } = useTranslation('assistant');
   const settings = useAssistantSettings();
   const update = useUpdateAssistantSettings();
@@ -59,7 +60,7 @@ export function AssistantSettings({ onOpenMemory }: { onOpenMemory: () => void }
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
-      <h2 className="font-semibold">{t('settings.title')}</h2>
+      <ViewHeader title={t('settings.title')} />
       {settings.isPending ? (
         <div className="mt-4 flex flex-col gap-3">
           <Skeleton className="h-12" />
@@ -71,7 +72,7 @@ export function AssistantSettings({ onOpenMemory }: { onOpenMemory: () => void }
         </p>
       ) : (
         <div className="mt-4 flex flex-col gap-5">
-          <div className="flex items-center gap-3 rounded-lg border px-3 py-2">
+          <div className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3">
             <label htmlFor={reviewId} className="min-w-0 flex-1">
               <span className="block text-sm font-medium">{t('settings.review')}</span>
               <span className="block text-xs text-muted-foreground">
@@ -88,7 +89,7 @@ export function AssistantSettings({ onOpenMemory }: { onOpenMemory: () => void }
           <section aria-label={t('settings.toolsets')}>
             <h3 className="text-sm font-semibold">{t('settings.toolsets')}</h3>
             <p className="mt-1 text-xs text-muted-foreground">{t('settings.toolsetsHint')}</p>
-            <ul className="mt-2 divide-y">
+            <ul className="mt-3 divide-y rounded-xl border bg-card">
               {settings.data.toolsets.map((toolset) => (
                 <ToolsetRow
                   key={toolset.id}
@@ -100,15 +101,17 @@ export function AssistantSettings({ onOpenMemory }: { onOpenMemory: () => void }
               ))}
             </ul>
           </section>
-          <button
-            type="button"
-            onClick={onOpenMemory}
-            className="flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
-          >
-            <Brain className="size-4 text-muted-foreground" aria-hidden />
-            <span className="flex-1">{t('showMemory')}</span>
-            <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
-          </button>
+          {onOpenMemory ? (
+            <button
+              type="button"
+              onClick={onOpenMemory}
+              className="flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
+            >
+              <Brain className="size-4 text-muted-foreground" aria-hidden />
+              <span className="flex-1">{t('showMemory')}</span>
+              <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+            </button>
+          ) : null}
         </div>
       )}
     </div>

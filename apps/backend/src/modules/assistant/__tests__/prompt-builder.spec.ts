@@ -64,8 +64,8 @@ describe('renderMemoryBlock', () => {
 });
 
 describe('buildSystemPrompt', () => {
-  it('uses assistant@3 for new threads', () => {
-    expect(ASSISTANT_PROMPT).toEqual({ name: 'assistant', version: 3 });
+  it('uses assistant@4 for new threads', () => {
+    expect(ASSISTANT_PROMPT).toEqual({ name: 'assistant', version: 4 });
   });
 
   it('renders the same inputs to a byte-identical prompt with skills and memory', async () => {
@@ -164,7 +164,7 @@ describe('buildSystemPrompt', () => {
   });
 });
 
-describe('assistant@3 navigate-then-fill rule (QA B-11)', () => {
+describe('assistant@4 navigate-then-fill rule (QA B-11)', () => {
   it('fills on the hidden follow-up and never asks the owner to resend', async () => {
     const template = await loadAssistantTemplate();
     expect(template).toContain('(trang đã mở; tiếp tục điền form)');
@@ -172,7 +172,7 @@ describe('assistant@3 navigate-then-fill rule (QA B-11)', () => {
   });
 });
 
-describe('assistant@3 dialog-form rule (QA5 #4)', () => {
+describe('assistant@4 dialog-form rule (QA5 #4)', () => {
   it('fills an opensDialog form in the same turn instead of promising a later fill', async () => {
     const template = await loadAssistantTemplate();
     expect(template).toContain('A form marked `opensDialog: true` is a closed dialog');
@@ -201,7 +201,7 @@ describe('assistant@3 dialog-form rule (QA5 #4)', () => {
   });
 });
 
-describe('assistant@3 read-by-id rule (QA LOOKUP-m)', () => {
+describe('assistant@4 read-by-id rule (QA LOOKUP-m)', () => {
   it('reads a record by its id instead of searching with it', async () => {
     const template = await loadAssistantTemplate();
     expect(template).toContain('read that record by id (GET /contacts/{contactId}');

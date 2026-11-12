@@ -11,7 +11,7 @@ import type { ComputedReport } from './report.service.js';
 export const COMMENTARY_TIER = 'basic' as const;
 export const COMMENTARY_TIMEOUT_MS = 30_000;
 export const COMMENTARY_MAX_CHARS = 600;
-export const COMMENTARY_PROMPT = { name: 'assistant-schedule-commentary', version: 1 } as const;
+export const COMMENTARY_PROMPT = { name: 'assistant-schedule-commentary', version: 2 } as const;
 
 const registry = new PromptRegistry(PROMPTS_DIR);
 const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof e);
