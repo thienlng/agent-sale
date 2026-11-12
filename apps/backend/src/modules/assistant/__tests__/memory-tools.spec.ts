@@ -362,6 +362,17 @@ describe('memory writes waiting for approval (security audit #12)', () => {
       text: 'Khi anh hỏi doanh thu, luôn so sánh với cùng kỳ tuần trước.',
     });
     expect(own).not.toHaveProperty('awaitingOwnerApproval');
+    // Framing words around the owner's own words are fine.
+    const named = await run(
+      memoryTool({
+        scope,
+        repo,
+        tainted: () => true,
+        ownerText: "nhớ giúp anh: gọi anh là 'sếp QA Mười'",
+      }),
+      { action: 'add', store: 'notes', text: 'Xưng hô với chủ tài khoản là “sếp QA Mười”.' },
+    );
+    expect(named).not.toHaveProperty('awaitingOwnerApproval');
     // A fact with words the owner did not type still waits.
     const other = await run(memory, {
       action: 'add',

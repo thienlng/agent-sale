@@ -55,6 +55,13 @@ export const MEMORY_TOOL_DEFINITION: ToolDefinition = {
   input: MemoryInput,
 };
 
+/**
+ * The share of a fact's content words that must come from the owner's own message of the turn
+ * for it to count as the owner's words (AS-8): the model adds framing ("xưng hô với chủ tài
+ * khoản là") around what the owner typed, so not every word is theirs.
+ */
+export const OWNER_WORDED_SHARE = 0.6;
+
 /** One turn's memory state: the failure count is per turn. */
 export interface MemoryToolContext {
   scope: OwnerScope;
@@ -67,7 +74,7 @@ export interface MemoryToolContext {
    */
   tainted?: () => boolean;
   /**
-   * The owner's own message of this turn. A fact whose content words all come from it was
+   * The owner's own message of this turn. A fact whose content words mostly (OWNER_WORDED_SHARE) come from it was
    * worded by the owner, not by tool output, so it is saved without approval even in a tainted
    * turn (AS-8).
    */
@@ -261,7 +268,7 @@ export function memoryTool(ctx: MemoryToolContext): RunnableTool {
     const ownerWorded =
       text !== undefined &&
       ctx.ownerText !== undefined &&
-      memoryContainment(text, ctx.ownerText) === 1;
+      memoryContainment(text, ctx.ownerText) >= OWNER_WORDED_SHARE;
     const pending = origin === 'review' || (ctx.tainted?.() === true && !ownerWorded);
     // A rewrite of an entry that still waits keeps waiting: only the owner's approval endpoint
     // approves, never a later untainted chat write (PR #173 review).
