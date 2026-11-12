@@ -664,7 +664,7 @@ export class PlaygroundService implements AiFacade {
           bot,
           actionFallback: actionState.fallback,
           check,
-          customerLast: customerTexts.at(-1),
+          customerTexts,
         })
       : { outcome: 'answered', guardrail: 'model_error', final: fallbackText(bot) };
     if (loop && base) {

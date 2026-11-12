@@ -14,3 +14,30 @@ export function unvouchedChildAges(ages: readonly number[], customerTexts: reado
   if (/sơ sinh|so sinh|newborn/.test(text)) said.add(0);
   return ages.filter((age) => !said.has(age));
 }
+
+/**
+ * The adult count is the customer's: a number next to a party word ("20 người lớn", "6 người",
+ * "15 khách", "10 adults", "9 NL"). A count never written is the model's guess (the bot quoted a
+ * free weekend for an invented party). Zero adults is left to the lodging module's own check.
+ */
+export function adultsVouched(adults: number, customerTexts: readonly string[]): boolean {
+  if (adults <= 0) return true;
+  const text = customerTexts.join('\n').toLowerCase();
+  const said = new Set<number>();
+  for (const m of text.matchAll(
+    /(\d{1,3})\s*(người|nguoi|ng|khách|khach|nl|adults?|pax|guests?|people|persons?)(?![\p{L}])/gu,
+  ))
+    said.add(Number(m[1]));
+  return said.has(adults);
+}
+
+/** The problem code of a party the customer did not write (VL-B3), or null. */
+export function partyNotGiven(
+  party: { adults: number; childAges?: readonly number[] | undefined },
+  customerTexts: readonly string[],
+): 'party_not_given' | 'child_ages_not_given' | null {
+  if (!adultsVouched(party.adults, customerTexts)) return 'party_not_given';
+  return unvouchedChildAges(party.childAges ?? [], customerTexts).length
+    ? 'child_ages_not_given'
+    : null;
+}

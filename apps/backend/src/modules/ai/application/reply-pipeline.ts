@@ -171,12 +171,15 @@ const handoffText = (bot: BotView): string =>
   bot.handoffMessage.trim() || defaultHandoffMessage(bot);
 
 /**
- * VL-B9 / LM-14: a phone number the customer just gave is read back before the shop's hand-over
- * message (the prompt asks for it; the model often hands off bare). Nothing when no phone is in
- * the message or the turn's texts already repeat it.
+ * VL-B9 / LM-14 / EV-2: the latest phone number the customer wrote in the conversation is read
+ * back before the shop's hand-over message, so the customer knows which number staff will call
+ * (the prompt asks for it; the model often hands off bare). Nothing when the customer never wrote
+ * a phone or the turn's texts already repeat it.
  */
-export function phoneReadBack(customerLast: string | undefined, said: readonly string[]): string {
-  const phone = customerLast ? phonesIn(customerLast)[0] : undefined;
+export function phoneReadBack(customerTexts: readonly string[], said: readonly string[]): string {
+  let phone: string | undefined;
+  for (let i = customerTexts.length - 1; i >= 0 && !phone; i -= 1)
+    phone = phonesIn(customerTexts[i] ?? '').at(-1);
   if (!phone) return '';
   const digits = (t: string) => t.replace(/\D/g, '');
   const tail = digits(phone).slice(-9);
@@ -206,8 +209,8 @@ export function decideReply(input: {
   actionFallback: string | null | undefined;
   /** The pre-send guard: a hand-off's model-written lead that fails it is dropped. */
   check?: (text: string) => ReplyCheck;
-  /** The customer's newest message: a phone in it is read back before a hand-off. */
-  customerLast?: string | undefined;
+  /** The customer's messages, oldest first: their latest phone is read back before a hand-off. */
+  customerTexts?: readonly string[] | undefined;
 }): ReplyDecision {
   const { loop, output, bot } = input;
   const sentAny = output.sent.length > 0;
@@ -225,7 +228,7 @@ export function decideReply(input: {
       final: [
         lead,
         bot.language === 'vi'
-          ? phoneReadBack(input.customerLast, [lead, ...output.sent.map((m) => m.text)])
+          ? phoneReadBack(input.customerTexts ?? [], [lead, ...output.sent.map((m) => m.text)])
           : '',
         handoffText(bot),
       ]

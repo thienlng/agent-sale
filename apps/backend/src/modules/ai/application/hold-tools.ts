@@ -9,7 +9,7 @@ import type {
   LodgingFacade,
 } from '../../lodging/api/index.js';
 import type { MessageSink, OutgoingMessage, QuickReply } from '../api/reply-options.js';
-import { unvouchedChildAges } from '../domain/child-ages.js';
+import { partyNotGiven } from '../domain/child-ages.js';
 import { safeJson } from './action-tools.js';
 import { resolveRooms } from './hold-rooms.js';
 import { confirmableDraft } from './order-tools.js';
@@ -82,7 +82,7 @@ const PrepareInput = z
 const CHECK_DEFINITION: ToolDefinition = {
   name: CHECK_AVAILABILITY_TOOL,
   description:
-    "Checks the real booking calendar for a stay and quotes it. checkIn and checkOut are YYYY-MM-DD (checkOut is the departure day), adults counts adults, childAges lists each child's age as the customer wrote it; when children come without their ages, ask the ages first (child_ages_not_given: an age the customer did not write). With propertyCode (the code from the catalog) checks that property and, when it is full, returns other free properties; without it lists the free properties. Returns nights, the weekday labels, and for each free option its code, rooms, whether the party fits the standard, the exact nightly prices with their weekday labels and the total (totalSell). requestedFull true means the asked property is not free for those dates; problems explain dates or a party the server cannot quote.",
+    "Checks the real booking calendar for a stay and quotes it. checkIn and checkOut are YYYY-MM-DD (checkOut is the departure day), adults counts adults, childAges lists each child's age as the customer wrote it; when children come without their ages, ask the ages first (child_ages_not_given: an age the customer did not write; party_not_given: ask how many adults). With propertyCode (the code from the catalog) checks that property and, when it is full, returns other free properties; without it lists the free properties. Returns nights, the weekday labels, and for each free option its code, rooms, whether the party fits the standard, the exact nightly prices with their weekday labels and the total (totalSell). requestedFull true means the asked property is not free for those dates; problems explain dates or a party the server cannot quote.",
   input: CheckInput,
 };
 
@@ -269,8 +269,8 @@ export function holdTools(ctx: HoldToolContext): {
     schema: CheckInput,
     run: async (input) => {
       const args = input as z.infer<typeof CheckInput>;
-      if (ctx.customerTexts && unvouchedChildAges(args.childAges ?? [], ctx.customerTexts).length)
-        return reply({ ok: false, problems: ['child_ages_not_given'] }, false);
+      const unsaid = ctx.customerTexts && partyNotGiven(args, ctx.customerTexts);
+      if (unsaid) return reply({ ok: false, problems: [unsaid] }, false);
       let propertyId: string | undefined;
       if (args.propertyCode) {
         const id = await propertyIdOf(ctx, args.propertyCode);

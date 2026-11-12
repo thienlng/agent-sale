@@ -62,10 +62,14 @@ describe('phoneReadBack (VL-B9, LM-14)', () => {
 
   it('reads back a phone the customer just gave unless the turn already repeated it', () => {
     const last = 'sđt tôi 0909 888 777, tên Hoàng Mai. Gọi lại cho tôi trong hôm nay';
-    expect(phoneReadBack(last, [''])).toBe('Dạ em đã ghi nhận số 0909 888 777 ạ.');
-    expect(phoneReadBack(last, ['Dạ em đã ghi nhận số 0909888777 ạ.'])).toBe('');
-    expect(phoneReadBack('gặp người thật đi', [''])).toBe('');
-    expect(phoneReadBack(undefined, [''])).toBe('');
+    expect(phoneReadBack([last], [''])).toBe('Dạ em đã ghi nhận số 0909 888 777 ạ.');
+    expect(phoneReadBack([last], ['Dạ em đã ghi nhận số 0909888777 ạ.'])).toBe('');
+    expect(phoneReadBack(['gặp người thật đi'], [''])).toBe('');
+    expect(phoneReadBack([], [''])).toBe('');
+    // EV-2: a phone from early in the conversation, the newest one when there are several.
+    expect(
+      phoneReadBack(['số 0912 000 111', 'à đổi sang số 0987 654 321', 'số nào ấy nhỉ?'], ['']),
+    ).toBe('Dạ em đã ghi nhận số 0987 654 321 ạ.');
   });
 
   it('puts the read-back between the lead and the hand-over message', () => {
@@ -76,7 +80,7 @@ describe('phoneReadBack (VL-B9, LM-14)', () => {
       output,
       bot: { ...bot, handoffMessage: 'Dạ em chuyển nhân viên ạ.' } as BotView,
       actionFallback: null,
-      customerLast: 'số chị 0977 123 456, gọi chị nhé',
+      customerTexts: ['số chị 0977 123 456, gọi chị nhé'],
     });
     expect(decision).toMatchObject({
       outcome: 'handoff',

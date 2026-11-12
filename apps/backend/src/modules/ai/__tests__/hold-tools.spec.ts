@@ -32,7 +32,7 @@ import {
   newHoldToolState,
   PREPARE_HOLD_TOOL,
 } from '../application/hold-tools.js';
-import { unvouchedChildAges } from '../domain/child-ages.js';
+import { adultsVouched, unvouchedChildAges } from '../domain/child-ages.js';
 import type { LlmRuntime } from '../application/llm-runtime.js';
 import { newOutputState } from '../application/output-tools.js';
 import { PlaygroundService } from '../application/playground.service.js';
@@ -760,9 +760,16 @@ describe('check_availability child ages (VL-B3)', () => {
     expect(said('bé 4 tuổi', [5])).toEqual([5]);
   });
 
+  it('accepts only an adult count the customer wrote next to a party word', () => {
+    expect(adultsVouched(20, ['nhà chị 20 người lớn với 4 bé'])).toBe(true);
+    expect(adultsVouched(10, ['Hi, we are 10 adults'])).toBe(true);
+    expect(adultsVouched(2, ['A17 còn trống cuối tuần này không? ở 2 đêm'])).toBe(false);
+    expect(adultsVouched(0, ['A17 còn trống không'])).toBe(true);
+  });
+
   it('refuses a check with an age the customer never wrote, without calling the calendar', async () => {
     const facade = fakeLodging();
-    const ctx = { ...context(facade), customerTexts: ['20 người lớn với 4 bé, 8/1/2027'] };
+    const ctx = { ...context(facade), customerTexts: ['20 người lớn với 2 bé, 8/1/2027'] };
     const out = await tool(ctx, CHECK_AVAILABILITY_TOOL).run({ ...STAY, childAges: [8, 8] });
     expect(JSON.parse(out.content)).toEqual({ ok: false, problems: ['child_ages_not_given'] });
     expect(facade.checkAvailabilityForBot).not.toHaveBeenCalled();
