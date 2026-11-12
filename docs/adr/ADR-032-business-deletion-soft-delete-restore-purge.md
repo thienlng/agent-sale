@@ -25,17 +25,24 @@ private export archives, Meta page tokens and a KiotViet connection. Constraints
 ## Decision
 
 1. **States.** `workspaces.status`: `active` → `pending_deletion` (owner deleted it; `deleted_at`
-   set, new column `purge_after = deleted_at + 30 days`) → `deleted` (purged tombstone, new column
-   `purged_at`). Restore within the window returns to `active` and clears both timestamps.
-   Migration 0077 adds the two columns, a partial index for the purge scan and explicit `SELECT,
-   DELETE` grants to `app_system` on every table with `workspace_id` except `audit_events`.
+   set, new column `purge_after = deleted_at + 30 days`) → `purging` (the purge claimed it; no
+   restore any more) → `deleted` (purged tombstone, new column `purged_at`). Restore within the
+   window returns to `active` and clears both timestamps. `purging` keeps `deleted_at`, so every
+   gate treats it like `pending_deletion` (no access, no lists, billing inactive), and it is not
+   listed as restorable. Migration 0077 adds the two columns, a partial index for the purge scan
+   and explicit `SELECT, DELETE` grants to `app_system` on every table with `workspace_id` except
+   `audit_events`; migration 0078 adds the back-off columns (`purge_attempts`, `purge_next_at`,
+   `purge_last_error`), widens the index to `pending_deletion` and `purging`, and adds the missing
+   `app_system` policies of `fanpage_settings`, `fanpage_comments` and `stay_requests`.
 2. **Request** — `POST /workspaces/{workspaceId}/deletion` `{ confirmName }`, owner only (the
    member row with role `owner`; a non-owner member gets 403, anyone else 404), the name typed
    exactly (trimmed, case-sensitive; else 400 `name_mismatch`). No re-authentication: the typed
    name is the guard. One tenant transaction writes the status, the audit event
    `workspace.deletion_requested` and `workspace.workspace.deletion_requested.v1`.
    **Restore** — `POST /workspaces/{workspaceId}/restore`, owner only, before `purge_after` (409
-   `restore_window_closed` after it); audit `workspace.restored`,
+   `restore_window_closed` after it or once the purge claimed the business; the window is checked
+   by one conditional `UPDATE … where status = 'pending_deletion' and purge_after > now()` on the
+   database clock, never the app clock); audit `workspace.restored`,
    `workspace.workspace.restored.v1`. **List** — `GET /workspaces/deleted` (the caller's
    restorable businesses). None of them is workspace-scoped: a deleted business no longer passes
    the workspace guard. All three are `assistant: never`.
@@ -54,16 +61,33 @@ private export archives, Meta page tokens and a KiotViet connection. Constraints
    After the deletion committed: `channel` removes every Facebook/Instagram page (sealed token
    wiped, Meta webhook unsubscribed, best effort) and turns website chats off; `integration`
    disconnects KiotViet (deletes its webhooks, best effort). A failing hook is logged by module
-   name and does not fail the request (the billing gate already blocks). Restore leaves them
-   disconnected; the owner reconnects.
+   name and does not fail the request (the billing gate already blocks). The purge runs the same
+   hooks again before it deletes any row, so a hook that failed at deletion time (Meta or the
+   database unreachable) gets more chances; the hooks are idempotent (`channel` lists only pages
+   not removed yet and website chats still on; `integration` acts only on a live KiotViet
+   connection). A failing hook fails the purge attempt (back-off, below) for the first 4 attempts;
+   from the 5th on the purge logs it and goes ahead, because deleting the data outranks the
+   remote clean-up. Restore leaves them disconnected; the owner reconnects.
 5. **Purge** — the `worker` ticks `WORKSPACE_PURGE_RUNNER` every minute; it scans every 5 minutes
-   for at most 3 businesses with `status = 'pending_deletion' and purge_after <= now`, and per
-   business: re-checks under `FOR UPDATE` (restore takes the same row lock and re-checks the
-   window after it, so exactly one of them wins); hard-deletes rows with
-   `purgeWorkspaceRows` (`packages/db`); deletes objects; writes the tombstone, the audit event
-   `workspace.purged` and the platform event `workspace.workspace.purged.v1` (no workspace id on
-   the outbox row, so nothing of the business remains in the outbox). Each step is idempotent; a
-   failure leaves the business pending and the next scan resumes.
+   for at most 3 businesses that are `purging`, or `pending_deletion` with `purge_after <= now`,
+   and not backing off (`purge_next_at` null or past), oldest next attempt first. Per business it
+   **claims** the row in one statement, `update workspaces set status = 'purging' where id = $1
+   and (status = 'purging' or (status = 'pending_deletion' and purge_after <= now()))`; the
+   restore is the mirror statement (`status = 'pending_deletion' and purge_after > now()`), both
+   on the database clock and both taking the row lock, so exactly one of them matches and the
+   loser sees 0 rows (restore: 409 `restore_window_closed`; purge: skip). Earlier drafts
+   re-checked under `FOR UPDATE` in a transaction of their own and then deleted unlocked, while
+   restore compared `purge_after` with the app clock: a restore could commit between the check
+   and the deletes, or the two clocks could disagree; the claim closes both gaps. Then: re-runs
+   the deletion hooks (§4); hard-deletes rows with `purgeWorkspaceRows` (`packages/db`); deletes
+   objects; writes the tombstone (only from `purging`), the audit event `workspace.purged` and the
+   platform event `workspace.workspace.purged.v1` (no workspace id on the outbox row, so nothing
+   of the business remains in the outbox). Each step is idempotent. A failure leaves the business
+   `purging`: `purge_attempts` + 1, `purge_last_error` = the error class and SQLSTATE (never a
+   message or data), and `purge_next_at` = now + 5 min × 2^(attempts − 1), at most 24 h, so a
+   permanently failing business cannot block the others; from the 5th failure on each failure is
+   logged at error level with the business id. A run that died resumes at the next scan (a
+   `purging` row is always due unless backing off).
 6. **Which tables, in which order: derived from the Postgres catalog at run time.** Every ordinary
    or partitioned table of schema `public` with a `workspace_id` column is purged, except the
    maintained list `PURGE_RETAINED_TABLES` = `audit_events` (append-only, retention),
@@ -117,7 +141,8 @@ private export archives, Meta page tokens and a KiotViet connection. Constraints
 
 - Positive: one owner action stops everything at once, can be undone for 30 days, and later leaves
   no business row behind in any tenant table, including tables added after this ADR.
-- Positive: purges are idempotent and resumable; a crash costs one batch.
+- Positive: purges are idempotent and resumable; a crash costs one batch; a failing business
+  backs off instead of blocking the others.
 - Negative: `packages/db` deletes from tables owned by modules (only through this purge, only for a
   deleted business). The purge runs as `app_system` and bypasses each module's invariants, which
   is acceptable because nothing of the business survives.

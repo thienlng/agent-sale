@@ -8,7 +8,11 @@ import type { UserId, WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { WORKSPACE_LIFECYCLE, type WorkspaceLifecycle } from '../api/workspace-lifecycle.js';
-import { NotBusinessOwnerError, WorkspaceNotFoundError } from '../domain/workspace.errors.js';
+import {
+  NotBusinessOwnerError,
+  RestoreWindowClosedError,
+  WorkspaceNotFoundError,
+} from '../domain/workspace.errors.js';
 import type { Workspace } from '../domain/workspace.js';
 import { toWorkspaceDto } from './mappers.js';
 import type { Actor } from './ports/audit-writer.js';
@@ -115,11 +119,14 @@ export class BusinessDeletionService {
   async restore(ws: WorkspaceId, actor: Actor): Promise<WorkspaceDto> {
     await this.assertOwner(ws, actor.userId as UserId);
     const restored = await this.uow.run(ws, async (ctx) => {
-      // Locked, then the window is checked against the time after the lock: the purge takes the
-      // same lock before it starts, so a restore and a purge never both win.
+      // Locked so a purge claim in flight is seen (`purging`: window closed). The window itself is
+      // decided by one conditional UPDATE on the database clock, the same clock the purge's claim
+      // uses, so a restore and a purge never both win (ADR-032 §5).
       const workspace = await this.load(ctx, ws, true);
-      workspace.restore({ actorUserId: actor.userId as UserId, now: this.clock() });
-      await ctx.workspaces.save(workspace);
+      const now = this.clock();
+      workspace.restore({ actorUserId: actor.userId as UserId, now });
+      if (!(await ctx.workspaces.restoreWithinWindow(ws, now)))
+        throw new RestoreWindowClosedError();
       await ctx.audit.record(ws, actor, {
         action: 'workspace.restored',
         targetType: 'workspace',

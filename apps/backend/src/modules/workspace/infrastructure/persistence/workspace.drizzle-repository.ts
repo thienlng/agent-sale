@@ -62,6 +62,16 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
         },
       });
   }
+
+  async restoreWithinWindow(id: WorkspaceId): Promise<boolean> {
+    const rows = await this.tx.execute<{ id: string }>(sql`
+      update workspaces
+      set status = 'active', deleted_at = null, purge_after = null, purge_attempts = 0,
+          purge_next_at = null, purge_last_error = null, updated_at = now()
+      where id = ${id} and status = 'pending_deletion' and purge_after > now()
+      returning id`);
+    return rows.length > 0;
+  }
 }
 
 export class DrizzleMemberRepository implements MemberRepository {

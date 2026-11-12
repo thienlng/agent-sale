@@ -5,12 +5,16 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { BILLING_FACADE, type BillingFacade } from '../src/modules/billing/api/index.js';
 import {
+  WORKSPACE_LIFECYCLE,
   WORKSPACE_PURGE_RUNNER,
+  type WorkspaceLifecycle,
   type WorkspacePurgeRunner,
 } from '../src/modules/workspace/api/index.js';
 import {
   BUSINESS_OBJECT_ERASER,
   type BusinessObjectEraser,
+  WORKSPACE_PURGE_STORE,
+  type WorkspacePurgeStore,
 } from '../src/modules/workspace/application/ports/workspace-purge.js';
 import { type Harness, startHarness, type TestUser } from './support/harness.js';
 
@@ -25,6 +29,8 @@ let owner: TestUser;
 let member: TestUser;
 let other: TestUser;
 const erased: string[] = [];
+/** Businesses the deletion hooks ran for (request and every purge run). */
+const hooked: string[] = [];
 
 beforeAll(async () => {
   h = await startHarness();
@@ -46,6 +52,11 @@ beforeAll(async () => {
       return 2;
     },
   } satisfies BusinessObjectEraser);
+  h.app
+    .get<WorkspaceLifecycle>(WORKSPACE_LIFECYCLE, { strict: false })
+    .onDeletionRequested('probe', async (ws) => {
+      hooked.push(ws);
+    });
 });
 
 afterAll(async () => {
@@ -214,8 +225,11 @@ describe('business deletion', () => {
     await h.owner.db.execute(
       sql`update workspaces set purge_after = now() - interval '1 minute' where id = ${ws}`,
     );
+    hooked.length = 0;
     expect(await runner.tick(new Date(Date.now() + 10 * 60_000))).toBe(1);
     expect(erased).toEqual([ws]);
+    // The deletion hooks ran again before the rows went (a failed first run gets a second chance).
+    expect(hooked).toEqual([ws]);
 
     const left = await rowCounts(ws);
     for (const table of Object.keys(left)) expect(PURGE_RETAINED_TABLES, table).toContain(table);
@@ -241,5 +255,85 @@ describe('business deletion', () => {
     // The owner keeps their account and their other access; the purged business is gone.
     expect((await memberships(owner)).map((m) => m.workspaceId)).not.toContain(ws);
     expect((await h.call(other.h, 'GET', '/workspaces/current')).statusCode).toBe(200);
+  });
+
+  it('lets exactly one of a restore and a purge claim win, whichever comes first', async () => {
+    const racer = await h.user('del-race@shop.vn', 'Đua');
+    const ws = racer.ownWorkspace;
+    const store = h.app.get<WorkspacePurgeStore>(WORKSPACE_PURGE_STORE, { strict: false });
+    const status = async () =>
+      (
+        await h.owner.db.execute<{ status: string }>(
+          sql`select status from workspaces where id = ${ws}`,
+        )
+      )[0]?.status;
+    const del = async () =>
+      (
+        await h.call(racer.auth, 'POST', `/workspaces/${ws}/deletion`, {
+          confirmName: 'Shop Đua',
+        })
+      ).statusCode;
+
+    // Restore first: the claim that follows finds an active business and does nothing.
+    expect(await del()).toBe(200);
+    expect((await h.call(racer.auth, 'POST', `/workspaces/${ws}/restore`)).statusCode).toBe(200);
+    expect(await store.claim(workspaceId(ws))).toBe(false);
+    expect(await status()).toBe('active');
+
+    // The window is decided by the database clock, whatever the app clock says.
+    expect(await del()).toBe(200);
+    await h.owner.db.execute(
+      sql`update workspaces set purge_after = now() - interval '1 second' where id = ${ws}`,
+    );
+    const late = await h.call(racer.auth, 'POST', `/workspaces/${ws}/restore`);
+    expect(late.statusCode).toBe(409);
+    expect(late.json().error.details.reason).toBe('restore_window_closed');
+    expect(await status()).toBe('pending_deletion');
+
+    // Claim first: no restore any more, hidden like a deleted business, not listed as restorable.
+    expect(await store.claim(workspaceId(ws))).toBe(true);
+    expect(await status()).toBe('purging');
+    const refused = await h.call(racer.auth, 'POST', `/workspaces/${ws}/restore`);
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json().error.details.reason).toBe('restore_window_closed');
+    expect((await h.call(racer.h, 'GET', '/workspaces/current')).statusCode).toBe(404);
+    expect((await memberships(racer)).map((m) => m.workspaceId)).not.toContain(ws);
+    expect(
+      DeletedBusinessList.parse((await h.call(racer.auth, 'GET', '/workspaces/deleted')).json())
+        .data,
+    ).toEqual([]);
+    expect(await del()).toBe(409);
+
+    // The run "died" after the claim: the scan resumes the purging business once its back-off ends.
+    const runner = h.app.get<WorkspacePurgeRunner>(WORKSPACE_PURGE_RUNNER, { strict: false });
+    await store.recordFailure(workspaceId(ws), {
+      error: 'DrizzleQueryError:23503',
+      nextAt: new Date(Date.now() + 3_600_000),
+    });
+    const [backoff] = await h.owner.db.execute<{
+      purge_attempts: number;
+      purge_last_error: string;
+    }>(sql`select purge_attempts, purge_last_error from workspaces where id = ${ws}`);
+    expect(backoff).toEqual({ purge_attempts: 1, purge_last_error: 'DrizzleQueryError:23503' });
+    expect(await runner.tick(new Date(Date.now() + 20 * 60_000))).toBe(0);
+    expect(await status()).toBe('purging');
+    await h.owner.db.execute(
+      sql`update workspaces set purge_next_at = now() - interval '1 second' where id = ${ws}`,
+    );
+    expect(await runner.tick(new Date(Date.now() + 30 * 60_000))).toBe(1);
+    const [tomb] = await h.owner.db.execute<{
+      status: string;
+      purge_attempts: number;
+      purge_next_at: Date | null;
+      purge_last_error: string | null;
+    }>(
+      sql`select status, purge_attempts, purge_next_at, purge_last_error from workspaces where id = ${ws}`,
+    );
+    expect(tomb).toEqual({
+      status: 'deleted',
+      purge_attempts: 0,
+      purge_next_at: null,
+      purge_last_error: null,
+    });
   });
 });

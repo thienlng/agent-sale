@@ -31,10 +31,12 @@ export interface WorkspaceProps {
 }
 
 /**
- * `active` → `pending_deletion` (owner deleted it; restorable until `purgeAfter`) → `deleted`
- * (purged tombstone, written by the purge). `suspended` is reserved; nothing writes it today.
+ * `active` → `pending_deletion` (owner deleted it; restorable until `purgeAfter`) → `purging` (the
+ * purge claimed it; no restore any more; hidden and inaccessible like `pending_deletion`) →
+ * `deleted` (purged tombstone). `purging` and `deleted` are written by the purge only.
+ * `suspended` is reserved; nothing writes it today.
  */
-export type WorkspaceStatus = 'active' | 'suspended' | 'pending_deletion' | 'deleted';
+export type WorkspaceStatus = 'active' | 'suspended' | 'pending_deletion' | 'purging' | 'deleted';
 
 /** How long a deleted business can be restored (docs/09 §10). */
 export const RESTORE_WINDOW_DAYS = 30;
@@ -118,11 +120,15 @@ export class Workspace extends AggregateRoot {
     });
   }
 
-  /** Back to active before the purge; channels stay disconnected (the owner reconnects them). */
+  /**
+   * Back to active before the purge; channels stay disconnected (the owner reconnects them). The
+   * restore window itself is checked by the repository's conditional write
+   * (`WorkspaceRepository.restoreWithinWindow`, the database clock), not here: the app clock and the
+   * purge's clock must not disagree about who won.
+   */
   restore(input: { actorUserId: UserId; now: Date }): void {
+    if (this.props.status === 'purging') throw new RestoreWindowClosedError();
     if (this.props.status !== 'pending_deletion') throw new BusinessNotDeletedError();
-    if (!this.props.purgeAfter || this.props.purgeAfter.getTime() <= input.now.getTime())
-      throw new RestoreWindowClosedError();
     this.props = { ...this.props, status: 'active', deletedAt: null, purgeAfter: null };
     this.raise({
       name: 'workspace.restored',

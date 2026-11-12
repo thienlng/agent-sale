@@ -152,4 +152,21 @@ describe('BusinessDeletionService', () => {
     await expect(t.service.restore(t.ws, asOwner)).rejects.toBeInstanceOf(RestoreWindowClosedError);
     expect(await t.directory.isActive(t.ws)).toBe(false);
   });
+
+  it('refuses a restore once the purge claimed the business, even inside the window', async () => {
+    const t = await setup();
+    await t.service.requestDeletion(t.ws, asOwner, 'Tiệm Hoa Mai');
+    const claimed = (await t.store.workspaces.findById(t.ws))?.snapshot();
+    if (!claimed) throw new Error('missing');
+    await t.store.workspaces.save(Workspace.rehydrate({ ...claimed, status: 'purging' }));
+    t.advance(DAY);
+    await expect(t.service.restore(t.ws, asOwner)).rejects.toBeInstanceOf(RestoreWindowClosedError);
+    expect(await t.directory.isActive(t.ws)).toBe(false);
+    expect(await t.service.listDeleted(owner)).toEqual([]);
+    expect(await t.directory.findMembership(t.ws, admin)).toBeNull();
+    await expect(t.service.requestDeletion(t.ws, asOwner, 'Tiệm Hoa Mai')).rejects.toBeInstanceOf(
+      BusinessNotActiveError,
+    );
+    expect(t.store.audit.events.map((e) => e.action)).toEqual(['workspace.deletion_requested']);
+  });
 });
