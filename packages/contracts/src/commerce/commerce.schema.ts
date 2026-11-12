@@ -179,7 +179,7 @@ export const ProductDto = z.object({
   variants: z.array(ProductVariantDto),
   priceMin: Money,
   priceMax: Money,
-  /** Σ available over variants and warehouses. */
+  /** Σ available over variants and warehouses, each row counted at 0 or more (oversold rows add 0). */
   available: z.number().int(),
   /**
    * The PMS record this product is synced from; null for a product managed in Rapiz. A response
