@@ -1,6 +1,7 @@
 import type { ToolCall } from '@agent-sales/ai-core';
 import { newId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
 import type {
   ActionFacade,
@@ -10,6 +11,8 @@ import type {
 } from '../../action/api/index.js';
 import {
   actionTools,
+  type CustomerBinding,
+  customerBindingFrom,
   idempotencyKey,
   newActionToolState,
   playgroundConversationId,
@@ -70,6 +73,7 @@ function setup(
     customerTexts?: string[];
     throws?: boolean;
     confirmationAvailable?: boolean;
+    binding?: CustomerBinding | null;
   } = {},
 ) {
   const invocations: Invocation[] = [];
@@ -99,7 +103,11 @@ function setup(
       store.pending = null;
     },
   } as unknown as ActionFacade;
-  const { byName, definitions } = actionTools(options.actions ?? [lookup, booking], store.pending);
+  const { byName, definitions } = actionTools(
+    options.actions ?? [lookup, booking],
+    store.pending,
+    options.binding ?? null,
+  );
   const conversationId = newId();
   const state = newActionToolState();
   const run = (name: string, input: unknown = {}) =>
@@ -115,6 +123,7 @@ function setup(
         keyFor: (actionId, args) => idempotencyKey(conversationId, actionId, args),
         state,
         confirmable: (options.pending ?? null) !== null,
+        ...(options.binding !== undefined ? { binding: options.binding } : {}),
         ...(options.confirmationAvailable === false ? { confirmationAvailable: false } : {}),
       },
       { id: `c-${newId()}`, name, input } satisfies ToolCall,
@@ -433,6 +442,71 @@ describe('confirmation safety', () => {
     expect(s.store.consumed).toBe(0);
     expect(s.store.cleared).toBe(0);
     expect(s.invocations).toHaveLength(0);
+  });
+});
+
+/** An action whose phone param the server fills from the conversation's CRM contact. */
+const callback: BotActionView = {
+  ...lookup,
+  id: 'act-callback',
+  name: 'Gọi lại',
+  description: 'Hẹn gọi lại khách',
+  method: 'POST',
+  params: [
+    {
+      name: 'phone',
+      type: 'string',
+      location: 'body',
+      required: true,
+      description: 'SĐT khách',
+      source: 'customer_phone',
+    },
+    { name: 'note', type: 'string', location: 'body', required: false, description: 'Ghi chú' },
+  ],
+};
+
+describe('params filled by the server (source)', () => {
+  it('hides a bound param from the model schema', () => {
+    const [tool] = actionTools([callback], null, { customer_phone: '0912345678' }).definitions;
+    expect(tool?.input.safeParse({}).success).toBe(true);
+    expect(Object.keys(z.toJSONSchema(tool!.input).properties ?? {})).toEqual(['note']);
+  });
+
+  it('fills the bound param from the verified record and ignores a model-supplied value', async () => {
+    const { run, invocations, state } = setup({
+      actions: [callback],
+      binding: { customer_phone: '0912345678' },
+    });
+    const out = await run('action_1', { phone: '0999999999', note: 'chiều' });
+    expect(JSON.parse(out.content)).toMatchObject({ ok: true });
+    expect(invocations[0]?.args).toEqual({ phone: '0912345678', note: 'chiều' });
+    expect(JSON.stringify(state.calls)).not.toContain('0999999999');
+  });
+
+  it('does not offer the action when the conversation has no phone on record', () => {
+    expect(actionTools([callback, lookup], null, {}).definitions.map((d) => d.description)).toEqual(
+      ['Tra đơn: Tra cứu trạng thái đơn hàng theo mã đơn'],
+    );
+  });
+
+  it('runs nothing when the bound value is missing from the record', async () => {
+    const { run, invocations } = setup({ actions: [callback], binding: { customer_phone: '  ' } });
+    const out = JSON.parse((await run('action_1', { phone: '0999999999' })).content);
+    expect(out).toHaveProperty('error');
+    expect(invocations).toHaveLength(0);
+  });
+
+  it('lets the model fill every param in the owner playground (null binding)', async () => {
+    const { run, invocations } = setup({ actions: [callback], binding: null });
+    await run('action_1', { phone: '0900000000' });
+    expect(invocations[0]?.args).toEqual({ phone: '0900000000' });
+  });
+
+  it('maps a CRM contact to the binding, leaving absent values unknown', () => {
+    expect(customerBindingFrom({ phone: '0912345678', email: null })).toEqual({
+      customer_phone: '0912345678',
+    });
+    expect(customerBindingFrom({})).toEqual({});
   });
 });
 

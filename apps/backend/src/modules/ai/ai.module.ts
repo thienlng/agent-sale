@@ -17,7 +17,11 @@ import { AI_LLM_GATEWAY } from './api/llm-gateway.port.js';
 import { AiTraceRunnerImpl } from './application/ai-trace.runner.js';
 import { HERMES_SUBSCRIPTION_LOGIN, LlmAdminService } from './application/llm-admin.service.js';
 import { LlmRuntime } from './application/llm-runtime.js';
-import { MEDIA_PUBLIC_BASE, PlaygroundService } from './application/playground.service.js';
+import {
+  MEDIA_PUBLIC_BASE,
+  PlaygroundService,
+  REPLY_FIGURE_GUARD,
+} from './application/playground.service.js';
 import { LLM_PROVIDER_FACTORY } from './application/ports/llm-provider-factory.js';
 import { TurnTraceService } from './application/turn-trace.service.js';
 import { AI_RUN_REPOSITORY, type AiRunRepository } from './domain/ports/ai-run.repository.js';
@@ -110,6 +114,10 @@ import { TurnTraceController } from './interface/http/turn-trace.controller.js';
       useFactory: () => hermesSubscriptionLoginEnabled(getEnv()),
     },
     { provide: MEDIA_PUBLIC_BASE, useFactory: () => getEnv().S3_PUBLIC_URL ?? '' },
+    {
+      provide: REPLY_FIGURE_GUARD,
+      useFactory: () => getEnv().BOT_REPLY_FIGURE_GUARD === 'true',
+    },
     LlmRuntime,
     { provide: AI_LLM_GATEWAY, useExisting: LlmRuntime },
     LlmAdminService,

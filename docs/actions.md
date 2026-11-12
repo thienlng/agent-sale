@@ -10,21 +10,41 @@ Design record: `docs/superpowers/specs/2026-10-25-bot-api-actions-design.md`. Mo
 |---|---|
 | `name`, `description` | The model reads the description to decide when to call ("Tra trạng thái đơn theo mã đơn"). |
 | `url`, `method` | HTTPS only. `{param}` placeholders must each match a `path` parameter and may not sit in the host, port or userinfo (call arguments never choose where the secret goes). GET/POST/PUT/PATCH/DELETE. |
-| `params[]` | `name`, `type` (string/number/boolean), `location` (path/query/header/body), `required`, `description`. |
+| `params[]` | `name`, `type` (string/number/boolean), `location` (path/query/header/body), `required`, `description`, optional `source` (who fills the value, see [Params filled by the server](#params-filled-by-the-server)). |
 | `responses[]` | `statusCode` + declared `fields`. Only these fields ever reach the model; an undeclared status is an error. A field inside a list or object is declared by path: `items.code` keeps `code` of every element of `items` (first 10) and drops its siblings. |
 | `auth` | none, API key header (header name + secret) or Bearer (secret). Secrets are sealed with `SecretBox`, write-only in the API (`hasSecret`), never sent to the model, never logged. Changing the URL origin or how the key is sent needs the secret again: without a new one (or an explicit clear) the update is refused with 400 `details.reason: secret_required`, and the form asks for it before saving. |
 | `requiresConfirm` | Default on for non-GET. The bot reads the parameters back and the customer must agree first. |
 | `enabled` | Disabled actions are not offered to the model. |
 
+## Params filled by the server
+
+A param's optional `source` says who fills its value:
+
+| `source` | Value | Notes |
+|---|---|---|
+| `model` (default, also when absent) | What the model passes in the tool call | Every action saved before `source` existed behaves exactly as before. |
+| `customer_phone` | The phone stored on the conversation's CRM contact | `type` must be `string` (the contract refuses anything else). |
+| `customer_email` | The email stored on the conversation's CRM contact | `type` must be `string`. |
+
+A param with a non-model source is not in the tool's input schema, so the model cannot set it; a value the model passes anyway is ignored, and the server fills it from the verified record (`CRM_FACADE.getContact` on the conversation's contact, never what anyone typed in this turn). Use it for anything that identifies the customer to the shop's API ("look up **my** orders", "call me back"): a model-filled phone lets any customer ask about another person's orders.
+
+When a required server-filled value is unknown (no contact, or the contact has no phone or email yet), the action is not offered that turn, and a call that reaches the server anyway returns `invalid_arguments` and runs nothing. An optional one is left out of the call. In the dashboard test chat (the playground) the owner is the customer and there is no contact, so the model fills every param there, `source` included, to let the owner try the flow. The UI is the **Nguồn giá trị** / **Filled by** select on each param row of the action form.
+
+## Public comment replies
+
+A reply to a public fanpage comment is written for a stranger, in public: it gets **no action tools at all** (nor `send_message`, the pending call or the order tools). The bot can still answer from the knowledge and hand over. A comment reply that would show a phone number or an email is not posted and goes to review instead (`exposesContactDetails` in `packages/shared`, checked by the fanpage comment processor).
+
 ## Turn flow
 
 Actions are tools of the reply agent's loop (ADR-014, ADR-015; prompts `sales-agent@13`/`@14`; code in `apps/backend/src/modules/ai/application/action-tools.ts`). The model's final answer is free text; the outcome is derived: `handoff` when the handoff tool ran, `answered` when a message reached the customer, otherwise `fallback` (the bot's fallback message).
 
-1. Each enabled action becomes a tool `action_<n>` (index by request; the name-to-action map stays on the server). Its description is the action's name and description; its input schema is built from the declared params. No URL, header or secret reaches the model. A stored pending call adds the tools `confirm_pending_action` and `cancel_pending_action` and a `<pending_action>` block in the last user message.
+1. Each enabled action becomes a tool `action_<n>` (index by request; the name-to-action map stays on the server). Its description is the action's name and description; its input schema is built from the declared params the model fills (`source` absent or `model`). No URL, header or secret reaches the model. A stored pending call adds the tools `confirm_pending_action` and `cancel_pending_action` and a `<pending_action>` block in the last user message.
 2. A call to a read action validates the arguments against the declared params, runs `invoke`, and returns `{ok,statusCode,data}` as the tool result (figures inside count as grounded). Failures return `{ok:false,errorCode}` only. At most 3 executions per customer turn, then the fallback (`action_loop_limit`); at most 10 agent-loop rounds in total (`tool_loop_limit`, ADR-015).
 3. A call to a confirm-required action does not run: the server stores one pending call per conversation (10 min TTL) and returns `{status:"awaiting_customer_confirmation",readBack:{...}}`; the model's reply reads the values back and asks the customer to agree.
 4. `confirm_pending_action` takes the pending call atomically (`consumePending`: delete-returning, so of two concurrent confirmations only one runs the write), then executes the **stored** arguments, never model-supplied ones. If the call fails with a transient error (`timeout`, `network`) the pending call is put back so the customer can say "ok" again. The `<pending_action>` block carries `askedMinutesAgo`; the prompt tells the model to doubt an old pending call and re-ask. A confirmation question replaced by a guardrail fallback is dropped (the customer never saw it). `cancel_pending_action` clears it. A confirm with nothing pending falls back.
 5. Unknown, disabled or foreign actions fall back like `unknown`.
+
+Every `send_message` text and the final reply pass the pre-send guard (docs/06 §3.3): a reply that copies a long run of the action descriptions is refused like any other instruction leak, and with `BOT_REPLY_FIGURE_GUARD=true` a figure has to come from the action's returned data (or another trusted text), never from the arguments the model chose.
 
 Tokens of all rounds are summed into one `ai_runs` row (one billed AI message). `PlaygroundResponse.actions` lists `{name, ok, statusCode}` for the test-chat chips.
 

@@ -1,3 +1,5 @@
+import { escapeTags } from '@agent-sales/shared';
+
 /**
  * Pure planning for the assistant's auto-compaction (spec §9): when to
  * compact, which messages to keep, prune and summarise, and the summariser
@@ -172,7 +174,9 @@ export function buildCompactionPrompt(
   ].join('\n');
 
   const parts: string[] = [];
-  if (previousSummary) parts.push(`<previous_summary>\n${previousSummary}\n</previous_summary>`);
-  parts.push(`<transcript>\n${renderTranscript(transcript)}\n</transcript>`);
+  if (previousSummary)
+    parts.push(`<previous_summary>\n${escapeTags(previousSummary)}\n</previous_summary>`);
+  // The transcript holds tool output (owner data, web pages): it must not close its block.
+  parts.push(`<transcript>\n${escapeTags(renderTranscript(transcript))}\n</transcript>`);
   return { system, user: parts.join('\n\n') };
 }
