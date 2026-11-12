@@ -151,11 +151,18 @@ export const EnvSchema = z
      * generous default; 0 turns that limit off. Counters live in Redis when `REDIS_URL` is set.
      * See docs/08 §"Abuse caps" and docs/16 for the reasoning behind each default.
      */
-    /** AI replies to anonymous website-chat visitors (no lead yet), per site and per workspace. */
+    /**
+     * AI replies to anonymous website-chat visitors (no lead or contact), per site and per
+     * workspace. Every website reply counts against these windows; all website replies together
+     * (visitors with a lead included) may use `WEBCHAT_AI_REPLIES_KNOWN_FACTOR` times as much.
+     */
     WEBCHAT_AI_REPLIES_SITE_HOUR: limitVar(300),
     WEBCHAT_AI_REPLIES_SITE_DAY: limitVar(2000),
     WEBCHAT_AI_REPLIES_WORKSPACE_HOUR: limitVar(600),
     WEBCHAT_AI_REPLIES_WORKSPACE_DAY: limitVar(4000),
+    WEBCHAT_AI_REPLIES_KNOWN_FACTOR: z.coerce.number().int().min(1).max(20).default(4),
+    /** Bot replies to one customer (contact) per hour, across all of its conversations. */
+    CONTACT_BOT_REPLIES_HOUR: limitVar(60),
     /** Images website-chat visitors may upload per site per day. */
     WEBCHAT_UPLOADS_SITE_DAY: limitVar(500),
     /**
@@ -185,6 +192,12 @@ export const EnvSchema = z
     /** Orders and lodging holds the bot may create for one customer per day. */
     BOT_ORDERS_CONTACT_DAY: limitVar(10),
     BOT_HOLDS_CONTACT_DAY: limitVar(3),
+    /**
+     * Orders and holds per workspace and day from conversations without a contact (anonymous
+     * visitors): their per-customer key is the conversation, which a visitor can rotate.
+     */
+    BOT_ANON_ORDERS_WORKSPACE_DAY: limitVar(30),
+    BOT_ANON_HOLDS_WORKSPACE_DAY: limitVar(10),
   })
   .refine((env) => !env.TURNSTILE_SITE_KEY === !env.TURNSTILE_SECRET, {
     message: 'Set both TURNSTILE_SITE_KEY and TURNSTILE_SECRET, or neither',

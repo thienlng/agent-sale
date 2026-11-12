@@ -1,5 +1,6 @@
 import {
   CopyObjectCommand,
+  DeleteObjectCommand,
   DeleteObjectsCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
@@ -83,6 +84,10 @@ export class S3WebchatUploadStorage implements WebchatUploadStorage {
           MetadataDirective: 'COPY',
         }),
       );
+      // The temporary copy is no longer needed (best effort: the purge job removes leftovers).
+      await this.#client
+        .send(new DeleteObjectCommand({ Bucket: this.options.bucket, Key: temporaryKey }))
+        .catch(() => undefined);
       return `${prefix}/${key}`;
     } catch {
       // A retried send after the temporary copy was purged: the permanent object is enough.

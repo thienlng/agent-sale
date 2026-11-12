@@ -1,7 +1,7 @@
 import { TenantFairness, type BucketStore } from '@agent-sales/queue';
 import type { WorkspaceId } from '@agent-sales/shared';
 
-import type { Limiter } from '../../../common/limits/limiter.js';
+import type { Limiter, WindowCheck } from '../../../common/limits/limiter.js';
 
 const HOUR = 60 * 60_000;
 const DAY = 24 * HOUR;
@@ -17,17 +17,26 @@ export interface InboxLimits {
   turnsBurst: number;
   /** Bot replies per conversation and hour; past it, staff take over. */
   botRepliesPerConversationHour: number;
-  /** AI replies to anonymous website visitors (no captured lead), per site and per workspace. */
+  /** Bot replies per customer (CRM contact) and hour, across all of its conversations. */
+  botRepliesPerContactHour: number;
+  /**
+   * AI replies to website visitors, per site and per workspace. Every website reply counts
+   * against these windows: a visitor without a lead or contact (anonymous) may use only this
+   * much, while all website replies together may use `knownVisitorFactor` times as much. A typed
+   * (possibly fake) phone number raises the ceiling for that visitor, it never removes it.
+   */
   anonymousSiteHour: number;
   anonymousSiteDay: number;
   anonymousWorkspaceHour: number;
   anonymousWorkspaceDay: number;
+  /** All website replies may use this multiple of the anonymous budget (≥ 1). */
+  knownVisitorFactor: number;
 }
 
 export type CapScope = 'site' | 'workspace';
 export type CapWindow = 'hour' | 'day';
 
-/** Which anonymous-reply cap a website reply hit. */
+/** Which website-reply cap a reply hit. */
 export interface AnonymousCap {
   scope: CapScope;
   window: CapWindow;
@@ -35,11 +44,29 @@ export interface AnonymousCap {
   windowStart: number;
 }
 
+/** Who a bot reply goes to, as far as the caps are concerned. */
+export interface ReplyVisitor {
+  /** A website-chat visitor: the site and workspace windows apply. */
+  website: boolean;
+  /** No captured lead and no CRM contact on the conversation. */
+  anonymous: boolean;
+  /** The customer's CRM contact when known (per-contact cap across conversations). */
+  contactId: string | null;
+}
+
 /** Tells the owner that a cap was reached (once per window; best effort). */
 export type CapNotifier = (ws: WorkspaceId, cap: AnonymousCap) => Promise<void>;
 
 /** Nest token of the processor's guards; absent = no caps, one conversation at a time. */
 export const INBOX_GUARDS = Symbol('INBOX_GUARDS');
+
+/** One counter of a reply check, and what a refusal on it means. */
+interface Check extends WindowCheck {
+  cap: 'handoff' | 'capped';
+  /** A site or workspace window: the owner is told when it fills. */
+  window?: AnonymousCap;
+  pool?: 'anon' | 'all';
+}
 
 /**
  * Shared-counter checks of the bot inbox. Counters live in the shared limiter (Redis in
@@ -75,47 +102,78 @@ export class InboxGuards {
 
   /**
    * The cap a bot reply hits, if any: the conversation's replies per hour (`handoff`: staff take
-   * over), then, for an anonymous website visitor, the site and workspace caps (`anonymous`).
+   * over); else the customer's replies per hour across conversations, or for a website visitor
+   * the site and workspace windows (`capped`: a polite message once, no model call). Every cap
+   * is checked before any counter moves (`Limiter.hitAll`), so a refused reply spends nothing.
    */
   async replyCap(
     ws: WorkspaceId,
     conversationId: string,
     connectionId: string,
-    visitor: { anonymous: boolean },
-  ): Promise<'handoff' | 'anonymous' | null> {
-    if (!(await this.conversationReply(ws, conversationId))) return 'handoff';
-    if (!visitor.anonymous) return null;
-    return (await this.anonymousReply(ws, connectionId)) ? 'anonymous' : null;
-  }
-
-  /** Counts one bot reply of the conversation; false once the hourly cap is spent. */
-  async conversationReply(ws: WorkspaceId, conversationId: string): Promise<boolean> {
-    const limit = this.limits.botRepliesPerConversationHour;
-    if (!limit) return true;
-    return (await this.limiter.hit(`inbox:conv:${ws}:${conversationId}:replies`, limit, HOUR)).ok;
+    visitor: ReplyVisitor,
+  ): Promise<'handoff' | 'capped' | null> {
+    const l = this.limits;
+    const checks: Check[] = [];
+    if (l.botRepliesPerConversationHour)
+      checks.push({
+        key: `inbox:conv:${ws}:${conversationId}:replies`,
+        limit: l.botRepliesPerConversationHour,
+        windowMs: HOUR,
+        cap: 'handoff',
+      });
+    if (l.botRepliesPerContactHour && visitor.contactId)
+      checks.push({
+        key: `inbox:contact:${ws}:${visitor.contactId}:replies`,
+        limit: l.botRepliesPerContactHour,
+        windowMs: HOUR,
+        cap: 'capped',
+      });
+    if (visitor.website) checks.push(...this.websiteChecks(ws, connectionId, visitor.anonymous));
+    if (!checks.length) return null;
+    const { refused } = await this.limiter.hitAll(checks);
+    const hit = checks[refused];
+    if (!hit) return null;
+    if (hit.window) await this.notifyOnce(ws, connectionId, hit.window, hit.pool ?? 'all');
+    return hit.cap;
   }
 
   /**
-   * Counts one AI reply to an anonymous website visitor against the site and workspace caps.
-   * Null when every cap still has room, otherwise the first cap that is spent.
+   * The site and workspace windows of one website reply. Every reply counts in the `all` pool
+   * (the anonymous budget × `knownVisitorFactor`); an anonymous one also in the `anon` pool.
    */
-  async anonymousReply(ws: WorkspaceId, connectionId: string): Promise<AnonymousCap | null> {
+  private websiteChecks(ws: WorkspaceId, connectionId: string, anonymous: boolean): Check[] {
     const l = this.limits;
-    const checks: [CapScope, CapWindow, string, number, number][] = [
-      ['site', 'hour', `inbox:anon:site:${connectionId}:h`, l.anonymousSiteHour, HOUR],
-      ['site', 'day', `inbox:anon:site:${connectionId}:d`, l.anonymousSiteDay, DAY],
-      ['workspace', 'hour', `inbox:anon:ws:${ws}:h`, l.anonymousWorkspaceHour, HOUR],
-      ['workspace', 'day', `inbox:anon:ws:${ws}:d`, l.anonymousWorkspaceDay, DAY],
+    const factor = Math.max(1, l.knownVisitorFactor);
+    const now = this.clock();
+    const windows: [CapScope, CapWindow, string, number, number][] = [
+      ['site', 'hour', `site:${connectionId}:h`, l.anonymousSiteHour, HOUR],
+      ['site', 'day', `site:${connectionId}:d`, l.anonymousSiteDay, DAY],
+      ['workspace', 'hour', `ws:${ws}:h`, l.anonymousWorkspaceHour, HOUR],
+      ['workspace', 'day', `ws:${ws}:d`, l.anonymousWorkspaceDay, DAY],
     ];
-    for (const [scope, window, key, limit, windowMs] of checks) {
+    const checks: Check[] = [];
+    for (const [scope, window, key, limit, windowMs] of windows) {
       if (!limit) continue;
-      if ((await this.limiter.hit(key, limit, windowMs)).ok) continue;
-      const now = this.clock();
-      const cap = { scope, window, windowStart: now - (now % windowMs) };
-      await this.notifyOnce(ws, scope === 'site' ? connectionId : ws, cap, windowMs);
-      return cap;
+      const cap: AnonymousCap = { scope, window, windowStart: now - (now % windowMs) };
+      if (anonymous)
+        checks.push({
+          key: `inbox:anon:${key}`,
+          limit,
+          windowMs,
+          cap: 'capped',
+          window: cap,
+          pool: 'anon',
+        });
+      checks.push({
+        key: `inbox:web:${key}`,
+        limit: limit * factor,
+        windowMs,
+        cap: 'capped',
+        window: cap,
+        pool: 'all',
+      });
     }
-    return null;
+    return checks;
   }
 
   /**
@@ -128,12 +186,14 @@ export class InboxGuards {
 
   private async notifyOnce(
     ws: WorkspaceId,
-    subject: string,
+    connectionId: string,
     cap: AnonymousCap,
-    windowMs: number,
+    pool: 'anon' | 'all',
   ): Promise<void> {
     if (!this.notify) return;
-    const key = `inbox:anon:notified:${subject}:${cap.scope}:${cap.window}`;
+    const subject = cap.scope === 'site' ? connectionId : ws;
+    const windowMs = cap.window === 'hour' ? HOUR : DAY;
+    const key = `inbox:anon:notified:${subject}:${cap.scope}:${cap.window}:${pool}`;
     if (!(await this.limiter.hit(key, 1, windowMs)).ok) return;
     await this.notify(ws, cap).catch(() => undefined);
   }
@@ -146,10 +206,12 @@ export function inboxLimitsFromEnv(env: {
   INBOX_TURNS_WORKSPACE_MINUTE: number;
   INBOX_TURNS_WORKSPACE_BURST: number;
   CONVERSATION_BOT_REPLIES_HOUR: number;
+  CONTACT_BOT_REPLIES_HOUR: number;
   WEBCHAT_AI_REPLIES_SITE_HOUR: number;
   WEBCHAT_AI_REPLIES_SITE_DAY: number;
   WEBCHAT_AI_REPLIES_WORKSPACE_HOUR: number;
   WEBCHAT_AI_REPLIES_WORKSPACE_DAY: number;
+  WEBCHAT_AI_REPLIES_KNOWN_FACTOR: number;
 }): InboxLimits {
   return {
     concurrency: env.INBOX_CONCURRENCY,
@@ -157,9 +219,11 @@ export function inboxLimitsFromEnv(env: {
     turnsPerWorkspaceMinute: env.INBOX_TURNS_WORKSPACE_MINUTE,
     turnsBurst: env.INBOX_TURNS_WORKSPACE_BURST,
     botRepliesPerConversationHour: env.CONVERSATION_BOT_REPLIES_HOUR,
+    botRepliesPerContactHour: env.CONTACT_BOT_REPLIES_HOUR,
     anonymousSiteHour: env.WEBCHAT_AI_REPLIES_SITE_HOUR,
     anonymousSiteDay: env.WEBCHAT_AI_REPLIES_SITE_DAY,
     anonymousWorkspaceHour: env.WEBCHAT_AI_REPLIES_WORKSPACE_HOUR,
     anonymousWorkspaceDay: env.WEBCHAT_AI_REPLIES_WORKSPACE_DAY,
+    knownVisitorFactor: env.WEBCHAT_AI_REPLIES_KNOWN_FACTOR,
   };
 }

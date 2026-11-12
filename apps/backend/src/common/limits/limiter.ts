@@ -1,4 +1,5 @@
 import { type BucketConfig, type BucketStore, InMemoryBucketStore } from '@agent-sales/queue';
+import { randomUUID } from 'node:crypto';
 import { Logger } from '@nestjs/common';
 import { Redis } from 'ioredis';
 import { getEnv } from '../config.js';
@@ -24,16 +25,30 @@ export interface HitResult {
 export interface Limiter {
   /** Counts one hit; refused once `limit` hits were counted inside the window. */
   hit(key: string, limit: number, windowMs: number): Promise<HitResult>;
+  /**
+   * Counts one hit on every key only when every key still has room (all or nothing, atomic on
+   * Redis), so a refused call never spends the other counters. `refused` is the index of the
+   * first full key, -1 when the hit was counted.
+   */
+  hitAll(checks: readonly WindowCheck[]): Promise<{ refused: number; retryAfterMs: number }>;
   /** Adds `amount` to a windowed total (e.g. tokens) and returns the new total. */
   add(key: string, amount: number, windowMs: number): Promise<number>;
   /** The current windowed total of `key` (0 when absent or expired). */
   peek(key: string): Promise<number>;
   /**
-   * Takes one of `max` concurrency slots. Slots expire after `ttlMs` so a crashed holder never
-   * blocks the key forever; `release` frees one.
+   * Takes one of `max` concurrency slots and returns its id (null when all are taken). Each slot
+   * expires `ttlMs` after it was taken, on its own, so a holder that crashed without `release`
+   * frees its slot even while other slots keep being taken.
    */
-  acquire(key: string, max: number, ttlMs: number): Promise<boolean>;
-  release(key: string): Promise<void>;
+  acquire(key: string, max: number, ttlMs: number): Promise<string | null>;
+  release(key: string, slot: string): Promise<void>;
+}
+
+/** One fixed-window counter of a `hitAll`. */
+export interface WindowCheck {
+  key: string;
+  limit: number;
+  windowMs: number;
 }
 
 const MAX_KEYS = 50_000;
@@ -42,6 +57,9 @@ const SWEEP_EVERY_MS = 30_000;
 /** In-process limiter: bounded memory (oldest key evicted at `MAX_KEYS`), expired keys swept. */
 export class InMemoryLimiter implements Limiter {
   readonly #entries = new Map<string, { value: number; expiresAt: number }>();
+  /** Concurrency slots: slot id → expiry, per key. */
+  readonly #slots = new Map<string, Map<string, number>>();
+  #slotSeq = 0;
   #lastSweep = Date.now();
 
   constructor(private readonly clock: () => number = () => Date.now()) {}
@@ -79,28 +97,51 @@ export class InMemoryLimiter implements Limiter {
     return e && e.expiresAt > this.clock() ? e.value : 0;
   }
 
-  async acquire(key: string, max: number, ttlMs: number): Promise<boolean> {
+  async hitAll(checks: readonly WindowCheck[]): Promise<{ refused: number; retryAfterMs: number }> {
+    return this.hitAllSync(checks);
+  }
+
+  hitAllSync(checks: readonly WindowCheck[]): { refused: number; retryAfterMs: number } {
+    const now = this.clock();
+    const live = checks.map((c) => ({ check: c, entry: this.#live(c.key, now, c.windowMs) }));
+    const refused = live.findIndex(({ check, entry }) => entry.value >= check.limit);
+    const hit = live[refused];
+    if (hit) return { refused, retryAfterMs: Math.max(1, hit.entry.expiresAt - now) };
+    for (const { entry } of live) entry.value += 1;
+    return { refused: -1, retryAfterMs: 0 };
+  }
+
+  async acquire(key: string, max: number, ttlMs: number): Promise<string | null> {
     return this.acquireSync(key, max, ttlMs);
   }
 
-  acquireSync(key: string, max: number, ttlMs: number): boolean {
+  acquireSync(key: string, max: number, ttlMs: number): string | null {
     const now = this.clock();
-    const e = this.#live(key, now, ttlMs);
-    if (e.value >= max) return false;
-    e.value += 1;
-    e.expiresAt = now + ttlMs;
-    return true;
+    let slots = this.#slots.get(key);
+    if (!slots) {
+      if (this.#slots.size >= MAX_KEYS) {
+        const oldest = this.#slots.keys().next().value;
+        if (oldest !== undefined) this.#slots.delete(oldest);
+      }
+      slots = new Map();
+      this.#slots.set(key, slots);
+    }
+    for (const [id, expiresAt] of slots) if (expiresAt <= now) slots.delete(id);
+    if (slots.size >= max) return null;
+    const id = `s${++this.#slotSeq}`;
+    slots.set(id, now + ttlMs);
+    return id;
   }
 
-  async release(key: string): Promise<void> {
-    this.releaseSync(key);
+  async release(key: string, slot: string): Promise<void> {
+    this.releaseSync(key, slot);
   }
 
-  releaseSync(key: string): void {
-    const e = this.#entries.get(key);
-    if (!e) return;
-    e.value -= 1;
-    if (e.value <= 0) this.#entries.delete(key);
+  releaseSync(key: string, slot: string): void {
+    const slots = this.#slots.get(key);
+    if (!slots) return;
+    slots.delete(slot);
+    if (!slots.size) this.#slots.delete(key);
   }
 
   #live(key: string, now: number, windowMs: number): { value: number; expiresAt: number } {
@@ -143,19 +184,34 @@ if redis.call('PTTL', KEYS[1]) <= 0 then
 end
 return redis.call('INCRBY', KEYS[1], ARGV[1])`;
 
-const ACQUIRE = `
-local c = redis.call('INCR', KEYS[1])
-if c > tonumber(ARGV[1]) then
-  redis.call('DECR', KEYS[1])
-  return 0
+// All or nothing over several fixed windows: ARGV = limit1, window1, limit2, window2, …
+// Returns {index of the first full key (1-based), its ttl} or {0, 0} once every key was counted.
+const HIT_ALL = `
+for i = 1, #KEYS do
+  local c = tonumber(redis.call('GET', KEYS[i]) or '0')
+  local ttl = redis.call('PTTL', KEYS[i])
+  if ttl > 0 and c >= tonumber(ARGV[2 * i - 1]) then return {i, ttl} end
 end
-redis.call('PEXPIRE', KEYS[1], ARGV[2])
-return 1`;
+for i = 1, #KEYS do
+  if redis.call('PTTL', KEYS[i]) <= 0 then
+    redis.call('SET', KEYS[i], 1, 'PX', ARGV[2 * i])
+  else
+    redis.call('INCR', KEYS[i])
+  end
+end
+return {0, 0}`;
 
-const RELEASE = `
-local c = redis.call('DECR', KEYS[1])
-if c <= 0 then redis.call('DEL', KEYS[1]) end
-return c`;
+// Concurrency slots as a sorted set {slot id → taken at (ms)}: stale slots are trimmed on every
+// acquire, so a slot a crashed holder never released expires on its own after ARGV[2] ms.
+const ACQUIRE = `
+local t = redis.call('TIME')
+local now = tonumber(t[1]) * 1000 + math.floor(tonumber(t[2]) / 1000)
+local ttl = tonumber(ARGV[2])
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now - ttl)
+if redis.call('ZCARD', KEYS[1]) >= tonumber(ARGV[1]) then return 0 end
+redis.call('ZADD', KEYS[1], now, ARGV[3])
+redis.call('PEXPIRE', KEYS[1], ttl)
+return 1`;
 
 // Token bucket stored as a hash {tokens, at}; returns {allowed, retryAfterMs}.
 const TAKE = `
@@ -179,6 +235,8 @@ redis.call('PEXPIRE', KEYS[1], math.ceil(cap / rate * 1000) + 1000)
 return {allowed, wait}`;
 
 const PREFIX = 'rl:';
+/** Slot sets live apart from the counters (a different Redis type). */
+const SLOTS = 'rl:slots:';
 
 /**
  * Redis-backed limiter. Commands time out quickly and never queue while disconnected; any error
@@ -230,24 +288,44 @@ export class RedisLimiter implements Limiter, BucketStore {
     }
   }
 
-  async acquire(key: string, max: number, ttlMs: number): Promise<boolean> {
+  async hitAll(checks: readonly WindowCheck[]): Promise<{ refused: number; retryAfterMs: number }> {
+    if (!checks.length) return { refused: -1, retryAfterMs: 0 };
     try {
-      const ok = Number(await this.redis.eval(ACQUIRE, 1, PREFIX + key, max, ttlMs));
+      const [index, ttl] = (await this.redis.eval(
+        HIT_ALL,
+        checks.length,
+        ...checks.map((c) => PREFIX + c.key),
+        ...checks.flatMap((c) => [c.limit, c.windowMs]),
+      )) as [number, number];
       this.#recovered();
-      return ok === 1;
+      return index > 0
+        ? { refused: index - 1, retryAfterMs: Math.max(1, ttl) }
+        : { refused: -1, retryAfterMs: 0 };
+    } catch (err) {
+      this.#degrade(err);
+      return this.#fallback.hitAllSync(checks);
+    }
+  }
+
+  async acquire(key: string, max: number, ttlMs: number): Promise<string | null> {
+    const slot = randomUUID();
+    try {
+      const ok = Number(await this.redis.eval(ACQUIRE, 1, SLOTS + key, max, ttlMs, slot));
+      this.#recovered();
+      return ok === 1 ? slot : null;
     } catch (err) {
       this.#degrade(err);
       return this.#fallback.acquireSync(key, max, ttlMs);
     }
   }
 
-  async release(key: string): Promise<void> {
+  async release(key: string, slot: string): Promise<void> {
     try {
-      await this.redis.eval(RELEASE, 1, PREFIX + key);
+      await this.redis.zrem(SLOTS + key, slot);
       this.#recovered();
     } catch (err) {
       this.#degrade(err);
-      this.#fallback.releaseSync(key);
+      this.#fallback.releaseSync(key, slot);
     }
   }
 

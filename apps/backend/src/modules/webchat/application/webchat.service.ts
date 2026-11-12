@@ -55,8 +55,6 @@ const DAY = 24 * HOUR;
 export const TEMPORARY_UPLOAD_ROOT = 'webchat-tmp/';
 /** Unreferenced uploads older than this are deleted. */
 export const TEMPORARY_UPLOAD_TTL_MS = DAY;
-/** Earlier messages scanned for a phone or email when the visitor writes again. */
-const LEAD_SCAN_MESSAGES = 20;
 
 /** What the controller knows about the HTTP request; the service never sees Fastify types. */
 export interface PublicCall {
@@ -186,23 +184,15 @@ export class WebchatService {
     const upload = body.attachmentUrl ? this.ownUpload(site, body.attachmentUrl) : null;
     if (body.attachmentUrl && !upload) throw new WidgetError(400, 'INVALID_ATTACHMENT');
 
-    // Leads come from the visitor's second message on (security audit #2): one anonymous message
-    // never creates a CRM customer. A number left in the first message is picked up then.
-    const prior = existing
-      ? await this.visitors.find(site.workspaceId, site.connectionId, visitorId)
-      : null;
-    const leadAllowed = (prior?.messageCount ?? 0) >= 1;
-    const ownPhone = body.text ? findVnPhone(body.text) : null;
-    let typedPhone = leadAllowed ? ownPhone : null;
-    let typedEmail = leadAllowed && body.text ? findEmail(body.text) : null;
-    if (leadAllowed && prior && !prior.contactId && (!typedPhone || !typedEmail)) {
-      const earlier = await this.earlierContact(site, visitorId);
-      typedPhone ??= earlier.phone;
-      typedEmail ??= earlier.email;
-    }
+    // Leads are captured from the first message again: a captured lead no longer lifts the AI
+    // reply caps (see inbox-guards), so a typed number cannot buy a visitor unlimited replies.
     // A number typed in the message is accepted even while a phone is required (it satisfies it).
-    if (existing && !ownPhone && !typedPhone && phoneRequired(site, prior))
-      throw new WidgetError(409, 'PHONE_REQUIRED');
+    const typedPhone = body.text ? findVnPhone(body.text) : null;
+    const typedEmail = body.text ? findEmail(body.text) : null;
+    if (existing && !typedPhone) {
+      const visitor = await this.visitors.find(site.workspaceId, site.connectionId, visitorId);
+      if (phoneRequired(site, visitor)) throw new WidgetError(409, 'PHONE_REQUIRED');
+    }
     const attachmentUrl = upload ? await this.promote(upload) : undefined;
 
     await this.visitors.recordMessage(site.workspaceId, site.connectionId, visitorId, {
@@ -509,28 +499,6 @@ export class WebchatService {
     const captcha = this.options.captcha;
     if (!captcha) return;
     if (!token || !(await captcha.verify(token))) throw new WidgetError(403, 'CHALLENGE_REQUIRED');
-  }
-
-  /** The first phone and email in the visitor's earlier customer messages. */
-  private async earlierContact(
-    site: WebsiteSite,
-    visitorId: string,
-  ): Promise<{ phone: string | null; email: string | null }> {
-    const page = await this.conversations.listForVisitor(
-      site.workspaceId,
-      site.connectionId,
-      visitorId,
-      null,
-      LEAD_SCAN_MESSAGES,
-    );
-    let phone: string | null = null;
-    let email: string | null = null;
-    for (const m of page.messages) {
-      if (m.role !== 'customer' || !m.text) continue;
-      phone ??= findVnPhone(m.text);
-      email ??= findEmail(m.text);
-    }
-    return { phone, email };
   }
 
   private async visitorOf(site: WebsiteSite, authorization: string): Promise<string> {

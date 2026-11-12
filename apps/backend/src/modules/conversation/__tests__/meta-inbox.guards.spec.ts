@@ -24,11 +24,16 @@ const OFF: InboxLimits = {
   turnsPerWorkspaceMinute: 0,
   turnsBurst: 1,
   botRepliesPerConversationHour: 0,
+  botRepliesPerContactHour: 0,
   anonymousSiteHour: 0,
   anonymousSiteDay: 0,
   anonymousWorkspaceHour: 0,
   anonymousWorkspaceDay: 0,
+  knownVisitorFactor: 1,
 };
+
+/** A typed (fake) phone: every rotated visitor ends on this one CRM contact. */
+const FAKE_CONTACT = '018d0000-0000-7000-8000-0000000000f1';
 
 function job(
   ws: WorkspaceId,
@@ -209,6 +214,96 @@ describe('MetaInboxProcessor guards (security audit 2026-11-12)', () => {
     const list = (await inbox.list(wsA, { limit: 10 } as never)).data;
     expect(list.every((c) => c.mode === 'bot')).toBe(true);
     expect(billing.reserveReply).toHaveBeenCalledTimes(2);
+  });
+
+  /** Each visitor: a first message (anonymous), then a typed phone becomes a lead, then more. */
+  async function rotateWithFakePhone(
+    s: ReturnType<typeof setup>,
+    visitors: number,
+    contactFor: (i: number) => string,
+  ) {
+    for (let i = 0; i < visitors; i++) {
+      const sender = `rot-${i}`;
+      s.channels.claimEvents.mockResolvedValueOnce([job(wsA, sender, 'hi', 'website')]);
+      await s.processor.tick();
+      const list = (await s.inbox.list(wsA, { limit: 100 } as never)).data;
+      for (const c of list.filter((x) => !x.lead))
+        await s.inbox.linkLead(wsA, c.id, {
+          contactId: contactFor(i),
+          phoneE164: '+84912345679',
+          capturedAt: new Date().toISOString(),
+        });
+      for (const text of ['sdt 0912345679', 'more', 'and more']) {
+        s.channels.claimEvents.mockResolvedValueOnce([job(wsA, sender, text, 'website')]);
+        await s.processor.tick();
+      }
+    }
+  }
+
+  it('still bounds website replies when visitors rotate tokens and type a fake phone', async () => {
+    const s = setup({ anonymousSiteHour: 2, knownVisitorFactor: 3 });
+    // A different fake number per visitor: every visitor has a lead, none shares a contact.
+    await rotateWithFakePhone(s, 10, (i) => `018d0000-0000-7000-8000-0000000001${10 + i}`);
+    // Every website reply counted: 2 × 3 replies in total for the site, then polite caps.
+    expect(s.ai.reply).toHaveBeenCalledTimes(6);
+    expect(s.billing.reserveReply).toHaveBeenCalledTimes(6);
+    expect(s.notify).toHaveBeenCalledWith(
+      wsA,
+      expect.objectContaining({ scope: 'site', window: 'hour' }),
+    );
+  });
+
+  it('gives visitors with a lead a larger budget than anonymous ones, not an exemption', async () => {
+    const s = setup({ anonymousSiteHour: 2, knownVisitorFactor: 3 });
+    // Two anonymous visitors spend the anonymous budget...
+    for (const sender of ['a1', 'a2', 'a3']) {
+      s.channels.claimEvents.mockResolvedValueOnce([job(wsA, sender, 'hello', 'website')]);
+      await s.processor.tick();
+    }
+    expect(s.ai.reply).toHaveBeenCalledTimes(2);
+    // ...a visitor who left a phone still gets answers, up to the shared total (2 × 3 = 6).
+    const before = new Set(
+      (await s.inbox.list(wsA, { limit: 100 } as never)).data.map((c) => c.id),
+    );
+    s.channels.claimEvents.mockResolvedValueOnce([job(wsA, 'known', 'sdt 0912345679', 'website')]);
+    await s.processor.tick();
+    expect(s.ai.reply).toHaveBeenCalledTimes(2); // still anonymous: capped
+    const known = (await s.inbox.list(wsA, { limit: 100 } as never)).data.find(
+      (c) => !before.has(c.id),
+    )!;
+    await s.inbox.linkLead(wsA, known.id, {
+      contactId: FAKE_CONTACT,
+      phoneE164: '+84912345679',
+      capturedAt: new Date().toISOString(),
+    });
+    for (const text of ['one', 'two', 'three', 'four', 'five']) {
+      s.channels.claimEvents.mockResolvedValueOnce([job(wsA, 'known', text, 'website')]);
+      await s.processor.tick();
+    }
+    expect(s.ai.reply).toHaveBeenCalledTimes(6);
+  });
+
+  it('caps one contact across conversations, whatever the website windows', async () => {
+    const s = setup({ botRepliesPerContactHour: 3 });
+    // Every rotated visitor types the same (fake) number: they all end on one contact.
+    await rotateWithFakePhone(s, 5, () => FAKE_CONTACT);
+    // First messages are anonymous (no contact yet): 5 replies; then 3 for the shared contact.
+    expect(s.ai.reply).toHaveBeenCalledTimes(5 + 3);
+  });
+
+  it('checks every cap before counting: a refused reply spends no other counter', async () => {
+    const limiter = new LocalLimiter();
+    const guards = new InboxGuards(
+      { ...OFF, botRepliesPerConversationHour: 5, anonymousSiteHour: 1 },
+      limiter,
+      null,
+    );
+    const visitor = { website: true, anonymous: true, contactId: null };
+    expect(await guards.replyCap(wsA, 'conv-1', 'site-1', visitor)).toBeNull();
+    for (let i = 0; i < 3; i++)
+      expect(await guards.replyCap(wsA, 'conv-1', 'site-1', visitor)).toBe('capped');
+    // Only the one reply that went through was counted for the conversation.
+    expect(await limiter.peek(`inbox:conv:${wsA}:conv-1:replies`)).toBe(1);
   });
 
   it('does not count Messenger customers against the anonymous website caps', async () => {

@@ -44,7 +44,7 @@
 - **Model spend (security audit #15, `AI_SPEND_LIMITS`, shared limiter, `0` = off):** every model call is charged as it completes, so failed, interrupted or undelivered turns count.
   - A conversation may use `CONVERSATION_MODEL_CALLS_HOUR` calls and `CONVERSATION_TOKENS_HOUR` tokens per hour; the next turn hands off with no model call (guardrail `conversation_budget`). The check runs before a turn, so one turn may finish past the limit.
   - The playground allows `PLAYGROUND_RUNS_USER_MINUTE` runs per user and minute and shares the account's `OWNER_LLM_TOKENS_ACCOUNT_DAY` tokens with the assistant (429 `RATE_LIMITED`).
-  - `confirm_order` and `confirm_hold` stop at `BOT_ORDERS_CONTACT_DAY` / `BOT_HOLDS_CONTACT_DAY` per customer (contact, else conversation) and day (audit #18); test runs are not capped.
+  - `confirm_order` and `confirm_hold` stop at `BOT_ORDERS_CONTACT_DAY` / `BOT_HOLDS_CONTACT_DAY` per customer (contact, else conversation) and day (audit #18); without a contact they also stop at `BOT_ANON_ORDERS_WORKSPACE_DAY` / `BOT_ANON_HOLDS_WORKSPACE_DAY` per workspace and day, so rotating conversations cannot multiply the cap. The counters are read before and added after the commit, so concurrent turns can overshoot by the turns in flight. Test runs are not capped.
 
 **Do not:** call provider SDKs outside `packages/ai-core`; log prompts, replies or API keys; read `bots`/`knowledge_items` tables directly (use the facades).
 

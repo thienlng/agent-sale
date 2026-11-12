@@ -23,7 +23,9 @@ export const EVENT_MAX_WAIT_MS = 4000;
 export interface ClaimOptions {
   /**
    * At most this many distinct conversations (connection + customer) per workspace in one claim,
-   * oldest first, so one flooded shop cannot fill the claim (security audit 2026-11-12 #3).
+   * oldest first, picked per workspace over the whole backlog (not a window of the oldest rows),
+   * so one flooded shop cannot fill the claim (security audit 2026-11-12 #3). Events are taken
+   * round-robin across the admitted conversations; each one keeps its oldest events, in order.
    */
   perWorkspace?: number;
 }

@@ -516,14 +516,11 @@ describe('WebchatService lead capture', () => {
     expect(enqueue).toHaveBeenCalledTimes(2);
     expect([...visitors.rows.values()][0]?.phoneE164).toBe('+84912345679');
   });
-  it("never creates a lead from a visitor's first message alone, but picks it up on the second", async () => {
-    const first = await service.send(call(), body({ text: 'em sdt 0912 345 679 nhé' }));
-    expect(upsertLead).not.toHaveBeenCalled();
-    expect(upsertLeadByEmail).not.toHaveBeenCalled();
-    expect(enqueue).toHaveBeenCalledOnce();
-    history = [{ role: 'customer', text: 'em sdt 0912 345 679 nhé' }];
-    await service.send(call({ authorization: `Visitor ${first.visitorToken}` }), body());
+  it("captures a lead from a visitor's first message (a lead does not lift the reply caps)", async () => {
+    await service.send(call(), body({ text: 'em sdt 0912 345 679 nhé' }));
     expect(upsertLead).toHaveBeenCalledOnce();
+    expect(upsertLead).toHaveBeenCalledWith(ws, expect.objectContaining({ sourceKey: 'website' }));
+    expect(enqueue).toHaveBeenCalledOnce();
     expect([...visitors.rows.values()][0]?.phoneE164).toBe('+84912345679');
   });
   it('does not capture placeholder numbers or plain text', async () => {

@@ -306,7 +306,12 @@ describe('order tools (spec §4.1)', () => {
 
   it('confirm stops at the orders one customer may get per day, counting only created orders (audit #18)', async () => {
     const quota = new BotCommitQuota(
-      { ordersPerContactDay: 1, holdsPerContactDay: 0 },
+      {
+        ordersPerContactDay: 1,
+        holdsPerContactDay: 0,
+        anonymousOrdersPerWorkspaceDay: 0,
+        anonymousHoldsPerWorkspaceDay: 0,
+      },
       new InMemoryLimiter(),
     );
     const who = { contactId: 'contact-1', conversationId };

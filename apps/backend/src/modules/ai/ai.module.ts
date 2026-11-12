@@ -73,6 +73,8 @@ import { TurnTraceController } from './interface/http/turn-trace.controller.js';
           {
             ordersPerContactDay: getEnv().BOT_ORDERS_CONTACT_DAY,
             holdsPerContactDay: getEnv().BOT_HOLDS_CONTACT_DAY,
+            anonymousOrdersPerWorkspaceDay: getEnv().BOT_ANON_ORDERS_WORKSPACE_DAY,
+            anonymousHoldsPerWorkspaceDay: getEnv().BOT_ANON_HOLDS_WORKSPACE_DAY,
           },
           sharedLimiter(),
         ),

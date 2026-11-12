@@ -246,9 +246,9 @@ export class MetaInboxProcessor {
   }
 
   /**
-   * A capped anonymous visitor gets the bot's hand-over text once (no model call, no billing);
-   * the conversation stays in the inbox for staff without a hand-off alert per visitor, so a
-   * flood cannot also flood the team's notifications.
+   * A capped visitor (website windows or per-contact cap) gets the bot's hand-over text once (no
+   * model call, no billing); the conversation stays in the inbox for staff without a hand-off
+   * alert per visitor, so a flood cannot also flood the team's notifications.
    */
   private async politeCap(turn: Turn): Promise<void> {
     const { job, c, bot, context, key } = turn;
@@ -276,10 +276,15 @@ export class MetaInboxProcessor {
     );
     if (provenance && (provenance.status === 'ambiguous' || provenance.status === 'unavailable'))
       return this.handOffWithMessage(turn);
-    // Abuse caps before any model call (audit #2, #18); an anonymous visitor has no lead/customer.
+    // Abuse caps before any model call (audit #2, #18). Every website reply counts against the
+    // site and workspace windows; a lead or contact only moves the visitor to the larger budget
+    // (a typed phone can be fake), and a contact is also capped across its conversations.
+    const lead = turn.context.conversation.lead;
+    const contactId = c.contactId ?? lead?.contactId ?? null;
     const capped = await this.guards?.replyCap(job.workspaceId, c.id, job.connectionId, {
-      anonymous:
-        job.event.kind === 'website' && !turn.context.conversation.lead && !(c.contactId ?? null),
+      website: job.event.kind === 'website',
+      anonymous: !lead && !contactId,
+      contactId,
     });
     if (capped) this.logger.warn(`Meta inbox event ${job.id}: reply cap (${capped}) reached`);
     if (capped) return capped === 'handoff' ? this.handOffWithMessage(turn) : this.politeCap(turn);

@@ -43,6 +43,12 @@ const ASSISTANT_SLOT_TTL_MS = 15 * MINUTE;
  * the playground's per-user rate and the assistant's per-user concurrency, on the shared
  * limiter (Redis in production). Every model call is charged as it completes, so interrupted,
  * failed or undelivered runs count too.
+ *
+ * Token budgets are check-then-charge (`peek` before the run, `add` after each call), not one
+ * atomic step: runs that start together all pass the check, so the total can overshoot the limit
+ * by the runs in flight at that moment (each bounded by its own calls; the assistant's per-user
+ * slots and the playground's per-minute rate keep that small). Accepted: the token cost of a run
+ * is only known after it, so it cannot be reserved up front.
  */
 export class OwnerLlmBudget {
   constructor(
@@ -79,14 +85,14 @@ export class OwnerLlmBudget {
     const max = this.limits.assistantRunsPerUser;
     if (!max) return { release: async () => undefined };
     const key = `llm:asst:user:${userId}:runs`;
-    if (!(await this.limiter.acquire(key, max, ASSISTANT_SLOT_TTL_MS)))
-      throw new LlmBudgetExceededError('user_runs_concurrent');
+    const slot = await this.limiter.acquire(key, max, ASSISTANT_SLOT_TTL_MS);
+    if (!slot) throw new LlmBudgetExceededError('user_runs_concurrent');
     let released = false;
     return {
       release: async () => {
         if (released) return;
         released = true;
-        await this.limiter.release(key).catch(() => undefined);
+        await this.limiter.release(key, slot).catch(() => undefined);
       },
     };
   }
@@ -114,7 +120,9 @@ export interface ConversationLlmLimits {
 
 /**
  * Model calls and tokens per conversation and hour. Checked before a turn starts (a turn may
- * finish past the limit, by at most its own calls), charged per call as it completes.
+ * finish past the limit, by at most its own calls), charged per call as it completes. Same
+ * peek-then-add overshoot as the owner budget: one conversation runs one turn at a time (the
+ * inbox groups its events), so the overshoot is that turn's own calls.
  */
 export class ConversationLlmBudget {
   constructor(

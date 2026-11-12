@@ -43,7 +43,8 @@
   - The meta inbox claims 25 events per tick with at most `INBOX_CLAIM_PER_WORKSPACE` conversations per workspace and runs up to `INBOX_CONCURRENCY` conversations at once; events of one conversation still run in order. A tick lasts as long as its slowest turn.
   - Each workspace has a TenantFairness token bucket (`INBOX_TURNS_WORKSPACE_MINUTE`, burst `INBOX_TURNS_WORKSPACE_BURST`); a turn over it is deferred, not failed.
   - At most `CONVERSATION_BOT_REPLIES_HOUR` bot replies per conversation and hour; the next turn hands the conversation to staff.
-  - Anonymous website visitors (no lead, no contact) get AI replies within `WEBCHAT_AI_REPLIES_SITE_HOUR|DAY` per site and `WEBCHAT_AI_REPLIES_WORKSPACE_HOUR|DAY` per workspace. Past a cap the visitor gets the bot's hand-over message once per conversation and day, with no model call, no credit and no hand-off; the active owners get one `inbox.ai_capped` notification per scope and window.
+  - Anonymous website visitors (no lead, no contact) get AI replies within `WEBCHAT_AI_REPLIES_SITE_HOUR|DAY` per site and `WEBCHAT_AI_REPLIES_WORKSPACE_HOUR|DAY` per workspace. Every website reply, anonymous or not, also counts against the same windows × `WEBCHAT_AI_REPLIES_KNOWN_FACTOR` (a typed phone or email is unverified: it buys a larger budget, never an exemption). A customer with a contact gets at most `CONTACT_BOT_REPLIES_HOUR` replies per hour across all of their conversations. Past one of these caps the visitor gets the bot's hand-over message once per conversation and day, with no model call, no credit and no hand-off; the active owners get one `inbox.ai_capped` notification per scope and window.
+  - `replyCap` checks every reply cap of a turn in one all-or-nothing limiter call (`hitAll`): a refused turn increments nothing, so it cannot eat the budget of a cap it never passed.
 
 **Do not:** read other modules' tables; put HTTP/Drizzle types in `domain/`; call LLMs outside `ai-core`.
 

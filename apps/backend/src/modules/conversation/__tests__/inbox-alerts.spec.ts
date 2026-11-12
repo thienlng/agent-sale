@@ -89,7 +89,7 @@ describe('InboxAlerts', () => {
     await expect(alerts.raise(WS, conv(), 'handoff')).resolves.toBeUndefined();
   });
 
-  it('tells only the owners that AI replies to new website visitors are capped, once per window', async () => {
+  it('tells only the owners that AI replies to website visitors are capped, once per window', async () => {
     const { notify, alerts } = setup();
     await alerts.aiCapped(WS, { scope: 'workspace', window: 'day', windowStart: 86_400_000 });
     expect(notify).toHaveBeenCalledTimes(1);
@@ -97,7 +97,7 @@ describe('InboxAlerts', () => {
       expect.objectContaining({
         userId: 'owner',
         type: 'inbox.ai_capped',
-        title: 'AI tạm dừng trả lời khách mới trên website',
+        title: 'AI tạm dừng trả lời khách trên website',
         body: expect.stringContaining('Langmaster · Doanh nghiệp đã hết lượt AI') as string,
         target: { kind: 'path', path: '/app/inbox' },
         dedupKey: `inbox-capped:${WS}:workspace:day:86400000`,

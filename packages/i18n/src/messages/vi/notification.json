@@ -116,9 +116,9 @@
       "body": "{{business}} · {{excerpt}}"
     },
     "ai_capped": {
-      "title": "AI tạm dừng trả lời khách mới trên website",
-      "body_site": "{{business}} · Một khung chat website đã hết lượt AI trả lời khách mới trong {{window}} này. Khách mới nhận một tin nhắn ngắn và chờ nhân viên.",
-      "body_workspace": "{{business}} · Doanh nghiệp đã hết lượt AI trả lời khách mới trên website trong {{window}} này. Khách mới nhận một tin nhắn ngắn và chờ nhân viên.",
+      "title": "AI tạm dừng trả lời khách trên website",
+      "body_site": "{{business}} · Một khung chat website đã hết lượt AI trả lời khách trong {{window}} này. Khách nhận một tin nhắn ngắn và chờ nhân viên.",
+      "body_workspace": "{{business}} · Doanh nghiệp đã hết lượt AI trả lời khách trên website trong {{window}} này. Khách nhận một tin nhắn ngắn và chờ nhân viên.",
       "hour": "giờ",
       "day": "ngày"
     }

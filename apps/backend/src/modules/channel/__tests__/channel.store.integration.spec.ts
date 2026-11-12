@@ -437,6 +437,59 @@ describe('Inbox queue', () => {
     for (const j of await store.claimEvents(200)) await store.completeEvent(j.id, j.claimToken);
   });
 
+  it("claims another workspace's event in the next tick however large a flooded backlog is", async () => {
+    for (const j of await store.claimEvents(500)) await store.completeEvent(j.id, j.claimToken);
+    const flooded = await connect(a, 'page-backlog');
+    const quiet = await connect(b, 'page-backlog-other');
+    const row = (ws: WorkspaceId, connectionId: string, sender: string, ageMs: number) => {
+      const id = newId();
+      return {
+        id,
+        workspaceId: ws,
+        connectionId,
+        externalId: id,
+        payload: { kind: 'facebook', type: 'message', senderExternalId: sender },
+        createdAt: new Date(Date.now() - ageMs),
+      };
+    };
+    // Far more than any scan window of the oldest rows: one long burst, then 300 customers.
+    const burst = Array.from({ length: 40 }, (_, i) =>
+      row(a, flooded.id, 'burst', 600_000 - i * 10),
+    );
+    const crowd = Array.from({ length: 300 }, (_, i) =>
+      row(a, flooded.id, `crowd-${i}`, 500_000 - i * 10),
+    );
+    await owner.insert(schema.channelWebhookEvents).values([...burst, ...crowd]);
+    const other = row(b, quiet.id, 'late', 10_000);
+    await owner.insert(schema.channelWebhookEvents).values(other);
+
+    const claimed = await store.claimEvents(25, { perWorkspace: 5 });
+    expect(claimed).toHaveLength(25);
+    expect(claimed.map((j) => j.id)).toContain(other.id);
+    const fromA = claimed.filter((j) => j.workspaceId === a);
+    // At most 5 conversations of the flooded workspace, the oldest ones.
+    expect(new Set(fromA.map((j) => j.event.senderExternalId))).toEqual(
+      new Set(['burst', 'crowd-0', 'crowd-1', 'crowd-2', 'crowd-3']),
+    );
+    // The burst contributes its oldest events, in receipt order (per-conversation order kept).
+    const burstIds = claimed.filter((j) => j.event.senderExternalId === 'burst').map((j) => j.id);
+    expect(burstIds).toEqual(burst.slice(0, burstIds.length).map((r) => r.id));
+    for (const j of claimed) await store.completeEvent(j.id, j.claimToken);
+
+    // The next tick goes on with the backlog, the burst still in order.
+    const next = await store.claimEvents(25, { perWorkspace: 5 });
+    const nextBurst = next.filter((j) => j.event.senderExternalId === 'burst').map((j) => j.id);
+    expect(nextBurst).toEqual(
+      burst.slice(burstIds.length, burstIds.length + nextBurst.length).map((r) => r.id),
+    );
+    for (const j of next) await store.completeEvent(j.id, j.claimToken);
+    for (let i = 0; i < 20; i++) {
+      const rest = await store.claimEvents(500);
+      if (!rest.length) break;
+      for (const j of rest) await store.completeEvent(j.id, j.claimToken);
+    }
+  });
+
   it('dead-letters failed and exhausted events so they leave the queue with their payload', async () => {
     const c = await connect(a, 'page-dead');
     const [failed, crashed] = await enqueue(a, c.id, 2);

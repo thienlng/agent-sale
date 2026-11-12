@@ -601,15 +601,7 @@ describe('website lead capture', () => {
       ContactListResponse.parse(
         (await hx.call(owner.h, 'POST', '/contacts/query', { q: '0901234568' })).json(),
       ).data;
-    // A visitor's first message never creates a customer (security audit #2) ...
-    expect(await query()).toHaveLength(0);
-    await tick();
-    // ... the number left in it is picked up when the visitor writes again.
-    const again = await pub('POST', '/messages', {
-      token: WidgetSendResponse.parse(sent.json()).visitorToken,
-      payload: sendBody('cảm ơn shop'),
-    });
-    expect(again.statusCode).toBe(202);
+    // The first message already creates the customer: a lead no longer lifts the AI reply caps.
     expect(await query()).toHaveLength(1);
     const bad = await pub('POST', '/phone', { token, payload: { phone: '0987654321' } });
     expect(bad.statusCode).toBe(422);
