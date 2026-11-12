@@ -438,6 +438,7 @@ export class PlaygroundService implements AiFacade {
     const seenNames = new Map(focus.map((p) => [p.id, p.name]));
     // A website visitor's turn: the products the bot may show as cards (focus and catalog results).
     const shownable = new Map(focus.map((p) => [p.id, p]));
+    let requestContact: { contactId: string; phoneE164: string } | undefined;
     const requestTool: RequestToolContext | null =
       this.crm && requestProfile
         ? {
@@ -448,6 +449,10 @@ export class PlaygroundService implements AiFacade {
             customerTexts,
             calls: actionState.calls,
             catalogNames: () => [...seenNames.values()],
+            ...(options.channel ? { channel: options.channel } : {}),
+            onRecorded: (contact) => {
+              requestContact = contact;
+            },
             onError: (error) => this.#logger.warn(`Request tool failed: ${errorClass(error)}`),
           }
         : null;
@@ -766,6 +771,7 @@ export class PlaygroundService implements AiFacade {
       ...(actionState.askedConfirmation ? { askedConfirmation: true } : {}),
       // A placed hold is binding like an order: the caller must never drop its final message.
       ...(orders?.state.orderCreated || held ? { orderCreated: true } : {}),
+      ...(requestContact ? { requestContact } : {}),
     };
   }
 

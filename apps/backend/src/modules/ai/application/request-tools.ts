@@ -88,6 +88,10 @@ export interface RequestToolContext {
   calls: ActionCall[];
   /** Names of the products the bot saw so far (focus products, search results), read at call time. */
   catalogNames?: () => readonly string[];
+  /** The conversation's channel: the source of a customer the request creates (MS-11). */
+  channel?: string;
+  /** A recorded request's customer, so the caller links the conversation to it (MS-11). */
+  onRecorded?(contact: { contactId: string; phoneE164: string }): void;
   onError?(error: unknown): void;
 }
 
@@ -119,6 +123,7 @@ export function requestTools(ctx: RequestToolContext): {
           details,
           preview: ctx.isTest,
           ...(ctx.catalogNames ? { catalogNames: ctx.catalogNames() } : {}),
+          ...(ctx.channel ? { channel: ctx.channel } : {}),
         });
       } catch (error) {
         // The customer's reply must not fail: the model says it could not record it right now.
@@ -127,6 +132,8 @@ export function requestTools(ctx: RequestToolContext): {
       }
       if (r.outcome === 'invalid')
         return done(false, { ok: false, error: 'invalid_arguments', problems: r.problems });
+      if (r.outcome !== 'preview')
+        ctx.onRecorded?.({ contactId: r.contactId, phoneE164: r.phoneE164 });
       return done(true, {
         ok: true,
         recorded: true,

@@ -139,6 +139,7 @@ describe('saas requests (ported from saas.integration.spec.ts)', () => {
     expect(first).toEqual({
       outcome: 'recorded',
       contactId: expect.any(String),
+      phoneE164: '+84983456721',
       created: true,
       missing: [],
       dateLabel: null,
@@ -480,6 +481,30 @@ describe('spa requests', () => {
       outcome: 'invalid',
       problems: ['kind_not_offered'],
     });
+  });
+});
+
+describe('request source (MS-11)', () => {
+  it('gives a customer created by a website request the Website source and returns its phone', async () => {
+    const a = await owner('spa');
+    const res = await crm.recordBotRequest(a.ws, {
+      kind: 'appointment',
+      details: {
+        name: 'Chị Thư',
+        phone: '0987654321',
+        service: 'Phun mày',
+        preferredDate: vnDate(3),
+      },
+      preview: false,
+      channel: 'website',
+    });
+    expect(res).toMatchObject({ outcome: 'recorded', created: true, phoneE164: '+84987654321' });
+    const { sourceId } = (await call(a.headers, 'GET', `/contacts/${contactIdOf(res)}`)).json();
+    const sources = (await call(a.headers, 'GET', '/crm/sources')).json().data as Array<{
+      id: string;
+      key: string | null;
+    }>;
+    expect(sources.find((o) => o.id === sourceId)?.key).toBe('website');
   });
 });
 

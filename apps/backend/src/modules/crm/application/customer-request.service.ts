@@ -29,6 +29,8 @@ const DAY_MS = 86_400_000;
 const CONTACT_REQUESTS_LIMIT = 10;
 const OPEN_LIMIT = 10;
 const OPEN_WINDOW_MS = 30 * DAY_MS;
+/** Conversation channels that are also customer sources (`DEFAULT_SOURCES` keys). */
+const LEAD_CHANNELS: ReadonlySet<string> = new Set(['facebook', 'instagram', 'website', 'zalo']);
 const RECENT_WINDOW_MS = 7 * DAY_MS;
 
 /**
@@ -52,6 +54,7 @@ export class CustomerRequestService {
       details: unknown;
       preview: boolean;
       catalogNames?: readonly string[];
+      channel?: string;
     },
   ): Promise<BotRequestResult> {
     // 1–2. The industry's profile, and a kind it offers.
@@ -88,7 +91,8 @@ export class CustomerRequestService {
     const name = String(details['name'] ?? '');
     const { contactId, created } = await this.contacts.upsertLead(ws, {
       phoneE164: phone,
-      sourceKey: 'bot',
+      // The conversation's channel is the new customer's source (MS-11); `bot` matches none.
+      sourceKey: input.channel && LEAD_CHANNELS.has(input.channel) ? input.channel : 'bot',
       displayName: name,
       firstUrl: null,
       renameFrom: websiteLeadName(phone),
@@ -104,6 +108,7 @@ export class CustomerRequestService {
     return {
       outcome: applied.updated ? 'updated' : 'recorded',
       contactId,
+      phoneE164: phone,
       created,
       // An update is judged on the merged details: what the earlier request said is not missing.
       missing: applied.updated

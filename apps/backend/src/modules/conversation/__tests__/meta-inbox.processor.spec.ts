@@ -568,6 +568,23 @@ describe('MetaInboxProcessor', () => {
     expect(contents[0]).toContain('giày này còn không?');
     expect(contents[0]).toContain('Khách đã gửi kèm 1 ảnh');
   });
+  it('links the conversation to the customer a recorded request found or created (MS-11)', async () => {
+    const { channels, ai, inbox, processor } = setup();
+    const contactId = '018d0000-0000-7000-8000-0000000000c9';
+    vi.mocked(ai.reply).mockResolvedValueOnce({
+      reply: 'Dạ em đã ghi nhận lịch hẹn ạ',
+      outcome: 'answered',
+      requestContact: { contactId, phoneE164: '+84987654321' },
+    } as never);
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('q1', 'message', 'đặt lịch 9h thứ 3, Thư 0987654321', Date.now()),
+    ]);
+    await processor.tick();
+    const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
+    const { conversation } = await inbox.get(ws, c!.id);
+    expect(conversation.contactId).toBe(contactId);
+    expect(conversation.lead).toMatchObject({ contactId, phone: '+84987654321' });
+  });
   it('hands the conversation to staff when the final retry fails', async () => {
     const { channels, ai, inbox, processor } = setup();
     vi.mocked(ai.reply).mockRejectedValue(new Error('busy'));

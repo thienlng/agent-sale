@@ -35,6 +35,8 @@ export type BotRequestResult =
   | {
       outcome: 'recorded' | 'updated';
       contactId: string;
+      /** The customer's phone as stored (E.164): the conversation's lead (MS-11). */
+      phoneE164: string;
       created: boolean;
       missing: RequestFieldKey[];
       dateLabel: string | null;
@@ -194,6 +196,11 @@ export interface CrmFacade {
        * is filled from one of them when the goal or note names it (T-187).
        */
       catalogNames?: readonly string[];
+      /**
+       * The conversation's channel (`website`, `facebook`, …): a customer created by the request
+       * gets it as source (MS-11). Absent or another channel: no source.
+       */
+      channel?: string;
     },
   ): Promise<BotRequestResult>;
   /** Requests recorded in `[since, until)` (owner reports `new_requests`); `kinds` limits them. */

@@ -367,6 +367,7 @@ export class MetaInboxProcessor {
         return this.skip(job, 'conversation control changed during the turn');
       return this.rerun(turn, delivery, response.carry, 'interrupted by a newer message');
     }
+    if (response.requestContact) await this.linkRequestContact(turn, response.requestContact);
     const handoff = response.outcome === 'handoff';
     // A hand-off (or a created order) is never dropped: its message goes out whole.
     if (handoff || response.orderCreated) delivery.stopWatchingNewer(response.orderCreated);
@@ -395,6 +396,27 @@ export class MetaInboxProcessor {
       await delivery.sendFinal(handoff ? handoffText(bot) : fallbackText(bot), [], false);
     if (delivery.attempted && !delivery.takenOver && handoff)
       await this.inbox.handOff(job.workspaceId, c.id, c.assigneeId ?? 'system');
+  }
+
+  /**
+   * The bot recorded a request on a customer: the conversation is linked to it like a captured
+   * lead (staff's own choice still wins), so inbox and CRM show one customer (MS-11). Best effort.
+   */
+  private async linkRequestContact(
+    { job, c }: Turn,
+    contact: { contactId: string; phoneE164: string },
+  ): Promise<void> {
+    await this.inbox
+      .linkLead(job.workspaceId, c.id, {
+        contactId: contact.contactId,
+        phoneE164: contact.phoneE164,
+        capturedAt: new Date().toISOString(),
+      })
+      .catch((error: unknown) =>
+        this.logger.warn(
+          `Meta inbox event ${job.id}: request customer not linked (${errorClass(error)})`,
+        ),
+      );
   }
 
   /** A final that never went out may hold a confirmation question: it must not stay pending. */

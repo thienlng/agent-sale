@@ -64,4 +64,6 @@ export type ReplyResult = PlaygroundResponse & {
   askedConfirmation?: boolean;
   /** The turn created an order or placed a lodging hold: a caller must never drop its final message. */
   orderCreated?: boolean;
+  /** `record_request` recorded a request on this customer: the caller links its conversation (MS-11). */
+  requestContact?: { contactId: string; phoneE164: string };
 };
