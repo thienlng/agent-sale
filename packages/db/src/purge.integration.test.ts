@@ -59,6 +59,22 @@ async function seed(ws: WorkspaceId, owner: string): Promise<void> {
     await db.execute(sql`insert into purge_tree_probe (id, workspace_id, parent_id)
       values (${newId()}, ${ws}, ${root})`);
   }
+  // Tables whose app_system policy came late (0078): the purge must really delete their rows.
+  const page = newId();
+  await db.execute(sql`insert into channel_connections (id, workspace_id, provider, external_id, name, token_sealed)
+    values (${page}, ${ws}, 'facebook', ${newId()}, 'Page', 'sealed')`);
+  await db.execute(
+    sql`insert into fanpage_settings (workspace_id, connection_id) values (${ws}, ${page})`,
+  );
+  await db.execute(sql`insert into fanpage_comments (workspace_id, connection_id, comment_id, document)
+    values (${ws}, ${page}, ${newId()}, '{}'::jsonb)`);
+  const property = newId();
+  await db.execute(sql`insert into products (id, workspace_id, code, name, search_text)
+    values (${property}, ${ws}, 'VILLA', 'Villa', 'villa')`);
+  await db.execute(sql`insert into stay_requests (id, workspace_id, property_id, property_name,
+      client_request_id, fingerprint, guest_name, guest_phone, check_in, check_out, party, quote)
+    values (${newId()}, ${ws}, ${property}, 'Villa', ${newId()}, 'f', 'Guest', '0900000000',
+      '2026-12-01', '2026-12-03', '{}'::jsonb, '{}'::jsonb)`);
   await db.execute(sql`insert into tenant_routes (workspace_id) values (${ws})`);
   await db.execute(sql`insert into outbox_events (workspace_id, type, aggregate_type, aggregate_id, payload)
     values (${ws}, 'test.thing.done.v1', 'thing', ${newId()}, '{}'::jsonb)`);
@@ -124,12 +140,33 @@ describe('workspace purge', () => {
     expect(denied.map((r) => r.name)).toEqual([]);
   });
 
+  it('gives app_system a row-level policy to read and delete on every purged table with RLS', async () => {
+    // With forced RLS and no policy for app_system, a DELETE silently removes 0 rows and the
+    // parent table then fails on its foreign key: the purge would throw forever.
+    const order = await withSystem(systemDb.db, (tx) => workspacePurgeOrder(tx));
+    const missing = await ownerDb.db.execute<{ name: string; cmd: string }>(sql`
+      select t as name, c.cmd
+      from unnest(string_to_array(${order.map((x) => x.name).join(',')}, ',')) t
+      join pg_class k on k.relname = t and k.relnamespace = 'public'::regnamespace
+      cross join (values ('DELETE'), ('SELECT')) c(cmd)
+      where k.relrowsecurity and not exists (
+        select 1 from pg_policies p
+        where p.schemaname = 'public' and p.tablename = t and p.permissive = 'PERMISSIVE'
+          and p.cmd in ('ALL', c.cmd)
+          and ('app_system' = any(p.roles) or 'public' = any(p.roles)))
+      order by 1, 2`);
+    expect(missing.map((r) => `${r.name}:${r.cmd}`)).toEqual([]);
+  });
+
   it('deletes every row of the business in batches and keeps the other business whole', async () => {
     const before = await count('contacts', b);
     const report = await purgeWorkspaceRows(systemDb.db, a, { batchSize: 2 });
     expect(report['contacts']).toBe(5);
     expect(report['contact_notes']).toBe(5);
     expect(report['purge_tree_probe']).toBe(5);
+    expect(report['fanpage_settings']).toBe(1);
+    expect(report['fanpage_comments']).toBe(1);
+    expect(report['stay_requests']).toBe(1);
     for (const table of await tablesWithWorkspaceId()) {
       if (PURGE_RETAINED_TABLES.includes(table)) continue;
       expect(await count(table, a), table).toBe(0);
@@ -139,6 +176,8 @@ describe('workspace purge', () => {
     expect(await count('workspaces', a)).toBe(1);
     expect(await count('contacts', b)).toBe(before);
     expect(await count('purge_tree_probe', b)).toBe(5);
+    expect(await count('fanpage_comments', b)).toBe(1);
+    expect(await count('stay_requests', b)).toBe(1);
     expect(await count('members', b)).toBe(1);
     expect(await count('tenant_routes', b)).toBe(1);
   });
