@@ -214,6 +214,7 @@ export function ConversationHeader({
           botAvailable={botAvailable}
           takeoverMinutes={takeoverMinutes}
           disabled={locked || replyModeLocked}
+          compact={compact}
           onChange={(change) => onChange(change)}
         />
         {compact ? null : (

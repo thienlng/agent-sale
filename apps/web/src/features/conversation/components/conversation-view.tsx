@@ -219,7 +219,9 @@ export function ConversationView({
         externalUrl={externalInboxUrl(c.provider, channel)}
         onCollapse={() => setDetails(false)}
       />
-      {c.provider === 'website' ? <WebsiteVisitorBlock conversationId={c.id} /> : null}
+      {c.provider === 'website' ? (
+        <WebsiteVisitorBlock conversationId={c.id} customerPhone={c.customerPhone} />
+      ) : null}
       {renderSalesPanel ? (
         renderSalesPanel(c, slots)
       ) : (

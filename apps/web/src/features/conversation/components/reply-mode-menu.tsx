@@ -9,6 +9,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 import { resumeCountdown } from '../lib/inbox-list';
 
 type Option = 'bot' | 'temp' | 'permanent';
@@ -42,6 +43,7 @@ export function ReplyModeMenu({
   takeoverMinutes,
   disabled,
   onChange,
+  compact = false,
 }: {
   mode: 'bot' | 'human';
   autoResumeAt: string | null;
@@ -53,6 +55,8 @@ export function ReplyModeMenu({
   takeoverMinutes: number | undefined;
   disabled: boolean;
   onChange: (change: ReplyModeChange) => void;
+  /** A narrow header (panel open): the short word, plus the countdown, at every width. */
+  compact?: boolean;
 }) {
   const { t } = useTranslation();
   const tr = (key: string, options?: Record<string, unknown>) =>
@@ -85,11 +89,13 @@ export function ReplyModeMenu({
           className="max-w-full min-w-0 shrink-0 sm:shrink"
         >
           {mode === 'bot' ? <Bot /> : <UserRound />}
-          {/* A phone keeps a short word beside the icon instead of a bare icon (NEW-2). */}
-          <span className="truncate sm:hidden">
-            {tr(mode === 'bot' ? 'shortBot' : 'shortHuman')}
+          {/* A phone or a narrow header keeps a short word beside the icon (NEW-2, MS2-12). */}
+          <span className={cn('truncate', !compact && 'sm:hidden')}>
+            {[tr(mode === 'bot' ? 'shortBot' : 'shortHuman'), countdown]
+              .filter(Boolean)
+              .join(' · ')}
           </span>
-          <span className="hidden truncate sm:inline">{label}</span>
+          {compact ? null : <span className="hidden truncate sm:inline">{label}</span>}
           <ChevronDown className="opacity-60" />
         </Button>
       </DropdownMenuTrigger>
