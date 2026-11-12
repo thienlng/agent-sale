@@ -444,6 +444,21 @@ describe('tool_call', () => {
     expect(stored?.expiresAt.getTime()).toBe(NOW.getTime() + PROPOSAL_TTL_MS);
   });
 
+  it('accepts a concrete path for a templated key (AS-14)', async () => {
+    const t = await setup(() => ({ status: 200, body: { items: [] } }));
+    const bot = newId();
+    const out = await t.call({ key: `GET /bots/${bot}/turns`, query: { q: 'gia' } });
+    expect(out.json).toEqual({ status: 200, body: { items: [] } });
+    expect(t.invoke.mock.calls[0]?.[0]).toMatchObject({
+      method: 'get',
+      path: `/bots/${bot}/turns`,
+    });
+    expect((await t.describe({ key: `GET /bots/${bot}/turns` })).json).toMatchObject({
+      key: 'GET /bots/{botId}/turns',
+    });
+    expect((await t.call({ key: 'GET /nowhere/1' })).json.errorCode).toBe('unknown_key');
+  });
+
   it('turns the local instants the model writes back into UTC (AS-3)', async () => {
     const write: CatalogEntry = {
       key: 'POST /holds',

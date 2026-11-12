@@ -163,6 +163,39 @@ type Prepared =
     }
   | { ok: false; errorCode: string; extra?: Record<string, unknown> };
 
+/**
+ * The catalog entry of a key, also when the model wrote a concrete path instead of the key's
+ * template (`GET /bots/01a1…/turns` for `GET /bots/{botId}/turns`, AS-14): the entry and the
+ * path params read from it. A query string in the key is ignored. Undefined when nothing matches.
+ */
+export function resolveRouteKey(
+  catalog: RouteCatalog,
+  key: string,
+): { entry: CatalogEntry; params: Record<string, string> } | undefined {
+  const exact = catalog.get(key);
+  if (exact) return { entry: exact, params: {} };
+  const m = /^([A-Z]+) (\/[^?\s]*)/.exec(key.trim());
+  if (!m) return undefined;
+  const [, method, path] = m as unknown as [string, string, string];
+  const parts = path.replace(/\/+$/, '').split('/');
+  for (const entry of catalog.entries) {
+    if (entry.method.toUpperCase() !== method || entry.pathParams.length === 0) continue;
+    const tpl = entry.path.split('/');
+    if (tpl.length !== parts.length) continue;
+    const params: Record<string, string> = {};
+    const fits = tpl.every((seg, i) => {
+      const value = parts[i] as string;
+      const name = /^\{(\w+)\}$/.exec(seg)?.[1];
+      if (!name) return seg === value;
+      if (!PATH_PARAM.test(value)) return false;
+      params[name] = value;
+      return true;
+    });
+    if (fits) return { entry, params };
+  }
+  return undefined;
+}
+
 /** tool_search, tool_describe and tool_call for one turn (spec §6). */
 export function routeTools(ctx: RouteToolContext): RunnableTool[] {
   const now = ctx.now ?? (() => new Date());
@@ -191,15 +224,18 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
   }
 
   function prepare(input: z.output<typeof ToolCallInput>): Prepared {
-    const entry = ctx.catalog.get(input.key);
-    if (!entry) return { ok: false, errorCode: 'unknown_key' };
+    const resolved = resolveRouteKey(ctx.catalog, input.key);
+    if (!resolved) return { ok: false, errorCode: 'unknown_key' };
+    const entry = resolved.entry;
+    // Params the model wrote into the path count as given; explicit ones win.
+    const params: Record<string, string> = { ...resolved.params, ...input.params };
     const businessId = input.businessId ?? ctx.scope.businessId;
     if (!ctx.scope.businessIds.some((id) => id === businessId)) {
       return { ok: false, errorCode: 'unknown_business' };
     }
     let path = entry.path;
     for (const name of entry.pathParams) {
-      const value = input.params?.[name];
+      const value = params[name];
       if (value === undefined || !PATH_PARAM.test(value)) {
         return { ok: false, errorCode: 'bad_params', extra: { param: name } };
       }
@@ -349,7 +385,7 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
         };
         return Promise.resolve({ content: cut(json(out), MAX_ROUTE_RESULT_CHARS) });
       }
-      const entry = ctx.catalog.get(key);
+      const entry = resolveRouteKey(ctx.catalog, key)?.entry;
       if (!entry) return Promise.resolve(fail('unknown_key'));
       const out = {
         key: entry.key,
