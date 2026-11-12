@@ -50,6 +50,8 @@ export interface ReplyOptions {
    * an `albumId` sends the folder's photos not among them first (T-192). Absent: none.
    */
   sentMediaUrls?: readonly string[];
+  /** The playground's test chat (`PlaygroundRequest.sessionId`): keys its drafts (TM-18). */
+  playgroundSession?: string;
 }
 
 /**

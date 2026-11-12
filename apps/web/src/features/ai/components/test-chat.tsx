@@ -57,10 +57,17 @@ export function TestChat({
   const playground = usePlayground(botId);
   const seq = useRef(0);
   const [turns, setTurns] = useState<Turn[]>([]);
+  // One id per test chat: a new chat never confirms the order or hold another chat prepared.
+  const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
   const [draft, setDraft] = useState('');
   const [reading, setReading] = useState(false);
   const attachments = useImageAttachments();
   const busy = playground.isPending || reading;
+
+  /** No model for the tier (an admin must act), not a temporary outage (TM-3). */
+  function notConfigured(err: ApiClientError): boolean {
+    return err.details?.['reason'] === 'not_configured' || err.details?.['tier'] !== undefined;
+  }
 
   function fail(err: Error, withImages: boolean) {
     const imageIssue =
@@ -74,7 +81,7 @@ export function TestChat({
         content: imageIssue
           ? t('playground.imagesUnsupported')
           : err instanceof ApiClientError && err.code === 'AI_UNAVAILABLE'
-            ? t('playground.unavailable')
+            ? t(notConfigured(err) ? 'playground.unavailable' : 'playground.busy')
             : t('playground.error', { message: err.message }),
       },
     ]);
@@ -141,7 +148,7 @@ export function TestChat({
         [],
     );
     playground.mutate(
-      { messages, images, sentMediaUrls },
+      { messages, images, sentMediaUrls, sessionId },
       {
         onSuccess: (result) =>
           setTurns((all) => [
@@ -156,6 +163,7 @@ export function TestChat({
   function reset() {
     attachments.discardAll();
     setTurns([]);
+    setSessionId(crypto.randomUUID());
   }
 
   return (

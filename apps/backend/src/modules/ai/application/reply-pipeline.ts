@@ -290,7 +290,8 @@ export function runBase(input: {
     botId,
     // A playground run is remembered under its stable id; a comment reply under none.
     conversationId:
-      options.conversationId ?? (options.isTest ? playgroundConversationId(botId) : null),
+      options.conversationId ??
+      (options.isTest ? playgroundConversationId(botId, options.playgroundSession) : null),
     tier: input.tier,
     provider: meter.last?.provider ?? 'none',
     model: meter.last?.model ?? 'none',

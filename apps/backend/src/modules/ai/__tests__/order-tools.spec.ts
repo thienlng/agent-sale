@@ -566,7 +566,7 @@ describe('order tools in the reply pipeline', () => {
       ws,
       expect.objectContaining({
         conversationId: playgroundConversationId(botId),
-        channel: 'other',
+        channel: 'playground',
       }),
     );
 
@@ -577,6 +577,25 @@ describe('order tools in the reply pipeline', () => {
     await svc.playground(ws, botId, ask('✅ Đặt hàng'));
     expect(toolNames(requests[0])).toEqual(
       expect.arrayContaining([CONFIRM_ORDER_TOOL, CANCEL_ORDER_DRAFT_TOOL]),
+    );
+  });
+
+  it("keys the draft by the test chat session: a new chat cannot confirm another chat's order (TM-18)", async () => {
+    const { svc, commerce } = build(bot, [prepareCall, { text: '' }, { text: 'Dạ' }]);
+    const first = '018d0000-0000-7000-8000-0000000000a1';
+    const second = '018d0000-0000-7000-8000-0000000000a2';
+    await svc.playground(ws, botId, { ...ask('lấy 2 thú gỗ, Lan 0912345678'), sessionId: first });
+    expect(commerce.prepareBotOrder).toHaveBeenCalledWith(
+      ws,
+      expect.objectContaining({ conversationId: playgroundConversationId(botId, first) }),
+    );
+    await svc.playground(ws, botId, { ...ask('xác nhận đặt đơn nhé'), sessionId: second });
+    expect(commerce.hasBotOrderDraft).toHaveBeenLastCalledWith(
+      ws,
+      playgroundConversationId(botId, second),
+    );
+    expect(playgroundConversationId(botId, second)).not.toBe(
+      playgroundConversationId(botId, first),
     );
   });
 

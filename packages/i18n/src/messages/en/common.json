@@ -331,6 +331,7 @@
     "imageOnly": "(Image)",
     "imageRead": "Couldn't read the image, please try again.",
     "unavailable": "No AI model is configured for this plan. Contact the platform admin.",
+    "busy": "The AI model is busy right now. Please try again in a few minutes.",
     "interrupted": "A newer customer message cut this turn short",
     "quickReplies": {
       "label": "Quick replies"
@@ -455,6 +456,8 @@
     "home": "Go to dashboard",
     "required": "Required",
     "invalidEmail": "Invalid email",
+    "invalidPhone": "Invalid phone number",
+    "invalidValue": "Invalid value",
     "minLength": "At least {{count}} characters",
     "invalidUrl": "Invalid URL (needs http:// or https://)",
     "invalidName": "Lowercase letters, digits and dashes only (2–40 characters)",

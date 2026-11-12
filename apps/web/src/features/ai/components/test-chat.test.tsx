@@ -118,7 +118,11 @@ describe('TestChat', () => {
     renderWithProviders(<TestChat botId={botId} greeting="" />);
     await userEvent.type(screen.getByLabelText('Nhập tin nhắn của bạn'), 'alo{Enter}');
     expect(
-      await screen.findByText('Mô hình AI đang bận, vui lòng thử lại sau ít phút.', {}, { timeout: 8000 }),
+      await screen.findByText(
+        'Mô hình AI đang bận, vui lòng thử lại sau ít phút.',
+        {},
+        { timeout: 8000 },
+      ),
     ).toBeInTheDocument();
   });
 

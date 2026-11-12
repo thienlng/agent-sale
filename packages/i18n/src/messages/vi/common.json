@@ -329,6 +329,7 @@
     "imageOnly": "(Ảnh)",
     "imageRead": "Không đọc được ảnh, vui lòng thử lại.",
     "unavailable": "Chưa cấu hình mô hình AI cho gói này. Liên hệ quản trị hệ thống.",
+    "busy": "Mô hình AI đang bận, vui lòng thử lại sau ít phút.",
     "interrupted": "Khách vừa nhắn thêm nên bot dừng lượt này giữa chừng",
     "quickReplies": {
       "label": "Trả lời nhanh"
@@ -452,6 +453,8 @@
     "home": "Về trang chính",
     "required": "Không được để trống",
     "invalidEmail": "Email không hợp lệ",
+    "invalidPhone": "Số điện thoại không hợp lệ",
+    "invalidValue": "Giá trị không hợp lệ",
     "minLength": "Cần ít nhất {{count}} ký tự",
     "invalidUrl": "Địa chỉ không hợp lệ (cần http:// hoặc https://)",
     "invalidName": "Chỉ dùng chữ thường, số và dấu gạch ngang (2–40 ký tự)",

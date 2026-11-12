@@ -1,5 +1,5 @@
 import type { RunnableTool, ToolDefinition } from '@agent-sales/ai-core';
-import type { AiOutcome } from '@agent-sales/contracts';
+import { type AiOutcome, PLAYGROUND_CHANNEL } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import { z } from 'zod';
 
@@ -25,8 +25,11 @@ export const ORDER_QUICK_REPLIES: readonly QuickReply[] = [
   { title: '✏️ Sửa thông tin', payload: 'ORDER_EDIT' },
 ];
 
-/** The order source when the caller names no channel (the dashboard playground). */
-export const PLAYGROUND_ORDER_CHANNEL = 'other';
+/**
+ * The channel when the caller names none (the dashboard playground): commerce and lodging mark
+ * what it creates as a test (VL-A11); the order source stays `other`.
+ */
+export const PLAYGROUND_ORDER_CHANNEL = PLAYGROUND_CHANNEL;
 
 const PrepareOrderInput = z.object({
   items: z

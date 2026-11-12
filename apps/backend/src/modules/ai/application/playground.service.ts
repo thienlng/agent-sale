@@ -250,7 +250,11 @@ export class PlaygroundService implements AiFacade {
     botId: string,
     input: PlaygroundRequest,
   ): Promise<PlaygroundResponse> {
-    return this.reply(ws, botId, input, { conversationId: null, isTest: true });
+    return this.reply(ws, botId, input, {
+      conversationId: null,
+      isTest: true,
+      ...(input.sessionId ? { playgroundSession: input.sessionId } : {}),
+    });
   }
 
   async reply(
@@ -293,7 +297,8 @@ export class PlaygroundService implements AiFacade {
 
     // Products already discussed (the last runs of this conversation) need no new search.
     // A comment reply has no conversation to remember, so it never shares one across customers.
-    const conversationKey = options.conversationId ?? playgroundConversationId(botId);
+    const conversationKey =
+      options.conversationId ?? playgroundConversationId(botId, options.playgroundSession);
     const remembers = options.conversationId !== null || options.isTest;
     const focusIds =
       catalog && remembers
