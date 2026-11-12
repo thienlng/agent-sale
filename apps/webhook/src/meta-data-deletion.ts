@@ -20,7 +20,7 @@ export interface MetaDataDeletionDeps {
 const BODY_LIMIT = 16 * 1024;
 
 /**
- * `POST /meta/data-deletion`: Meta's data deletion request callback for Facebook Login
+ * `POST /webhooks/meta/data-deletion`: Meta's data deletion request callback for Facebook Login
  * (https://developers.facebook.com/docs/development/create-an-app/app-dashboard/data-deletion-callback,
  * checked 2026-11-12). Verify the signed request, store the request once, answer
  * `{ url, confirmation_code }`. The backend worker does the deletion (no business logic here).
@@ -64,7 +64,7 @@ export function registerMetaDataDeletionRoute(
         },
       );
     },
-    { prefix: '/meta' },
+    { prefix: '/webhooks/meta' },
   );
 }
 

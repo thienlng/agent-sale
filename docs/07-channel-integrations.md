@@ -81,7 +81,7 @@ Meta requires apps that use Facebook Login to answer data deletion requests ([Da
 
 | Item | Value |
 |---|---|
-| URL to enter in the Meta app dashboard (App settings → Basic → **Data deletion request URL**, "Data deletion callback URL") | `https://<webhook host>/meta/data-deletion` — the `apps/webhook` ingress, e.g. `https://hooks.rapiz.io/meta/data-deletion`; same host as `/webhooks/facebook` |
+| URL to enter in the Meta app dashboard (App settings → Basic → **Data deletion request URL**, "Data deletion callback URL") | `https://<public host>/webhooks/meta/data-deletion` — the `apps/webhook` ingress under `/webhooks/` like `/webhooks/facebook` (prod: `https://rapiz.io/webhooks/meta/data-deletion`); the edge routes `/webhooks/*` to the webhook app and the private-beta gate leaves it public. The status page `/data-deletion` and `GET /api/v1/meta/data-deletion/{code}` are public in the gate too (`infra/deploy/beta-gate.sh`) |
 | Request | `POST`, form `signed_request=<base64url HMAC-SHA256 signature>.<base64url JSON payload>` (a JSON body `{ "signed_request": … }` is accepted too), signed with `META_APP_SECRET`; payload `{ algorithm: "HMAC-SHA256", issued_at, expires, user_id }` |
 | Checks | Constant-time HMAC over the encoded payload; `algorithm` must be `HMAC-SHA256`; `user_id` must be numeric; ≤ 4 KB. Anything else → `400 { error: "invalid signed_request" }` (`parseSignedRequest` in `packages/channels`) |
 | Response | `200 { "url": "${APP_PUBLIC_URL}/data-deletion?code=<code>", "confirmation_code": "<code>" }`; the code is 24 upper-case hex characters. The same person asking again while the request is pending gets the same code |

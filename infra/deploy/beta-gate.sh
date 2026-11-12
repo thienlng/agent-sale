@@ -8,7 +8,8 @@
 # verifies X-Hub-Signature-256), the Meta OAuth callbacks (state-checked by the API), /media
 # (product pictures Meta downloads) and the website chat widget: /widget.js and its public API,
 # called from customer sites without the gate cookie (site key, allowed domains and a signed
-# visitor token are checked by the API), and the privacy and terms pages with the marketing
+# visitor token are checked by the API), Meta's data deletion status page (`/data-deletion`, its
+# `/assets` and its status read; the callback itself is under /webhooks), and the privacy and terms pages with the marketing
 # assets they load (/static, /fonts, /images), which Google links from its sign-in screen. The
 # hash lives in the Nginx Proxy Manager data volume, the gate token in the NPM proxy host config;
 # nothing secret goes to Git.
@@ -69,6 +70,17 @@ location = /widget.js {
   include conf.d/include/proxy.conf;
 }
 location /api/v1/webchat/v1/sites/ {
+  include conf.d/include/proxy.conf;
+}
+# Meta's data deletion status page (the URL our callback returns) and the public status read it
+# makes; the page is the dashboard bundle, so its hashed /assets must load without the gate too.
+location = /data-deletion {
+  include conf.d/include/proxy.conf;
+}
+location /assets/ {
+  include conf.d/include/proxy.conf;
+}
+location ~ ^/api(/v1)?/meta/data-deletion/[^/]+\$ {
   include conf.d/include/proxy.conf;
 }
 location /api/ {
