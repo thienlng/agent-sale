@@ -32,7 +32,7 @@ export function purgeBackoffMs(failures: number): number {
 }
 
 /**
- * Purges businesses whose 30-day restore window ended (ADR-032): claims the business (`purging`,
+ * Purges businesses whose 30-day restore window ended (ADR-033): claims the business (`purging`,
  * no restore after that), re-runs the deletion hooks (channels, KiotViet: idempotent, so a hook that
  * failed when the owner deleted gets another chance), then rows (catalog-derived, batched,
  * resumable), object storage, and the tombstone. A failure leaves the business `purging` with an

@@ -24,7 +24,7 @@ const LODGING_VIDEO_PATH = new RegExp(`^/media/lodging/${UUID}/${UUID}\\.mp4$`, 
 
 /**
  * Every key prefix of the public media bucket that holds one business's objects (the layouts
- * above). The business purge (ADR-032) deletes everything under them; a new kind of stored object
+ * above). The business purge (ADR-033) deletes everything under them; a new kind of stored object
  * must live under one of these or add its prefix here.
  */
 export function businessMediaPrefixes(workspaceId: string): string[] {

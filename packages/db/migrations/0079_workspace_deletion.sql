@@ -1,4 +1,4 @@
--- 0077_workspace_deletion: business (workspace) deletion (ADR-032, SET-10). The owner asks to delete
+-- 0079_workspace_deletion: business (workspace) deletion (ADR-033, SET-10). The owner asks to delete
 -- a business: `status` becomes 'pending_deletion', `deleted_at` is set and `purge_after` is 30 days
 -- later; restoring before then clears all three. A worker purge (app_system, ADR-004 amendment
 -- 2026-11-12) hard-deletes every row of the business after `purge_after`, then leaves the

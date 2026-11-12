@@ -33,7 +33,7 @@ interface Resolved {
   anchor: Date;
   /** The account or its subscription is suspended: no AI reply (the bot hands off). */
   suspended: boolean;
-  /** The owner deleted the business (ADR-032): entitled to nothing, metered or not. */
+  /** The owner deleted the business (ADR-033): entitled to nothing, metered or not. */
   inactive?: boolean;
 }
 
@@ -46,7 +46,7 @@ export interface AccountAllowance {
 }
 
 /**
- * A business its owner deleted (ADR-032) is entitled to nothing: every limit 0 (including the
+ * A business its owner deleted (ADR-033) is entitled to nothing: every limit 0 (including the
  * Brain and care daily caps), every feature off, no AI replies. This is the single gate that stops
  * bot replies (`reserveReply`), Brain evaluations, care messages and public API webhooks at once,
  * the way an account suspension stops replies.

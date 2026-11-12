@@ -1,4 +1,4 @@
--- 0078_purge_system_policies: fixes for the business purge (ADR-032).
+-- 0080_purge_system_policies: fixes for the business purge (ADR-033).
 --
 -- 1. `fanpage_settings`, `fanpage_comments` (0024) and `stay_requests` (0035) have forced RLS with
 --    only an `app_tenant` policy. Under `withSystem` a DELETE on them matched 0 rows without an

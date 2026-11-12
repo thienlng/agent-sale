@@ -5,7 +5,7 @@ import { WORKSPACE_LIFECYCLE, type WorkspaceLifecycle } from '../../../workspace
 import { ChannelFacadeImpl } from '../channel.facade.impl.js';
 
 /**
- * The owner deleted the business (ADR-032): every Facebook/Instagram page is removed (sealed token
+ * The owner deleted the business (ADR-033): every Facebook/Instagram page is removed (sealed token
  * wiped, Meta webhook unsubscribed, best effort) and every website chat is turned off, so no event
  * comes in and nothing goes out. A restore leaves them so; the owner reconnects.
  */

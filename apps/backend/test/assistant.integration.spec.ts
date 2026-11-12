@@ -148,7 +148,7 @@ describe('assistant threads on Postgres', () => {
       .select()
       .from(schema.assistantThreads)
       .where(eq(schema.assistantThreads.id, thread.id));
-    expect(stored).toMatchObject({ ownerUserId: lan.userId, promptVersion: 'assistant@3' });
+    expect(stored).toMatchObject({ ownerUserId: lan.userId, promptVersion: 'assistant@4' });
     expect(stored?.systemPrompt).toContain('personal assistant of Lan,');
     expect(stored?.systemPrompt).toContain(`- Shop Lan (fashion) — id ${lan.ownWorkspace}`);
     expect(stored?.systemPrompt).not.toContain('{{');
@@ -565,7 +565,7 @@ describe('assistant chat turns on Postgres', () => {
       .select()
       .from(schema.assistantRuns)
       .where(eq(schema.assistantRuns.id, turnId));
-    expect(stored).toMatchObject({ tier: 'pro', promptVersion: 'assistant@3', status: 'done' });
+    expect(stored).toMatchObject({ tier: 'pro', promptVersion: 'assistant@4', status: 'done' });
     expect(stored?.finishedAt).toBeInstanceOf(Date);
 
     // A retried turn returns the first answer; the thread took its title from the first text.
@@ -755,6 +755,34 @@ describe('assistant memory, proposals and compaction on Postgres (1b)', () => {
       (await call(ha.h, 'POST', `/assistant/memory/notes/entries/${newId()}/undo`)).statusCode,
     ).toBe(404);
 
+    // An entry waiting for approval (security audit #12) is listed with its origin; the owner
+    // approves it. Another owner's account answers 404; a bad store answers 404.
+    const held = {
+      ...entry('Giao hàng lúc 9h'),
+      origin: 'review' as const,
+      pending: true as const,
+    };
+    await repo().saveMemoryStore(scope, 'notes', [keep, held]);
+    const listed = AssistantMemoryDto.parse((await call(ha.h, 'GET', '/assistant/memory')).json());
+    expect(listed.stores[1]?.entries[1]).toMatchObject({ origin: 'review', pending: true });
+    const outsider = await user('mem-outsider@assistant.vn', 'MemOutsider');
+    expect(
+      (await call(outsider.h, 'POST', `/assistant/memory/notes/entries/${held.id}/approve`))
+        .statusCode,
+    ).toBe(404);
+    const approved = await call(ha.h, 'POST', `/assistant/memory/notes/entries/${held.id}/approve`);
+    expect(approved.statusCode, approved.body).toBe(200);
+    expect(AssistantMemoryDto.parse(approved.json()).stores[1]?.entries[1]).toMatchObject({
+      id: held.id,
+      pending: false,
+    });
+    expect(
+      (await call(ha.h, 'POST', `/assistant/memory/notes/entries/${newId()}/approve`)).statusCode,
+    ).toBe(404);
+    expect(
+      (await call(ha.h, 'POST', `/assistant/memory/secrets/entries/${held.id}/approve`)).statusCode,
+    ).toBe(404);
+
     const staff = await user('mem-staff@assistant.vn', 'MemStaff');
     await invite(ha, staff, 'mem-staff@assistant.vn', 'admin');
     const asStaff = staff.in(ha.ownWorkspace);
@@ -764,6 +792,10 @@ describe('assistant memory, proposals and compaction on Postgres (1b)', () => {
     ).toBe(403);
     expect(
       (await call(asStaff, 'POST', `/assistant/memory/notes/entries/${keep.id}/undo`)).statusCode,
+    ).toBe(403);
+    expect(
+      (await call(asStaff, 'POST', `/assistant/memory/notes/entries/${held.id}/approve`))
+        .statusCode,
     ).toBe(403);
   });
 

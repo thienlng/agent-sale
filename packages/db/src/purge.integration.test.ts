@@ -9,7 +9,7 @@ import { PURGE_RETAINED_TABLES, purgeWorkspaceRows, workspacePurgeOrder } from '
 import { withSystem } from './tenant.js';
 
 /**
- * Business purge (ADR-032) on the real schema: catalog coverage (every table with `workspace_id`
+ * Business purge (ADR-033) on the real schema: catalog coverage (every table with `workspace_id`
  * is purged or deliberately retained, and app_system may delete from it), foreign-key order,
  * batches that resume, and tenant isolation (another business keeps every row).
  */
@@ -59,7 +59,7 @@ async function seed(ws: WorkspaceId, owner: string): Promise<void> {
     await db.execute(sql`insert into purge_tree_probe (id, workspace_id, parent_id)
       values (${newId()}, ${ws}, ${root})`);
   }
-  // Tables whose app_system policy came late (0078): the purge must really delete their rows.
+  // Tables whose app_system policy came late (0080): the purge must really delete their rows.
   const page = newId();
   await db.execute(sql`insert into channel_connections (id, workspace_id, provider, external_id, name, token_sealed)
     values (${page}, ${ws}, 'facebook', ${newId()}, 'Page', 'sealed')`);

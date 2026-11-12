@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 
 import type { ChannelKind, ChannelRegistry, NormalizedEvent } from '@agent-sales/channels';
+import type { TrustProxySetting } from '@agent-sales/shared';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 
 import { redactUrl, registerKiotVietRoute, type KiotVietIngressStore } from './kiotviet.js';
@@ -37,6 +38,8 @@ export interface ServerDeps {
   kiotviet?: KiotVietIngressStore;
   /** Meta's data deletion callback (`POST /meta/data-deletion`); route omitted when absent. */
   metaDataDeletion?: MetaDataDeletionDeps;
+  /** Proxy hops believed for the logged client address (`parseTrustProxy`); default none. */
+  trustProxy?: TrustProxySetting;
 }
 
 const KINDS: ChannelKind[] = [
@@ -63,7 +66,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
         }),
       },
     },
-    trustProxy: true,
+    trustProxy: deps.trustProxy ?? false,
   });
 
   // Keep the raw body for signature verification.

@@ -158,7 +158,7 @@ const exportTimer = setInterval(() => {
       exportsBusy = false;
     });
 }, 10_000);
-// Business deletion (ADR-032): purge businesses whose 30-day restore window ended; the runner
+// Business deletion (ADR-033): purge businesses whose 30-day restore window ended; the runner
 // scans once every 5 minutes.
 const purge = ctx.get<WorkspacePurgeRunner>(WORKSPACE_PURGE_RUNNER);
 let purging = false;

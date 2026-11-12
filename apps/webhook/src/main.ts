@@ -1,5 +1,8 @@
+import { isIP } from 'node:net';
+
 import { ChannelRegistry, MetaAdapter } from '@agent-sales/channels';
 import { createDb } from '@agent-sales/db';
+import { parseTrustProxy } from '@agent-sales/shared';
 import { DrizzleKiotVietIngressStore } from './infrastructure/kiotviet-ingress.store.js';
 import { DrizzleMetaDataDeletionStore } from './infrastructure/meta-data-deletion.store.js';
 import { MetaIngressStore } from './infrastructure/meta-ingress.store.js';
@@ -34,6 +37,7 @@ const app = buildServer({
       }
     : {}),
   logLevel: process.env['LOG_LEVEL'] ?? 'info',
+  trustProxy: parseTrustProxy(process.env['TRUST_PROXY'], process.env['NODE_ENV'], isIP),
 });
 app.addHook('onClose', async () => handle.close());
 await app.listen({ port: Number(process.env['PORT'] ?? 3001), host: '0.0.0.0' });

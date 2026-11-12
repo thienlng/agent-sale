@@ -1,4 +1,4 @@
--- 0076_meta_data_deletion: Meta's data deletion request callback (docs/07 "Data deletion
+-- 0078_meta_data_deletion: Meta's data deletion request callback (docs/07 "Data deletion
 -- callback"). Additive and backward compatible.
 --
 -- 1. channel_connections.meta_user_hash: who connected the page through Facebook Login, as the

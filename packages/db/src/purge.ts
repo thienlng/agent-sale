@@ -5,7 +5,7 @@ import type { Database } from './client.js';
 import { type TenantTx, withSystem } from './tenant.js';
 
 /**
- * Tables with a `workspace_id` that the business purge keeps (ADR-032):
+ * Tables with a `workspace_id` that the business purge keeps (ADR-033):
  * - `audit_events`: append-only, at least a year of retention, no DELETE grant (docs/09 §5);
  * - `message_usage`: the account's AI-reply allowance of the cycle (billing fact of the account,
  *   ids only, no content);
@@ -100,7 +100,7 @@ export function deleteOrder(tables: readonly string[], fks: readonly CatalogFk[]
 export type PurgeReport = Record<string, number>;
 
 /**
- * Hard-deletes every row of one business from every purged table (ADR-032), in batches of
+ * Hard-deletes every row of one business from every purged table (ADR-033), in batches of
  * `batchSize`, each batch its own `withSystem` transaction: a crash or a retry resumes where it
  * stopped, and a finished table is a cheap no-op. `db` must be the system login (`app_system`).
  * Leaves the retained tables and the `workspaces` row alone; the caller writes the tombstone.

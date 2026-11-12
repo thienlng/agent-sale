@@ -14,7 +14,7 @@ export const WorkspaceCreatedV1 = z.object({
 });
 export type WorkspaceCreatedV1 = z.infer<typeof WorkspaceCreatedV1>;
 
-/** The owner deleted the business (ADR-032): it stops at once and is purged after `purgeAfter`. */
+/** The owner deleted the business (ADR-033): it stops at once and is purged after `purgeAfter`. */
 export const WorkspaceDeletionRequestedV1 = z.object({
   type: z.literal('workspace.workspace.deletion_requested.v1'),
   workspaceId: z.uuid(),

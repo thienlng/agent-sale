@@ -24,7 +24,7 @@ export interface WorkspaceProps {
   accountId: string | null;
   status: WorkspaceStatus;
   createdAt: Date;
-  /** When the owner asked to delete it (ADR-032); null while active. */
+  /** When the owner asked to delete it (ADR-033); null while active. */
   deletedAt?: Date | null;
   /** End of the restore window; the purge runs after it. */
   purgeAfter?: Date | null;
@@ -104,7 +104,7 @@ export class Workspace extends AggregateRoot {
   }
 
   /**
-   * The owner deletes the business (ADR-032). `confirmName` must equal the name (both trimmed,
+   * The owner deletes the business (ADR-033). `confirmName` must equal the name (both trimmed,
    * case-sensitive): the typed name is the guard against deleting the wrong business.
    */
   requestDeletion(input: { confirmName: string; actorUserId: UserId; now: Date }): void {

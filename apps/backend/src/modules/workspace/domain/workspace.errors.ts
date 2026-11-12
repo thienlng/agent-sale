@@ -50,7 +50,7 @@ export class LogoRejectedError extends DomainError {
   }
 }
 
-/** Deleting and restoring a business is for its owner only (ADR-032). */
+/** Deleting and restoring a business is for its owner only (ADR-033). */
 export class NotBusinessOwnerError extends DomainError {
   readonly code = 'FORBIDDEN';
   constructor() {

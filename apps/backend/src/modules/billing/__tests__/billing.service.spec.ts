@@ -113,7 +113,7 @@ function setup(
 }
 
 describe('BillingService (ADR-012 §5)', () => {
-  it('entitles a deleted business to nothing and refuses every AI reply (ADR-032)', async () => {
+  it('entitles a deleted business to nothing and refuses every AI reply (ADR-033)', async () => {
     for (const account of ['acc-1', null]) {
       const { billing, workspaces, store } = setup(
         { accountSubscription: sub('sales_pro') },

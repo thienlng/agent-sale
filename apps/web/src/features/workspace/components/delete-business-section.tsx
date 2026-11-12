@@ -25,7 +25,7 @@ import { reloadSession, useSession } from '@/lib/session';
 import { useDeleteBusiness } from '../api/business-deletion';
 
 /**
- * Danger zone of the business data page (SET-10, ADR-032): the owner deletes the current business
+ * Danger zone of the business data page (SET-10, ADR-033): the owner deletes the current business
  * after typing its name. It stops at once (bot, care, channels, access) and can be restored for
  * 30 days from "Business của tôi"; `exportAnchor` links to the data export on the same page.
  */

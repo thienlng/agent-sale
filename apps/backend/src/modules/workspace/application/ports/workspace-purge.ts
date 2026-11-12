@@ -1,7 +1,7 @@
 import type { WorkspaceId } from '@agent-sales/shared';
 
 /**
- * Cross-tenant purge of deleted businesses (ADR-032). The production adapter runs as the system
+ * Cross-tenant purge of deleted businesses (ADR-033). The production adapter runs as the system
  * role (`withSystem`, ADR-004 amendment 2026-11-12) and deletes through `purgeWorkspaceRows` from
  * `@agent-sales/db`, which reads the tables to purge from the Postgres catalog.
  */
@@ -39,7 +39,7 @@ export interface WorkspacePurgeStore {
   recordFailure(ws: WorkspaceId, failure: { error: string; nextAt: Date }): Promise<void>;
 }
 
-/** Deletes a business's files in object storage (ADR-032 §storage). */
+/** Deletes a business's files in object storage (ADR-033 §storage). */
 export interface BusinessObjectEraser {
   /** True when object storage is configured; when it is not there is nothing to delete. */
   available(): boolean;

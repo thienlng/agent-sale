@@ -15,7 +15,7 @@ import type { DuePurge, WorkspacePurgeStore } from '../../application/ports/work
 export const TOMBSTONE_NAME = 'Deleted business';
 
 /**
- * System-role purge (ADR-032, ADR-004 amendment 2026-11-12): only the purge runner of the worker
+ * System-role purge (ADR-033, ADR-004 amendment 2026-11-12): only the purge runner of the worker
  * uses it, only for businesses whose owner deleted them more than 30 days ago.
  */
 export class DrizzleWorkspacePurgeStore implements WorkspacePurgeStore {

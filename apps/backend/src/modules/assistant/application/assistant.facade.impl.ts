@@ -50,7 +50,7 @@ import {
   type MemoryStoreRecord,
 } from '../domain/ports/assistant.repository.js';
 import { ChatTurnService } from './chat-turn.service.js';
-import { learningFeed, undoReviewEntry } from './learning-feed.js';
+import { approveEntry, learningFeed, undoReviewEntry } from './learning-feed.js';
 import { ImportBatchService } from './import-batch.service.js';
 import { toMessageDtos, toRunDto, toThreadDto } from './mappers.js';
 import { accountMemberships, type OwnerScope, resolveOwnerScope } from './owner-access.js';
@@ -375,6 +375,25 @@ export class AssistantFacadeImpl implements AssistantFacade {
     return this.#memoryDto(scope, [...memory.filter((m) => m.store !== store), saved]);
   }
 
+  async approveMemoryEntry(
+    actor: AssistantActor,
+    store: string,
+    entryId: string,
+  ): Promise<AssistantMemoryDto> {
+    const scope = await this.#scope(actor);
+    if (!isKnownStore(store, scope.businessIds)) {
+      throw new AssistantNotFoundError('memory entry', entryId);
+    }
+    const memory = await this.repo.getMemory(scope);
+    const record = memory.find((m) => m.store === store);
+    const entries = record?.entries ?? [];
+    const next = approveEntry(entries, entryId);
+    if (!next) throw new AssistantNotFoundError('memory entry', entryId);
+    if (next === entries) return this.#memoryDto(scope, memory);
+    const saved = await this.repo.saveMemoryStore(scope, store, next, record?.tombstones);
+    return this.#memoryDto(scope, [...memory.filter((m) => m.store !== store), saved]);
+  }
+
   /**
    * owner_profile, notes, then one store per business of the scope (business stores in id
    * order), empty ones included; stores of businesses outside the scope are not shown.
@@ -398,7 +417,13 @@ export class AssistantFacadeImpl implements AssistantFacade {
           label: business === null ? store : (names.get(business) ?? store),
           limit: memoryLimit(store),
           used: memoryUsed(entries),
-          entries: entries.map((e) => ({ id: e.id, text: e.text, createdAt: e.createdAt })),
+          entries: entries.map((e) => ({
+            id: e.id,
+            text: e.text,
+            createdAt: e.createdAt,
+            origin: e.origin,
+            pending: e.pending === true,
+          })),
         };
       }),
     };

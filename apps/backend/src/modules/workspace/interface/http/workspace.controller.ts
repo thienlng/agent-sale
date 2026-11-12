@@ -53,7 +53,7 @@ export class WorkspaceController {
 
   /**
    * Not workspace-scoped: a deleted business no longer passes the workspace guard, so delete and
-   * restore name it in the path and check the owner themselves (ADR-032).
+   * restore name it in the path and check the owner themselves (ADR-033).
    */
   @Get('deleted')
   async deleted(@CurrentUser() user: AuthState): Promise<DeletedBusinessList> {

@@ -98,6 +98,7 @@ function cell(x: unknown, type: AssistantSqlColumn['type']): string | number | b
 interface AppliedSettings {
   account: string | null;
   businesses: string | null;
+  sealed: boolean | null;
   statement_timeout: string;
   idle_timeout: string;
   read_only: string;
@@ -119,8 +120,9 @@ const isPostgresError = (e: unknown): e is { code: string; message: string } =>
 
 /**
  * Runs one query for an owner: inside a `READ ONLY` transaction, with `app.account_id` and
- * `app.assistant_business_ids` set transaction-locally (`set_config(…, true)`, the same as
- * `SET LOCAL`), a 3 s statement timeout, a 5 s idle-in-transaction timeout, the Asia/Ho_Chi_Minh
+ * `app.assistant_business_ids` bound transaction-locally by `assistant_sql.bind_scope` (0076: once
+ * per transaction, with a keyed seal the reader policies check, so the query cannot rewrite them
+ * with `set_config`), a 3 s statement timeout, a 5 s idle-in-transaction timeout, the Asia/Ho_Chi_Minh
  * time zone and `search_path = assistant_sql`. The scope, both timeouts, the read-only flag and the
  * login's `temp_file_limit` (256MB) and `track_activities` (off) role defaults are read back before
  * the query runs (like `withAccount`); any mismatch throws.
@@ -145,9 +147,9 @@ export async function runAssistantSql(
   const businessIds = `{${input.businessIds.join(',')}}`;
   try {
     return await client.begin('read only', async (tx) => {
+      // The scope GUCs and their seal (0076): once per transaction, so the query cannot rebind them.
+      await tx`select assistant_sql.bind_scope(${input.accountId}, ${businessIds})`;
       await tx`select
-        set_config('app.account_id', ${input.accountId}, true),
-        set_config('app.assistant_business_ids', ${businessIds}, true),
         set_config('statement_timeout', '3000', true),
         set_config('lock_timeout', '1000', true),
         set_config('idle_in_transaction_session_timeout', '5000', true),
@@ -159,6 +161,7 @@ export async function runAssistantSql(
       const [applied] = await tx<AppliedSettings[]>`select
         current_setting('app.account_id', true) as account,
         current_setting('app.assistant_business_ids', true) as businesses,
+        assistant_sql.scope_sealed() as sealed,
         current_setting('statement_timeout') as statement_timeout,
         current_setting('idle_in_transaction_session_timeout') as idle_timeout,
         current_setting('transaction_read_only') as read_only,
@@ -167,6 +170,7 @@ export async function runAssistantSql(
       if (
         applied?.account !== input.accountId ||
         applied.businesses !== businessIds ||
+        applied.sealed !== true ||
         applied.statement_timeout !== '3s' ||
         applied.idle_timeout !== '5s' ||
         applied.read_only !== 'on' ||

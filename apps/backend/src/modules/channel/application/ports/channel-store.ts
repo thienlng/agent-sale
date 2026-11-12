@@ -12,15 +12,15 @@ export interface GrantedAccount {
 export interface ConnectionRecord extends ChannelConnectionDto {
   workspaceId: WorkspaceId;
   tokenSealed: string;
-  /** `metaUserHash(grantorId)` of whoever connected the page (0076); null when unknown. */
+  /** `metaUserHash(grantorId)` of whoever connected the page (0078); null when unknown. */
   metaUserHash?: string | null | undefined;
 }
-/** A Meta data deletion request waiting for the worker (0076). */
+/** A Meta data deletion request waiting for the worker (0078). */
 export interface PendingDataDeletion {
   id: string;
   userHash: string;
 }
-/** What the public status page shows (0076). */
+/** What the public status page shows (0078). */
 export interface DataDeletionRecord {
   confirmationCode: string;
   status: 'pending' | 'completed';

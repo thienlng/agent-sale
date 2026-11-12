@@ -5,7 +5,7 @@ import { WORKSPACE_LIFECYCLE, type WorkspaceLifecycle } from '../../../workspace
 import { ConnectionService } from '../connection.service.js';
 import { INTEGRATION_STORE, type IntegrationStore } from '../ports/integration-store.js';
 
-/** A deleted business (ADR-032) stops syncing at once: its live KiotViet store is disconnected. */
+/** A deleted business (ADR-033) stops syncing at once: its live KiotViet store is disconnected. */
 @Injectable()
 export class OnWorkspaceDeletionRequested implements OnModuleInit {
   constructor(

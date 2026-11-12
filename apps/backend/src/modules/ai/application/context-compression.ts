@@ -1,4 +1,5 @@
 import type { ChatMessage } from '@agent-sales/ai-core';
+import { escapeTags } from '@agent-sales/shared';
 
 export const COMPRESS_AT_CHARS = 24_000;
 /** More turns than this (not counting the summary) also compress, however short they are. */
@@ -30,10 +31,11 @@ export function needsCompression(
   );
 }
 
+/** The stored summary is model text written from customer messages: escaped like them. */
 export function summaryMessage(summary: string): ChatMessage {
   return {
     role: 'user',
-    content: `<earlier_conversation_summary>\n${summary}\n</earlier_conversation_summary>`,
+    content: `<earlier_conversation_summary>\n${escapeTags(summary)}\n</earlier_conversation_summary>`,
   };
 }
 

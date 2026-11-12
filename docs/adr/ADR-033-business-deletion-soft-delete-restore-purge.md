@@ -1,4 +1,4 @@
-# ADR-032: Business deletion: soft delete, 30-day restore, purge
+# ADR-033: Business deletion: soft delete, 30-day restore, purge
 
 - Status: Proposed
 - Date: 2026-11-12
@@ -29,9 +29,9 @@ private export archives, Meta page tokens and a KiotViet connection. Constraints
    restore any more) → `deleted` (purged tombstone, new column `purged_at`). Restore within the
    window returns to `active` and clears both timestamps. `purging` keeps `deleted_at`, so every
    gate treats it like `pending_deletion` (no access, no lists, billing inactive), and it is not
-   listed as restorable. Migration 0077 adds the two columns, a partial index for the purge scan
+   listed as restorable. Migration 0079 adds the two columns, a partial index for the purge scan
    and explicit `SELECT, DELETE` grants to `app_system` on every table with `workspace_id` except
-   `audit_events`; migration 0078 adds the back-off columns (`purge_attempts`, `purge_next_at`,
+   `audit_events`; migration 0080 adds the back-off columns (`purge_attempts`, `purge_next_at`,
    `purge_last_error`), widens the index to `pending_deletion` and `purging`, and adds the missing
    `app_system` policies of `fanpage_settings`, `fanpage_comments` and `stay_requests`.
 2. **Request** — `POST /workspaces/{workspaceId}/deletion` `{ confirmName }`, owner only (the

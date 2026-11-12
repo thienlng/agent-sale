@@ -29,8 +29,8 @@ export const channelConnections = pgTable(
     expiresAt: timestamp('expires_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     /**
-     * Who connected the page through Facebook Login (0076): SHA-256 hex of `facebook:<app-scoped
-     * user id>`, for Meta's data deletion callback. Null before 0076, for Instagram and website.
+     * Who connected the page through Facebook Login (0078): SHA-256 hex of `facebook:<app-scoped
+     * user id>`, for Meta's data deletion callback. Null before 0078, for Instagram and website.
      */
     metaUserHash: text('meta_user_hash'),
   },
@@ -90,7 +90,7 @@ export const channelWebhookEvents = pgTable(
 );
 
 /**
- * GLOBAL (0076, app_system only): Meta data deletion requests. `user_hash` (see
+ * GLOBAL (0078, app_system only): Meta data deletion requests. `user_hash` (see
  * `channel_connections.meta_user_hash`) is kept only while pending; no personal data otherwise.
  */
 export const metaDataDeletionRequests = pgTable(

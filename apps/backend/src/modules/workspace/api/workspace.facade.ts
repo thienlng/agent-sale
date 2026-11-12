@@ -66,7 +66,7 @@ export interface WorkspaceFacade {
   listActiveIds(q: { afterId: WorkspaceId | null; limit: number }): Promise<WorkspaceId[]>;
   /**
    * False once the owner deleted the business (pending deletion or purged) or when it does not
-   * exist. The gate the billing entitlements use to stop bots, care, Brain and webhooks (ADR-032).
+   * exist. The gate the billing entitlements use to stop bots, care, Brain and webhooks (ADR-033).
    */
   isActive(workspaceId: WorkspaceId): Promise<boolean>;
   /** Businesses of an account (platform admin), oldest first. */

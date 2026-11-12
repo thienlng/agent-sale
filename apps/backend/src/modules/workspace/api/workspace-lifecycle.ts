@@ -4,7 +4,7 @@ export type WorkspaceDeletionHandler = (workspaceId: WorkspaceId) => Promise<voi
 
 /**
  * Lets modules above `workspace` in the module graph react when an owner deletes a business
- * (ADR-032) without `workspace` importing them, like `BotLifecycle`. `channel` disconnects every
+ * (ADR-033) without `workspace` importing them, like `BotLifecycle`. `channel` disconnects every
  * page and turns website chat off; `integration` disconnects KiotViet. Handlers run after the
  * deletion committed (the business is already blocked by every gate), each on its own: a failing
  * handler is logged and does not stop the others nor fail the request.

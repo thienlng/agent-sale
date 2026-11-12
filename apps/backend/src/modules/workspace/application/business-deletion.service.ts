@@ -41,7 +41,7 @@ const toDto = (d: DeletedBusiness): DeletedBusinessDto => ({
 });
 
 /**
- * Business deletion (SET-10, ADR-032): the owner deletes a business (soft, 30-day restore window),
+ * Business deletion (SET-10, ADR-033): the owner deletes a business (soft, 30-day restore window),
  * restores it, or lists the ones still restorable. The purge itself is `WorkspacePurgeRunnerImpl`.
  */
 @Injectable()
@@ -121,7 +121,7 @@ export class BusinessDeletionService {
     const restored = await this.uow.run(ws, async (ctx) => {
       // Locked so a purge claim in flight is seen (`purging`: window closed). The window itself is
       // decided by one conditional UPDATE on the database clock, the same clock the purge's claim
-      // uses, so a restore and a purge never both win (ADR-032 §5).
+      // uses, so a restore and a purge never both win (ADR-033 §5).
       const workspace = await this.load(ctx, ws, true);
       const now = this.clock();
       workspace.restore({ actorUserId: actor.userId as UserId, now });

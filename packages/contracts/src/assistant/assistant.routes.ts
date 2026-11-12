@@ -139,6 +139,16 @@ export const assistantRoutes = defineRoutes([
   },
   {
     ...scoped,
+    method: 'post',
+    path: '/assistant/memory/{store}/entries/{entryId}/approve',
+    // The owner's own decision: the assistant never approves what it (or its review) saved.
+    assistant: { use: 'never' },
+    summary:
+      'Approve a memory entry waiting for approval (saved by the review or after reading tool output) so the assistant uses it; returns the memory',
+    responses: { 200: AssistantMemoryDto },
+  },
+  {
+    ...scoped,
     method: 'get',
     path: '/assistant/threads/{threadId}/proposals',
     assistant: { use: 'never' },

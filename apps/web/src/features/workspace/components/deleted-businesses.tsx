@@ -12,7 +12,7 @@ import { useDeletedBusinesses, useRestoreBusiness } from '../api/business-deleti
 import { restoreDaysLeft } from '../lib/business-gallery';
 
 /**
- * "Đã xoá" on "Business của tôi" (ADR-032): the owner's deleted businesses with the days left to
+ * "Đã xoá" on "Business của tôi" (ADR-033): the owner's deleted businesses with the days left to
  * restore them. Hidden when there are none (or the list cannot be read: it is a convenience).
  */
 export function DeletedBusinesses() {

@@ -19,7 +19,7 @@ export interface WorkspaceDirectory {
   listActiveIds(afterId: WorkspaceId | null, limit: number): Promise<WorkspaceId[]>;
   /** Businesses of these accounts with their active member count (platform admin). */
   listByAccounts(accountIds: readonly string[]): Promise<AccountBusiness[]>;
-  /** Status `active` and not deleted (ADR-032 gate). */
+  /** Status `active` and not deleted (ADR-033 gate). */
   isActive(workspaceId: WorkspaceId): Promise<boolean>;
   /**
    * The business and the user's active role in it, deleted or not (delete and restore check the

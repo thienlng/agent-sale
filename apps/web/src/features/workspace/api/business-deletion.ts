@@ -5,7 +5,7 @@ import { api } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
 
 /**
- * Business deletion (SET-10, ADR-032). Not workspace-scoped: a deleted business no longer passes
+ * Business deletion (SET-10, ADR-033). Not workspace-scoped: a deleted business no longer passes
  * the workspace guard, so the routes name it in the path and the server checks the owner.
  */
 export function useDeletedBusinesses() {

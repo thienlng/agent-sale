@@ -19,7 +19,7 @@ import {
 import { type Harness, startHarness, type TestUser } from './support/harness.js';
 
 /**
- * Business deletion over HTTP on Postgres (SET-10, ADR-032): owner-only request with the typed
+ * Business deletion over HTTP on Postgres (SET-10, ADR-033): owner-only request with the typed
  * name, every gate closes at once (membership guard, lists, billing entitlements, channels),
  * restore within the window, and the worker purge that leaves no row of the business in any
  * tenant table while another business keeps everything. Object storage is a recording stand-in.

@@ -90,7 +90,7 @@ export const UpdateWorkspaceProfileRequest = z.object({
 });
 export type UpdateWorkspaceProfileRequest = z.input<typeof UpdateWorkspaceProfileRequest>;
 
-// ─── Business deletion (SET-10, ADR-032) ─────────────────────────────────────
+// ─── Business deletion (SET-10, ADR-033) ─────────────────────────────────────
 
 /** Days a deleted business can be restored before the worker purges its data. */
 export const BUSINESS_RESTORE_DAYS = 30;
