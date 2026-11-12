@@ -5,7 +5,7 @@ import {
   PromptRegistry,
 } from '@agent-sales/ai-core';
 import type { PlaygroundRequest, ProductDto, WebsitePageContext } from '@agent-sales/contracts';
-import { escapeTags } from '@agent-sales/shared';
+import { escapeTags, normalizeVnPhone } from '@agent-sales/shared';
 
 import type { BotActionView, PendingAction } from '../../action/api/index.js';
 import type { BotView } from '../../bot/api/index.js';
@@ -22,6 +22,11 @@ export const PHONE_KNOWN_LINE =
   'The customer already left their phone number; do not ask for it again.';
 export const EMAIL_KNOWN_LINE =
   'The customer already left their email address; do not ask for it again.';
+
+/** Added to the last user message when older turns holding the customer's phone were folded away. */
+export const earlierPhonesLine = (phones: readonly string[]): string =>
+  `Phone numbers the customer wrote in earlier messages (now summarized): ${phones.join(', ')}.`;
+const MAX_EARLIER_PHONES = 3;
 
 export const SHOP_TIME_ZONE = 'Asia/Ho_Chi_Minh';
 /** Products of an interrupted run's tool results whose pictures stay sendable in the re-run. */
@@ -145,6 +150,8 @@ export interface TurnContext {
   pending: string;
   images: string;
   phoneKnown: boolean;
+  /** Phones the customer wrote in turns no longer in the history (`earlierPhones`). */
+  earlierPhones?: readonly string[];
   /** A website visitor left an email (no line when absent). */
   emailKnown?: boolean;
   now: Date;
@@ -174,6 +181,55 @@ export function historyTurns(
   return { turns, times: aligned ? times.slice(firstCustomer) : null };
 }
 
+/** The Vietnamese mobile numbers in `text` as written ("0987 654 321"), digit-run splits included. */
+function phonesIn(text: string): string[] {
+  const out: string[] = [];
+  for (const candidate of text.match(/\+?\d(?:[\s.\-()]?\d)+/g) ?? []) {
+    if (normalizeVnPhone(candidate)) {
+      out.push(candidate.trim());
+      continue;
+    }
+    // "18 người, 0987 654 321" is split by the comma; "mua 2 0912345678" glues a quantity on.
+    // Digit groups at even indexes, the separators as written between them.
+    const parts = candidate.split(/([\s.\-()]+)/);
+    const groups = Math.ceil(parts.length / 2);
+    search: for (let from = 0; from < groups; from++)
+      for (let to = groups; to > from; to--) {
+        const joined = parts.slice(2 * from, 2 * to - 1).join('');
+        if ((from > 0 || to < groups) && normalizeVnPhone(joined)) {
+          out.push(joined);
+          break search;
+        }
+      }
+  }
+  return out;
+}
+
+/**
+ * EV-2: the phone numbers the customer wrote in turns that are no longer sent as they are (folded
+ * into the summary, or cut by the summarizer fallback). A summary may drop a number; the customer
+ * then asks "what number did I give you?" and the bot must still read it back. At most 3, the
+ * first spelling of each number, oldest first; numbers still visible in `kept` are left out.
+ */
+export function earlierPhones(all: readonly ChatMessage[], kept: readonly ChatMessage[]): string[] {
+  const keptSet = new Set(kept);
+  const visible = new Set(
+    kept.flatMap((t) => (t.role === 'user' ? phonesIn(t.content) : [])).map(normalizeVnPhone),
+  );
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const turn of all) {
+    if (turn.role !== 'user' || keptSet.has(turn)) continue;
+    for (const phone of phonesIn(turn.content)) {
+      const key = normalizeVnPhone(phone);
+      if (!key || visible.has(key) || seen.has(key)) continue;
+      seen.add(key);
+      out.push(phone);
+    }
+  }
+  return out.slice(-MAX_EARLIER_PHONES);
+}
+
 /**
  * Appends the per-turn blocks (profile, knowledge, situations, focus products, pending action,
  * pictures, phone and email lines, current time) to the last user message, so the system prompt and the
@@ -196,6 +252,7 @@ export function withTurnContext(turns: readonly ChatMessage[], ctx: TurnContext)
     ctx.pending,
     ctx.images,
     ctx.phoneKnown ? PHONE_KNOWN_LINE : '',
+    ctx.earlierPhones?.length ? earlierPhonesLine(ctx.earlierPhones) : '',
     ctx.emailKnown ? EMAIL_KNOWN_LINE : '',
     currentTimeBlock(ctx.now),
   ].filter(Boolean);

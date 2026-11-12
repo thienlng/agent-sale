@@ -107,6 +107,7 @@ import {
   carriedProductIds,
   compactHistory,
   currentTimeBlock,
+  earlierPhones,
   EMAIL_KNOWN_LINE,
   focusBlock,
   historyTurns,
@@ -602,6 +603,7 @@ export class PlaygroundService implements AiFacade {
       loop = await runAgentLoop({
         base,
         tools: recorder.wrap(guard.wrap(tools.runnable)),
+        earlierPhones: earlierPhones(history.turns, compact.turns),
         // Once a message went out, an empty final answer is fine: no gateway retry for it.
         generate: (req) => meter.generate(output.sent.length ? { ...req, allowEmpty: true } : req),
         onStep: (step) => {
