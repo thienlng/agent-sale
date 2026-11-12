@@ -101,6 +101,7 @@ import {
   type OrderToolContext,
   PLAYGROUND_ORDER_CHANNEL,
 } from './order-tools.js';
+import { guardHandoff, latestCustomerBlock } from './handoff-guard.js';
 import { HANDOFF_TOOL, ImageAllowlist, newOutputState } from './output-tools.js';
 import { withDefaultOfferings } from './catalog-tools.js';
 import {
@@ -622,7 +623,18 @@ export class PlaygroundService implements AiFacade {
       };
       loop = await runAgentLoop({
         base,
-        tools: recorder.wrap(guard.wrap(tools.runnable)),
+        tools: recorder.wrap(
+          guard.wrap(
+            // VL2-1: a handoff the turn's tools or the shop's data answer is refused once.
+            guardHandoff(tools.runnable, {
+              customerText: latestCustomerBlock(input.messages),
+              offeredTools: tools.definitions.map((d) => d.name),
+              shopText: [profile, focusText, ...sources.map((s) => `${s.question}\n${s.answer}`)]
+                .filter(Boolean)
+                .join('\n'),
+            }),
+          ),
+        ),
         // Once a message went out, an empty final answer is fine: no gateway retry for it.
         generate: (req) => meter.generate(output.sent.length ? { ...req, allowEmpty: true } : req),
         onStep: (step) => {
