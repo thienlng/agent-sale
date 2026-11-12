@@ -39,6 +39,15 @@ describe('buildRequest', () => {
     }
   });
 
+  it('refuses a placeholder in the host so arguments cannot pick where the secret goes', () => {
+    for (const url of ['https://{code}/api', 'https://{code}.example.com/api']) {
+      expect(buildRequest(spec({ url }), { code: 'attacker.example' }, 's3cret', 'k')).toEqual({
+        ok: false,
+        errorCode: 'invalid_args',
+      });
+    }
+  });
+
   it('validates required, types and drops unknown keys', () => {
     expect(buildRequest(spec(), {}, null, 'k')).toEqual({ ok: false, errorCode: 'invalid_args' });
     expect(buildRequest(spec(), { code: 5 }, null, 'k').ok).toBe(false);

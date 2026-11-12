@@ -69,8 +69,8 @@ Actions are live: `ai/application/playground.service.ts:300` loads them as model
 asserting that every non-GET workspace route declares a capability, so a new controller cannot skip it.
 
 **Status: fixed.** `ActionController` requires `bots.manage` at class level; `apps/backend/test/bot-actions-http.spec.ts`
-asserts 403 for `sales`, `care` and `analyst` on all seven routes. The generic "every route declares a capability" test is
-still open.
+asserts 403 for `sales`, `care` and `analyst` on all seven routes. The web app hides **Hành động API** and gates its pages
+for those roles. The generic "every route declares a capability" test is still open.
 
 ### V2 — Stored action secret can be sent to a caller-chosen host
 
@@ -105,8 +105,10 @@ The secret is write-only by design (`toDto` returns only `hasSecret`; ADR-024), 
 - Fixing V1 reduces the attacker set to owner/admin but does not remove this issue.
 
 **Status: fixed.** `sameSecretTarget` in `action.facade.impl.ts`: `testDraft` borrows the stored secret only for the same
-origin and auth kind/header name, and `update` drops it when either changes without a new secret (the list then shows
-**Cần nhập khoá**). Covered by `action.facade.spec.ts`.
+origin and auth kind/header name, and `update` refuses (400 `secret_required`) a change of either without a new secret
+or an explicit clear. A `{param}` in the URL host would let call arguments choose the destination, so the contract refuses
+placeholders in the authority and `buildRequest` refuses any stored URL that still has one. Covered by
+`action.facade.spec.ts`, `build-request.spec.ts` and `action.schema.test.ts`.
 
 ---
 

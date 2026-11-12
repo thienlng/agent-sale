@@ -52,6 +52,42 @@ export type ActionMethod = z.infer<typeof ActionMethod>;
 
 const PLACEHOLDER = /\{([^{}]+)\}/g;
 
+/** Message of the URL issue raised when the host (or userinfo/port) holds a placeholder. */
+/** `details.reason` of the 400 when an update would move a stored secret to a new target. */
+export const SECRET_REQUIRED = 'secret_required';
+
+export const HOST_PLACEHOLDER = 'The host cannot contain a {param} placeholder';
+
+/** `user:pass@host:port` as typed, before any percent-encoding by `URL`. */
+function authorityOf(url: string): string {
+  const rest = url.slice(url.indexOf('//') + 2);
+  return rest.slice(0, rest.search(/[/?#]|$/));
+}
+
+function originOf(url: string): string | null {
+  if (/[{}]/.test(authorityOf(url))) return null;
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Whether a stored secret may follow an edit from `a` to `b`: a secret only travels where it
+ * was entered for — the same origin, sent the same way (auth kind, and header name for keys).
+ */
+export function sameSecretTarget(
+  a: { url: string; auth: ActionAuth },
+  b: { url: string; auth: ActionAuth },
+): boolean {
+  const origin = originOf(a.url);
+  if (origin === null || origin !== originOf(b.url) || a.auth.kind !== b.auth.kind) return false;
+  return a.auth.kind !== 'api_key' || b.auth.kind !== 'api_key'
+    ? true
+    : a.auth.headerName.toLowerCase() === b.auth.headerName.toLowerCase();
+}
+
 const RESERVED_HEADERS = new Set([
   'host',
   'authorization',
@@ -110,7 +146,10 @@ function checkAction(
 const ActionBase = z.object({
   name: z.string().trim().min(1).max(80),
   description: z.string().trim().min(1).max(1000),
-  /** HTTPS only; `{param}` placeholders are filled from `path` params. */
+  /**
+   * HTTPS only; `{param}` placeholders are filled from `path` params. The host is fixed: a
+   * placeholder there would let call arguments choose where the stored secret goes.
+   */
   url: z
     .string()
     .trim()
@@ -121,14 +160,15 @@ const ActionBase = z.object({
       } catch {
         return false;
       }
-    }, 'A valid HTTPS URL is required'),
+    }, 'A valid HTTPS URL is required')
+    .refine((u) => !/[{}]/.test(authorityOf(u)), HOST_PLACEHOLDER),
   method: ActionMethod,
   params: z.array(ActionParam).max(20),
   responses: z.array(ActionResponse).max(10),
   auth: ActionAuth,
   /**
-   * Write-only: sealed at rest, never returned. On update `''` clears it; absent keeps it
-   * unless the URL origin or the auth kind/header name changes, which drops it.
+   * Write-only: sealed at rest, never returned. On update `''` clears it and absent keeps it;
+   * changing the URL origin or the auth kind/header name needs a new secret (or `''`).
    */
   authSecret: z.string().max(2000).optional(),
   requiresConfirm: z.boolean(),
@@ -231,7 +271,8 @@ export type ActionTestRequest = z.infer<typeof ActionTestRequest>;
 
 /**
  * "Thử gọi" on an unsaved or edited form: the draft itself is executed, so the owner can iterate
- * before saving. `actionId` (when editing) lets a blank `authSecret` fall back to the stored one.
+ * before saving. `actionId` (when editing) lets a blank `authSecret` fall back to the stored one,
+ * only for the same origin and auth (`sameSecretTarget`).
  */
 export const ActionDraftTestRequest = z.object({
   action: ActionInput,

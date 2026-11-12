@@ -3,6 +3,8 @@ import {
   type ActionDto,
   type ActionTestResult,
   type UpdateActionRequest,
+  SECRET_REQUIRED,
+  sameSecretTarget,
 } from '@agent-sales/contracts';
 import { isUuid, newId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable, Optional } from '@nestjs/common';
@@ -26,29 +28,6 @@ import {
 
 function toDto({ authSecretEnc, ...rest }: ActionRecord): ActionDto {
   return { ...rest, hasSecret: authSecretEnc !== null };
-}
-
-function originOf(url: string): string | null {
-  try {
-    return new URL(url).origin;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * A stored secret may only travel where it was entered for: the same origin, sent the same way.
- * Otherwise anyone able to edit or test the action could point it at their own host and read it.
- */
-function sameSecretTarget(
-  a: Pick<ActionRecord, 'url' | 'auth'>,
-  b: Pick<ActionRecord, 'url' | 'auth'>,
-): boolean {
-  const origin = originOf(a.url);
-  if (origin === null || origin !== originOf(b.url) || a.auth.kind !== b.auth.kind) return false;
-  return a.auth.kind !== 'api_key' || b.auth.kind !== 'api_key'
-    ? true
-    : a.auth.headerName.toLowerCase() === b.auth.headerName.toLowerCase();
 }
 
 export const SAFE_HTTP = Symbol('ACTION_SAFE_HTTP');
@@ -124,7 +103,19 @@ export class ActionFacadeImpl implements ActionFacade {
         requiresConfirm: patch.requiresConfirm ?? current.requiresConfirm,
         enabled: patch.enabled ?? current.enabled,
       });
-      let authSecretEnc = sameSecretTarget(merged, current) ? current.authSecretEnc : null;
+      // A stored secret only travels where it was entered for (same origin, sent the same way);
+      // moving it elsewhere needs the secret again, so it is refused rather than silently dropped.
+      const keeps = sameSecretTarget(merged, current);
+      if (
+        !keeps &&
+        current.authSecretEnc !== null &&
+        merged.auth.kind !== 'none' &&
+        authSecret === undefined
+      )
+        throw new InvalidActionError('Re-enter the secret for the new address or authentication', {
+          reason: SECRET_REQUIRED,
+        });
+      let authSecretEnc = keeps ? current.authSecretEnc : null;
       if (merged.auth.kind === 'none' || authSecret === '') authSecretEnc = null;
       else if (authSecret !== undefined) authSecretEnc = this.secrets.seal(authSecret);
       const next: ActionRecord = {

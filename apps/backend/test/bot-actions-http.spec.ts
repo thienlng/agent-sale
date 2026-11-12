@@ -83,7 +83,7 @@ describe('HTTP: bot API actions', () => {
       ['POST', base, action],
       ['POST', `${base}/test`, { action, actionId: id, args: { code: 'A1' } }],
       ['GET', `${base}/${id}`],
-      ['PATCH', `${base}/${id}`, { url: 'https://attacker.example/x' }],
+      ['PATCH', `${base}/${id}`, { name: 'Renamed' }],
       ['DELETE', `${base}/${id}`],
       ['POST', `${base}/${id}/test`, { args: { code: 'A1' } }],
     ];
