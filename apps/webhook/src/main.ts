@@ -1,5 +1,6 @@
 import { ChannelRegistry, MetaAdapter } from '@agent-sales/channels';
 import { createDb } from '@agent-sales/db';
+import { parseTrustProxy } from '@agent-sales/shared';
 import { DrizzleKiotVietIngressStore } from './infrastructure/kiotviet-ingress.store.js';
 import { MetaIngressStore } from './infrastructure/meta-ingress.store.js';
 import { buildServer } from './server.js';
@@ -21,6 +22,7 @@ const app = buildServer({
   verifyToken: process.env['META_WEBHOOK_VERIFY_TOKEN'] ?? '',
   kiotviet: new DrizzleKiotVietIngressStore(handle.db),
   logLevel: process.env['LOG_LEVEL'] ?? 'info',
+  trustProxy: parseTrustProxy(process.env['TRUST_PROXY'], process.env['NODE_ENV']),
 });
 app.addHook('onClose', async () => handle.close());
 await app.listen({ port: Number(process.env['PORT'] ?? 3001), host: '0.0.0.0' });

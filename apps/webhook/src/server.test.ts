@@ -5,6 +5,7 @@ import {
   type ChannelAdapter,
   ChannelRegistry,
 } from '@agent-sales/channels';
+import { parseTrustProxy } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
 
 import { buildServer } from './server.js';
@@ -168,5 +169,48 @@ describe('signed Facebook comment ingress', () => {
     } finally {
       await app.close();
     }
+  });
+});
+
+describe('client address behind proxies', () => {
+  function logged(trustProxy?: string[] | false) {
+    const logs: string[] = [];
+    const app = buildServer({
+      registry: new ChannelRegistry(),
+      store: { storeOnce: async () => true },
+      queue: { enqueue: async () => undefined },
+      secrets: {},
+      logLevel: 'info',
+      logStream: { write: (line) => void logs.push(line) },
+      ...(trustProxy === undefined ? {} : { trustProxy }),
+    });
+    const addresses = () =>
+      logs
+        .map((l) => (JSON.parse(l) as { req?: { remoteAddress?: string } }).req?.remoteAddress)
+        .filter(Boolean);
+    return { app, addresses };
+  }
+
+  it('ignores a client-written X-Forwarded-For by default', async () => {
+    const { app, addresses } = logged();
+    await app.inject({
+      method: 'GET',
+      url: '/health',
+      remoteAddress: '172.18.0.4',
+      headers: { 'x-forwarded-for': '1.2.3.4' },
+    });
+    expect(addresses()).toEqual(['172.18.0.4']);
+  });
+
+  it('logs the address the outer proxy saw with the production default', async () => {
+    const { app, addresses } = logged(parseTrustProxy(undefined, 'production'));
+    // The client wrote 1.2.3.4; NPM appended the real peer, then Caddy appended NPM.
+    await app.inject({
+      method: 'GET',
+      url: '/health',
+      remoteAddress: '172.18.0.4',
+      headers: { 'x-forwarded-for': '1.2.3.4, 203.0.113.7, 172.19.0.2' },
+    });
+    expect(addresses()).toEqual(['203.0.113.7']);
   });
 });

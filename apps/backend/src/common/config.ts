@@ -1,3 +1,4 @@
+import { parseTrustProxy } from '@agent-sales/shared';
 import { z } from 'zod';
 
 /**
@@ -141,6 +142,22 @@ export const EnvSchema = z
     GOOGLE_CLIENT_ID: z.string().min(10).optional(),
     GOOGLE_CLIENT_SECRET: z.string().min(10).optional(),
     GOOGLE_REDIRECT_URI: z.url().optional(),
+    /**
+     * Proxies whose `X-Forwarded-For` entry is believed (`parseTrustProxy` in packages/shared):
+     * `false` or comma-separated addresses/CIDRs. Unset: the private ranges in production (NPM →
+     * Caddy `edge` on Docker networks), loopback elsewhere. `true` and hop counts are refused.
+     */
+    TRUST_PROXY: z.string().max(500).optional(),
+    /**
+     * Comma-separated email domains whose new accounts get no signup trial (disposable inboxes),
+     * added to the built-in list in `identity/domain/trial-identity.ts`. Signup itself still works.
+     */
+    TRIAL_BLOCKED_EMAIL_DOMAINS: z.string().max(5000).optional(),
+  })
+  .refine((env) => trustProxyValid(env.TRUST_PROXY, env.NODE_ENV), {
+    message:
+      'TRUST_PROXY must be false or comma-separated addresses/CIDRs (not true or a hop count)',
+    path: ['TRUST_PROXY'],
   })
   .refine((env) => !env.GOOGLE_CLIENT_ID === !env.GOOGLE_CLIENT_SECRET, {
     message: 'Set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, or neither',
@@ -155,6 +172,15 @@ export const EnvSchema = z
     path: ['MAIL_OUTBOX_DIR'],
   });
 export type Env = z.infer<typeof EnvSchema>;
+
+function trustProxyValid(raw: string | undefined, nodeEnv: string): boolean {
+  try {
+    parseTrustProxy(raw, nodeEnv);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /** Whether the Hermes subscription sign-in is available in this environment. */
 export function hermesSubscriptionLoginEnabled(
