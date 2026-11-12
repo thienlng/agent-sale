@@ -146,6 +146,8 @@ describe('quoteStay', () => {
   it('charges only the child band above the standard and flags extra small children', () => {
     const p: QuoteProperty = {
       ...villa,
+      // No spare adult place: the small children above the child standard cannot fit.
+      standardAdults: 2,
       standardChildren: 1,
       surcharges: { extraAdult: null, extraChild: { sell: 150_000, cost: 100_000 } },
     };
@@ -161,6 +163,34 @@ describe('quoteStay', () => {
       { kind: 'extra_child', persons: 1, nights: 1, sell: 150_000, cost: 100_000 },
     ]);
     expect(q.warnings).toContain('over_standard');
+  });
+
+  it('lets a free child use a spare adult place, like a paid child fits (VL-A1)', () => {
+    // A20: 24 adults standard, no child standard, extra child surcharge only.
+    const a20: QuoteProperty = {
+      ...villa,
+      standardChildren: 0,
+      surcharges: { extraAdult: null, extraChild: { sell: 100_000, cost: 50_000 } },
+    };
+    const stay = { ...whole, checkIn: '2026-11-09', checkOut: '2026-11-10', adults: 20 };
+    const toddler = quoteStay(a20, villaUnits, a17Rates, { ...stay, childAges: [3] });
+    expect(toddler.warnings).toEqual([]);
+    expect(toddler.surcharges).toEqual([]);
+    expect(toddler.totalSell).toBe(12_000_000);
+    // The paid child keeps its surcharge.
+    const paid = quoteStay(a20, villaUnits, a17Rates, { ...stay, childAges: [8] });
+    expect(paid.warnings).toEqual([]);
+    expect(paid.totalSell).toBe(12_100_000);
+    // A full adult standard leaves no place: the toddler is over the standard again.
+    const full = quoteStay(a20, villaUnits, a17Rates, { ...stay, adults: 24, childAges: [3] });
+    expect(full.warnings).toEqual(['over_standard']);
+    // Older children count as adults and use the spare places first.
+    const crowded = quoteStay(a20, villaUnits, a17Rates, {
+      ...stay,
+      adults: 22,
+      childAges: [3, 13, 14],
+    });
+    expect(crowded.warnings).toEqual(['over_standard']);
   });
 
   it('warns over standard when a surcharge is not configured', () => {
