@@ -229,8 +229,10 @@ describe('ProductsList', () => {
     const price = (name: string) =>
       within(screen.getByText(name).closest('tr') as HTMLElement).getAllByRole('cell')[3];
     await screen.findByText('Nâng mũi');
-    expect(price('Nâng mũi')).toHaveTextContent(/^9\.000\.000\s?₫$/);
-    expect(price('Triệt lông')).toHaveTextContent(/^2\.000\.000\s?₫ – 9\.000\.000\s?₫$/);
+    expect(price('Nâng mũi')).toHaveTextContent(/^9\.000\.000\s?₫ · có gói liên hệ$/);
+    expect(price('Triệt lông')).toHaveTextContent(
+      /^2\.000\.000\s?₫ – 9\.000\.000\s?₫ · có gói liên hệ$/,
+    );
   });
 
   it('keeps a 0 price of a shop product as it is', async () => {

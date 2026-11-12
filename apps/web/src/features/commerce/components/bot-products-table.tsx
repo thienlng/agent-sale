@@ -41,6 +41,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatDateTime } from '@/lib/format';
+import { groupWording, industryGroup } from '@/lib/industry-group';
 
 import { useBotProducts, useProducts, useSetBotProducts } from '../api/commerce';
 import { downloadCsv, formatProductsCsv } from './bot-products-csv';
@@ -52,14 +53,18 @@ function ProductRow({
   product,
   index,
   selection,
+  industry,
 }: {
   product: ProductDto;
   index: number;
+  /** The business's industry: a service business reads "dịch vụ" instead of "sản phẩm". */
+  industry?: string | undefined;
   /** Shown when the bot sells only selected products. */
   selection?: { checked: boolean; onChange: (checked: boolean) => void } | undefined;
 }) {
   const { t } = useTranslation('training');
   const { t: common } = useTranslation();
+  const k = groupWording(industry, 'data.products', 'data.services');
   const navigate = useNavigate();
   return (
     <TableRow
@@ -73,7 +78,7 @@ function ProductRow({
           <Checkbox
             checked={selection.checked}
             onCheckedChange={(v) => selection.onChange(v === true)}
-            aria-label={t('data.products.select', { name: product.name })}
+            aria-label={t(k('select'), { name: product.name })}
           />
         </TableCell>
       ) : null}
@@ -98,7 +103,9 @@ function ProductRow({
           </span>
         </div>
       </TableCell>
-      <TableCell className="tabular-nums">{priceLabel(product, false, common)}</TableCell>
+      <TableCell className="tabular-nums">
+        {priceLabel(product, industryGroup(industry) === 'service', common)}
+      </TableCell>
       <TableCell className="whitespace-normal text-sm text-muted-foreground">
         <span className="line-clamp-2 break-words">{product.description || '—'}</span>
       </TableCell>
@@ -113,8 +120,17 @@ function ProductRow({
  * Bot "Sản phẩm" page body: search, CSV download, add menu, table and pagination. With
  * `selecting`, a checkbox per row picks the products this bot sells (T-080).
  */
-export function BotProductsTable({ botId, selecting }: { botId: string; selecting: boolean }) {
+export function BotProductsTable({
+  botId,
+  selecting,
+  industry,
+}: {
+  botId: string;
+  selecting: boolean;
+  industry?: string | undefined;
+}) {
   const { t } = useTranslation('training');
+  const k = groupWording(industry, 'data.products', 'data.services');
   const selection = useBotProducts(botId);
   const setSelection = useSetBotProducts(botId);
   const selected = new Set(selection.data?.productIds ?? []);
@@ -123,7 +139,7 @@ export function BotProductsTable({ botId, selecting }: { botId: string; selectin
     if (checked) next.add(productId);
     else next.delete(productId);
     setSelection.mutate([...next], {
-      onError: () => toast.error(t('data.products.selectError')),
+      onError: () => toast.error(t(k('selectError'))),
     });
   };
   const columns = selecting ? 6 : 5;
@@ -146,12 +162,12 @@ export function BotProductsTable({ botId, selecting }: { botId: string; selectin
   const exportCsv = () =>
     downloadCsv(
       formatProductsCsv(rows, {
-        code: t('data.products.colCode'),
-        name: t('data.products.colProduct'),
-        priceMin: `${t('data.products.colPrice')} min`,
-        priceMax: `${t('data.products.colPrice')} max`,
-        description: t('data.products.colDescription'),
-        updatedAt: t('data.products.colUpdated'),
+        code: t(k('colCode')),
+        name: t(k('colProduct')),
+        priceMin: `${t(k('colPrice'))} min`,
+        priceMax: `${t(k('colPrice'))} max`,
+        description: t(k('colDescription')),
+        updatedAt: t(k('colUpdated')),
       }),
       `products-${new Date().toISOString().slice(0, 10)}.csv`,
     );
@@ -160,7 +176,7 @@ export function BotProductsTable({ botId, selecting }: { botId: string; selectin
     <div className="flex min-w-0 flex-col gap-4">
       {selecting && selection.data && !selected.size ? (
         <p role="status" className="rounded-lg bg-warning-soft p-3 text-sm text-warning">
-          {t('data.products.noneSelected')}
+          {t(k('noneSelected'))}
         </p>
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
@@ -173,8 +189,8 @@ export function BotProductsTable({ botId, selecting }: { botId: string; selectin
             type="search"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={t('data.products.search')}
-            aria-label={t('data.products.search')}
+            placeholder={t(k('search'))}
+            aria-label={t(k('search'))}
             className="pl-9"
           />
         </div>
@@ -183,8 +199,8 @@ export function BotProductsTable({ botId, selecting }: { botId: string; selectin
             variant="outline"
             size="icon-lg"
             disabled={!rows.length}
-            aria-label={t('data.products.exportCsv')}
-            title={t('data.products.exportCsv')}
+            aria-label={t(k('exportCsv'))}
+            title={t(k('exportCsv'))}
             onClick={exportCsv}
           >
             <Download />
@@ -193,7 +209,7 @@ export function BotProductsTable({ botId, selecting }: { botId: string; selectin
             <DropdownMenuTrigger asChild>
               <Button size="sm">
                 <Plus />
-                {t('data.products.add')}
+                {t(k('add'))}
                 <ChevronDown aria-hidden />
               </Button>
             </DropdownMenuTrigger>
@@ -214,13 +230,13 @@ export function BotProductsTable({ botId, selecting }: { botId: string; selectin
             <TableHeader>
               <TableRow className="bg-muted hover:bg-muted [&>th]:font-medium [&>th]:text-brand-text">
                 {selecting ? (
-                  <TableHead className="w-14 text-center">{t('data.products.colSelect')}</TableHead>
+                  <TableHead className="w-14 text-center">{t(k('colSelect'))}</TableHead>
                 ) : null}
-                <TableHead className="w-14 text-center">{t('data.products.colIndex')}</TableHead>
-                <TableHead>{t('data.products.colProduct')}</TableHead>
-                <TableHead className="w-44">{t('data.products.colPrice')}</TableHead>
-                <TableHead>{t('data.products.colDescription')}</TableHead>
-                <TableHead className="w-40 text-right">{t('data.products.colUpdated')}</TableHead>
+                <TableHead className="w-14 text-center">{t(k('colIndex'))}</TableHead>
+                <TableHead>{t(k('colProduct'))}</TableHead>
+                <TableHead className="w-44">{t(k('colPrice'))}</TableHead>
+                <TableHead>{t(k('colDescription'))}</TableHead>
+                <TableHead className="w-40 text-right">{t(k('colUpdated'))}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -236,6 +252,7 @@ export function BotProductsTable({ botId, selecting }: { botId: string; selectin
                     <ProductRow
                       key={p.id}
                       product={p}
+                      industry={industry}
                       index={(data ? (data.page - 1) * data.pageSize : 0) + i + 1}
                       selection={
                         selecting
@@ -261,7 +278,7 @@ export function BotProductsTable({ botId, selecting }: { botId: string; selectin
                         </Button>
                       </span>
                     ) : (
-                      t('data.products.empty')
+                      t(k('empty'))
                     )}
                   </TableCell>
                 </TableRow>
@@ -273,9 +290,9 @@ export function BotProductsTable({ botId, selecting }: { botId: string; selectin
 
       <div className="flex flex-wrap items-center gap-2">
         <p className="mr-auto text-sm text-muted-foreground">
-          {t('data.products.total', { count: data?.total ?? 0 })}
+          {t(k('total'), { count: data?.total ?? 0 })}
           {selecting && selection.data
-            ? ` · ${t('data.products.selectedCount', { count: selected.size })}`
+            ? ` · ${t(k('selectedCount'), { count: selected.size })}`
             : null}
         </p>
         <Select

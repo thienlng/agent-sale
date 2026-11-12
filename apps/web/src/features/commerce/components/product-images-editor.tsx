@@ -26,13 +26,18 @@ export function ProductImagesEditor({
   onChange,
   readOnly = false,
   lockedHint,
+  service = false,
 }: {
+  /** A course or service: "Ảnh dịch vụ" instead of "Ảnh sản phẩm". */
+  service?: boolean;
   value: string[];
   onChange: (urls: string[]) => void;
   readOnly?: boolean;
   lockedHint?: ReactNode;
 }) {
   const { t } = useTranslation();
+  const k = (key: string) =>
+    service ? [`products.service.${key}`, `products.form.${key}`] : `products.form.${key}`;
   // Uploads finish later: append to what the user has now, not to what they had at the start.
   const latest = useRef(value);
   latest.current = value;
@@ -41,7 +46,7 @@ export function ProductImagesEditor({
     <section className="rounded-xl border bg-card p-4 md:p-5" aria-labelledby="pf-images-title">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="pf-images-title" className="font-semibold">
-          {t('products.form.images')}
+          {t(k('images'))}
         </h2>
         <span className="text-sm text-muted-foreground">
           {t('products.form.imageCount', { n: value.length, max: MAX_PRODUCT_IMAGES })}
@@ -51,7 +56,7 @@ export function ProductImagesEditor({
         <div className="mt-1">{lockedHint}</div>
       ) : (
         <p className="mt-1 text-sm text-muted-foreground">
-          {t('products.form.imagesHint', { max: MAX_PRODUCT_IMAGES })}
+          {t(k('imagesHint'), { max: MAX_PRODUCT_IMAGES })}
         </p>
       )}
 
@@ -61,7 +66,7 @@ export function ProductImagesEditor({
             <li key={url} className="relative overflow-hidden rounded-lg border bg-muted">
               <img
                 src={url}
-                alt={t('products.form.imageAlt', { n: i + 1 })}
+                alt={t(k('imageAlt'), { n: i + 1 })}
                 loading="lazy"
                 referrerPolicy="no-referrer"
                 className="aspect-square w-full object-cover"

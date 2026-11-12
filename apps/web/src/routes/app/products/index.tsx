@@ -4,7 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ProductsList } from '@/features/commerce/components/products-list';
 import { usePmsLink } from '@/features/integration/api/integrations';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
-import { industryGroup, offeringKindOf } from '@/features/workspace/utils/industry-group';
+import { industryGroup, offeringKindOf } from '@/lib/industry-group';
 
 export const Route = createFileRoute('/app/products/')({
   component: function ProductsRoute() {

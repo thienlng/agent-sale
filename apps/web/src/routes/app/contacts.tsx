@@ -16,7 +16,7 @@ import {
   useSubscriptionColumns,
 } from '@/features/saas/components/subscription-columns';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
-import { industryGroup } from '@/features/workspace/utils/industry-group';
+import { industryGroup } from '@/lib/industry-group';
 import { useCan } from '@/lib/permissions';
 import { loadNamespace } from '@/lib/i18n';
 

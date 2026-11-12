@@ -447,7 +447,9 @@ export function ProductForm({
             ) : null}
           </div>
           <div className="flex flex-col gap-1.5 md:col-span-2">
-            <Label htmlFor="pf-bot-instructions">{training('productInstructions')}</Label>
+            <Label htmlFor="pf-bot-instructions">
+              {training(nounKind ? 'service.productInstructions' : 'productInstructions')}
+            </Label>
             <Textarea
               id="pf-bot-instructions"
               maxLength={4000}
@@ -455,7 +457,9 @@ export function ProductForm({
               value={botInstructions}
               onChange={(event) => setBotInstructions(event.target.value)}
             />
-            <p className="text-sm text-muted-foreground">{training('productInstructionsHint')}</p>
+            <p className="text-sm text-muted-foreground">
+              {training(nounKind ? 'service.productInstructionsHint' : 'productInstructionsHint')}
+            </p>
           </div>
           <div className="flex flex-col gap-1.5 md:col-span-2">
             <FieldLabel htmlFor="pf-description" locked={locked}>
@@ -483,6 +487,7 @@ export function ProductForm({
         ) : null}
 
         <ProductImagesEditor
+          service={nounKind !== null}
           value={imageUrls}
           onChange={setImageUrls}
           readOnly={locked}
@@ -646,6 +651,7 @@ export function ProductForm({
       {product && !locked && canManage ? (
         <DeleteProductSection
           product={product}
+          service={nounKind !== null}
           onDeleted={() => void navigate({ to: '/app/products' })}
           onArchived={() => setArchived(true)}
         />

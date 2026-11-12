@@ -35,7 +35,7 @@ import { useCan } from '@/lib/permissions';
 import { ContactConversations } from './contact-conversations';
 import { InboxContactControls } from './inbox-contact-controls';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
-import { industryGroup } from '@/features/workspace/utils/industry-group';
+import { industryGroup } from '@/lib/industry-group';
 import { ConversationBookings } from '@/features/lodging/components/conversation-bookings';
 import { SubscriptionCard } from '@/features/saas/components/subscription-card';
 

@@ -17,6 +17,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { industryGroup } from '@/lib/industry-group';
 import { useCan } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
 
@@ -80,9 +81,13 @@ function NavLink({
     >
       {Icon ? <Icon aria-hidden className="size-4 shrink-0" /> : null}
       {t(
-        item.key === 'products' && industry === 'hotel'
-          ? 'space.nav.properties'
-          : `space.nav.${item.key}`,
+        item.key !== 'products'
+          ? `space.nav.${item.key}`
+          : industry === 'hotel'
+            ? 'space.nav.properties'
+            : industryGroup(industry) === 'service'
+              ? 'space.nav.services'
+              : 'space.nav.products',
       )}
     </Link>
   );

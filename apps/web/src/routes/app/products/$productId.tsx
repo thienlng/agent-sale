@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useProduct } from '@/features/commerce/api/commerce';
 import { ProductForm } from '@/features/commerce/components/product-form';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
-import { offeringKindOf } from '@/features/workspace/utils/industry-group';
+import { offeringKindOf } from '@/lib/industry-group';
 import { usePmsLink } from '@/features/integration/api/integrations';
 import { ApiClientError } from '@/lib/api-client';
 
