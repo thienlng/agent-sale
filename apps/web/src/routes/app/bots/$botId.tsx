@@ -81,7 +81,11 @@ function BotSpace() {
       </div>
 
       {chatOpen ? (
-        <aside className="chat-dock sticky hidden w-[380px] shrink-0 self-start border-l xl:flex xl:flex-col">
+        // The owner assistant's launcher hides while this chat is open (TM-13).
+        <aside
+          data-assistant-hide="xl"
+          className="chat-dock sticky hidden w-[380px] shrink-0 self-start border-l xl:flex xl:flex-col"
+        >
           {chat(() => setChatOpen(false))}
         </aside>
       ) : (
@@ -111,7 +115,12 @@ function BotSpace() {
       </Button>
 
       <Sheet open={mobileChat} onOpenChange={setMobileChat}>
-        <SheetContent side="right" className="w-full p-0 sm:max-w-md" style={sheetBox}>
+        <SheetContent
+          side="right"
+          data-assistant-hide="always"
+          className="w-full p-0 sm:max-w-md"
+          style={sheetBox}
+        >
           <SheetTitle className="sr-only">{t('playground.title')}</SheetTitle>
           {chat()}
         </SheetContent>
