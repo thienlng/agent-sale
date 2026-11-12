@@ -1,7 +1,7 @@
 # Prompt evals
 
 Cases that drive real customer questions through the production reply pipeline
-(`PlaygroundService.playground()`: prompts `sales-agent@15` (retail) / `@21` (lodging) / `@19`
+(`PlaygroundService.playground()`: prompts `sales-agent@27` (retail) / `@25` (lodging) / `@26`
 (saas, education, spa), business
 profile block, FAQs, situations, history compression, the agent loop with catalog, `calculate`,
 `send_message`, `handoff`, order and action tools, reply post-processing) and check what the
@@ -18,7 +18,7 @@ pnpm --filter @agent-sales/backend eval --live --id saas-demo-recorded-no-handof
 ```
 
 `--prompt-version n` forces `sales-agent@n` for every case. Without it each case runs on its
-industry's prompt (`PROMPT_BY_INDUSTRY`: hotel `@21`; saas, education and spa `@19`; others `@15`).
+industry's prompt (`PROMPT_BY_INDUSTRY`: hotel `@25`; saas, education and spa `@26`; others `@27`).
 
 - **Fake mode** (default): the scripted model replays the case's `fake_turns`, one per model call
   of the agent loop. A turn with `tool_calls` makes the loop run those tools (catalog lookups,

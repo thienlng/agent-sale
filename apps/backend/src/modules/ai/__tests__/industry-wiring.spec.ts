@@ -93,13 +93,13 @@ async function turn(industry: string, orderTaking = false) {
 }
 
 describe('industry wiring of the reply pipeline (ESV §5.3)', () => {
-  it('maps the request industries to @23, hotel to @22 and the rest to @24', async () => {
-    expect(PROMPT_BY_INDUSTRY).toMatchObject({ saas: 23, education: 23, spa: 23, hotel: 22 });
+  it('maps the request industries to @26, hotel to @25 and the rest to @27', async () => {
+    expect(PROMPT_BY_INDUSTRY).toMatchObject({ saas: 26, education: 26, spa: 26, hotel: 25 });
     for (const industry of ['saas', 'education', 'spa'])
-      expect((await turn(industry)).promptVersion, industry).toBe('sales-agent@23');
-    expect((await turn('hotel')).promptVersion).toBe('sales-agent@22');
-    expect((await turn('retail')).promptVersion).toBe('sales-agent@24');
-    expect(salesPromptFor('fashion')).toEqual({ name: 'sales-agent', version: 24 });
+      expect((await turn(industry)).promptVersion, industry).toBe('sales-agent@26');
+    expect((await turn('hotel')).promptVersion).toBe('sales-agent@25');
+    expect((await turn('retail')).promptVersion).toBe('sales-agent@27');
+    expect(salesPromptFor('fashion')).toEqual({ name: 'sales-agent', version: 27 });
   });
 
   it('the @19 system prompt carries the request section and the course / service facts', async () => {

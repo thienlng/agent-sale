@@ -70,7 +70,7 @@ export const CATALOG_TOOLS: ToolDefinition[] = [
   {
     name: 'search_products',
     description:
-      'Search the shop catalog. With a query (keywords you choose, any language) returns up to 8 ranked products and the full details of the top 3. Without a query returns the compact list of every product (or the categories when the catalog is too large). Search before saying the shop lacks something; try other keywords.',
+      'Search the shop catalog. With a query (keywords you choose, any language) returns up to 8 ranked products and the full details of the top 3. Without a query returns the compact list of every product (or the categories when the catalog is too large). Search before saying the shop lacks something; try other keywords. catalogEmpty true means the shop has not listed any product yet: then <business_profile> and <knowledge> are the description of what it offers, rooms and capacity included.',
     input: SearchInput,
   },
   {
@@ -106,12 +106,17 @@ async function search(ctx: CatalogToolContext, input: z.infer<typeof SearchInput
     ctx.onProducts?.(top);
     ctx.onListed?.(rows);
     return done(
-      { rows: rows.map(compactProduct), details: top.map(productDetails) },
+      {
+        rows: rows.map(compactProduct),
+        details: top.map(productDetails),
+        ...(rows.length ? {} : await emptyCatalog(ctx)),
+      },
       top.map((p) => p.id),
     );
   }
   const filtered = input.maxPriceVnd !== undefined || input.inStockOnly !== undefined;
   const total = filtered ? undefined : await catalog.countBotCatalog(ws, scope);
+  if (total === 0) return done({ index: [], catalogEmpty: true });
   if (total !== undefined && total <= BROWSE_CAP) {
     return browse(
       ctx,
@@ -128,6 +133,15 @@ async function search(ctx: CatalogToolContext, input: z.infer<typeof SearchInput
       .sort()
       .slice(0, MAX_CATEGORIES),
   });
+}
+
+/**
+ * EV-1: a search that finds nothing in a catalog with no product at all says so. The prompt makes
+ * the catalog the only source of products and capacity; with nothing listed, the hand-written
+ * profile is all the shop has told the bot, and the model must not answer "no information".
+ */
+async function emptyCatalog(ctx: CatalogToolContext): Promise<{ catalogEmpty?: true }> {
+  return (await ctx.catalog.countBotCatalog(ctx.ws, ctx.scope)) === 0 ? { catalogEmpty: true } : {};
 }
 
 function browse(ctx: CatalogToolContext, rows: ProductDto[]): ToolResult {

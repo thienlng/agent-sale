@@ -148,18 +148,24 @@ export { EMAIL_KNOWN_LINE, PHONE_KNOWN_LINE };
 // Steps 2 and 5 change bot behaviour: run the ai evals before/after. Measure first (prompt viewer).
 /** The sales-agent prompt version of a bot's industry; an industry not listed gets @15 (retail). */
 export const PROMPT_BY_INDUSTRY: Readonly<Record<string, SalesPromptVersion>> = {
-  // @22 = @21 + "the catalog is live" (catalog wins over the hand-written profile for which
-  // properties exist, how many, prices and capacity). @21 = @20 + unit details, unit albums and
-  // bedroom packages (T-193). @20 = @18 + lodging media folders (T-192).
-  hotel: 22,
-  // The request industries: @23 = @19 + "the catalog is live"; @19 = @15 plus "Recording a
-  // request" and the course / service facts.
-  saas: 23,
-  education: 23,
-  spa: 23,
+  // @25 = @22 + two rules (staging EV-1, EV-4): a search_products result with catalogEmpty makes
+  // <business_profile> and <knowledge> the shop's facts, and a known customer pronoun is used at
+  // least once per reply. @22 = @21 + "the catalog is live" (catalog wins over the hand-written
+  // profile for which properties exist, how many, prices and capacity). @21 = @20 + unit details,
+  // unit albums and bedroom packages (T-193). @20 = @18 + lodging media folders (T-192).
+  hotel: 25,
+  // The request industries: @26 = @23 + the same two rules as @25. @23 = @19 + "the catalog is
+  // live"; @19 = @15 plus "Recording a request" and the course / service facts.
+  saas: 26,
+  education: 26,
+  spa: 26,
 };
-/** @24 = @15 + "the catalog is live". */
-const DEFAULT_PROMPT_VERSION: SalesPromptVersion = 24;
+/**
+ * @27 = @24 + the two rules of @25 and, for a profile field that answers the question, every
+ * condition it states (fees, a free-shipping threshold, delivery times; staging EV-3). @24 = @15 +
+ * "the catalog is live".
+ */
+const DEFAULT_PROMPT_VERSION: SalesPromptVersion = 27;
 /** The sales-agent prompt of a bot of `industry` (without the forcing option). */
 export function salesPromptFor(industry: string): {
   name: 'sales-agent';
@@ -168,7 +174,8 @@ export function salesPromptFor(industry: string): {
   return { name: 'sales-agent', version: PROMPT_BY_INDUSTRY[industry] ?? DEFAULT_PROMPT_VERSION };
 }
 /** The sales-agent prompt versions the option may force (13/14: before the order tools). */
-export type SalesPromptVersion = 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24;
+export type SalesPromptVersion =
+  13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27;
 /** Optional DI token: forces the sales-agent prompt for every bot (default: `PROMPT_BY_INDUSTRY`). */
 export const PROMPT_VERSION_OPTION = Symbol('PROMPT_VERSION_OPTION');
 /**

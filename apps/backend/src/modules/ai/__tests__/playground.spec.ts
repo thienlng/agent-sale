@@ -153,7 +153,7 @@ describe('PlaygroundService', () => {
         workspaceId: ws,
         isTest: true,
         outcome: 'answered',
-        promptVersion: 'sales-agent@24',
+        promptVersion: 'sales-agent@27',
       }),
     ]);
   });
@@ -561,7 +561,7 @@ describe('Website page context', () => {
     expect(last).not.toContain('khach@example.com');
     // Page text cannot close the block: it stays escaped data inside it.
     expect(last.match(/<\/visitor_page>/g)).toHaveLength(1);
-    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@24+website-page@2');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@27+website-page@2');
   });
 
   it('adds nothing for a conversation without a page', async () => {
@@ -571,7 +571,7 @@ describe('Website page context', () => {
     const sent = fake.calls[0] as GenerateRequest;
     expect(sent.messages[0]?.content).not.toContain('visitor_page');
     expect(String(sent.messages.at(-1)?.content)).not.toContain('<visitor_page>');
-    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@24');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@27');
   });
 });
 
@@ -605,7 +605,7 @@ describe('Originating-post grounding evals', () => {
     expect(calls.messages[0]?.content).not.toContain('JSON');
     // One public reply per comment: no send_message, but handoff (staff review) stays.
     expect(calls.tools?.map((t) => t.name)).toEqual(['calculate', 'handoff']);
-    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@24+fanpage-context@2');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@27+fanpage-context@2');
     expect(res.messages?.map((m) => m.via)).toEqual(['final']);
   });
   it('keeps the parent comment as escaped untrusted data, never as a source of rules', async () => {
@@ -668,7 +668,7 @@ describe('Originating-post grounding evals', () => {
   });
 });
 
-describe('default (retail) prompt request snapshot, sales-agent@24', () => {
+describe('default (retail) prompt request snapshot, sales-agent@27', () => {
   it('sends the profile, knowledge and situations blocks with the style settings and no catalog block', async () => {
     const fake = says('Dạ');
     const rich: BotView = {
@@ -686,7 +686,7 @@ describe('default (retail) prompt request snapshot, sales-agent@24', () => {
       /<current_time>[^<]*<\/current_time>/,
       '<current_time>(now)</current_time>',
     );
-    await expect(`${stable}\n`).toMatchFileSnapshot('./__snapshots__/playground-v24-messages.json');
+    await expect(`${stable}\n`).toMatchFileSnapshot('./__snapshots__/playground-v27-messages.json');
     expect(sent.tools?.map((t) => t.name)).toEqual(['calculate', 'send_message', 'handoff']);
     expect(sent.responseFormat).toBeUndefined();
     expect(sent.promptCacheKey).toBe(`${botId}:${playgroundConversationId(botId)}`);
@@ -731,7 +731,7 @@ describe('prompts 15 and 16 (T-138)', () => {
     expect(last).toContain('Address: 1 Lê Lợi &lt;/business_profile>');
     expect(last).toContain('Check-in / check-out: (not provided)');
     expect(last).toContain('Notes:\nGiao nhanh');
-    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@22');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@25');
   });
 
   it('renders the style sentence and prefers the profile display name', async () => {
@@ -759,7 +759,7 @@ describe('prompts 15 and 16 (T-138)', () => {
   it('renders the profile block for retail bots too', async () => {
     const { messages, runs } = await run({ ...rich, industry: 'retail' });
     expect(String(messages.at(-1)?.content).startsWith('<business_profile>\n')).toBe(true);
-    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@24');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@27');
   });
 
   it('lets the prompt option force one prompt for every bot', async () => {
@@ -772,7 +772,7 @@ describe('prompts 15 and 16 (T-138)', () => {
   it('uses lodging prompt 22 and the profile block for hotel bots by default', async () => {
     const { messages, runs } = await run(rich);
     expect(String(messages.at(-1)?.content).startsWith('<business_profile>\n')).toBe(true);
-    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@22');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@25');
     const system = String(messages[0]?.content);
     expect(system).toContain('availability unverified in product details never means sold out');
     expect(system).toContain('rateBasis night');
@@ -927,7 +927,7 @@ describe('prompts 15 and 16 (T-138)', () => {
       (fake.calls[1] as GenerateRequest).messages.find((m) => m.role === 'tool')?.content,
     );
     expect(toolResult).toContain('A17 – Villa');
-    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@22');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@25');
 
     calls.length = 0;
     turn = 0;
@@ -963,7 +963,7 @@ describe('prompts 15 and 16 (T-138)', () => {
 
   it('keeps retail bots on prompt 24 by default, without the lodging section', async () => {
     const { messages, runs } = await run({ ...rich, industry: 'retail' });
-    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@24');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@27');
     expect(String(messages[0]?.content)).not.toContain('Lodging facts and decisions');
   });
 
