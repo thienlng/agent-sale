@@ -77,7 +77,18 @@ export const workspaces = pgTable(
     status: text('status').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Set when the owner asked to delete the business (0079, ADR-033); hides it everywhere. */
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    /** End of the 30-day restore window; the worker purges the business after it (0079). */
+    purgeAfter: timestamp('purge_after', { withTimezone: true }),
+    /** When the purge finished; the row is then a tombstone with `status = 'deleted'` (0079). */
+    purgedAt: timestamp('purged_at', { withTimezone: true }),
+    /** Failed purge runs of this business; reset when a run finishes (0080, ADR-033). */
+    purgeAttempts: integer('purge_attempts').notNull().default(0),
+    /** No purge attempt before this time (exponential back-off after a failure, 0080). */
+    purgeNextAt: timestamp('purge_next_at', { withTimezone: true }),
+    /** Class or SQLSTATE of the last purge failure; never data (0080). */
+    purgeLastError: text('purge_last_error'),
     /** Business profile (0017), separate from the user's login details and billing identity. */
     companyName: text('company_name').notNull().default(''),
     businessServices: text('business_services').notNull().default(''),
@@ -94,6 +105,9 @@ export const workspaces = pgTable(
   (t) => [
     index('workspaces_owner_idx').on(t.ownerUserId),
     index('workspaces_account_idx').on(t.accountId),
+    index('workspaces_purge_queue_idx')
+      .on(t.purgeAfter)
+      .where(sql`status in ('pending_deletion', 'purging')`),
     ...tenantPolicies('workspaces'),
   ],
 );

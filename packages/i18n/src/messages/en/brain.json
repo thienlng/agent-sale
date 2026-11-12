@@ -1,6 +1,8 @@
 {
   "today": {
-    "title": "Today",
+    "section": "Today's work",
+    "noneLine": "Nothing in: {{list}}",
+    "allClear": "Nothing needs doing today yet",
     "refresh": "Refresh ({{count}} left)",
     "refreshUnlimited": "Refresh",
     "refreshing": "Evaluating…",

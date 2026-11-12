@@ -14,6 +14,8 @@
 
 **Events consumed:** none (claims `channel_webhook_events` through the channel facade).
 
+**Customer deletion (docs/09 §10):** `ConversationErasure` registers on crm's `CONTACT_LIFECYCLE`: `collect` adds the customer's conversation ids (`contact_id`); `erase` (after every `detach` step) removes the pictures the customer uploaded through website chat (`CUSTOMER_MEDIA`, keys `webchat/<workspace>/…` only; product pictures and Meta CDN links stay), then the messages and conversations in one transaction (Brain signals and jobs and care enrollments/messages follow by foreign key), then the processed raw events of those peers through `ChannelFacade.forgetCustomerEvents` (a failure there is logged, never fatal).
+
 **Hooks:** registers a `BOT_LIFECYCLE.onDeleted` handler that clears `conversations.bot_id` for the deleted bot in that workspace (`releaseBot`; bots are soft-deleted, so the column's `ON DELETE SET NULL` never fires — ADR-012 §4).
 
 **Invariants:**

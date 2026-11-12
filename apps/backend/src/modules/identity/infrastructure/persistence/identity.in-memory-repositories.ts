@@ -14,6 +14,7 @@ import type {
 import type { MfaRecord, MfaRepository } from '../../domain/ports/mfa.repository.js';
 import type { SessionRecord, SessionRepository } from '../../domain/ports/session.repository.js';
 import type { UserRepository } from '../../domain/ports/user.repository.js';
+import type { TrialClaimRepository } from '../../domain/ports/trial-claim.repository.js';
 import { User } from '../../domain/user.js';
 
 /** DB-less adapters (unit tests, quick local runs). Same semantics as the Drizzle ones. */
@@ -199,5 +200,15 @@ export class InMemoryExternalIdentityRepository implements ExternalIdentityRepos
     const existing = this.rows.get(key);
     if (existing && existing.userId !== identity.userId) return;
     this.rows.set(key, { ...identity, lastLoginAt: at });
+  }
+}
+
+export class InMemoryTrialClaimRepository implements TrialClaimRepository {
+  readonly rows = new Map<string, string>();
+
+  async claim(canonicalEmail: string, userId: string): Promise<boolean> {
+    const holder = this.rows.get(canonicalEmail);
+    if (holder === undefined) this.rows.set(canonicalEmail, userId);
+    return (holder ?? userId) === userId;
   }
 }

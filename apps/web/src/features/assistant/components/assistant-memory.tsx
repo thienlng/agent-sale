@@ -1,14 +1,20 @@
 import type { AssistantMemoryEntryDto, AssistantMemoryStoreDto } from '@agent-sales/contracts';
-import { Trash2 } from 'lucide-react';
+import { Check, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 
-import { useAssistantMemory, useForgetAssistantMemory } from '../api/assistant';
+import {
+  useApproveAssistantMemory,
+  useAssistantMemory,
+  useForgetAssistantMemory,
+} from '../api/assistant';
+import { ViewHeader } from './view-header';
 
 /** `owner_profile` and `notes` have translated names; a business store carries its name. */
 function useStoreLabel(store: AssistantMemoryStoreDto): string {
@@ -22,10 +28,38 @@ function MemoryEntry({ store, entry }: { store: string; entry: AssistantMemoryEn
   const { t } = useTranslation('assistant');
   const [confirming, setConfirming] = useState(false);
   const forget = useForgetAssistantMemory();
+  const approve = useApproveAssistantMemory();
   return (
-    <li className="flex flex-col gap-2 rounded-lg border px-3 py-2">
+    <li className="flex flex-col gap-2 rounded-xl border bg-card px-4 py-3">
       <div className="flex items-start gap-2">
-        <p className="min-w-0 flex-1 text-sm break-words whitespace-pre-line">{entry.text}</p>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <p className="text-sm break-words whitespace-pre-line">{entry.text}</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {entry.pending ? <Badge variant="secondary">{t('memory.pending')}</Badge> : null}
+            <span className="text-xs text-muted-foreground">
+              {t(`memory.origin.${entry.origin}`)}
+            </span>
+          </div>
+        </div>
+        {entry.pending && !confirming ? (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={approve.isPending}
+            onClick={() =>
+              approve.mutate(
+                { store, entryId: entry.id },
+                {
+                  onSuccess: () => toast.success(t('memory.approved')),
+                  onError: () => toast.error(t('memory.approveError')),
+                },
+              )
+            }
+          >
+            <Check />
+            {t('memory.approve')}
+          </Button>
+        ) : null}
         {confirming ? null : (
           <Button
             variant="ghost"
@@ -102,14 +136,17 @@ function MemoryStore({ store }: { store: AssistantMemoryStoreDto }) {
   );
 }
 
-/** "Trợ lý nhớ gì": every memory store with its use, and a confirmed delete per entry. */
+/**
+ * "Trợ lý nhớ gì": every memory store with its use, and a confirmed delete per entry. An entry
+ * waiting for approval (saved by the review or after the assistant read data) shows a badge and
+ * an approve button; forgetting it rejects it.
+ */
 export function AssistantMemory() {
   const { t } = useTranslation('assistant');
   const memory = useAssistantMemory();
   return (
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
-      <h2 className="font-semibold">{t('memory.title')}</h2>
-      <p className="mt-1 text-sm text-muted-foreground">{t('memory.hint')}</p>
+      <ViewHeader title={t('memory.title')} hint={t('memory.hint')} />
       {memory.isPending ? (
         <div className="mt-4 flex flex-col gap-3">
           <Skeleton className="h-16" />
@@ -120,7 +157,7 @@ export function AssistantMemory() {
           {t('loadError')}
         </p>
       ) : (
-        <div className="mt-4 flex flex-col gap-5">
+        <div className="mt-6 flex flex-col gap-6">
           {memory.data.stores.map((store) => (
             <MemoryStore key={store.store} store={store} />
           ))}

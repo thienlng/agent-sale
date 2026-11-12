@@ -95,7 +95,10 @@ function setup(
     ),
   };
   const adminStore = admin as unknown as BillingAdminStore;
-  const workspaces = { accountOf: vi.fn(async () => accountId) };
+  const workspaces = {
+    accountOf: vi.fn(async () => accountId),
+    isActive: vi.fn(async (_ws: string) => true),
+  };
   return {
     store,
     admin,
@@ -110,6 +113,30 @@ function setup(
 }
 
 describe('BillingService (ADR-012 §5)', () => {
+  it('entitles a deleted business to nothing and refuses every AI reply (ADR-033)', async () => {
+    for (const account of ['acc-1', null]) {
+      const { billing, workspaces, store } = setup(
+        { accountSubscription: sub('sales_pro') },
+        account,
+      );
+      workspaces.isActive.mockResolvedValue(false);
+      const e = await billing.entitlements(ws);
+      expect(e.limits['members.max']).toBe(0);
+      expect(e.limits['brain.evaluations.daily']).toBe(0);
+      expect(e.limits['care.messages.daily']).toBe(0);
+      expect(e.features['feature.public_api']).toBe(false);
+      expect(e.aiIncludedMessages?.amount).toBe(0);
+      expect(await billing.limit(ws, 'contacts.max')).toBe(0);
+      const reply = await billing.reserveReply(ws, {
+        idempotencyKey: 'k',
+        conversationId: null,
+        botId: null,
+      });
+      expect(reply).toMatchObject({ allowed: false, reason: 'account_suspended' });
+      expect(store.reserve).not.toHaveBeenCalled();
+    }
+  });
+
   it("prefers the account's subscription and applies business overrides last", async () => {
     const { billing } = setup({
       subscription: sub('free'),

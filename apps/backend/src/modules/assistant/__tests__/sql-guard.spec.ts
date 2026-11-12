@@ -263,6 +263,23 @@ describe('checkSql: rejected', () => {
     expect(check(sql)).toEqual({ ok: false, reason });
   });
 
+  it('rejects every spelling of the scope GUC functions', () => {
+    // The database also refuses a rewritten scope (0076); the guard is the first line.
+    for (const sql of [
+      "select set_config('app.account_id', '00000000-0000-0000-0000-000000000000', true)",
+      "select pg_catalog.set_config('app.assistant_business_ids', '{}', true)",
+      "select \"set_config\"('app.account_id', 'x', true)",
+      "select \"SET_CONFIG\"('app.account_id', 'x', true)",
+      "select 1 from orders where business_id::text = current_setting('app.account_id', true)",
+      "select pg_catalog.current_setting('app.assistant_scope_seal')",
+      'select "current_setting"(\'app.account_id\')',
+      "select assistant_sql.bind_scope('a', 'b')",
+      "select bind_scope('a', 'b')",
+      'select scope_sealed()',
+    ])
+      expect([sql, check(sql).ok]).toEqual([sql, false]);
+  });
+
   it('rejects the exploding-CTE pattern of the final review (C1)', () => {
     const levels = Array.from(
       { length: 12 },

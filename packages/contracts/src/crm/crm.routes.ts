@@ -8,6 +8,7 @@ import {
   UpdateSavedViewRequest,
 } from './contact-query.schema.js';
 import {
+  ContactDeletionResult,
   ContactDto,
   ContactHistoryList,
   ContactHistoryQuery,
@@ -145,6 +146,15 @@ export const crmRoutes = defineRoutes([
     responses: { 200: ContactDto },
   }),
   route({
+    method: 'delete',
+    path: '/contacts/{contactId}',
+    // Erasure on the customer's request (PDPA): a person decides, never the assistant or a key.
+    assistant: { use: 'never' },
+    summary:
+      'Delete a customer on request: profile, notes, tags, tasks and conversations; orders and stay bookings stay anonymized',
+    responses: { 200: ContactDeletionResult },
+  }),
+  route({
     method: 'get',
     path: '/contacts/{contactId}/notes',
     assistant: { use: 'read', when: 'Notes about a customer, newest first.' },
@@ -171,6 +181,13 @@ export const crmRoutes = defineRoutes([
     summary: 'Edit a note (version-checked)',
     body: UpdateContactNoteRequest,
     responses: { 200: ContactNoteDto },
+  }),
+  route({
+    method: 'delete',
+    path: '/contacts/{contactId}/notes/{noteId}',
+    assistant: { use: 'never' },
+    summary: 'Delete a note (its author, or an owner or admin)',
+    responses: { 204: null },
   }),
   route({
     method: 'get',

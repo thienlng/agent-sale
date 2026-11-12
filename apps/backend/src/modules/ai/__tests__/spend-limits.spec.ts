@@ -77,6 +77,7 @@ function service(llm: LlmRuntime, spend: AiSpendLimits) {
     undefined, // mediaBase
     undefined, // crm
     undefined, // traces
+    undefined, // figureGuard
     spend,
   );
   return svc;

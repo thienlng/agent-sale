@@ -11,10 +11,8 @@ import {
   Package,
   Settings,
   ShoppingBag,
-  Sparkles,
   House,
   CalendarDays,
-  ListChecks,
   Users,
   UsersRound,
 } from 'lucide-react';
@@ -42,7 +40,6 @@ import {
 } from '@/components/ui/sidebar';
 import { useCan } from '@/lib/permissions';
 import { usePreferences } from '@/lib/preferences/preferences';
-import { useIsAccountOwner } from '@/lib/use-is-account-owner';
 
 import { BusinessSelector } from './business-selector';
 
@@ -57,13 +54,8 @@ interface NavItem {
 
 /** P0 items of docs/03 §2; the ones not built yet say so instead of pretending. */
 const HOME: readonly NavItem[] = [
-  /** What needs doing today (Business Brain, BRN-05): first, with its count. */
-  { to: '/app/today', key: 'nav.today', icon: ListChecks, ready: true },
+  /** Statistics with what needs doing today (Business Brain, BRN-05) on top: first, with its count. */
   { to: '/app/analytics', key: 'nav.analytics', icon: BarChart3, ready: true },
-];
-/** The owner assistant on its own page (ADR-024): account owners only, like its launcher. */
-const ASSISTANT: readonly NavItem[] = [
-  { to: '/app/assistant', key: 'nav.assistant', icon: Sparkles, ready: true },
 ];
 const BOTS: readonly NavItem[] = [{ to: '/app/bots', key: 'nav.bots', icon: Bot, ready: true }];
 const WORK: readonly NavItem[] = [
@@ -260,7 +252,6 @@ export function AppSidebar({
   const prefs = usePreferences();
   const canSettings = useCan('settings.manage');
   const canCatalog = useCan('catalog.manage');
-  const isOwner = useIsAccountOwner();
   const pms = canCatalog ? <NavItems items={PMS} /> : null;
   const catalogLabel = industry ? SERVICE_CATALOG_LABEL[industry] : undefined;
   return (
@@ -285,7 +276,6 @@ export function AppSidebar({
         {/* `contents` keeps the sidebar's own layout while exposing a navigation landmark. */}
         <nav aria-label={t('nav.mainLabel')} className="contents">
           <NavGroup label={t('nav.groupWork')} items={HOME} counts={navCounts}>
-            {isOwner ? <NavItems items={ASSISTANT} /> : null}
             <NavItems items={BOTS} />
             <NavItems items={INBOX} />
             <NavItems items={INTEGRATIONS} />

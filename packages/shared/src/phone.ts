@@ -126,6 +126,17 @@ export function normalizeAnyPhone(input: string): string | null {
     : null;
 }
 
+/**
+ * The digit strings an E.164 number may be stored as when typed by hand (formatting removed):
+ * `+84912345678` → `['84912345678', '0912345678']`; other countries → their digits only. Used to
+ * find free-text phone copies (order snapshots) of a customer being deleted.
+ */
+export function phoneDigitVariants(e164: string): string[] {
+  const digits = e164.replace(/\D/g, '');
+  if (!digits) return [];
+  return e164.startsWith('+84') ? [digits, `0${digits.slice(2)}`] : [digits];
+}
+
 /** Lower-cased, trimmed email for identity and duplicate checks. */
 export function normalizeEmail(input: string): string {
   return input.trim().toLowerCase();

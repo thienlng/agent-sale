@@ -28,7 +28,7 @@ const AssistantPanel = lazy(() =>
 /** Long enough to read a report body in the toast. */
 const REPORT_GONE_TOAST_MS = 15_000;
 
-/** The owner assistant ("Thỏ Rapiz"): a round launcher bottom-right, owners of the account only. */
+/** The owner assistant ("Rapiz Agent"): a round launcher bottom-right, owners of the account only. */
 export function AssistantBubble() {
   const { t } = useTranslation();
   const isOwner = useIsAccountOwner();

@@ -6,6 +6,7 @@ import {
   type ActionDto,
   type ActionMethod,
   type ActionParam,
+  type ActionParamSource,
   type ActionResponseField,
 } from '@agent-sales/contracts';
 
@@ -17,6 +18,8 @@ export interface ParamRow {
   location: ActionParam['location'];
   required: boolean;
   description: string;
+  /** Who fills it: the bot, or the server from the customer record (the bot never sees it). */
+  source: ActionParamSource;
 }
 export interface FieldRow {
   key: string;
@@ -57,6 +60,7 @@ export const emptyParam = (): ParamRow => ({
   location: 'query',
   required: true,
   description: '',
+  source: 'model',
 });
 export const emptyField = (): FieldRow => ({
   key: nextKey(),
@@ -101,7 +105,8 @@ export function formFromDto(dto: ActionDto): ActionForm {
     secret: '',
     hasSecret: dto.hasSecret,
     saved: { url: dto.url, auth: dto.auth },
-    params: dto.params.map((p) => ({ ...p, key: nextKey() })),
+    // Actions saved before `source` existed are filled by the bot.
+    params: dto.params.map((p) => ({ ...p, source: p.source ?? 'model', key: nextKey() })),
     responses: dto.responses.map((r) => ({
       key: nextKey(),
       statusCode: String(r.statusCode),
@@ -126,7 +131,10 @@ export function toInput(form: ActionForm): unknown {
     description: form.description,
     url: form.url,
     method: form.method,
-    params: form.params.map(({ key: _key, ...p }) => p),
+    // `source` only when the server fills the param: a bot-filled one keeps the old shape.
+    params: form.params.map(({ key: _key, source, ...p }) =>
+      source === 'model' ? p : { ...p, source },
+    ),
     responses: form.responses.map((r) => ({
       statusCode: r.statusCode.trim() === '' ? Number.NaN : Number(r.statusCode),
       fields: r.fields.map(({ key: _key, ...f }) => f),
@@ -154,6 +162,7 @@ export type ErrorKey =
   | 'statusCode'
   | 'hostPlaceholder'
   | 'secretMoved'
+  | 'sourceType'
   | 'invalid';
 export interface FieldError {
   key: ErrorKey;
@@ -176,6 +185,7 @@ function classify(issue: { code: string; path: PropertyKey[]; message: string })
   if (issue.code === 'too_big') return { key: 'tooLong' };
   if (issue.code === 'too_small') return { key: 'required' };
   if (last === 'name' && path[0] === 'params') return { key: 'paramName' };
+  if (last === 'type' && path[0] === 'params') return { key: 'sourceType' };
   if (last === 'headerName') return { key: 'headerName' };
   return { key: 'invalid' };
 }

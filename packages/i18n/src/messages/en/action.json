@@ -64,6 +64,13 @@
     "paramLocation": "Location",
     "paramRequired": "Required",
     "paramDescription": "Description",
+    "paramSource": "Filled by",
+    "paramSourceHint": "Values from the customer record are filled by the server; the bot cannot set or change them during the chat, so a customer cannot make it use another number or email. The value on file may have been typed by the customer earlier, so it does not prove they own it. When the customer has no phone or email on file, the bot does not use this action. In the test chat the bot fills them so you can try it.",
+    "sources": {
+      "model": "The bot, from the conversation",
+      "customer_phone": "Customer's phone on file",
+      "customer_email": "Customer's email on file"
+    },
     "types": {
       "string": "String",
       "number": "Number",
@@ -110,6 +117,7 @@
     "statusCode": "A code from 100 to 599",
     "hostPlaceholder": "The host cannot contain a {param}",
     "secretMoved": "Re-enter the secret: it is only sent to the address and authentication it was saved for",
+    "sourceType": "A param filled from the customer record must be a string",
     "invalid": "Invalid value"
   },
   "test": {

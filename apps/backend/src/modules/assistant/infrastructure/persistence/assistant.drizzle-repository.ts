@@ -586,6 +586,40 @@ export class DrizzleAssistantRepository implements AssistantRepository {
     });
   }
 
+  deleteThread(s: OwnerScope, threadId: string): Promise<'deleted' | 'running'> {
+    return this.#in(s, async (tx) => {
+      // The owner's run lock first (as `startRun` takes it), so no run starts in between.
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtext(${`assistant:${s.ownerUserId}`}))`,
+      );
+      await this.#ownThread(tx, s, threadId, true);
+      const [running] = await tx
+        .select({ id: r.id })
+        .from(r)
+        .where(
+          and(
+            eq(r.threadId, threadId),
+            ownsRun(s),
+            eq(r.status, 'running'),
+            sql`${r.createdAt} > now() - make_interval(secs => ${RUN_BUSY_WINDOW_MS / 1000})`,
+          ),
+        )
+        .limit(1);
+      const [executing] = running
+        ? [running]
+        : await tx
+            .select({ id: pr.id })
+            .from(pr)
+            .where(and(eq(pr.threadId, threadId), ownsProposal(s), eq(pr.status, 'executing')))
+            .limit(1);
+      if (executing) return 'running';
+      // Messages, runs (and steps), proposals, import batches and jobs go by ON DELETE CASCADE;
+      // schedule runs keep their row with thread_id set to null.
+      await tx.delete(t).where(and(eq(t.id, threadId), ownsThread(s)));
+      return 'deleted';
+    });
+  }
+
   listMessages(
     s: OwnerScope,
     threadId: string,

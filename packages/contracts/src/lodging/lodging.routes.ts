@@ -80,6 +80,16 @@ export const lodgingV2Routes = defineRoutes([
   },
   {
     ...scoped,
+    method: 'delete',
+    path: '/lodging/properties/{id}',
+    // Irreversible: only the owner, in the editor. A property with bookings answers 409
+    // `details.reason = 'property_has_bookings'` (pause it instead).
+    assistant: { use: 'never' },
+    summary: 'Delete a property that has never had a booking, with its rooms, rates and media list',
+    responses: { 204: null },
+  },
+  {
+    ...scoped,
     method: 'put',
     path: '/lodging/properties/{id}/units',
     assistant: {

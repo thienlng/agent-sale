@@ -12,8 +12,10 @@ import { getEnv } from '../../common/config.js';
 import { DB_TENANT, DB_SYSTEM } from '../../common/db/db.module.js';
 import { SECRET_BOX, SecretBox } from '../../common/security/secret-box.js';
 import { BotModule } from '../bot/bot.module.js';
+import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { CHANNEL_FACADE } from './api/channel.facade.js';
 import { ChannelFacadeImpl } from './application/channel.facade.impl.js';
+import { OnWorkspaceDeletionRequested } from './application/event-handlers/on-workspace-deletion-requested.handler.js';
 import { CHANNEL_STORE } from './application/ports/channel-store.js';
 import { META_GATEWAY } from './application/ports/meta-gateway.js';
 import { LiveMetaGateway } from './infrastructure/clients/meta-oauth.js';
@@ -22,9 +24,12 @@ import {
   UnavailableChannelStore,
 } from './infrastructure/persistence/channel.store.js';
 import { ChannelController } from './interface/http/channel.controller.js';
+import { MetaDataDeletionController } from './interface/http/meta-data-deletion.controller.js';
+import { CHANNEL_DATA_DELETION_RUNNER } from './api/channel-data-deletion.js';
+import { MetaDataDeletionRunner } from './application/meta-data-deletion.runner.js';
 @Module({
-  imports: [BotModule],
-  controllers: [ChannelController, FanpageController],
+  imports: [BotModule, WorkspaceModule],
+  controllers: [ChannelController, FanpageController, MetaDataDeletionController],
   providers: [
     {
       provide: CHANNEL_STORE,
@@ -52,8 +57,11 @@ import { ChannelController } from './interface/http/channel.controller.js';
     FanpageFacadeImpl,
     { provide: FANPAGE_FACADE, useExisting: FanpageFacadeImpl },
     ChannelFacadeImpl,
+    OnWorkspaceDeletionRequested,
     { provide: CHANNEL_FACADE, useExisting: ChannelFacadeImpl },
+    MetaDataDeletionRunner,
+    { provide: CHANNEL_DATA_DELETION_RUNNER, useExisting: MetaDataDeletionRunner },
   ],
-  exports: [CHANNEL_FACADE, FANPAGE_FACADE],
+  exports: [CHANNEL_FACADE, FANPAGE_FACADE, CHANNEL_DATA_DELETION_RUNNER],
 })
 export class ChannelModule {}

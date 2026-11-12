@@ -22,6 +22,7 @@ import { WebchatFacadeImpl } from './application/webchat.facade.impl.js';
 import { WidgetError } from './application/widget-error.js';
 import { WebchatService } from './application/webchat.service.js';
 import { TurnstileVerifier } from './infrastructure/captcha/turnstile-verifier.js';
+import { VisitorErasure } from './application/contact-erasure.js';
 import { S3WebchatUploadStorage } from './infrastructure/media/s3-webchat-upload-storage.js';
 import {
   DrizzleVisitorStore,
@@ -76,6 +77,7 @@ const PREFLIGHT = new RegExp(`^/${API_PREFIX}/webchat/v1/sites/([^/?]+)(?:/[a-z]
       },
     },
     WebchatService,
+    VisitorErasure,
     { provide: WEBCHAT_FACADE, useClass: WebchatFacadeImpl },
     { provide: WEBCHAT_RUNNER, useClass: UploadPurgeRunner },
   ],

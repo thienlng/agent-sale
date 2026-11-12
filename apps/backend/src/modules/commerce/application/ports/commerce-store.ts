@@ -343,6 +343,16 @@ export interface CommerceTx {
   outbox: {
     write(workspaceId: WorkspaceId, e: CommerceOutboxEvent): Promise<void>;
   };
+  /** An `audit_events` row in the same transaction. */
+  audit: {
+    write(r: {
+      actorUserId: string;
+      action: string;
+      targetType: 'product';
+      targetId: string;
+      data: Record<string, unknown>;
+    }): Promise<void>;
+  };
   warehouses: {
     list(): Promise<WarehouseRecord[]>;
     find(id: string): Promise<WarehouseRecord | null>;
@@ -403,6 +413,16 @@ export interface CommerceTx {
      */
     saveVariants(workspaceId: WorkspaceId, variants: VariantRecord[]): Promise<void>;
     archiveVariants(ids: string[]): Promise<void>;
+    /**
+     * Whether an order line (any order, deleted ones included) references one of the product's
+     * variants (archived ones included), or a legacy stay request references the product.
+     */
+    usedByOrders(productId: string): Promise<boolean>;
+    /**
+     * Hard-deletes the product; its variants, stock rows, stock movements and bot selections
+     * cascade. A reference created concurrently (23503) → ProductNotDeletableError.
+     */
+    remove(productId: string): Promise<void>;
     variantsByIds(
       ids: string[],
     ): Promise<

@@ -165,6 +165,14 @@ export interface MemoryEntry {
    */
   previousText?: string;
   previousOrigin?: MemoryOrigin;
+  /** The previous text was itself still waiting for the owner's approval. */
+  previousPending?: true;
+  /**
+   * Waiting for the owner's approval: written by the background review, or by a chat turn that
+   * had already read tool output (data that may carry injected text). Shown in the memory UI,
+   * counted in the store's use, never rendered into a prompt until approved.
+   */
+  pending?: true;
 }
 
 /**
@@ -683,6 +691,14 @@ export interface AssistantRepository {
     threadId: string,
     patch: Partial<Pick<ThreadRecord, 'title' | 'pinned' | 'archived'>>,
   ): Promise<ThreadRecord | null>;
+  /**
+   * Deletes the owner's thread; `ON DELETE CASCADE` removes its messages, runs and their steps,
+   * proposals, import batches and queued jobs, while its schedule runs keep their row with
+   * `thread_id` set to null. Refused (`running`, nothing deleted) while a run of the thread is
+   * `running` and younger than `RUN_BUSY_WINDOW_MS`, or one of its proposals is `executing`.
+   * Serialised with `startRun` on the owner's lock. NOT_FOUND for a thread the owner does not have.
+   */
+  deleteThread(s: OwnerScope, threadId: string): Promise<'deleted' | 'running'>;
   /** seq asc; with `activeOnly`, the active history in `sort_seq` order (summary before the tail). */
   listMessages(
     s: OwnerScope,

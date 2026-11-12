@@ -231,6 +231,9 @@ export function contactsTx(
           .set({ body: n.body, version: n.version, editedAt: n.editedAt })
           .where(eq(notes.id, n.id));
       },
+      async delete(id) {
+        await tx.delete(notes).where(eq(notes.id, id));
+      },
     },
 
     history: {
@@ -337,6 +340,18 @@ export function contactsTx(
           contactName: r.contact_name,
           statusKey: r.status_key,
         }));
+      },
+      async redactNote(contactId, noteId) {
+        await tx
+          .update(h)
+          .set({ data: sql`${h.data} - 'body'`, changes: sql`${h.changes} - 'body'` })
+          .where(
+            and(
+              eq(h.contactId, contactId),
+              inArray(h.type, ['note.added', 'note.edited']),
+              sql`${h.data}->>'noteId' = ${noteId}`,
+            ),
+          );
       },
       async addMany(entries) {
         for (let i = 0; i < entries.length; i += 500) {

@@ -172,6 +172,34 @@ export class MemoryConversationStore implements ConversationStore {
         audit: async (id, type, payload) => {
           events.push({ id, type, payload });
         },
+        idsOfContact: async (contactId) =>
+          [...rows.entries()]
+            .filter(([key, c]) => key.startsWith(`${ws}/`) && c.contactId === contactId)
+            .map(([, c]) => c.id),
+        attachmentUrls: async (ids) =>
+          [...messages.entries()]
+            .filter(([key]) => ids.some((id) => key.startsWith(`${ws}/${id}/`)))
+            .flatMap(([, msg]) => msg.attachments.map((a) => a.url)),
+        erase: async (ids) => {
+          const out = {
+            conversations: 0,
+            messages: 0,
+            peers: [] as { channelId: string; customerId: string }[],
+          };
+          for (const id of ids) {
+            const conv = rows.get(`${ws}/${id}`);
+            if (!conv) continue;
+            for (const key of [...messages.keys()])
+              if (key.startsWith(`${ws}/${id}/`)) {
+                out.messages += 1;
+                messages.delete(key);
+              }
+            rows.delete(`${ws}/${id}`);
+            out.conversations += 1;
+            out.peers.push({ channelId: conv.channelId, customerId: conv.customerId });
+          }
+          return out;
+        },
         releaseBot: async (botId) => {
           for (const [key, row] of rows)
             if (key.startsWith(`${ws}/`) && row.botId === botId)

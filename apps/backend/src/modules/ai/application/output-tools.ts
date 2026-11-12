@@ -13,6 +13,7 @@ import {
   productImages,
   productVideos,
 } from '../domain/image-allowlist.js';
+import { correctionNote, type ReplyCheck } from '../domain/reply-guard.js';
 import { normalizeReplyText } from '../domain/reply-text.js';
 import { safeJson } from './action-tools.js';
 
@@ -180,6 +181,11 @@ export function outputTools(opts: {
   state: OutputState;
   sendMessage: boolean;
   sentMediaUrls?: readonly string[];
+  /**
+   * The pre-send guard (docs/06 §3.3): a text that fails is not sent; the model gets the reason
+   * as a tool error and may rewrite it.
+   */
+  check?: (text: string) => ReplyCheck;
 }): { definitions: ToolDefinition[]; runnable: RunnableTool[] } {
   const { sink, allowlist, state } = opts;
 
@@ -223,7 +229,18 @@ export function outputTools(opts: {
           : picked.map(({ id, url, label }) => ({ id, url, label }));
       // A link is text the customer opens; an uploaded video goes out as its own message.
       const link = video?.kind === 'link' ? `${video.title}: ${video.url}` : '';
-      const text = [normalizeReplyText(args.text ?? ''), link].filter(Boolean).join('\n');
+      const written = normalizeReplyText(args.text ?? '');
+      const verdict = written && opts.check ? opts.check(written) : null;
+      if (verdict && !verdict.ok)
+        return {
+          content: safeJson({
+            error: verdict.reason,
+            ...(verdict.reason === 'ungrounded_figures' ? { figures: verdict.figures } : {}),
+            hint: correctionNote(verdict),
+          }),
+          ok: false,
+        };
+      const text = [written, link].filter(Boolean).join('\n');
       const videos =
         video?.kind === 'video' ? [{ id: video.id, url: video.url, label: video.label }] : [];
       const extra = dropped.length ? { droppedImageIds: dropped } : {};

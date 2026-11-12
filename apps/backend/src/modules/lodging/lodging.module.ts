@@ -5,6 +5,7 @@ import { getEnv } from '../../common/config.js';
 import { DB_TENANT } from '../../common/db/db.module.js';
 import { S3PublicObjectStorage } from '../../common/storage/public-object-storage.js';
 import { BotModule } from '../bot/bot.module.js';
+import { CrmModule } from '../crm/crm.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import {
   LODGING_BOT_FACADE,
@@ -14,6 +15,9 @@ import {
 import { LODGING_EXPORT } from './api/lodging-export.js';
 import { LodgingBotCatalog } from './application/bot-catalog.js';
 import { BookingService } from './application/booking.service.js';
+import { BookingErasure } from './application/contact-erasure.js';
+import { BOOKING_ERASURE_STORE } from './application/ports/booking-erasure-store.js';
+import { DrizzleBookingErasureStore } from './infrastructure/persistence/booking-erasure.drizzle.js';
 import { LodgingBotHolds } from './application/bot-hold.service.js';
 import { CalendarService } from './application/calendar.service.js';
 import { LodgingAccess } from './application/lodging-access.js';
@@ -24,6 +28,7 @@ import { NightNotesService } from './application/night-notes.service.js';
 import { LODGING_MEDIA_STORAGE } from './application/ports/lodging-media-storage.js';
 import { LODGING_STORE, type LodgingStore } from './application/ports/lodging-store.js';
 import { PropertyService } from './application/property.service.js';
+import { PropertyRemovalService } from './application/property-removal.service.js';
 import { RatesService } from './application/rates.service.js';
 import { LodgingUnavailableError } from './domain/lodging.errors.js';
 import { LodgingExportSource } from './infrastructure/export/lodging.export.js';
@@ -35,7 +40,7 @@ import { PropertiesController } from './interface/http/properties.controller.js'
 
 /** Lodging v2 (T-160). Needs a database; without one every call answers 503. */
 @Module({
-  imports: [WorkspaceModule, BotModule],
+  imports: [WorkspaceModule, BotModule, CrmModule],
   controllers: [
     PropertiesController,
     BookingsController,
@@ -51,8 +56,18 @@ import { PropertiesController } from './interface/http/properties.controller.js'
           ? new DrizzleLodgingStore(db)
           : { run: () => Promise.reject(new LodgingUnavailableError()) },
     },
+    {
+      provide: BOOKING_ERASURE_STORE,
+      inject: [{ token: DB_TENANT, optional: true }],
+      useFactory: (db: Database | null | undefined) =>
+        db
+          ? new DrizzleBookingErasureStore(db)
+          : { run: () => Promise.reject(new LodgingUnavailableError()) },
+    },
+    BookingErasure,
     LodgingAccess,
     PropertyService,
+    PropertyRemovalService,
     RatesService,
     LodgingSettingsService,
     BookingService,

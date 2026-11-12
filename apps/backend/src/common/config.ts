@@ -1,3 +1,6 @@
+import { isIP } from 'node:net';
+
+import { parseTrustProxy } from '@agent-sales/shared';
 import { z } from 'zod';
 
 /** A non-negative limit with a default; 0 disables the limit. */
@@ -78,6 +81,13 @@ export const EnvSchema = z
      * permission; ADR-031). Off by default; bots and the care agent never use the tag.
      */
     META_HUMAN_AGENT_TAG: z.enum(['true', 'false']).optional(),
+    /**
+     * `true`: the bot's replies pass the number guard before sending (docs/06 §3.3): a money figure
+     * or a number ≥ 1000 found in no trusted text makes the model rewrite once, then the fallback
+     * line is sent. Off by default: ADR-015 took the guard off the reply path and ADR-032 asks the
+     * owner to turn it back on.
+     */
+    BOT_REPLY_FIGURE_GUARD: z.enum(['true', 'false']).optional(),
     /**
      * Comma-separated extra hosts the customer-image fetcher may reach (dev/test only, ignored in
      * production). They are exempt from the private-address block and may use plain http, so
@@ -198,10 +208,25 @@ export const EnvSchema = z
      */
     BOT_ANON_ORDERS_WORKSPACE_DAY: limitVar(30),
     BOT_ANON_HOLDS_WORKSPACE_DAY: limitVar(10),
+    /**
+     * Proxies whose `X-Forwarded-For` entry is believed (`parseTrustProxy` in packages/shared):
+     * `false` or comma-separated addresses/CIDRs. Unset: the private ranges in production (NPM →
+     * Caddy `edge` on Docker networks), loopback elsewhere. `true` and hop counts are refused.
+     */
+    TRUST_PROXY: z.string().max(500).optional(),
+    /**
+     * Comma-separated email domains whose new accounts get no signup trial (disposable inboxes),
+     * added to the built-in list in `identity/domain/trial-identity.ts`. Signup itself still works.
+     */
+    TRIAL_BLOCKED_EMAIL_DOMAINS: z.string().max(5000).optional(),
   })
   .refine((env) => !env.TURNSTILE_SITE_KEY === !env.TURNSTILE_SECRET, {
     message: 'Set both TURNSTILE_SITE_KEY and TURNSTILE_SECRET, or neither',
     path: ['TURNSTILE_SECRET'],
+  })
+  .superRefine((env, ctx) => {
+    const error = trustProxyError(env.TRUST_PROXY, env.NODE_ENV);
+    if (error) ctx.addIssue({ code: 'custom', message: error, path: ['TRUST_PROXY'] });
   })
   .refine((env) => !env.GOOGLE_CLIENT_ID === !env.GOOGLE_CLIENT_SECRET, {
     message: 'Set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, or neither',
@@ -216,6 +241,16 @@ export const EnvSchema = z
     path: ['MAIL_OUTBOX_DIR'],
   });
 export type Env = z.infer<typeof EnvSchema>;
+
+/** The startup error for a bad `TRUST_PROXY` (it names the bad entry), or null when it is valid. */
+function trustProxyError(raw: string | undefined, nodeEnv: string): string | null {
+  try {
+    parseTrustProxy(raw, nodeEnv, isIP);
+    return null;
+  } catch (e) {
+    return (e as Error).message;
+  }
+}
 
 /** Whether the Hermes subscription sign-in is available in this environment. */
 export function hermesSubscriptionLoginEnabled(

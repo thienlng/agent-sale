@@ -281,6 +281,14 @@ export const AssistantMemoryEntryDto = z.object({
   id: z.string(),
   text: z.string(),
   createdAt: z.iso.datetime(),
+  /** Who wrote it: the owner, the chat assistant or the background review. */
+  origin: z.enum(['owner', 'assistant', 'review']).default('assistant'),
+  /**
+   * Waiting for the owner's approval (`POST …/entries/{entryId}/approve`; `DELETE` rejects it):
+   * saved by the background review, or by a chat turn that had already read tool output. The
+   * assistant never uses it until it is approved.
+   */
+  pending: z.boolean().default(false),
 });
 export type AssistantMemoryEntryDto = z.infer<typeof AssistantMemoryEntryDto>;
 
@@ -461,6 +469,8 @@ export const AssistantLearnedMemoryDto = z.object({
   text: z.string(),
   /** The text the review replaced (undo restores it); null when the review added the entry. */
   previousText: z.string().nullable(),
+  /** Still waiting for the owner's approval (see `AssistantMemoryEntryDto.pending`). */
+  pending: z.boolean().default(false),
   at: z.iso.datetime(),
 });
 export type AssistantLearnedMemoryDto = z.infer<typeof AssistantLearnedMemoryDto>;

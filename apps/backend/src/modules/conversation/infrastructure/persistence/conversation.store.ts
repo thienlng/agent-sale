@@ -301,6 +301,35 @@ export class DrizzleConversationStore implements ConversationStore {
             .set({ botId: null })
             .where(and(eq(c.workspaceId, ws), eq(c.botId, botId)));
         },
+        async idsOfContact(contactId) {
+          const rows = await tx
+            .select({ id: c.id })
+            .from(c)
+            .where(and(eq(c.workspaceId, ws), eq(c.contactId, contactId)));
+          return rows.map((r) => r.id);
+        },
+        async attachmentUrls(ids) {
+          if (!ids.length) return [];
+          const rows = await tx.execute<{ url: string }>(
+            sql`select a->>'url' as url
+                  from ${m}, jsonb_array_elements(coalesce(${m.data}->'attachments', '[]'::jsonb)) a
+                 where ${m.workspaceId} = ${ws} and ${m.conversationId} = any(${uuidArray(ids)})
+                   and a->>'url' is not null`,
+          );
+          return [...rows].map((r) => r.url);
+        },
+        async erase(ids) {
+          if (!ids.length) return { conversations: 0, messages: 0, peers: [] };
+          const removed = await tx
+            .delete(m)
+            .where(and(eq(m.workspaceId, ws), sql`${m.conversationId} = any(${uuidArray(ids)})`))
+            .returning({ id: m.id });
+          const peers = await tx
+            .delete(c)
+            .where(and(eq(c.workspaceId, ws), sql`${c.id} = any(${uuidArray(ids)})`))
+            .returning({ channelId: c.channelId, customerId: c.customerId });
+          return { conversations: peers.length, messages: removed.length, peers };
+        },
         async awaitingReply({ olderThan, limit }) {
           const waiting = and(
             eq(c.workspaceId, ws),

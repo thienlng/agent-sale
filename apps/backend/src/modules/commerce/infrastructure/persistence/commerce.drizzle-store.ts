@@ -1,4 +1,4 @@
-import { type Database, withTenant, writeOutbox } from '@agent-sales/db';
+import { type Database, withTenant, writeAudit, writeOutbox } from '@agent-sales/db';
 import type { WorkspaceId } from '@agent-sales/shared';
 
 import type { CommerceStore, CommerceTx } from '../../application/ports/commerce-store.js';
@@ -19,6 +19,18 @@ export class DrizzleCommerceStore implements CommerceStore {
         ...ordersTx(workspaceId, tx),
         ...orderPushTx(tx),
         ...botOrdersTx(workspaceId, tx),
+        audit: {
+          write: (r) =>
+            writeAudit(tx, {
+              workspaceId,
+              actorUserId: r.actorUserId,
+              actorName: null,
+              action: r.action,
+              targetType: r.targetType,
+              targetId: r.targetId,
+              data: r.data,
+            }),
+        },
         outbox: {
           write: (ws, e) =>
             writeOutbox(tx, {

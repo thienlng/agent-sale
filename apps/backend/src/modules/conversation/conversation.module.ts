@@ -25,6 +25,10 @@ import { BOT_IMAGE_VISION, IMAGE_FETCHER } from './application/ports/image-fetch
 import { botImageExtraHosts, botImageVisionEnabled, getEnv } from '../../common/config.js';
 import { SafeImageFetcher } from './infrastructure/media/safe-image-fetcher.js';
 import { MetaInboxProcessor } from './application/jobs/meta-inbox.processor.js';
+import { ConversationErasure } from './application/contact-erasure.js';
+import { CUSTOMER_MEDIA } from './application/ports/customer-media.js';
+import { S3CustomerMediaStorage } from './infrastructure/media/s3-customer-media.js';
+import { S3PublicObjectStorage } from '../../common/storage/public-object-storage.js';
 import {
   DrizzleConversationStore,
   UnavailableConversationStore,
@@ -86,6 +90,21 @@ import { ConversationController } from './interface/http/conversation.controller
       },
     },
     { provide: BOT_IMAGE_VISION, useFactory: () => botImageVisionEnabled(getEnv()) },
+    {
+      provide: CUSTOMER_MEDIA,
+      useFactory: () => {
+        const env = getEnv();
+        const storage = new S3PublicObjectStorage({
+          endpoint: env.S3_ENDPOINT,
+          bucket: env.S3_BUCKET,
+          publicUrl: env.S3_PUBLIC_URL,
+          accessKey: env.S3_ACCESS_KEY,
+          secretKey: env.S3_SECRET_KEY,
+        });
+        return new S3CustomerMediaStorage(storage, env.S3_PUBLIC_URL);
+      },
+    },
+    ConversationErasure,
     FanpageCommentProcessor,
     MetaInboxProcessor,
     { provide: CONVERSATION_RUNNER, useExisting: MetaInboxProcessor },

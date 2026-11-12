@@ -11,6 +11,7 @@ import { Field, FieldMessage, OptionSelect, useErrorText } from './action-fields
 
 const TYPES = ['string', 'number', 'boolean'] as const;
 const LOCATIONS = ['path', 'query', 'header', 'body'] as const;
+const SOURCES = ['model', 'customer_phone', 'customer_email'] as const;
 
 /** Repeatable "Parameters" rows: what the bot must collect before it calls the API. */
 export function ParamsEditor({
@@ -58,9 +59,16 @@ export function ParamsEditor({
                   <OptionSelect
                     label={`${t('form.paramType')} ${n}`}
                     value={row.type}
-                    options={TYPES.map((v) => ({ value: v, label: t(`form.types.${v}`) }))}
+                    // A value from the customer record is text: only a string param can take it.
+                    options={(row.source === 'model' ? TYPES : (['string'] as const)).map((v) => ({
+                      value: v,
+                      label: t(`form.types.${v}`),
+                    }))}
                     onChange={(type) => update(i, { type })}
                   />
+                  <FieldMessage id={`param-type-${row.key}-error`}>
+                    {errorText(`params.${i}.type`)}
+                  </FieldMessage>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label>{`${t('form.paramLocation')} ${n}`}</Label>
@@ -87,6 +95,18 @@ export function ParamsEditor({
                   onChange={(e) => update(i, { description: e.target.value })}
                 />
               </Field>
+              <div className="flex flex-col gap-1.5">
+                <Label>{`${t('form.paramSource')} ${n}`}</Label>
+                <OptionSelect
+                  label={`${t('form.paramSource')} ${n}`}
+                  value={row.source}
+                  options={SOURCES.map((v) => ({ value: v, label: t(`form.sources.${v}`) }))}
+                  onChange={(source) =>
+                    update(i, source === 'model' ? { source } : { source, type: 'string' })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">{t('form.paramSourceHint')}</p>
+              </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Checkbox

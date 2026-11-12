@@ -92,6 +92,25 @@ describe('LiveMetaGateway.exchange (Facebook)', () => {
     expect(seen.some((u) => u.includes('grant_type=fb_exchange_token'))).toBe(true);
   });
 
+  it('records who granted the Pages (for Meta data deletion), or null when /me fails', async () => {
+    const routes = {
+      '/oauth/access_token': { access_token: 'user-token' },
+      '/me/permissions': grants(...ALL),
+      '/me/accounts': pages,
+      '/debug_token': { data: { is_valid: true, expires_at: 0 } },
+    };
+    const known = await new LiveMetaGateway(
+      env,
+      graph({ ...routes, '/me': { id: '10234567890123456' } }).transport,
+    ).exchange('facebook', 'code');
+    expect(known.map((a) => a.grantorId)).toEqual(['10234567890123456', '10234567890123456']);
+    const unknown = await new LiveMetaGateway(env, graph(routes).transport).exchange(
+      'facebook',
+      'code',
+    );
+    expect(unknown.map((a) => a.grantorId)).toEqual([null, null]);
+  });
+
   it('names the permissions the login configuration did not grant', async () => {
     const { transport } = graph({
       '/oauth/access_token': { access_token: 'user-token' },

@@ -17,6 +17,7 @@ import { useContact } from '../api/crm';
 import { contactLabel } from '../hooks/crm-errors';
 import type { CrmLookups } from '../hooks/use-crm-lookups';
 import { OptionBadge, TagChips } from './crm-badges';
+import { ContactDangerZone } from './contact-delete';
 import { ContactDetailsTab } from './contact-details';
 import { ContactHistoryTab } from './contact-history';
 import { ContactOverviewTab } from './contact-overview';
@@ -89,6 +90,7 @@ export function ContactSheet({
             </TabsContent>
             <TabsContent value="details" className="pt-3">
               <ContactDetailsTab key={`${c.id}:${c.version}`} contact={c} lookups={lookups} />
+              <ContactDangerZone contact={c} onDeleted={onClose} />
             </TabsContent>
             {renderConversations ? (
               <TabsContent value="conversations" className="pt-3">

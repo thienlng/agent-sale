@@ -4,12 +4,21 @@ import { z } from 'zod';
 
 export const ActionParamType = z.enum(['string', 'number', 'boolean']);
 export const ActionParamLocation = z.enum(['path', 'query', 'header', 'body']);
+/**
+ * Who fills a param. `model` (the default, also when absent): the bot chooses the value from the
+ * chat. `customer_phone` / `customer_email`: the server fills it from the conversation's customer
+ * record and the model never sees or sets it, so a customer cannot look up somebody else's data by
+ * typing their phone number (docs/actions.md#params-filled-by-the-server).
+ */
+export const ActionParamSource = z.enum(['model', 'customer_phone', 'customer_email']);
+export type ActionParamSource = z.infer<typeof ActionParamSource>;
 export const ActionParam = z.object({
   name: z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,39}$/),
   type: ActionParamType,
   location: ActionParamLocation,
   required: z.boolean(),
   description: z.string().min(1).max(300),
+  source: ActionParamSource.optional(),
 });
 export type ActionParam = z.infer<typeof ActionParam>;
 
@@ -125,6 +134,12 @@ function checkAction(
         code: 'custom',
         path: ['params', i, 'name'],
         message: 'Reserved header name',
+      });
+    if (p.source && p.source !== 'model' && p.type !== 'string')
+      ctx.addIssue({
+        code: 'custom',
+        path: ['params', i, 'type'],
+        message: 'A param filled from the customer record must be a string',
       });
     if (p.location === 'body' && a.method === 'GET')
       ctx.addIssue({

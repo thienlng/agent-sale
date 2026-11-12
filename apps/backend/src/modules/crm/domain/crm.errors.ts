@@ -198,3 +198,11 @@ export class InvalidTaskCursorError extends DomainError {
     super('Invalid cursor');
   }
 }
+
+/** A note may be deleted by its author, or by a member who sees every customer (owner, admin). */
+export class NoteDeleteNotAllowedError extends DomainError {
+  readonly code = 'FORBIDDEN';
+  constructor(id: string) {
+    super('Only the author or an owner or admin can delete this note', { id });
+  }
+}

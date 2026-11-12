@@ -25,8 +25,11 @@ const session = vi.hoisted(() => ({
   },
 }));
 vi.mock('@/lib/session', () => ({ useSession: () => session.value }));
+const owner = vi.hoisted(() => ({ value: false }));
+vi.mock('@/lib/use-is-account-owner', () => ({ useIsAccountOwner: () => owner.value }));
 
 beforeEach(() => {
+  owner.value = false;
   window.matchMedia ??= ((query: string) => ({
     matches: false,
     media: query,
@@ -102,5 +105,21 @@ describe('AccountSidebar', () => {
       'false',
     );
     expect(within(nav).getByRole('link', { name: /Business của tôi/ })).toBeInTheDocument();
+  });
+
+  it('hides the owner assistant from members who do not own the account', async () => {
+    renderAt('/app/overview');
+    expect(await screen.findByRole('link', { name: 'Tổng quan các business' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Trợ lý cá nhân' })).toBeNull();
+  });
+
+  it('marks the assistant page for an account owner', async () => {
+    owner.value = true;
+    renderAt('/app/assistant');
+    const link = await screen.findByRole('link', { name: 'Trợ lý cá nhân' });
+    expect(link).toHaveAttribute('href', '/app/assistant');
+    expect(link).toHaveAttribute('data-active', 'true');
+    const links = screen.getAllByRole('link').map((l) => l.textContent);
+    expect(links.indexOf('Trợ lý cá nhân')).toBe(links.indexOf('Tổng quan các business') + 1);
   });
 });

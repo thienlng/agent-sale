@@ -17,7 +17,7 @@ import type { WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { aiTraceWriteFailures, recordAiRun } from '../../../common/metrics.js';
-import { ACTION_FACADE, type ActionFacade } from '../../action/api/index.js';
+import { ACTION_FACADE, type ActionFacade, type BotActionView } from '../../action/api/index.js';
 import { BOT_FACADE, type BotFacade } from '../../bot/api/index.js';
 import {
   CATALOG_FACADE,
@@ -68,12 +68,14 @@ import {
   type TurnTraceRecord,
   type TurnTraceRepository,
 } from '../domain/ports/turn-trace.repository.js';
-import { quotedSources } from '../domain/reply-text.js';
+import { normalizeReplyText, quotedSources } from '../domain/reply-text.js';
 import { activeSituations, situationsText } from '../domain/situations.js';
 import {
   actionTools,
   CANCEL_TOOL,
   CONFIRM_TOOL,
+  type CustomerBinding,
+  customerBindingFrom,
   idempotencyKey,
   newActionToolState,
   playgroundConversationId,
@@ -102,6 +104,7 @@ import { withDefaultOfferings } from './catalog-tools.js';
 import {
   carriedProductIds,
   compactHistory,
+  currentTimeBlock,
   EMAIL_KNOWN_LINE,
   focusBlock,
   historyTurns,
@@ -116,6 +119,7 @@ import {
   decideReply,
   errorClass,
   fallbackText,
+  guardFinal,
   joinedImages,
   meteredGenerate,
   type ReplyDecision,
@@ -123,6 +127,7 @@ import {
   turnMessages,
   turnTools,
 } from './reply-pipeline.js';
+import { ReplyGuard } from './reply-guard.js';
 import type { RequestToolContext } from './request-tools.js';
 import { AI_SPEND_LIMITS, budgetHandoff, type AiSpendLimits } from './spend-guard.js';
 import type { CommitKind } from './commit-quota.js';
@@ -163,6 +168,11 @@ export function salesPromptFor(industry: string): {
 export type SalesPromptVersion = 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21;
 /** Optional DI token: forces the sales-agent prompt for every bot (default: `PROMPT_BY_INDUSTRY`). */
 export const PROMPT_VERSION_OPTION = Symbol('PROMPT_VERSION_OPTION');
+/**
+ * Optional DI token: `true` turns on the number check of the pre-send guard
+ * (`BOT_REPLY_FIGURE_GUARD`, off by default, ADR-032). The instruction-leak check always runs.
+ */
+export const REPLY_FIGURE_GUARD = Symbol('REPLY_FIGURE_GUARD');
 /** The current public base of Rapiz storage (`S3_PUBLIC_URL`); pictures are sent on it. */
 export const MEDIA_PUBLIC_BASE = Symbol('MEDIA_PUBLIC_BASE');
 const POST_PROMPT = { name: 'fanpage-context', version: 2 } as const;
@@ -207,6 +217,7 @@ export class PlaygroundService implements AiFacade {
     @Inject(MEDIA_PUBLIC_BASE) @Optional() private readonly mediaBase?: string,
     @Inject(CRM_FACADE) @Optional() private readonly crm?: CrmFacade,
     @Inject(TURN_TRACE_REPOSITORY) @Optional() private readonly traces?: TurnTraceRepository,
+    @Inject(REPLY_FIGURE_GUARD) @Optional() private readonly figureGuard?: boolean,
     @Inject(AI_SPEND_LIMITS) @Optional() private readonly spend: AiSpendLimits = {},
   ) {
     this.#forcedPrompt = promptVersion
@@ -332,11 +343,14 @@ export class PlaygroundService implements AiFacade {
       .filter(Boolean)
       .join('\n\n');
 
-    const actionViews = this.actions ? await this.actions.listForBot(ws, botId) : [];
-    // A public comment reply has no private conversation: it never reads (or writes) the pending
-    // key the owner's playground uses, confirm-required actions are refused for it, and it gets no
-    // send_message (one public reply per comment).
+    // A public comment reply has no private conversation: it gets no action tools at all (a
+    // stranger's comment must not drive the shop's API, docs/actions.md), never reads (or writes)
+    // the pending key the owner's playground uses, and gets no send_message (one public reply per
+    // comment).
     const isCommentReply = options.conversationId === null && !options.isTest;
+    const actionViews =
+      this.actions && !isCommentReply ? await this.actions.listForBot(ws, botId) : [];
+    const binding = await this.#customerBinding(ws, actionViews, options);
     const storedPending =
       this.actions && actionViews.length && !isCommentReply
         ? await this.actions.getPending(ws, conversationKey)
@@ -346,7 +360,7 @@ export class PlaygroundService implements AiFacade {
       ? actionViews.find((a) => a.id === storedPending.actionId)
       : undefined;
     const pending = storedPending && waiting ? storedPending : null;
-    const { definitions: actionDefinitions, byName } = actionTools(actionViews, pending);
+    const { definitions: actionDefinitions, byName } = actionTools(actionViews, pending, binding);
     const actionState = newActionToolState();
     const recorder = new TraceRecorder({
       actionIdOf: (name) =>
@@ -368,6 +382,7 @@ export class PlaygroundService implements AiFacade {
           isTest: options.isTest,
           customerTexts,
           byName,
+          binding,
           keyFor: (actionId: string, args: Parameters<typeof idempotencyKey>[2]) =>
             idempotencyKey(conversationKey, actionId, args),
           state: actionState,
@@ -454,6 +469,42 @@ export class PlaygroundService implements AiFacade {
           }
         : null;
     const seenProducts = new Set<string>();
+    const now = new Date();
+    const profile = renderBusinessProfile(bot);
+    const focusText = focusBlock(focus);
+    const pendingText = pending && waiting ? pendingBlock(waiting, pending) : '';
+    const imagesText = imagesBlock(initialAllowed);
+    const contextPrompts = [...(post ? [POST_PROMPT] : []), ...(page ? [PAGE_PROMPT] : [])];
+    const template = await loadReplyTemplate(this.#prompts, [prompt, ...contextPrompts]);
+    // Byte-stable per bot: everything that changes per turn rides on the last user message.
+    const system = renderBotSystemPrompt(bot, workspace, template);
+    // Pre-send guard (docs/06 §3.3): figures must come from the shop's own text or a tool result
+    // of this turn, and the turn's replies may not reproduce the platform's instructions.
+    const guard = new ReplyGuard({
+      trusted: [
+        profile,
+        ...sources.map((s) => `${s.question}\n${s.answer}`),
+        situations,
+        focusText,
+        pendingText,
+        imagesText,
+        currentTimeBlock(now),
+        bot.mission,
+        bot.greeting,
+        ...Object.values(bot.placeholders),
+        fallbackText(bot),
+        bot.handoffMessage,
+        // What the shop already said in this conversation (bot and staff turns).
+        ...input.messages.filter((m) => m.role !== 'customer').map((m) => m.content),
+      ],
+      customer: customerTexts,
+      // The platform's prompt and the action descriptions stay private; what the owner wrote for
+      // the bot to say (mission, situations) may be quoted, whatever its length (ADR-032).
+      secrets: [system, ...actionViews.map((a) => `${a.name}: ${a.description}`)],
+      owned: [bot.mission, guidance],
+      figures: this.figureGuard === true,
+    });
+    const check = (text: string) => guard.check(text);
     const tools = turnTools({
       ...(catalog ? { catalog: { ws, scope, catalog } } : {}),
       allowlist,
@@ -466,6 +517,7 @@ export class PlaygroundService implements AiFacade {
       output,
       ...(options.sink ? { sink: options.sink } : {}),
       sendMessage: !isCommentReply,
+      check,
       website:
         page && !isCommentReply
           ? {
@@ -481,11 +533,6 @@ export class PlaygroundService implements AiFacade {
       // Channels pass what the conversation already received; the playground sends its own list.
       sentMediaUrls: options.sentMediaUrls ?? input.sentMediaUrls ?? [],
     });
-
-    const contextPrompts = [...(post ? [POST_PROMPT] : []), ...(page ? [PAGE_PROMPT] : [])];
-    const template = await loadReplyTemplate(this.#prompts, [prompt, ...contextPrompts]);
-    // Byte-stable per bot: everything that changes per turn rides on the last user message.
-    const system = renderBotSystemPrompt(bot, workspace, template);
 
     // Every call is charged as it completes, so interrupted or undelivered turns count too.
     const meter = meteredGenerate(async (req) => {
@@ -509,6 +556,7 @@ export class PlaygroundService implements AiFacade {
         : null;
     const steps: AgentStep[] = [];
     let loop: AgentLoopResult | null = null;
+    let base: GenerateRequest | null = null;
     let historySummarized = false;
     // Everything the trace keeps, from data already in scope (spec §4.4); excerpts are redacted.
     const traceOf = (
@@ -560,21 +608,21 @@ export class PlaygroundService implements AiFacade {
       if (compact.save && this.summaries && summaryKey)
         await this.summaries.put(ws, summaryKey, compact.save);
 
-      const base: GenerateRequest = {
+      base = {
         workspaceId: ws,
         tier: bot.modelTier,
         messages: [
           { role: 'system', content: system },
           ...withTurnContext(compact.turns, {
-            profile: renderBusinessProfile(bot),
+            profile,
             sources,
             situations,
-            focus: focusBlock(focus),
-            pending: pending && waiting ? pendingBlock(waiting, pending) : '',
-            images: imagesBlock(initialAllowed),
+            focus: focusText,
+            pending: pendingText,
+            images: imagesText,
             phoneKnown: input.phoneKnown === true,
             emailKnown: input.emailKnown === true,
-            now: new Date(),
+            now,
           }),
         ],
         maxOutputTokens: 2_000,
@@ -586,7 +634,7 @@ export class PlaygroundService implements AiFacade {
       };
       loop = await runAgentLoop({
         base,
-        tools: recorder.wrap(tools.runnable),
+        tools: recorder.wrap(guard.wrap(tools.runnable)),
         // Once a message went out, an empty final answer is fine: no gateway retry for it.
         generate: (req) => meter.generate(output.sent.length ? { ...req, allowEmpty: true } : req),
         onStep: (step) => {
@@ -627,8 +675,36 @@ export class PlaygroundService implements AiFacade {
     }
 
     let decision: ReplyDecision = loop
-      ? decideReply({ loop, output, bot, actionFallback: actionState.fallback })
+      ? decideReply({ loop, output, bot, actionFallback: actionState.fallback, check })
       : { outcome: 'answered', guardrail: 'model_error', final: fallbackText(bot) };
+    if (loop && base) {
+      const { followUps } = loop;
+      const request = base;
+      decision = await guardFinal({
+        decision,
+        check,
+        bot,
+        sentAny: output.sent.length > 0,
+        rewrite: async (draft, note) => {
+          try {
+            const res = await meter.generate({
+              ...request,
+              messages: [
+                ...request.messages,
+                ...followUps,
+                { role: 'assistant', content: draft },
+                { role: 'user', content: note },
+              ],
+              toolChoice: 'none',
+            });
+            return normalizeReplyText(res.text) || null;
+          } catch (error) {
+            this.#logger.warn(`Reply rewrite failed: ${errorClass(error)}`);
+            return null;
+          }
+        },
+      });
+    }
     const droppedFinal = Boolean(decision.final);
     decision = keepSummaryLast(
       decision,
@@ -714,6 +790,31 @@ export class PlaygroundService implements AiFacade {
       // A placed hold is binding like an order: the caller must never drop its final message.
       ...(orders?.state.orderCreated || held ? { orderCreated: true } : {}),
     };
+  }
+
+  /**
+   * The customer values that action params with a non-model `source` are filled from
+   * (docs/actions.md#params-filled-by-the-server): the conversation contact's phone and email in
+   * CRM, never what the model chose or the customer typed in this turn. The binding stops the model
+   * from picking another value mid-turn; it does not prove ownership (the CRM value may have been
+   * typed by the customer earlier). Null in the owner's playground: the owner is
+   * testing, so the model fills every param. Read only when some action needs it; a lookup failure
+   * leaves the values unknown, so those actions are not offered this turn.
+   */
+  async #customerBinding(
+    ws: WorkspaceId,
+    actions: readonly BotActionView[],
+    options: ReplyOptions,
+  ): Promise<CustomerBinding | null> {
+    if (options.isTest) return null;
+    if (!actions.some((a) => a.params.some((p) => p.source && p.source !== 'model'))) return {};
+    if (!this.crm || !options.contactId) return {};
+    try {
+      return customerBindingFrom(await this.crm.getContact(ws, options.contactId));
+    } catch (error) {
+      this.#logger.warn(`Customer binding lookup failed: ${errorClass(error)}`);
+      return {};
+    }
   }
 
   async discardPendingConfirmation(ws: WorkspaceId, conversationId: string): Promise<void> {

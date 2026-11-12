@@ -26,6 +26,9 @@ import { BotOrderService } from './application/bot-order.service.js';
 import { CommerceFacadeImpl } from './application/commerce.facade.impl.js';
 import { OrderReviewService } from './application/order-review.service.js';
 import { COMMERCE_STORE } from './application/ports/commerce-store.js';
+import { OrderErasure } from './application/contact-erasure.js';
+import { ORDER_ERASURE_STORE } from './application/ports/order-erasure-store.js';
+import { DrizzleOrderErasureStore } from './infrastructure/persistence/order-erasure.drizzle.js';
 import { DrizzleCommerceStore } from './infrastructure/persistence/commerce.drizzle-store.js';
 import { UnavailableCommerceStore } from './infrastructure/persistence/unavailable-store.js';
 import { CatalogController } from './interface/http/catalog.controller.js';
@@ -75,6 +78,16 @@ import { CommerceUnavailableError } from './domain/commerce.errors.js';
       useFactory: (db: Database | null | undefined) =>
         db ? new DrizzleCommerceStore(db) : new UnavailableCommerceStore(),
     },
+    {
+      provide: ORDER_ERASURE_STORE,
+      inject: [{ token: DB_TENANT, optional: true }],
+      // Without a database crm refuses the delete before any module is asked.
+      useFactory: (db: Database | null | undefined) =>
+        db
+          ? new DrizzleOrderErasureStore(db)
+          : { run: () => Promise.reject(new Error('No database')) },
+    },
+    OrderErasure,
     CatalogService,
     OrderService,
     BotOrderService,

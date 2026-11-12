@@ -24,11 +24,16 @@ import { HERMES_SUBSCRIPTION_LOGIN, LlmAdminService } from './application/llm-ad
 import { LlmRuntime } from './application/llm-runtime.js';
 import { BotCommitQuota } from './application/commit-quota.js';
 import { AI_SPEND_LIMITS } from './application/spend-guard.js';
-import { MEDIA_PUBLIC_BASE, PlaygroundService } from './application/playground.service.js';
+import {
+  MEDIA_PUBLIC_BASE,
+  PlaygroundService,
+  REPLY_FIGURE_GUARD,
+} from './application/playground.service.js';
 import { LLM_PROVIDER_FACTORY } from './application/ports/llm-provider-factory.js';
 import { TurnTraceService } from './application/turn-trace.service.js';
 import { AI_RUN_REPOSITORY, type AiRunRepository } from './domain/ports/ai-run.repository.js';
 import { CONVERSATION_SUMMARY_REPOSITORY } from './domain/ports/conversation-summary.repository.js';
+import { SummaryErasure } from './application/contact-erasure.js';
 import { LLM_CONFIG_REPOSITORY } from './domain/ports/llm-config.repository.js';
 import { TURN_TRACE_REPOSITORY } from './domain/ports/turn-trace.repository.js';
 import { SdkLlmProviderFactory } from './infrastructure/llm/sdk-provider-factory.js';
@@ -123,6 +128,7 @@ import { TurnTraceController } from './interface/http/turn-trace.controller.js';
           ? new DrizzleConversationSummaryRepository(db)
           : new InMemoryConversationSummaryRepository(),
     },
+    SummaryErasure,
     {
       provide: LLM_PROVIDER_FACTORY,
       inject: [SECRET_BOX],
@@ -134,6 +140,10 @@ import { TurnTraceController } from './interface/http/turn-trace.controller.js';
       useFactory: () => hermesSubscriptionLoginEnabled(getEnv()),
     },
     { provide: MEDIA_PUBLIC_BASE, useFactory: () => getEnv().S3_PUBLIC_URL ?? '' },
+    {
+      provide: REPLY_FIGURE_GUARD,
+      useFactory: () => getEnv().BOT_REPLY_FIGURE_GUARD === 'true',
+    },
     LlmRuntime,
     { provide: AI_LLM_GATEWAY, useExisting: LlmRuntime },
     LlmAdminService,
