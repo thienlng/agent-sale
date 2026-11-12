@@ -455,3 +455,48 @@ describe('ProductForm of a spa or education business', () => {
     expect(calls.find((c) => c.key === 'POST /products')?.body).not.toHaveProperty('offering');
   });
 });
+
+describe('ProductForm SKU errors (TM-7)', () => {
+  function setupEdit(put: { status: number; body?: unknown }) {
+    const { fetchStub, calls } = stubFetch({
+      'GET /warehouses': { status: 200, body: { data: [] } },
+      [`PUT /products/${ID}`]: put,
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <ProductForm product={product(false)} pmsLink={null} />);
+    return calls;
+  }
+
+  it('marks a SKU repeated in the product on its field and sends nothing', async () => {
+    const calls = setupEdit({ status: 200, body: product(false) });
+    await userEvent.click(await screen.findByRole('button', { name: 'Thêm mẫu mã' }));
+    const skus = screen.getAllByLabelText(/^SKU/);
+    await userEvent.clear(skus[1]!);
+    await userEvent.type(skus[1]!, 'sm01-m');
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu sản phẩm' }));
+    expect(skus[1]).toHaveAttribute('aria-invalid', 'true');
+    expect(skus[1]).toHaveAccessibleDescription('Mỗi mẫu mã cần một SKU khác nhau.');
+    expect(skus[0]).not.toHaveAttribute('aria-invalid');
+    expect(calls.some((c) => c.key.startsWith('PUT'))).toBe(false);
+    await userEvent.type(skus[1]!, 'x');
+    expect(skus[1]).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('marks the SKU another product holds when the server answers CONFLICT', async () => {
+    setupEdit({
+      status: 409,
+      body: {
+        error: {
+          code: 'CONFLICT',
+          message: 'A variant with this SKU already exists',
+          details: { field: 'sku', value: 'SM01-M' },
+        },
+      },
+    });
+    await userEvent.click(await screen.findByRole('button', { name: 'Lưu sản phẩm' }));
+    const [sku] = screen.getAllByLabelText(/^SKU/);
+    await waitFor(() =>
+      expect(sku).toHaveAccessibleDescription('SKU này đã dùng cho một sản phẩm khác.'),
+    );
+  });
+});

@@ -910,6 +910,8 @@
       "variantsHint": "Each variant has its own SKU, price and cost (cost is used for profit).",
       "addVariant": "Add variant",
       "sku": "SKU",
+      "skuDuplicate": "Each variant needs a different SKU.",
+      "skuTaken": "Another product already uses this SKU.",
       "variantName": "Variant (colour, size…)",
       "price": "Price",
       "cost": "Cost",

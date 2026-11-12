@@ -904,6 +904,8 @@
       "variantsHint": "Mỗi mẫu mã có SKU, giá bán và giá vốn riêng (giá vốn dùng để tính lợi nhuận).",
       "addVariant": "Thêm mẫu mã",
       "sku": "SKU",
+      "skuDuplicate": "Mỗi mẫu mã cần một SKU khác nhau.",
+      "skuTaken": "SKU này đã dùng cho một sản phẩm khác.",
       "variantName": "Tên mẫu (màu, size…)",
       "price": "Giá bán",
       "cost": "Giá vốn",

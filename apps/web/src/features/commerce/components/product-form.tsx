@@ -1,4 +1,8 @@
-import type { ProductDto, UpsertProductRequest } from '@agent-sales/contracts';
+import {
+  duplicateSkuIndexes,
+  type ProductDto,
+  type UpsertProductRequest,
+} from '@agent-sales/contracts';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { ChevronLeft, Lock, Plus, Trash2 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
@@ -14,7 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { type AssistantFormField, useAssistantForm } from '@/lib/assistant-context';
 import { errorMessage } from '@/lib/errors';
 import { useCan } from '@/lib/permissions';
-import { productSaveErrorMessage } from '../hooks/lodging-errors';
+import { productSaveErrorMessage, type SkuProblem, skuProblemsOf } from '../hooks/lodging-errors';
 import { cn } from '@/lib/utils';
 
 import { useSaveProduct, useSaveProductBotSettings } from '../api/commerce';
@@ -119,6 +123,17 @@ export function ProductForm({
   );
   const setVariant = (i: number, patch: Partial<VariantDraft>) =>
     setVariants((vs) => vs.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
+  /** SKU fields to fix, by variant key (TM-7); a field's error clears when its SKU changes. */
+  const [skuProblems, setSkuProblems] = useState<ReadonlyMap<string, SkuProblem>>(new Map());
+  const markSkus = (byIndex: ReadonlyMap<number, SkuProblem>) =>
+    setSkuProblems(
+      new Map(
+        [...byIndex].flatMap(([i, problem]) => {
+          const key = variants[i]?.key;
+          return key ? [[key, problem] as const] : [];
+        }),
+      ),
+    );
 
   // The owner assistant may fill a new product's main fields (the first variant's SKU, price,
   // cost and weight; the SKU is required to save), and the details of a course or service
@@ -293,6 +308,15 @@ export function ProductForm({
       );
       return;
     }
+    // A SKU repeated in the product: marked on the field before any request.
+    const repeated = duplicateSkuIndexes(variants);
+    if (repeated.length) {
+      markSkus(new Map(repeated.map((i) => [i, 'duplicate' as const])));
+      toast.error(t('products.form.skuDuplicate'));
+      const first = variants[repeated[0] ?? 0];
+      if (first) document.getElementById(`pv-sku-${first.key}`)?.focus();
+      return;
+    }
     const body: UpsertProductRequest = {
       code: code.trim(),
       name: name.trim(),
@@ -323,7 +347,21 @@ export function ProductForm({
           else if (!product)
             void navigate({ to: '/app/products/$productId', params: { productId: p.id } });
         },
-        onError: (err) => toast.error(productSaveErrorMessage(t, err)),
+        onError: (err) => {
+          const problems = skuProblemsOf(
+            err,
+            variants.map((v) => v.sku),
+          );
+          if (problems.size) {
+            markSkus(problems);
+            const first = [...problems.values()][0];
+            toast.error(
+              t(first === 'taken' ? 'products.form.skuTaken' : 'products.form.skuDuplicate'),
+            );
+            return;
+          }
+          toast.error(productSaveErrorMessage(t, err));
+        },
       },
     );
   }
@@ -497,8 +535,28 @@ export function ProductForm({
                     required
                     maxLength={64}
                     value={v.sku}
-                    onChange={(e) => setVariant(i, { sku: e.target.value })}
+                    {...(skuProblems.has(v.key)
+                      ? { 'aria-invalid': true, 'aria-describedby': `pv-sku-${v.key}-error` }
+                      : {})}
+                    onChange={(e) => {
+                      setVariant(i, { sku: e.target.value });
+                      if (skuProblems.has(v.key))
+                        setSkuProblems((all) => {
+                          const next = new Map(all);
+                          next.delete(v.key);
+                          return next;
+                        });
+                    }}
                   />
+                  {skuProblems.has(v.key) ? (
+                    <p id={`pv-sku-${v.key}-error`} className="text-xs text-destructive">
+                      {t(
+                        skuProblems.get(v.key) === 'taken'
+                          ? 'products.form.skuTaken'
+                          : 'products.form.skuDuplicate',
+                      )}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <FieldLabel htmlFor={`pv-name-${v.key}`} locked={locked}>
