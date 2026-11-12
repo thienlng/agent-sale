@@ -6,11 +6,25 @@ import { defineConfig, type Plugin } from 'vite';
 
 import { bootScript } from './src/lib/preferences/registry';
 
-/** Applies stored UI preferences in <head>, before the first paint (no theme/layout flash). */
+/**
+ * Applies stored UI preferences in <head>, before the first paint (no theme/layout flash). A
+ * classic external script, not an inline one, so the Content-Security-Policy needs neither
+ * 'unsafe-inline' nor a hash (infra/deploy/Caddyfile); it still blocks parsing like inline code.
+ */
 function preferencesBoot(): Plugin {
+  const file = 'boot.js';
   return {
     name: 'rapiz-preferences-boot',
-    transformIndexHtml: () => [{ tag: 'script', children: bootScript(), injectTo: 'head' }],
+    transformIndexHtml: () => [{ tag: 'script', attrs: { src: `/${file}` }, injectTo: 'head' }],
+    configureServer(server) {
+      server.middlewares.use(`/${file}`, (_req, res) => {
+        res.setHeader('Content-Type', 'text/javascript');
+        res.end(bootScript());
+      });
+    },
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: file, source: bootScript() });
+    },
   };
 }
 
