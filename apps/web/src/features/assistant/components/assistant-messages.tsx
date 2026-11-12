@@ -160,14 +160,16 @@ function LiveTurn({ turnId }: { turnId: string }) {
   const rounds = steps.filter((s) => !s.toolName).length;
   return (
     <li className="flex max-w-[85%] min-w-0 flex-col gap-2 self-start rounded-2xl rounded-bl-sm bg-muted px-3 py-2">
-      <span className="inline-flex items-center gap-2 text-muted-foreground" role="status">
-        <Loader2 className="size-4 animate-spin" aria-hidden />
-        {key ? t(`progress.${key}`) : t('thinking')}
-        {rounds > 1 ? (
-          <span className="text-xs tabular-nums opacity-70">
-            · {t('progress.steps', { count: rounds })}
-          </span>
-        ) : null}
+      <span className="flex items-start gap-2 text-muted-foreground" role="status">
+        <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin" aria-hidden />
+        <span className="min-w-0">
+          {key ? t(`progress.${key}`) : t('thinking')}
+          {rounds > 1 ? (
+            <span className="ml-1 text-xs whitespace-nowrap tabular-nums opacity-70">
+              · {t('progress.steps', { count: rounds })}
+            </span>
+          ) : null}
+        </span>
       </span>
     </li>
   );
