@@ -75,7 +75,8 @@ export function AssistantComposer({
       {attachments ? <AttachmentTray attachments={attachments} /> : null}
       <form
         data-measure
-        // One box: the attach button, the text and the send button inside the same border.
+        // One box: the attach button, the text and the send button inside the same border. The
+        // textarea is as tall as the 44px icon buttons, so one line of text sits on their centre.
         className="mx-3 mb-3 flex items-end gap-1 rounded-2xl border bg-background p-1.5 shadow-xs transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/30"
         onSubmit={(event: FormEvent) => {
           event.preventDefault();
@@ -117,7 +118,7 @@ export function AssistantComposer({
           value={text}
           maxLength={ASSISTANT_MESSAGE_MAX}
           rows={1}
-          className="max-h-40 min-h-9 resize-none border-0 bg-transparent px-2 py-2 shadow-none focus-visible:ring-0 dark:bg-transparent"
+          className="max-h-40 min-h-11 resize-none border-0 bg-transparent px-2 py-3 shadow-none focus-visible:ring-0 dark:bg-transparent"
           onChange={(event) => setText(event.target.value)}
           {...enterToSend}
         />

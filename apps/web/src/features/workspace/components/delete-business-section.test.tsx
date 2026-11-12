@@ -53,7 +53,7 @@ function setup(answer: { status: number; body?: unknown }) {
     'GET /workspaces/deleted': { status: 200, body: { data: [] } },
   });
   vi.stubGlobal('fetch', stub.fetchStub);
-  renderWithRouter(() => <DeleteBusinessSection exportAnchor="data-export-title" />);
+  renderWithRouter(() => <DeleteBusinessSection />);
   return stub.calls;
 }
 
@@ -71,7 +71,7 @@ describe('DeleteBusinessSection', () => {
     expect(screen.getByText(/Trang Facebook, Instagram và chat website/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Xuất dữ liệu' })).toHaveAttribute(
       'href',
-      '#data-export-title',
+      '/app/settings/data',
     );
     const user = await openDialog();
     expect(screen.getByRole('heading', { name: 'Xoá business Tiệm Hoa Mai?' })).toBeInTheDocument();

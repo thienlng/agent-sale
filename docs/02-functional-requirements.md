@@ -215,7 +215,7 @@ Spec: [Care agent, autonomy levels and attribution](superpowers/specs/2026-11-11
 | SET-07 | Tag settings (list / quick tags / create tag) | P0 |
 | SET-08 | Support tickets: create (title, department, description, ≤5 images × 2MB), track, discuss | P1 |
 | SET-09 | Audit log viewable by Owner/Admin | P1 [+] — built (M4a): members, invitations, roles, shop profile and logo |
-| SET-10 | Export all workspace data; delete workspace | P1 [+] — export built: Settings → Dữ liệu (`/app/settings/data`), owner/admin, ZIP of one CSV per data kind + README, optional pictures and files, built by the worker, one-time 5-minute download link, kept 7 days, 3 per day, audited ([spec](superpowers/specs/2026-11-08-backup-and-data-export-design.md) Phase 2); business deletion built (ADR-033): the owner deletes on the same page by typing the business name, everything stops at once, restorable for 30 days from "Business của tôi" (section "Đã xoá"), then the worker purges all its data and files |
+| SET-10 | Export all workspace data; delete workspace | P1 [+] — export built: Settings → Dữ liệu (`/app/settings/data`), owner/admin, ZIP of one CSV per data kind + README, optional pictures and files, built by the worker, one-time 5-minute download link, kept 7 days, 3 per day, audited ([spec](superpowers/specs/2026-11-08-backup-and-data-export-design.md) Phase 2); business deletion built (ADR-033): the owner deletes from the danger zone at the bottom of Settings → Hồ sơ (`/app/settings/profile`) by typing the business name, everything stops at once, restorable for 30 days from "Business của tôi" (section "Đã xoá"), then the worker purges all its data and files |
 
 ## 11. Billing (`BIL`) — details in [08](08-billing-quota-credit.md)
 
