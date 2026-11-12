@@ -82,10 +82,14 @@ export function ReplyModeMenu({
           size="sm"
           disabled={disabled}
           aria-label={`${tr('label')}: ${label}`}
-          className="max-w-full min-w-0 shrink"
+          className="max-w-full min-w-0 shrink-0 sm:shrink"
         >
           {mode === 'bot' ? <Bot /> : <UserRound />}
-          <span className="truncate">{label}</span>
+          {/* A phone keeps a short word beside the icon instead of a bare icon (NEW-2). */}
+          <span className="truncate sm:hidden">
+            {tr(mode === 'bot' ? 'shortBot' : 'shortHuman')}
+          </span>
+          <span className="hidden truncate sm:inline">{label}</span>
           <ChevronDown className="opacity-60" />
         </Button>
       </DropdownMenuTrigger>

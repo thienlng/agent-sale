@@ -166,7 +166,10 @@ export function ConversationHeader({
       )
     ) : null;
   return (
-    <header ref={headerRef} className="flex items-center gap-x-3 gap-y-2 border-b px-3 py-2.5">
+    <header
+      ref={headerRef}
+      className="flex items-center gap-x-2 gap-y-2 border-b px-2 py-2.5 sm:gap-x-3 sm:px-3"
+    >
       <Button
         size="icon-sm"
         variant="ghost"
@@ -177,10 +180,10 @@ export function ConversationHeader({
         <ArrowLeft />
       </Button>
       <CustomerAvatar conversation={c} name={name} />
-      <div className="min-w-24 flex-1">
+      <div className="min-w-14 flex-1 sm:min-w-24">
         <h2 className="flex min-w-0 items-baseline gap-2 leading-tight">
-          <span className="max-w-full shrink-0 truncate font-semibold">{name}</span>
-          <span className="truncate text-xs font-normal text-muted-foreground">
+          <span className="min-w-0 truncate font-semibold sm:max-w-full sm:shrink-0">{name}</span>
+          <span className="hidden truncate text-xs font-normal text-muted-foreground sm:inline">
             {channel?.name ? v2('via', { provider, page: channel.name }) : provider}
           </span>
         </h2>

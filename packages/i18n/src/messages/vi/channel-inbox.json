@@ -573,6 +573,8 @@
       "reopen": "Mở lại",
       "replyMode": {
         "label": "Chế độ trả lời",
+        "shortBot": "Bot",
+        "shortHuman": "Nhân viên",
         "bot": "Bot đang trả lời",
         "takeover": "Bạn đang tiếp quản · bot bật lại sau {{time}}",
         "human": "Người trả lời (bot tắt)",

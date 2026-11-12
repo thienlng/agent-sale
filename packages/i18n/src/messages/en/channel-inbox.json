@@ -573,6 +573,8 @@
       "reopen": "Reopen",
       "replyMode": {
         "label": "Reply mode",
+        "shortBot": "Bot",
+        "shortHuman": "Person",
         "bot": "Bot is replying",
         "takeover": "You took over · bot resumes in {{time}}",
         "human": "A person replies (bot off)",
