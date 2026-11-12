@@ -16,9 +16,9 @@
 **Invariants:**
 
 - Every public call resolves the site (`channel.resolveWebsite`) and answers a uniform `404 {error:"NOT_FOUND"}` for an unknown key, a site that is not `connected` or an `Origin` outside `settings.domains`.
-- A visitor row is created on the first message, never on page view; its id is the conversation's `customer_id`. No IP or user agent is stored; addresses are hashed with a per-process secret and a daily salt and only feed in-memory rate limits (`RATE_LIMITER` port, `InMemoryRateLimiter`).
+- A visitor row is created on the first message, never on page view; its id is the conversation's `customer_id`. No IP or user agent is stored; addresses are hashed with a per-process secret and a daily salt and only feed rate limits (`RATE_LIMITER` port over the shared limiter in `common/limits`: Redis when `REDIS_URL` is set, so visitor, site and upload limits hold across instances; in-process counters when Redis is down). Address-keyed counters stay effectively per process while the hash secret is per process.
 - The visitor token is signed per site (channel module); a `clientMessageId` is the event's `externalEventId`, so a retried send is deduplicated by the queue's unique index. Customer messages carry it back as `clientMessageId` so the widget de-duplicates its own messages.
-- Attachments must be URLs produced by this site's upload route (`webchat/<workspace>/<connection>/…` under `S3_PUBLIC_URL`); uploads are checked by magic bytes, at most 5 MB.
+- Attachments must be URLs produced by this site's upload route (`webchat/<workspace>/<connection>/…` under `S3_PUBLIC_URL`); uploads are checked by magic bytes, at most 5 MB. An upload is stored under `webchat-tmp/<workspace>/<connection>/` and moved to the permanent prefix when a message references it; the worker deletes temporary uploads older than 24 h. Each site may upload `WEBCHAT_UPLOADS_SITE_DAY` files per day (429 past it).
 - Public responses use `{error: CODE}`, never the dashboard envelope, and echo the caller's `Origin` (never `*`). `OPTIONS` is answered by one `onRequest` hook for this prefix only.
 - The queue event id is `<visitorId>:<clientMessageId>` (another visitor cannot suppress a message by reusing an id); the message's external id stays the plain `clientMessageId`.
 - Site lookups are cached in process for 5 s (misses too, bounded); config and preflight are limited per address before any lookup. A site edit is visible after at most 5 s.
@@ -31,6 +31,10 @@
 - **Page context:** every send carries `page.sections` (≤3 × `{name ≤80, text ≤400}`), the elements the site marked with `data-rapiz-section` that are on screen. It travels on the queued event (`NormalizedEvent.page`), is not stored on the visitor row, and reaches the bot as untrusted data (see the ai module, `website-page@2`). It also carries `page.nav` (≤24 `{label ≤80, url ≤1000}`, optional): the page's sections and header/nav/footer links, from which the bot may suggest same-origin places (ADR-029).
 - **Rich messages:** polled agent messages carry the stored `ui` (product cards, suggested next steps) of a bot reply (ADR-029).
 - Phones and emails are only ever logged masked (`maskPhone`, `maskEmail`).
+
+- **Leads from the second message (security audit #2):** a visitor's first message never creates a CRM customer; phone and email capture starts with the second message (a number left in the first one is picked up then). `POST /phone` is an explicit opt-in and is not delayed.
+- **Optional Turnstile:** off unless `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` are both set. Then `GET /sites/{key}` returns `turnstileSiteKey`, and a new visitor's first message or upload must carry a `turnstileToken` the server verifies (403 `CHALLENGE_REQUIRED`).
+- **AI replies to anonymous visitors are capped** per site and per workspace (hour and day); see the conversation module.
 
 **Depends on (facades only):** `channel` (resolve/sign/verify/enqueue), `conversation` (`listForVisitor`, `linkLead`, `get`), `crm` (`upsertLeadByPhone`, `upsertLeadByEmail`), `bot` (language).
 

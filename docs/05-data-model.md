@@ -485,3 +485,7 @@ Migration 0075 (additive) adds `conversation_signals.opt_out` (boolean, default 
 Care messages sent to a customer are ordinary `conversation_messages` rows: bot messages with `data.source = 'care'`. A member's reply sent with Meta's `HUMAN_AGENT` tag carries `data.tag = 'HUMAN_AGENT'`.
 
 Data export (SET-10): `care_messages.csv` and `care_enrollments.csv`; `care_usage`, `care_templates`, `autonomy_settings` and `care_checkpoints` are settings or operational and not exported.
+
+## Security audit notification type (migration 0079)
+
+Migration 0079 (additive) widens `notifications_type_check` with `inbox.ai_capped`: the owner alert sent once per window when anonymous website visitors reach a site or workspace AI reply cap (docs/08 section 4b). It keeps every type of 0073. The number skips 0076 to 0078, which other open pull requests use; the runner applies migrations by sorted file name and accepts gaps.

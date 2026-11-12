@@ -71,6 +71,23 @@ Behavior when hitting quota: warnings at 80% and 100% (in-app + email); exceedin
 - **Exhaustion.** The AI is not called. Messenger/Instagram/website customers get the bot's hand-off message and the conversation switches to `human`; a fanpage comment goes to staff review. The dashboard shows a red banner (warning banner from 80%), from `GET /billing/usage`.
 - **Not metered.** A business without an account (before the account backfill) is not metered.
 
+### 4b. Abuse caps (security audit 2026-11-12 #2, #15, #18)
+
+The message allowance limits what an account pays for; these caps limit what one visitor, conversation or user can burn before the allowance or the provider bill notices. They are environment variables of the backend (`0` turns one off), counted on the shared limiter (Redis when `REDIS_URL` is set, otherwise per process), and none of them is a plan key.
+
+| Cap | Default | Past the cap |
+|---|---|---|
+| AI replies to anonymous website visitors per site (`WEBCHAT_AI_REPLIES_SITE_HOUR` / `_DAY`) and per workspace (`WEBCHAT_AI_REPLIES_WORKSPACE_HOUR` / `_DAY`) | 300 / 2 000 per site, 600 / 4 000 per workspace | the visitor gets the hand-off message once, no model call, nothing billed; active owners get one `inbox.ai_capped` notification per window. Visitors who left a phone or email are not counted. |
+| Bot replies per conversation and hour (`CONVERSATION_BOT_REPLIES_HOUR`) | 30 | hand-off to staff |
+| Model calls and tokens per conversation and hour (`CONVERSATION_MODEL_CALLS_HOUR`, `CONVERSATION_TOKENS_HOUR`) | 150 calls, 3 M tokens | hand-off to staff, no model call |
+| Playground runs per user and minute (`PLAYGROUND_RUNS_USER_MINUTE`) | 10 | 429 `RATE_LIMITED` |
+| Playground + owner assistant tokens per account and day (`OWNER_LLM_TOKENS_ACCOUNT_DAY`) | 5 M | 429 `RATE_LIMITED` |
+| Owner assistant runs in flight per user (`ASSISTANT_RUNS_PER_USER`) | 2 | 429 `RATE_LIMITED` |
+| Orders and lodging holds the bot creates per customer and day (`BOT_ORDERS_CONTACT_DAY`, `BOT_HOLDS_CONTACT_DAY`) | 10 orders, 3 holds | the tool refuses and the bot hands the customer to staff |
+| Website chat uploads per site and day (`WEBCHAT_UPLOADS_SITE_DAY`) | 500 | 429 |
+
+Model calls are charged as they complete, so failed, interrupted and undelivered turns count against the token and call caps (they are not billed as messages). The playground and the assistant are not billed messages; the token cap is their only spend limit.
+
 **Inherited plan keys (inventory, T-091).** Only `members.max` is enforced (team module; kept, ADR-012 open question 1). `channels.max`, `contacts.max`, `storage.bytes`, `media.max` and `knowledge_items.max` are defined in the seeded plans but enforced nowhere; they stay in the plan rows (published plan versions are never rewritten) and must not be enforced without a product decision. `feature.*` and `ai.models.allowed` are unchanged.
 
 **Operations.** Run `pnpm --filter @agent-sales/backend account-backfill --dry-run`, then without `--dry-run`: after linking businesses to accounts it copies each account's paid workspace subscription (active, trialing or past due) to the account. With several paid businesses the most expensive plan wins (highest monthly price, then the latest period end); the others are listed as conflicts for an operator, no money moves, and workspace subscriptions are never changed. Re-running is safe (existing account subscriptions are never overwritten). Grant extra messages with an `account_entitlement_overrides` row (`ai.included_messages`, `{amount, periodDays}`).

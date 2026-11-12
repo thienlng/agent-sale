@@ -30,6 +30,9 @@
 - `reauth_required` connections keep ingesting and storing inbound events; only sending is blocked.
 - A send never retries automatically: provider timeouts/5xx are `unknown`, explicit rejections are `failed`; `auth_expired` marks the connection `reauth_required`.
 
+- **Fair claim (security audit #3):** `claimEvents(limit, {perWorkspace})` scans up to `min(200, 4 × limit)` due rows (`FOR UPDATE SKIP LOCKED`) and keeps at most `perWorkspace` conversations (connection + sender) per workspace, oldest first; every event of an admitted conversation is kept, so per-conversation order holds. One flooded workspace cannot take a whole batch.
+- **`deferEvent(id, claimToken, delayMs)`** puts a claimed event back for later without spending an attempt (the TenantFairness bucket said "not now").
+
 **Do not:** read other modules' tables; put HTTP/Drizzle types in `domain/`; call LLMs outside `ai-core`.
 
 **Test:** `pnpm --filter @agent-sales/backend test -- channel`
