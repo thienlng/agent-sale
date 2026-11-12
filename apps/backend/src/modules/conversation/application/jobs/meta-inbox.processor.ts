@@ -120,15 +120,40 @@ export class MetaInboxProcessor {
       }
     }
   }
-  /** The last retry failed: give the customer a human instead of silently dropping the message. */
+  /**
+   * The last retry failed (e.g. the model stayed unavailable): the customer gets the bot's hand-over
+   * message, then staff take over and are alerted, instead of a silently dropped message (MS-9).
+   */
   private async handOver(job: PendingMetaEvent, conversationId: string): Promise<void> {
     try {
+      await this.sayHandedOver(job, conversationId).catch(() =>
+        this.logger.warn(`Meta inbox hand-over message not sent for event ${job.id}`),
+      );
       await this.inbox.handOff(job.workspaceId, conversationId, 'system');
       await this.channels.completeEvent(job.id, job.claimToken);
     } catch {
       this.logger.error(`Meta inbox handover after final retry failed for event ${job.id}`);
       await this.deadLetter(job);
     }
+  }
+  /** Only while the bot still owns the conversation and the customer's turn has no answer yet. */
+  private async sayHandedOver(job: PendingMetaEvent, conversationId: string): Promise<void> {
+    const ws = job.workspaceId;
+    if (job.event.type !== 'message' || !isCustomerContent(job.event)) return;
+    if (!withinReplyWindow(job.event.kind, job.event.occurredAt)) return;
+    const channel = await this.channels.getConnection(ws, job.connectionId);
+    if (!channel.botId || channel.status !== 'connected') return;
+    const bot = await this.bots.getBot(ws, channel.botId);
+    const context = await this.inbox.getReplyContext(ws, conversationId);
+    const { mode, status } = context.conversation;
+    if (mode !== 'bot' || status !== 'open') return;
+    const last = [...context.messages].sort((a, b) => (a.id < b.id ? -1 : 1)).at(-1);
+    if (last?.direction === 'outbound') return;
+    await this.inbox.commitBotReply(ws, conversationId, {
+      revision: context.revision,
+      text: handoffText(bot),
+      idempotencyKey: `bot:${job.event.externalEventId}:handover`,
+    });
   }
   private async deadLetter(job: PendingMetaEvent): Promise<void> {
     this.logger.error(`Meta inbox event ${job.id} dead-lettered after ${job.attempt} attempts`);

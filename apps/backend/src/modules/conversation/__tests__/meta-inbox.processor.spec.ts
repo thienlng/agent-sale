@@ -584,6 +584,11 @@ describe('MetaInboxProcessor', () => {
     await processor.tick();
     expect((await inbox.get(ws, c!.id)).conversation.mode).toBe('human');
     expect(channels.completeEvent).toHaveBeenCalled();
+    // The customer is told staff will answer instead of getting nothing (MS-9, LM-1).
+    expect(channels.deliver).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(vi.mocked(channels.deliver).mock.calls[0])).toContain(
+      'Staff will help you',
+    );
   });
   it('dead-letters an event that cannot even be stored after the final attempt', async () => {
     const { channels, processor } = setup();

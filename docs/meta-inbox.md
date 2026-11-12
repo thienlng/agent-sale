@@ -28,7 +28,7 @@ Post comments and comment-to-private-reply provenance: [Facebook comment automat
 
 Before generating, the processor checks the bot is active and inside its reply hours (`replySchedule`, Vietnam time); otherwise the message just waits in the inbox for staff.
 
-On failure an event is retried after 20 s and 60 s; after the third attempt the conversation switches to `human` so staff see it. An event that cannot even be stored in a conversation after its last attempt (or whose worker died) is **dead-lettered**: `processed_at` and `failed_at` are set, the payload is kept for replay, and the agent logs an error (UI for dead letters: T-049). While a page awaits re-auth (`reauth_required`), inbound messages are still stored for staff; the bot does not reply until the page is reconnected.
+On failure an event is retried after 20 s and 60 s; after the third attempt (for example the AI model stayed unavailable) the customer gets the bot's hand-over message (`handoffText`, key `bot:<event id>:handover`; only while the bot still holds the open conversation, the customer's turn has no outbound answer yet and the 24-hour window is open) and the conversation is handed to staff (`handOff`: `human`, temporary takeover, staff alert `inbox.handoff`), so the customer is never left without an answer (MS-9, LM-1). An event that cannot even be stored in a conversation after its last attempt (or whose worker died) is **dead-lettered**: `processed_at` and `failed_at` are set, the payload is kept for replay, and the agent logs an error (UI for dead letters: T-049). While a page awaits re-auth (`reauth_required`), inbound messages are still stored for staff; the bot does not reply until the page is reconnected.
 
 ## Configuration
 
