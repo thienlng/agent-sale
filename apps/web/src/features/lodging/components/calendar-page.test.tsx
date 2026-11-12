@@ -391,7 +391,7 @@ describe('CalendarPage', () => {
     renderPage();
     await userEvent.click(await screen.findByRole('button', { name: /Xem từng phòng của H1/ }));
     expect(screen.getByText('Chị Lan · BK-0002')).toBeInTheDocument();
-    expect(screen.getByText(/Giữ chỗ · hết hạn/)).toBeInTheDocument();
+    expect(screen.getByText(/Giữ chỗ · giữ đến/)).toBeInTheDocument();
   });
 
   it('keeps the expiring-soon cue on a short hold bar and the guest label readable', async () => {

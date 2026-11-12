@@ -32,7 +32,7 @@ import {
   todayNight,
   weekdayShort,
 } from '../lib/format';
-import { botHoldPending } from '../lib/bot-hold';
+import { botHoldPending, isTestHold, TEST_HOLD_MINUTES } from '../lib/bot-hold';
 import { BookingEditForm } from './booking-edit-form';
 import { BookingErrorAlert } from './booking-error-alert';
 import { BookingNightNotes, type NoteFocus } from './booking-night-notes';
@@ -196,7 +196,7 @@ export function BookingView({
               {[b.whole ? t('sheet.whole') : b.unitNames.join(', '), ...b.packageNames].join(' · ')}
             </p>
             {b.status === 'hold' && b.holdExpiresAt && (
-              <p className="text-warning">
+              <p className="text-muted-foreground">
                 {t('sheet.holdUntil', {
                   time: `${clockTime(b.holdExpiresAt)} ${localDayMonth(b.holdExpiresAt)}`,
                 })}
@@ -322,11 +322,13 @@ function ConversationButton({ conversationId }: { conversationId: string }) {
 /**
  * Top of a bot booking (T-161): while the hold waits for staff, what to do next (call the guest,
  * then press Xác nhận); afterwards a quiet "made by the bot" line. "Mở hội thoại" sits here so
- * staff read what the guest asked before calling.
+ * staff read what the guest asked before calling. A hold from the owner's test chat says it is a
+ * test that lapses on its own (VL2-9): nobody calls a guest.
  */
 function BotBookingBanner({ booking: b }: { booking: BookingDetail }) {
   const { t } = useTranslation('lodging');
   const pending = botHoldPending(b);
+  const testHold = b.status === 'hold' && isTestHold(b);
   return (
     <section
       aria-label={t('sheet.botLabel')}
@@ -342,7 +344,11 @@ function BotBookingBanner({ booking: b }: { booking: BookingDetail }) {
           aria-hidden
         />
         <span className={pending ? 'font-medium text-foreground' : undefined}>
-          {pending ? t('sheet.botHoldHint') : t('sheet.botCreated')}
+          {testHold
+            ? t('sheet.testHoldHint', { minutes: TEST_HOLD_MINUTES })
+            : pending
+              ? t('sheet.botHoldHint')
+              : t('sheet.botCreated')}
         </span>
       </p>
       {b.conversationId && <ConversationButton conversationId={b.conversationId} />}

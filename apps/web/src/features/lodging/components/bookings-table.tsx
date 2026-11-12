@@ -19,9 +19,7 @@ import { clockTime, formatVnd, localDayMonth, nightsBetween, stayDate } from '..
 import { BookingStatusBadge } from './booking-status-badge';
 import { TagChips } from './tag-input';
 
-const SOON_MS = 15 * 60_000;
-
-/** Expiry cell of a hold: "Quá hạn" when past, red when under 15 minutes. */
+/** Expiry cell of a hold: "giữ đến 03:47" while it runs, red "Quá hạn" only once past (VL2-9). */
 export function HoldExpiry({ at, now }: { at: string | null; now: number }) {
   const { t } = useTranslation('lodging');
   if (!at) return null;
@@ -29,7 +27,7 @@ export function HoldExpiry({ at, now }: { at: string | null; now: number }) {
   if (left <= 0) return <span className="font-semibold text-destructive">{t('list.overdue')}</span>;
   const sameDay = left < 24 * 3_600_000;
   return (
-    <span className={cn('tabular-nums', left < SOON_MS && 'font-semibold text-destructive')}>
+    <span className="tabular-nums">
       {sameDay
         ? t('list.expiresAt', { time: clockTime(at) })
         : t('list.expiresOn', {
@@ -209,6 +207,15 @@ function BookingCard({
         <span className="font-semibold tabular-nums">{b.code}</span>
         <BookingStatusBadge status={b.status} />
         {b.source === 'bot' && <BotBadge pending={botHoldPending(b)} />}
+        {/* Spans, not TagChips' list: the card is a button (VL2-9: "Chat thử" on phones too). */}
+        {b.tags.map((tag) => (
+          <span
+            key={tag}
+            className="inline-flex max-w-40 items-center truncate rounded-full border border-border bg-muted px-2 py-px text-[11px] leading-4 text-foreground"
+          >
+            {tag}
+          </span>
+        ))}
         <span className="ml-auto font-medium tabular-nums">
           {b.totalSell === null ? '—' : formatVnd(b.totalSell)}
         </span>

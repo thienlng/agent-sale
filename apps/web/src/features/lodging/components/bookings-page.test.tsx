@@ -316,6 +316,29 @@ describe('BookingsPage bot holds', () => {
     expect(screen.queryByRole('table')).toBeNull();
     expect(card).toHaveTextContent('Chị Lan');
     expect(card).toHaveTextContent('→');
-    expect(card).toHaveTextContent(/hết hạn \d{2}:\d{2} 01\/11\/2099/);
+    expect(card).toHaveTextContent(/giữ đến \d{2}:\d{2} 01\/11\/2099/);
+  });
+
+  it('shows the "Chat thử" chip of a test hold on a phone card (VL2-9)', async () => {
+    const { fetchStub } = stubLodgingApi({
+      'GET /lodging/bookings': {
+        status: 200,
+        body: {
+          data: [{ ...later, source: 'bot', reviewedAt: null, tags: ['Chat thử'] }],
+          nextOffset: null,
+        },
+      },
+      'GET /lodging/properties': { status: 200, body: { data: [] } },
+      'GET /lodging/settings': { status: 200, body: { holdMinutes: 120 } },
+      'GET /lodging/bookings/review-count': { status: 200, body: { pending: 0 } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    vi.stubGlobal('innerWidth', 390);
+    renderPage();
+    await userEvent.click(await screen.findByRole('tab', { name: 'Giữ chỗ' }));
+    const card = await screen.findByRole('button', { name: /BK-0011/ });
+    expect(card).toHaveTextContent('Chat thử');
+    // A live hold reads "giữ đến", never in red.
+    expect(within(card).getByText(/giữ đến/)).not.toHaveClass('text-destructive');
   });
 });

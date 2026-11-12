@@ -618,6 +618,10 @@ describe('bot holds', () => {
       conversationId: null,
       tags: ['Chat thử'],
     });
+    // It lapses on its own: staff have nothing to handle (VL2-9).
+    expect(
+      await ok(await call(o.headers, 'GET', '/lodging/bookings/review-count'), BookingReviewCount),
+    ).toEqual({ pending: 0 });
   });
 
   it('an edit by staff reviews a bot hold too', async () => {

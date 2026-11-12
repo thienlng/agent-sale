@@ -74,7 +74,7 @@
     "cellNoPrice": "{{unit}}, {{day}} {{date}}, free, no price",
     "cellTaken": "{{unit}}, {{day}} {{date}}, {{status}} {{code}}",
     "cellPartial": "{{unit}}, {{day}} {{date}}, {{free}}/{{total}} rooms free",
-    "holdExpires": "expires {{time}}",
+    "holdExpires": "held until {{time}}",
     "selecting": "Check-in {{date}} selected. Pick the last night, or press Esc to clear.",
     "empty": "No places yet",
     "emptyHint": "Add a place and its rates to start taking bookings.",
@@ -200,6 +200,7 @@
     "nightNotesLoadError": "Could not load the night notes.",
     "botLabel": "By bot",
     "botHoldHint": "The bot held this at the guest's request — call to confirm, then press Confirm",
+    "testHoldHint": "Test hold (Chat thử) — cancels itself after {{minutes}} minutes",
     "botCreated": "The bot made this booking from a guest conversation.",
     "package": "Package",
     "packageOf": "Package · {{name}}"
@@ -273,8 +274,8 @@
     },
     "nights": "{{count}} nights",
     "overdue": "Overdue",
-    "expiresAt": "expires {{time}}",
-    "expiresOn": "expires {{time}} {{date}}",
+    "expiresAt": "held until {{time}}",
+    "expiresOn": "held until {{time}} {{date}}",
     "block": "Blocked: {{reason}}",
     "empty": {
       "today": "No arrivals or departures today.",

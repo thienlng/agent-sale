@@ -74,7 +74,7 @@
     "cellNoPrice": "{{unit}}, {{day}} {{date}}, trống, chưa có giá",
     "cellTaken": "{{unit}}, {{day}} {{date}}, {{status}} {{code}}",
     "cellPartial": "{{unit}}, {{day}} {{date}}, còn {{free}}/{{total}} phòng",
-    "holdExpires": "hết hạn {{time}}",
+    "holdExpires": "giữ đến {{time}}",
     "selecting": "Đã chọn nhận phòng {{date}}. Chọn đêm cuối, hoặc nhấn Esc để bỏ chọn.",
     "empty": "Chưa có căn hộ nào",
     "emptyHint": "Thêm căn hộ và bảng giá để bắt đầu nhận booking.",
@@ -200,6 +200,7 @@
     "nightNotesLoadError": "Không tải được ghi chú ngày.",
     "botLabel": "Bot tạo",
     "botHoldHint": "Bot đã giữ chỗ theo yêu cầu khách — gọi xác nhận rồi bấm Xác nhận",
+    "testHoldHint": "Giữ chỗ thử (Chat thử) — tự huỷ sau {{minutes}} phút",
     "botCreated": "Bot tạo booking này từ hội thoại với khách.",
     "package": "Gói",
     "packageOf": "Gói · {{name}}"
@@ -273,8 +274,8 @@
     },
     "nights": "{{count}} đêm",
     "overdue": "Quá hạn",
-    "expiresAt": "hết hạn {{time}}",
-    "expiresOn": "hết hạn {{time}} {{date}}",
+    "expiresAt": "giữ đến {{time}}",
+    "expiresOn": "giữ đến {{time}} {{date}}",
     "block": "Khoá lịch: {{reason}}",
     "empty": {
       "today": "Hôm nay không có khách nhận hoặc trả phòng.",

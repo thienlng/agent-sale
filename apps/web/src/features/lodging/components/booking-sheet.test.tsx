@@ -388,6 +388,27 @@ describe('BookingSheet view', () => {
     expect(within(sheet).getAllByRole('link', { name: /Mở hội thoại/ })).toHaveLength(1);
   });
 
+  it('labels a test-chat hold as a test that lapses, not a guest to call (VL2-9)', async () => {
+    stubApi({
+      [`GET /lodging/bookings/${BK}`]: {
+        status: 200,
+        body: booking({
+          source: 'bot',
+          reviewedAt: null,
+          conversationId: null,
+          tags: ['Chat thử'],
+        }),
+      },
+    });
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    const banner = await within(sheet).findByRole('region', { name: 'Bot tạo' });
+    expect(
+      within(banner).getByText('Giữ chỗ thử (Chat thử) — tự huỷ sau 15 phút'),
+    ).toBeInTheDocument();
+    expect(within(banner).queryByText(/gọi xác nhận/)).toBeNull();
+  });
+
   it('drops the call hint once staff handled the bot hold but keeps the conversation button', async () => {
     stubApi({
       [`GET /lodging/bookings/${BK}`]: {
