@@ -1,6 +1,6 @@
 import { AuthResponse, BootstrapResponse } from '@agent-sales/contracts';
 import { createDb, ensureLoginRoles, migrate, schema, withCredentials, eq } from '@agent-sales/db';
-import { userId, workspaceId } from '@agent-sales/shared';
+import { newId, userId, workspaceId } from '@agent-sales/shared';
 import { startTestPostgres, type TestPostgres } from '@agent-sales/testing';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -274,8 +274,10 @@ describe('education requests', () => {
       'contact.request_updated',
       'contact.request_recorded',
     ]);
+    // The update rewrites the bot's own note of this request instead of adding one (LM-4); the
+    // history keeps both versions.
     const list = await notes(a.headers, id);
-    expect(list).toHaveLength(2);
+    expect(list).toHaveLength(1);
     expect(list[0]?.body.startsWith('Cập nhật: Đăng ký kiểm tra trình độ (bot ghi nhận)')).toBe(
       true,
     );
@@ -489,28 +491,58 @@ describe('spa requests', () => {
 describe('request tasks and reschedules (MS-10, MS-21)', () => {
   const tasks = async (h: Headers, contactId: string) =>
     (await call(h, 'GET', `/tasks?scope=all&status=open&contactId=${contactId}`)).json()
-      .data as Array<{ id: string; title: string; source: string; dueAt: string | null }>;
+      .data as Array<{
+      id: string;
+      title: string;
+      note: string | null;
+      source: string;
+      dueAt: string | null;
+      conversationId: string | null;
+    }>;
 
-  it('opens one confirmation task per customer request, due now, rewritten by updates', async () => {
+  it('opens one confirmation task per request, due at the slot, linked to the conversation (LM2-8)', async () => {
     const a = await owner('spa');
     const base = { name: 'Chị Thư', phone: '0987654321', service: 'Phun mày' };
-    const res = await record(a.ws, 'appointment', {
-      ...base,
-      preferredDate: vnDate(4),
-      preferredTime: '9h',
+    const conversationId = newId();
+    const res = await crm.recordBotRequest(a.ws, {
+      kind: 'appointment',
+      details: { ...base, preferredDate: vnDate(4), preferredTime: '9h' },
+      preview: false,
+      conversationId,
     });
     const id = contactIdOf(res);
     const [task, ...more] = await tasks(a.headers, id);
     expect(more).toEqual([]);
-    expect(task).toMatchObject({ source: 'bot' });
+    expect(task).toMatchObject({ source: 'bot', conversationId });
     expect(task?.title).toMatch(/^Xác nhận – Đặt lịch: Chị Thư – (Thứ|Chủ).* 9h$/);
-    expect(Date.parse(task?.dueAt ?? '')).toBeLessThanOrEqual(Date.now());
-    // An update of a request not confirmed yet: same task, new slot, status unchanged.
-    await record(a.ws, 'appointment', { ...base, preferredTime: '10h' });
+    // Due at the slot (09:00 in Vietnam), never overdue at creation.
+    expect(task?.dueAt).toBe(new Date(`${vnDate(4)}T02:00:00.000Z`).toISOString());
+    // An update of a request not confirmed yet: same task, new slot, the earlier one kept.
+    await record(a.ws, 'appointment', {
+      ...base,
+      preferredDate: vnDate(4),
+      preferredTime: '4h chiều',
+    });
     const after = await tasks(a.headers, id);
     expect(after).toHaveLength(1);
-    expect(after[0]?.title).toMatch(/10h$/);
+    expect(after[0]?.title).toMatch(/4h chiều$/);
+    expect(after[0]?.dueAt).toBe(new Date(`${vnDate(4)}T09:00:00.000Z`).toISOString());
+    expect(after[0]?.note).toMatch(/\nTrước: Chị Thư – .* 9h$/);
     expect(await statusKey(a.headers, id)).toBe('booking_requested');
+  });
+
+  it('is due at the end of today without a day', async () => {
+    const a = await owner('spa');
+    const res = await record(a.ws, 'appointment', {
+      name: 'Chị Lan',
+      phone: '0987654323',
+      service: 'Phun mày',
+      preferredTime: 'chiều nay',
+    });
+    const [task] = await tasks(a.headers, contactIdOf(res));
+    const due = Date.parse(task?.dueAt ?? '');
+    expect(due).toBeGreaterThan(Date.now());
+    expect(due - Date.now()).toBeLessThanOrEqual(24 * 3_600_000);
   });
 
   it('sends a confirmed appointment back to "requested" with a "Khách đổi lịch" task when the slot moves', async () => {
@@ -518,10 +550,18 @@ describe('request tasks and reschedules (MS-10, MS-21)', () => {
     const base = { name: 'Chị Thư', phone: '0987654322', service: 'Phun mày' };
     const first = await record(a.ws, 'appointment', { ...base, preferredDate: vnDate(4) });
     const id = contactIdOf(first);
+    // Confirming the slot completes the "Xác nhận" task (MS2-8).
+    expect(await tasks(a.headers, id)).toHaveLength(1);
+    expect(await crm.requestStatus(a.ws, id)).toMatchObject({ confirmed: false });
     await setStatus(a.headers, id, 'booked');
-    // Staff closed the confirmation task when they confirmed the slot.
-    const [done] = await tasks(a.headers, id);
-    await call(a.headers, 'POST', `/tasks/${done?.id}/complete`);
+    expect(await tasks(a.headers, id)).toEqual([]);
+    // The bot is told the appointment is confirmed (MS2-7).
+    expect(await crm.requestStatus(a.ws, id)).toMatchObject({
+      kind: 'appointment',
+      kindLabel: 'Đặt lịch',
+      confirmed: true,
+      statusName: 'Đã xác nhận lịch',
+    });
     // Same request, same slot (a retried call): stays confirmed, no task.
     await record(a.ws, 'appointment', { ...base, preferredDate: vnDate(4) });
     expect(await statusKey(a.headers, id)).toBe('booked');

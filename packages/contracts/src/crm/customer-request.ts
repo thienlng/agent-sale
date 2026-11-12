@@ -314,7 +314,7 @@ const SPA_PROFILE: RequestProfile = {
       max: 200,
       label: 'Dịch vụ',
       describe:
-        'The service or treatment the customer wants: its name exactly as in the catalog (the product name)',
+        'Every service or treatment of the appointment, names exactly as in the catalog (the product names), comma separated; when the customer adds one, send the earlier ones too',
     },
     {
       key: 'branch',

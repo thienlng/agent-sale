@@ -42,7 +42,7 @@
       "empty": "Không có tin chăm sóc nào chờ duyệt."
     },
     "tasks": {
-      "title": "Việc của tôi",
+      "title": "Việc cần làm",
       "empty": "Không có việc nào đến hạn hôm nay."
     }
   },
@@ -98,7 +98,7 @@
   },
   "task": {
     "dialogTitle": "Thêm việc",
-    "dialogDescription": "Việc sẽ hiện trong “Việc của tôi” của người làm khi đến hạn.",
+    "dialogDescription": "Việc sẽ hiện trong “Việc cần làm” của người làm khi đến hạn.",
     "title": "Việc cần làm",
     "defaultTitle": "Liên hệ lại {{name}}",
     "due": "Hạn",

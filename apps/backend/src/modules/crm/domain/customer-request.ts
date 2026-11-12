@@ -30,6 +30,55 @@ export function localToday(now: Date): string {
   return new Date(now.getTime() + REQUEST_TIME_ZONE_OFFSET_MS).toISOString().slice(0, 10);
 }
 
+/** The last second of `now`'s day in Asia/Ho_Chi_Minh. */
+export function endOfLocalDay(now: Date): Date {
+  const day = localToday(now);
+  return new Date(Date.parse(`${day}T23:59:59Z`) - REQUEST_TIME_ZONE_OFFSET_MS);
+}
+
+/**
+ * The hour a customer's time wish names, 24 h ("9h", "9h30", "14:00", "4h chiều", "tối 7h",
+ * "around 3pm"); null when it names none ("buổi sáng", "cuối tuần").
+ */
+export function slotTime(text: string): { hour: number; minute: number } | null {
+  const t = foldVietnamese(text).toLowerCase();
+  const ampm = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/.exec(t);
+  const viet = /\b(\d{1,2})\s*(?:h|gio|:)\s*(\d{2})?/.exec(t);
+  const m = ampm ?? viet;
+  if (!m) return null;
+  let hour = Number(m[1]);
+  const minute = Number(m[2] ?? 0);
+  const afternoon = ampm ? ampm[3] === 'pm' : /\b(chieu|toi|pm)\b/.test(t);
+  if (afternoon && hour < 12) hour += 12;
+  if (ampm && ampm[3] === 'am' && hour === 12) hour = 0;
+  return hour <= 23 && minute <= 59 ? { hour, minute } : null;
+}
+
+/** When the staff task of a date-only wish falls due: that morning, before the shop opens. */
+const DATE_ONLY_HOUR = 8;
+
+/**
+ * When the staff task of a request falls due (LM2-8): the slot the customer asked for (its
+ * day, and its hour when the time names one, else 08:00), in Asia/Ho_Chi_Minh; the end of today
+ * without a day, or when that moment has already passed. Never "overdue" at creation.
+ */
+export function requestDueAt(details: Readonly<Record<string, unknown>>, now: Date): Date {
+  const endOfToday = endOfLocalDay(now);
+  const date = typeof details['preferredDate'] === 'string' ? details['preferredDate'] : '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return endOfToday;
+  const time =
+    typeof details['preferredTime'] === 'string' ? slotTime(details['preferredTime']) : null;
+  const hh = String(time?.hour ?? DATE_ONLY_HOUR).padStart(2, '0');
+  const mm = String(time?.minute ?? 0).padStart(2, '0');
+  const at = new Date(Date.parse(`${date}T${hh}:${mm}:00Z`) - REQUEST_TIME_ZONE_OFFSET_MS);
+  return Number.isNaN(at.getTime()) || at.getTime() <= now.getTime() ? endOfToday : at;
+}
+
+/** The first line of a bot request note without its "Cập nhật: " prefix: which request it is. */
+export function requestNoteHead(body: string): string {
+  return (body.split('\n')[0] ?? '').replace(/^Cập nhật: /, '');
+}
+
 /** True when the date is before today in Asia/Ho_Chi_Minh (today itself is not past). */
 export function isPastDate(yyyyMmDd: string, now: Date): boolean {
   return yyyyMmDd < localToday(now);

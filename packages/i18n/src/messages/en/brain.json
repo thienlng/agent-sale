@@ -46,7 +46,7 @@
       "empty": "No follow-ups are waiting for approval."
     },
     "tasks": {
-      "title": "My tasks",
+      "title": "To do",
       "empty": "No task is due today."
     }
   },
@@ -102,7 +102,7 @@
   },
   "task": {
     "dialogTitle": "Add task",
-    "dialogDescription": "The task shows in the assignee's “My tasks” when it is due.",
+    "dialogDescription": "The task shows in the assignee's “To do” when it is due.",
     "title": "To do",
     "defaultTitle": "Get back to {{name}}",
     "due": "Due",

@@ -14,6 +14,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import {
   type BotRequestResult,
+  type BotRequestStatus,
   type RequestsRecorded,
   websiteLeadName,
 } from '../api/crm.facade.js';
@@ -55,6 +56,7 @@ export class CustomerRequestService {
       preview: boolean;
       catalogNames?: readonly string[];
       channel?: string;
+      conversationId?: string | null;
     },
   ): Promise<BotRequestResult> {
     // 1–2. The industry's profile, and a kind it offers.
@@ -104,6 +106,8 @@ export class CustomerRequestService {
       kind: input.kind,
       details,
       dateLabel: label,
+      conversationId:
+        input.conversationId && isUuid(input.conversationId) ? input.conversationId : null,
     });
     return {
       outcome: applied.updated ? 'updated' : 'recorded',
@@ -116,6 +120,37 @@ export class CustomerRequestService {
         : missing,
       dateLabel: applied.dateLabel,
     };
+  }
+
+  /**
+   * The customer's latest bot request of the last 30 days and whether staff confirmed it: the
+   * customer stands at a confirmed status of that kind (`keep` of a kind that can be reopened,
+   * e.g. spa `booked`) (MS2-7). Null outside the request industries or without a request.
+   */
+  async requestStatus(ws: WorkspaceId, contactId: string): Promise<BotRequestStatus | null> {
+    if (!isUuid(contactId)) return null;
+    const { industry } = await this.workspaces.getById(ws);
+    const profile = requestProfileFor(industry);
+    if (!profile) return null;
+    return this.store.run(ws, async (tx) => {
+      const contact = await tx.contacts.find(contactId);
+      if (!contact) return null;
+      const [entry] = await tx.history.requestEntries(contactId, 1);
+      const request = entry ? toRequestDto(entry) : null;
+      if (!request || Date.parse(request.recordedAt) < Date.now() - OPEN_WINDOW_MS) return null;
+      const status = (await tx.options.list('status')).find((s) => s.id === contact.statusId);
+      const move = profile.status[request.kind];
+      const confirmed =
+        move?.move === 'unless' && !!move.reopen && !!status?.key && move.keep.includes(status.key);
+      return {
+        kind: request.kind,
+        kindLabel: profile.kindLabels[request.kind] ?? request.kind,
+        dateLabel: request.dateLabel,
+        preferredTime: request.details['preferredTime'] ?? null,
+        confirmed,
+        statusName: status?.name ?? null,
+      };
+    });
   }
 
   /** The customer's latest requests, under the visibility of `GET /contacts/{id}`. */

@@ -91,6 +91,8 @@ export interface RequestToolContext {
   catalogNames?: () => readonly string[];
   /** The conversation's channel: the source of a customer the request creates (MS-11). */
   channel?: string;
+  /** The conversation: the staff task the request opens links it (LM2-8). */
+  conversationId?: string | null;
   /** A recorded request's customer, so the caller links the conversation to it (MS-11). */
   onRecorded?(contact: { contactId: string; phoneE164: string }): void;
   onError?(error: unknown): void;
@@ -128,6 +130,7 @@ export function requestTools(ctx: RequestToolContext): {
           preview: ctx.isTest,
           ...(ctx.catalogNames ? { catalogNames: ctx.catalogNames() } : {}),
           ...(ctx.channel ? { channel: ctx.channel } : {}),
+          ...(ctx.conversationId ? { conversationId: ctx.conversationId } : {}),
         });
       } catch (error) {
         // The customer's reply must not fail: the model says it could not record it right now.

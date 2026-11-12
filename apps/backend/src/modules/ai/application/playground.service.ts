@@ -453,6 +453,7 @@ export class PlaygroundService implements AiFacade {
             calls: actionState.calls,
             catalogNames: () => [...seenNames.values()],
             ...(options.channel ? { channel: options.channel } : {}),
+            ...(options.conversationId ? { conversationId: options.conversationId } : {}),
             onRecorded: (contact) => {
               requestContact = contact;
             },
@@ -463,7 +464,12 @@ export class PlaygroundService implements AiFacade {
     const now = new Date();
     const profile = renderBusinessProfile(bot);
     const focusText = focusBlock(focus);
-    const pendingText = pending && waiting ? pendingBlock(waiting, pending) : '';
+    const pendingText = [
+      pending && waiting ? pendingBlock(waiting, pending) : '',
+      requestProfile ? await this.#requestStatusBlock(ws, options.contactId ?? null) : '',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
     const imagesText = imagesBlock(initialAllowed);
     const contextPrompts = [...(post ? [POST_PROMPT] : []), ...(page ? [PAGE_PROMPT] : [])];
     const template = await loadReplyTemplate(this.#prompts, [prompt, ...contextPrompts]);
@@ -783,6 +789,27 @@ export class PlaygroundService implements AiFacade {
       ...(orders?.state.orderCreated || held ? { orderCreated: true } : {}),
       ...(requestContact ? { requestContact } : {}),
     };
+  }
+
+  /**
+   * The conversation customer's latest request and whether staff confirmed it (MS2-7), so the bot
+   * never says "staff will confirm" about an appointment that is already confirmed. Best effort:
+   * empty without a customer, a request or a readable status.
+   */
+  async #requestStatusBlock(ws: WorkspaceId, contactId: string | null): Promise<string> {
+    if (!contactId || !this.crm) return '';
+    try {
+      const status = await this.crm.requestStatus(ws, contactId);
+      if (!status) return '';
+      const slot = [status.dateLabel, status.preferredTime].filter(Boolean).join(' ');
+      const state = status.confirmed
+        ? 'CONFIRMED by staff: say it is confirmed; never say staff will call to confirm it'
+        : 'not confirmed yet: staff will contact the customer to confirm';
+      return `<customer_request>\nThis customer's latest request: ${status.kindLabel}${slot ? ` (${slot})` : ''} — ${state}.\n</customer_request>`;
+    } catch (error) {
+      this.#logger.warn(`Request status not read: ${errorClass(error)}`);
+      return '';
+    }
   }
 
   /**

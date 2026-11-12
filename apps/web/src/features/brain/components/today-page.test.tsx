@@ -169,7 +169,7 @@ describe('TodayPage', () => {
     const unanswered = screen.getByRole('region', { name: 'Chưa trả lời' });
     expect(within(unanswered).getByText('Anh Minh')).toBeInTheDocument();
     expect(
-      within(screen.getByRole('region', { name: 'Việc của tôi' })).getByText('Gọi lại chị Mai'),
+      within(screen.getByRole('region', { name: 'Việc cần làm' })).getByText('Gọi lại chị Mai'),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Làm mới \(còn 197 lượt\)/ })).toBeEnabled();
     expect(screen.queryByText(/Đã hết lượt đánh giá hôm nay/)).toBeNull();
@@ -203,7 +203,7 @@ describe('TodayPage', () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Tóm tắt các hàng' })).toBeNull();
     expect(screen.queryByText(/^Không có:/)).toBeNull();
-    expect(screen.queryByRole('region', { name: 'Việc của tôi' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Việc cần làm' })).toBeNull();
   });
 
   it('renders what the route puts under it (the figures)', async () => {
@@ -364,7 +364,7 @@ describe('TodayPage', () => {
 
     // The dialog closes once the brain queries (Today, "AI đã làm"…) were re-read.
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    const tasks = screen.getByRole('region', { name: 'Việc của tôi' });
+    const tasks = screen.getByRole('region', { name: 'Việc cần làm' });
     // The server's next Today no longer lists the task.
     const done = today();
     done.queues[5] = { key: 'tasks', count: 0, items: [] };
@@ -393,7 +393,7 @@ describe('TodayPage', () => {
     vi.stubGlobal('fetch', fetchStub);
     renderApp();
     const user = userEvent.setup();
-    const tasks = await screen.findByRole('region', { name: 'Việc của tôi' });
+    const tasks = await screen.findByRole('region', { name: 'Việc cần làm' });
     await user.click(
       within(tasks).getByRole('checkbox', { name: 'Đánh dấu xong: Gọi lại chị Mai' }),
     );
@@ -402,7 +402,7 @@ describe('TodayPage', () => {
     release(COMPLETE);
     // The card comes back with the task when the queue is no longer empty.
     const back = await within(
-      await screen.findByRole('region', { name: 'Việc của tôi' }),
+      await screen.findByRole('region', { name: 'Việc cần làm' }),
     ).findByRole('checkbox', { name: 'Đánh dấu xong: Gọi lại chị Mai' });
     expect(back).not.toBeChecked();
     expect(await screen.findByText('Chưa lưu được việc')).toBeInTheDocument();

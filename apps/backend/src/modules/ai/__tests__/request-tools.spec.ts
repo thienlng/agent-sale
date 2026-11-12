@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { BotFacade, BotView } from '../../bot/api/index.js';
 import type { KnowledgeFacade } from '../../knowledge/api/index.js';
-import type { BotRequestResult, CrmFacade } from '../../crm/api/index.js';
+import type { BotRequestResult, BotRequestStatus, CrmFacade } from '../../crm/api/index.js';
 import type { WorkspaceFacade } from '../../workspace/api/index.js';
 import type { LlmRuntime } from '../application/llm-runtime.js';
 import { PlaygroundService } from '../application/playground.service.js';
@@ -73,6 +73,7 @@ function pipeline(script: Script, industry = 'saas') {
     recordBotRequest: vi.fn(
       async (_ws: unknown, _input: unknown): Promise<BotRequestResult> => recorded,
     ),
+    requestStatus: vi.fn(async (): Promise<BotRequestStatus | null> => null),
   };
   const svc = new PlaygroundService(
     { getBot: async () => botOf(industry) } as BotFacade,
@@ -123,6 +124,7 @@ describe('record_request in the reply pipeline: saas (ADR-020)', () => {
       details: { name: 'Lan', phone: '0983456721' },
       preview: false,
       catalogNames: [],
+      conversationId: expect.any(String),
     });
     expect(lastToolResult(requests[1])).toContain('\\"recorded\\":true');
     expect(requests[0]?.tools?.find((t) => t.name === REQUEST_TOOL)?.description).toBe(
@@ -139,6 +141,35 @@ describe('record_request in the reply pipeline: saas (ADR-020)', () => {
     expect(res.requestContact).toEqual({
       contactId: recorded.outcome === 'recorded' ? recorded.contactId : '',
       phoneE164: '+84983123456',
+    });
+  });
+
+  it("tells the bot the customer's appointment is already confirmed (MS2-7)", async () => {
+    const { svc, crm, requests } = pipeline(() => ({ text: 'Dạ lịch đã được xác nhận ạ.' }), 'spa');
+    crm.requestStatus.mockResolvedValueOnce({
+      kind: 'appointment',
+      kindLabel: 'Đặt lịch',
+      dateLabel: 'Thứ Năm 19/11/2026',
+      preferredTime: '9h sáng',
+      confirmed: true,
+      statusName: 'Đã xác nhận lịch',
+    });
+    const contactId = newId();
+    await svc.reply(ws, botId, ask('lịch của em ổn chưa ạ'), { ...live(), contactId });
+    expect(crm.requestStatus).toHaveBeenCalledWith(ws, contactId);
+    const turn = JSON.stringify(requests[0]?.messages.at(-1));
+    expect(turn).toContain('Đặt lịch (Thứ Năm 19/11/2026 9h sáng)');
+    expect(turn).toContain('CONFIRMED by staff');
+  });
+
+  it('passes the conversation, so the staff task opens it (LM2-8)', async () => {
+    const { svc, crm } = pipeline((_req, round) =>
+      round === 0 ? call(args) : { text: 'Dạ em đã ghi nhận ạ.' },
+    );
+    const options = live();
+    await svc.reply(ws, botId, ask(said), options);
+    expect(crm.recordBotRequest.mock.calls[0]?.[1]).toMatchObject({
+      conversationId: options.conversationId,
     });
   });
 
@@ -223,6 +254,7 @@ describe('record_request for education and spa', () => {
       },
       preview: false,
       catalogNames: [],
+      conversationId: expect.any(String),
     });
     const result = lastToolResult(requests[1]);
     expect(result).toContain('\\"updated\\":true');

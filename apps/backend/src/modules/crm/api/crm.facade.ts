@@ -44,6 +44,18 @@ export type BotRequestResult =
   | { outcome: 'preview'; missing: RequestFieldKey[]; dateLabel: string | null }
   | { outcome: 'invalid'; problems: string[] };
 
+/** What the bot may tell the customer about their latest request (MS2-7). */
+export interface BotRequestStatus {
+  kind: CustomerRequestKind;
+  /** Vietnamese ("Đặt lịch"). */
+  kindLabel: string;
+  dateLabel: string | null;
+  preferredTime: string | null;
+  /** Staff confirmed it: the customer stands at a confirmed status of the kind. */
+  confirmed: boolean;
+  statusName: string | null;
+}
+
 /** New requests (`contact.request_recorded`, updates left out) of a period: counts only. */
 export interface RequestsRecorded {
   count: number;
@@ -201,8 +213,12 @@ export interface CrmFacade {
        * gets it as source (MS-11). Absent or another channel: no source.
        */
       channel?: string;
+      /** The conversation it was recorded in: the staff task links it (LM2-8). */
+      conversationId?: string | null;
     },
   ): Promise<BotRequestResult>;
+  /** The customer's latest bot request and whether staff confirmed it (MS2-7); null when none. */
+  requestStatus(workspaceId: WorkspaceId, contactId: string): Promise<BotRequestStatus | null>;
   /** Requests recorded in `[since, until)` (owner reports `new_requests`); `kinds` limits them. */
   requestsRecorded(
     workspaceId: WorkspaceId,

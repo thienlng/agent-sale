@@ -31,7 +31,11 @@ The rule is "move unless at a confirmed status", not "forward only". A returning
 
 **Reschedules (MS-10).** An update (same kind within 24 h) that moves the slot — day, time, branch, service or course — of a customer at a confirmed status goes back to the request stage (`reopen`: spa `booked` → `booking_requested`, education `test_scheduled` → `test_requested`); the history entry carries `rescheduled: true`.
 
-**Staff tasks (MS-21).** Every recorded request opens (or, for an update, rewrites) one staff task per customer (`subject_type = 'customer_request'`, subject = the customer, `source = 'bot'`, assigned to the customer's sales person, due when recorded), titled `Xác nhận – <kind>: <name> – <day time>`, with the request note. It shows in **Việc hôm nay** until someone completes it; a reschedule makes it due again as `Khách đổi lịch – <kind>: …`.
+**Staff tasks (MS-21, LM2-8, MS2-8).** Every recorded request opens (or, for an update, rewrites) one staff task per customer (`subject_type = 'customer_request'`, subject = the customer, `source = 'bot'`, assigned to the customer's sales person, linked to the conversation it was recorded in), titled `Xác nhận – <kind>: <name> – <day time>`, with the request note; an update keeps the earlier slots as `Trước: …` lines under it. It is due at the slot the customer asked for (its day and hour in Vietnam time; 08:00 for a day alone; the end of today without a day or when that moment has passed), so it is never overdue at creation; it shows in **Việc hôm nay → Việc cần làm** (assigned to you or unassigned) when due. A reschedule renames it `Khách đổi lịch – <kind>: …`. Moving the customer to a confirmed status of a reopenable kind (spa `booked`; education `test_scheduled`, `tested`, `enrolled`) completes it.
+
+**Notes.** Consecutive bot updates of one request share one note: an update edits the bot's own latest note of that request (`note.edited` in the history), and a staff note in between starts a new one (LM-4).
+
+**What the bot knows (MS2-7).** On a channel turn of a request business the bot gets the conversation customer's latest request (30 days) and whether staff confirmed it (`CrmFacade.requestStatus`), so it says the appointment is confirmed instead of "nhân viên sẽ liên hệ xác nhận". The spa `service` field lists every service of the appointment, comma separated.
 
 ## What the bot collects
 

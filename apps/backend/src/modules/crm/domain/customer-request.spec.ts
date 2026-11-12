@@ -13,9 +13,12 @@ import {
   historyDetails,
   isPastDate,
   mergeRequestDetails,
+  requestDueAt,
   requestNote,
+  requestNoteHead,
   requestTaskTitle,
   slotChanged,
+  slotTime,
   UPDATE_WINDOW_MS,
   withCatalogItem,
 } from './customer-request.js';
@@ -127,6 +130,43 @@ describe('historyDetails', () => {
         preferredDate: '2026-11-07',
       }),
     ).toEqual({ name: 'Chị Hoa', course: 'IELTS', preferredDate: '2026-11-07' });
+  });
+});
+
+describe('request task due time (LM2-8)', () => {
+  const now = new Date('2026-11-13T03:00:00Z'); // 10:00 in Vietnam
+
+  it('reads the hour of a Vietnamese or English time wish', () => {
+    expect(slotTime('9h')).toEqual({ hour: 9, minute: 0 });
+    expect(slotTime('9h30 sáng')).toEqual({ hour: 9, minute: 30 });
+    expect(slotTime('4h chiều')).toEqual({ hour: 16, minute: 0 });
+    expect(slotTime('tối 7 giờ')).toEqual({ hour: 19, minute: 0 });
+    expect(slotTime('14:00')).toEqual({ hour: 14, minute: 0 });
+    expect(slotTime('around 3pm')).toEqual({ hour: 15, minute: 0 });
+    expect(slotTime('buổi sáng')).toBeNull();
+    expect(slotTime('2 gói')).toBeNull();
+  });
+
+  it('falls due at the slot, 08:00 for a day alone, end of today otherwise or when past', () => {
+    expect(
+      requestDueAt({ preferredDate: '2026-11-17', preferredTime: '4h chiều' }, now).toISOString(),
+    ).toBe('2026-11-17T09:00:00.000Z');
+    expect(requestDueAt({ preferredDate: '2026-11-17' }, now).toISOString()).toBe(
+      '2026-11-17T01:00:00.000Z',
+    );
+    expect(requestDueAt({ preferredTime: 'chiều nay' }, now).toISOString()).toBe(
+      '2026-11-13T16:59:59.000Z',
+    );
+    expect(
+      requestDueAt({ preferredDate: '2026-11-13', preferredTime: '8h' }, now).toISOString(),
+    ).toBe('2026-11-13T16:59:59.000Z');
+  });
+
+  it('names a note by its request, update or not', () => {
+    expect(requestNoteHead('Cập nhật: Đặt lịch (bot ghi nhận)\nTên: A')).toBe(
+      'Đặt lịch (bot ghi nhận)',
+    );
+    expect(requestNoteHead('Đặt lịch (bot ghi nhận)')).toBe('Đặt lịch (bot ghi nhận)');
   });
 });
 
