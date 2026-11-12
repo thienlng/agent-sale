@@ -714,7 +714,7 @@ export const OrderListResponse = z.object({
   pageSize: z.number().int(),
   /** Per status (and `all`) for the tabs, under the same search/date/source filter. */
   counts: z.record(z.string(), z.number().int()),
-  /** Footer totals over every matching order, not only this page. */
+  /** Footer totals over every matching order, not only this page; cancelled orders add nothing. */
   totals: z.object({
     itemQty: z.number().int(),
     shippingFeeCharged: Money,
