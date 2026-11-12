@@ -545,7 +545,9 @@ export function ProductForm({
               <li
                 key={v.key}
                 className={cn(
-                  'grid gap-3 rounded-lg border p-3 sm:grid-cols-2 lg:items-end',
+                  // Top-aligned: an error under one field no longer pushes its row's other
+                  // fields down (TM2-14).
+                  'grid gap-3 rounded-lg border p-3 sm:grid-cols-2 lg:items-start',
                   isOffering
                     ? 'lg:grid-cols-[1fr_1.4fr_1fr_1fr_auto]'
                     : 'lg:grid-cols-[1fr_1.4fr_1fr_1fr_0.7fr_auto]',
@@ -643,6 +645,8 @@ export function ProductForm({
                     variant="ghost"
                     size="icon"
                     disabled={variants.length === 1}
+                    // In line with the inputs, below their 20 px label and 6 px gap.
+                    className="lg:mt-6.5"
                     aria-label={word('removeVariant')}
                     onClick={() => setVariants((vs) => vs.filter((_, idx) => idx !== i))}
                   >
