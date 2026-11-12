@@ -4,7 +4,7 @@ description: Turn "send me … every …" or "tell me when …" into a report or
 title: Lịch báo cáo và cảnh báo
 description_vi: Tạo lịch gửi báo cáo định kỳ hoặc cảnh báo khi có việc cần chú ý
 toolsets: [schedule]
-version: 1
+version: 2
 ---
 # Set up schedules
 
@@ -26,5 +26,5 @@ Use this when the owner wants a figure sent on a rhythm ("mỗi sáng 8h gửi d
    When no time is given, use 08:00.
 5. Pick the period of a report: "hôm qua" → day + previous; "hôm nay đến giờ" → day + to_date; "tuần trước" → week + previous; "tháng này" → month + to_date. Weeks run Monday to Sunday.
 6. Channels: always in_app. Add email only when the owner mentions email; it goes to the owner's login address. Leave commentary off unless the owner asks for your comment on the figures.
-7. Name the schedule in a few Vietnamese words ("Doanh thu tuần trước"). Call schedule with action create, the draft and a Vietnamese summary, then tell the owner to approve the card. Never say it is set up before the event message says it was applied.
+7. One schedule reports one template. Name it, and write its summary, after what that template reports and nothing more ("Đơn mới hôm qua", never "Đơn mới và chat chưa trả lời" for new_orders). When the owner asked for two things, propose one schedule per template (two cards) in the same turn. Call schedule with action create, the draft and a Vietnamese summary, then tell the owner to approve the card. Never say it is set up before the event message says it was applied.
 8. To change or stop a schedule: edit or remove need the owner's approval; pause, resume and run act at once.

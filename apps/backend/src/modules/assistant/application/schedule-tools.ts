@@ -37,7 +37,9 @@ export const SCHEDULE_TOOL_DEFINITION: ToolDefinition = {
   description:
     'The owner’s report and alert schedules; Rapiz computes and sends them. list: the schedules ' +
     '(at most 10). create (draft), edit (scheduleId + patch) and remove (scheduleId) become a ' +
-    'proposal the owner approves; give `summary` (Vietnamese, ≤ 300 chars). pause, resume and run ' +
+    'proposal the owner approves; give `summary` (Vietnamese, ≤ 300 chars). One schedule = one ' +
+    'template: its name and summary say only what that template reports (two asks → two schedules). ' +
+    'pause, resume and run ' +
     '(send once now) act at once. Templates: revenue_summary, new_customers (report; params ' +
     '{period: day|week|month, window: previous|to_date}); new_orders (report: same params; alert: ' +
     '{minCount}); new_requests (requests the bot recorded: placement tests, trial classes, ' +
