@@ -1,14 +1,9 @@
 import { screen } from '@testing-library/react';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { loadNamespace } from '@/lib/i18n';
 import { renderWithRouter } from '@/testing/render';
 
 import { SetupGuide } from './setup-guide';
-
-beforeAll(async () => {
-  await loadNamespace('training');
-});
 
 const profile = (done: boolean) => ({
   key: 'profile' as const,
