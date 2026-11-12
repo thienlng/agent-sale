@@ -89,3 +89,29 @@ export const UpdateWorkspaceProfileRequest = z.object({
   expectedVersion: z.number().int().min(1),
 });
 export type UpdateWorkspaceProfileRequest = z.input<typeof UpdateWorkspaceProfileRequest>;
+
+// ─── Business deletion (SET-10, ADR-032) ─────────────────────────────────────
+
+/** Days a deleted business can be restored before the worker purges its data. */
+export const BUSINESS_RESTORE_DAYS = 30;
+
+/** The owner types the business name exactly (trimmed) to confirm the deletion. */
+export const RequestBusinessDeletionRequest = z.object({
+  confirmName: z.string().max(200),
+});
+export type RequestBusinessDeletionRequest = z.infer<typeof RequestBusinessDeletionRequest>;
+
+/** A business waiting for its purge; only its owner sees it, to restore it. */
+export const DeletedBusinessDto = z.object({
+  workspaceId: WorkspaceId,
+  name: z.string(),
+  industry: z.string(),
+  icon: z.string(),
+  deletedAt: z.iso.datetime(),
+  /** The data is purged after this time; restoring is possible until then. */
+  purgeAfter: z.iso.datetime(),
+});
+export type DeletedBusinessDto = z.infer<typeof DeletedBusinessDto>;
+
+export const DeletedBusinessList = z.object({ data: z.array(DeletedBusinessDto) });
+export type DeletedBusinessList = z.infer<typeof DeletedBusinessList>;

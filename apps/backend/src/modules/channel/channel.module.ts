@@ -12,8 +12,10 @@ import { getEnv } from '../../common/config.js';
 import { DB_TENANT, DB_SYSTEM } from '../../common/db/db.module.js';
 import { SECRET_BOX, SecretBox } from '../../common/security/secret-box.js';
 import { BotModule } from '../bot/bot.module.js';
+import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { CHANNEL_FACADE } from './api/channel.facade.js';
 import { ChannelFacadeImpl } from './application/channel.facade.impl.js';
+import { OnWorkspaceDeletionRequested } from './application/event-handlers/on-workspace-deletion-requested.handler.js';
 import { CHANNEL_STORE } from './application/ports/channel-store.js';
 import { META_GATEWAY } from './application/ports/meta-gateway.js';
 import { LiveMetaGateway } from './infrastructure/clients/meta-oauth.js';
@@ -23,7 +25,7 @@ import {
 } from './infrastructure/persistence/channel.store.js';
 import { ChannelController } from './interface/http/channel.controller.js';
 @Module({
-  imports: [BotModule],
+  imports: [BotModule, WorkspaceModule],
   controllers: [ChannelController, FanpageController],
   providers: [
     {
@@ -52,6 +54,7 @@ import { ChannelController } from './interface/http/channel.controller.js';
     FanpageFacadeImpl,
     { provide: FANPAGE_FACADE, useExisting: FanpageFacadeImpl },
     ChannelFacadeImpl,
+    OnWorkspaceDeletionRequested,
     { provide: CHANNEL_FACADE, useExisting: ChannelFacadeImpl },
   ],
   exports: [CHANNEL_FACADE, FANPAGE_FACADE],

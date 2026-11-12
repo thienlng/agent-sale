@@ -33,6 +33,11 @@ import { NOTIFICATION_RUNNER, type NotificationRunner } from '../modules/notific
 import { NotificationModule } from '../modules/notification/notification.module.js';
 import { SAAS_RUNNER, type SaasRunner } from '../modules/saas/api/index.js';
 import { SaasModule } from '../modules/saas/saas.module.js';
+import {
+  WORKSPACE_PURGE_RUNNER,
+  type WorkspacePurgeRunner,
+} from '../modules/workspace/api/index.js';
+import { WorkspaceModule } from '../modules/workspace/workspace.module.js';
 
 /**
  * Worker entry: boots an application context (no HTTP) and registers the
@@ -54,6 +59,7 @@ import { SaasModule } from '../modules/saas/saas.module.js';
     CrmModule,
     BrainModule,
     CareModule,
+    WorkspaceModule,
   ],
 })
 class WorkerModule {}
@@ -146,6 +152,20 @@ const exportTimer = setInterval(() => {
       exportsBusy = false;
     });
 }, 10_000);
+// Business deletion (ADR-032): purge businesses whose 30-day restore window ended; the runner
+// scans once every 5 minutes.
+const purge = ctx.get<WorkspacePurgeRunner>(WORKSPACE_PURGE_RUNNER);
+let purging = false;
+const purgeTimer = setInterval(() => {
+  if (purging) return;
+  purging = true;
+  void purge
+    .tick()
+    .catch(() => logger.error('Business purge tick failed'))
+    .finally(() => {
+      purging = false;
+    });
+}, 60_000);
 // Owner assistant background jobs (the review): Postgres-leased, up to 3 per tick (ruling 1c-R1).
 const assistant = ctx.get<AssistantRunner>(ASSISTANT_RUNNER);
 let assistantBusy = false;
@@ -253,8 +273,9 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const)
     clearInterval(taskTimer);
     clearInterval(brainTimer);
     clearInterval(careTimer);
+    clearInterval(purgeTimer);
   });
 logger.info(
   { queues },
-  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks, notifications, assistant jobs, assistant schedules, task reminders, brain signals, care agent; no queue processors registered yet)',
+  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks, notifications, assistant jobs, assistant schedules, task reminders, brain signals, care agent, business purge; no queue processors registered yet)',
 );

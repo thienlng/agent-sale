@@ -1,4 +1,8 @@
-import type { EntitlementsDto, MessageUsageDto } from '@agent-sales/contracts';
+import {
+  ENTITLEMENT_KEYS,
+  type EntitlementsDto,
+  type MessageUsageDto,
+} from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
@@ -29,6 +33,8 @@ interface Resolved {
   anchor: Date;
   /** The account or its subscription is suspended: no AI reply (the bot hands off). */
   suspended: boolean;
+  /** The owner deleted the business (ADR-032): entitled to nothing, metered or not. */
+  inactive?: boolean;
 }
 
 /** An account's allowance in the current cycle (admin views, daily snapshot). */
@@ -37,6 +43,36 @@ export interface AccountAllowance {
   limit: number;
   cycleStart: Date;
   cycleEnd: Date;
+}
+
+/**
+ * A business its owner deleted (ADR-032) is entitled to nothing: every limit 0 (including the
+ * Brain and care daily caps), every feature off, no AI replies. This is the single gate that stops
+ * bot replies (`reserveReply`), Brain evaluations, care messages and public API webhooks at once,
+ * the way an account suspension stops replies.
+ */
+function inactiveBusiness(r: Resolved): Resolved {
+  const limits: Record<string, number | null> = {};
+  const features: Record<string, boolean> = {};
+  for (const [key, kind] of Object.entries(ENTITLEMENT_KEYS)) {
+    if (kind === 'limit') limits[key] = 0;
+    if (kind === 'flag') features[key] = false;
+  }
+  for (const key of Object.keys(r.entitlements.limits)) limits[key] = 0;
+  for (const key of Object.keys(r.entitlements.features)) features[key] = false;
+  const periodDays = r.entitlements.aiIncludedMessages?.periodDays ?? DEFAULT_PERIOD_DAYS;
+  return {
+    ...r,
+    suspended: true,
+    inactive: true,
+    entitlements: {
+      ...r.entitlements,
+      limits,
+      features,
+      aiModels: [],
+      aiIncludedMessages: { amount: 0, periodDays },
+    },
+  };
 }
 
 /** Plans, entitlements and the account's message allowance (docs/08 §3, ADR-012 §5). */
@@ -78,6 +114,13 @@ export class BillingService implements BillingFacade {
   async reserveReply(ws: WorkspaceId, reply: ReplyMeterKey): Promise<ReserveOutcome> {
     const now = new Date();
     const r = await this.#resolve(ws);
+    if (r.inactive) {
+      return {
+        allowed: false,
+        reason: 'account_suspended',
+        cycleEnd: this.#allowance(r, now).cycle.end,
+      };
+    }
     // A business the account backfill has not linked yet has no allowance to count against.
     if (!r.accountId) return { allowed: true, metered: false };
     const { limit, cycle } = this.#allowance(r, now);
@@ -161,13 +204,17 @@ export class BillingService implements BillingFacade {
    * business by nature (grandfathered seats).
    */
   async #resolve(ws: WorkspaceId): Promise<Resolved> {
-    const accountId = await this.#accountOf(ws);
+    const [accountId, active] = await Promise.all([
+      this.#accountOf(ws),
+      this.workspaces.isActive(ws),
+    ]);
     const s = await this.store.state(ws, accountId);
     const r = await this.#resolved(accountId, s.accountSubscription ?? s.subscription, [
       ...s.accountOverrides,
       ...s.overrides,
     ]);
-    return { ...r, suspended: r.suspended || s.accountStatus === 'suspended' };
+    const resolved = { ...r, suspended: r.suspended || s.accountStatus === 'suspended' };
+    return active ? resolved : inactiveBusiness(resolved);
   }
 
   async #resolved(

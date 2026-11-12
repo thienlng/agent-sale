@@ -1924,7 +1924,42 @@
         "list": "List",
         "grid": "Grid"
       },
-      "loading": "Loading businesses…"
+      "loading": "Loading businesses…",
+      "deleted": {
+        "title": "Deleted (restorable for {{days}} days)",
+        "hint": "When the time is up, the business data is deleted for good.",
+        "daysLeft_one": "{{count}} day left to restore",
+        "daysLeft_other": "{{count}} days left to restore",
+        "lastDay": "Today is the last day to restore",
+        "deletedOn": "Deleted on {{date}}",
+        "restore": "Restore",
+        "restoreLabel": "Restore business {{name}}",
+        "restored": "{{name}} was restored. Reconnect its channels.",
+        "restoreError": "This business could not be restored. Its restore window may have ended."
+      }
+    },
+    "delete": {
+      "title": "Delete business",
+      "hint": "Deletes this business and all its data. You can restore it for {{days}} days; after that the data is deleted for good.",
+      "stopsTitle": "As soon as you delete it:",
+      "points": {
+        "bot": "The bot stops replying to customers on every channel.",
+        "care": "Automatic care and the Business Brain stop.",
+        "channels": "Facebook and Instagram pages and website chat are disconnected; KiotViet stops syncing. After a restore you reconnect them.",
+        "access": "Every member loses access to this business."
+      },
+      "exportFirst": "Export your data before you delete.",
+      "exportLink": "Export data",
+      "action": "Delete business…",
+      "ownerOnly": "Only the business owner can delete this business.",
+      "dialogTitle": "Delete business {{name}}?",
+      "dialogBody": "The business is hidden at once and deleted for good after {{days}} days. Until then you can restore it from My businesses.",
+      "confirmLabel": "Type the business name to confirm",
+      "confirmHint": "Type exactly: {{name}}",
+      "cancel": "Cancel",
+      "submit": "Delete business",
+      "done": "{{name}} was deleted. You can restore it for {{days}} days.",
+      "mismatch": "The name does not match. Type the business name exactly."
     }
   },
   "account": {
