@@ -227,6 +227,7 @@ export interface CrmTx {
     find(id: string, opts?: { forUpdate?: boolean }): Promise<NoteRecord | null>;
     insert(n: NoteRecord): Promise<void>;
     update(n: NoteRecord): Promise<void>;
+    delete(id: string): Promise<void>;
   };
   /**
    * PMS link and push columns of contacts (ADR-017). Lookups lock the row until the transaction
@@ -308,6 +309,8 @@ export interface CrmTx {
     }): Promise<OpenRequestRecord[]>;
     /** Many entries in few statements (bulk unlink). */
     addMany(h: readonly HistoryRecord[]): Promise<void>;
+    /** Drops the body of a deleted note from the customer's earlier note entries. */
+    redactNote(contactId: string, noteId: string): Promise<void>;
     list(
       contactId: string,
       f: {
@@ -399,6 +402,24 @@ export interface CrmTx {
   };
   /** Serializes concurrent transactions on the same key until this one ends (advisory lock). */
   lock(key: string): Promise<void>;
+  /**
+   * Deletes a customer for good (docs/09 §10): notes, history, the contact and conversation tag
+   * assignments, the tasks of the customer and the customer-less tasks of these conversations, then
+   * the row (`contact_bots` and SaaS subscriptions follow by foreign key).
+   */
+  eraseContact(contactId: string, conversationIds: readonly string[]): Promise<void>;
+  /** Appends a workspace audit event (`audit_events`) in this transaction. */
+  audit(
+    workspaceId: WorkspaceId,
+    e: {
+      actorUserId: string | null;
+      actorName: string | null;
+      action: string;
+      targetType: string;
+      targetId: string;
+      data?: Record<string, unknown>;
+    },
+  ): Promise<void>;
   outbox(workspaceId: WorkspaceId, e: CrmOutboxEvent): Promise<void>;
 }
 

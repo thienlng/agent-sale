@@ -621,6 +621,27 @@
     "month": "30 ngày qua",
     "older": "Cũ hơn"
   },
+  "threadMenu": {
+    "open": "Tuỳ chọn cho “{{title}}”",
+    "rename": "Đổi tên",
+    "renameLabel": "Tên cuộc trò chuyện",
+    "pin": "Ghim",
+    "unpin": "Bỏ ghim",
+    "archive": "Lưu trữ",
+    "unarchive": "Bỏ lưu trữ",
+    "delete": "Xoá",
+    "deleteTitle": "Xoá cuộc trò chuyện?",
+    "deleteBody": "“{{title}}” cùng mọi tin nhắn và đề xuất trong đó sẽ bị xoá vĩnh viễn. Không thể hoàn tác.",
+    "cancel": "Huỷ",
+    "showArchived": "Đã lưu trữ",
+    "hideArchived": "Quay lại cuộc trò chuyện",
+    "noArchived": "Chưa có cuộc trò chuyện nào được lưu trữ.",
+    "archived": "Đã lưu trữ cuộc trò chuyện",
+    "unarchived": "Đã đưa cuộc trò chuyện trở lại danh sách",
+    "deleted": "Đã xoá cuộc trò chuyện",
+    "running": "Trợ lý đang trả lời trong cuộc trò chuyện này. Thử lại khi xong nhé.",
+    "error": "Không thực hiện được. Thử lại sau."
+  },
   "starters": {
     "title": "Rapiz Agent — trợ lý vận hành cho chủ doanh nghiệp",
     "body": "Nắm toàn bộ dữ liệu và cấu hình của các business trong tài khoản. Mọi thay đổi dữ liệu đều chờ anh/chị phê duyệt.",

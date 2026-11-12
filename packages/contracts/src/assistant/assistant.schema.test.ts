@@ -106,6 +106,7 @@ describe('assistantRoutes', () => {
       'get /assistant/threads',
       'post /assistant/threads',
       'patch /assistant/threads/{threadId}',
+      'delete /assistant/threads/{threadId}',
       'get /assistant/threads/{threadId}/messages',
       'post /assistant/threads/{threadId}/messages',
       'get /assistant/runs/{runId}',

@@ -60,5 +60,10 @@ export interface VisitorStore {
     visitorId: string,
     conversationId: string,
   ): Promise<void>;
+  /**
+   * Deletes the visitors that became this customer or wrote in these conversations (customer
+   * deletion, docs/09 §10); returns how many.
+   */
+  forget(ws: WorkspaceId, contactId: string, conversationIds: readonly string[]): Promise<number>;
 }
 export const VISITOR_STORE = Symbol('VISITOR_STORE');

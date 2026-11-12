@@ -246,6 +246,15 @@ describe('assistant threads on Postgres', () => {
       (await call(asChi, 'PATCH', `/assistant/threads/${thread.id}`, { title: 'x' })).statusCode,
     ).toBe(404);
 
+    // Nor delete it.
+    expect((await call(mallory.h, 'DELETE', `/assistant/threads/${thread.id}`)).statusCode).toBe(
+      404,
+    );
+    expect((await call(asChi, 'DELETE', `/assistant/threads/${thread.id}`)).statusCode).toBe(404);
+    expect((await call(an.h, 'GET', `/assistant/threads/${thread.id}/messages`)).statusCode).toBe(
+      200,
+    );
+
     // An unknown run is 404 too.
     expect(
       (await call(an.h, 'GET', '/assistant/runs/0190a0a0-0000-7000-8000-000000000999')).statusCode,
@@ -441,6 +450,85 @@ describe('assistant repository on Postgres', () => {
     );
     expect((await repo.getThread(scope, thread.id))?.title).toBe('Sản phẩm');
     expect((await repo.getRun(scope, runId))?.status).toBe('done');
+  });
+
+  it('deletes a thread with its rows over HTTP; refuses while it answers, and staff', async () => {
+    const repo = app.get<AssistantRepository>(ASSISTANT_REPOSITORY);
+    const kim = await user('kim@assistant.vn', 'Kim');
+    const scope: OwnerScope = {
+      accountId: await accountOf(kim.ownWorkspace),
+      ownerUserId: userId(kim.userId),
+      businessId: workspaceId(kim.ownWorkspace),
+      businessIds: [workspaceId(kim.ownWorkspace)],
+    };
+    const thread = AssistantThreadDto.parse(
+      (await call(kim.h, 'POST', '/assistant/threads', { title: 'Xoá đi' })).json(),
+    );
+    const runId = newId();
+    await repo.startRun(scope, {
+      id: runId,
+      threadId: thread.id,
+      tier: 'pro',
+      promptVersion: 'assistant@1',
+    });
+    await repo.appendMessages(scope, thread.id, [message('user', 'Chào em', runId)]);
+    await repo.addStep(scope, {
+      runId,
+      idx: 0,
+      kind: 'model_call',
+      toolName: null,
+      ok: true,
+      ms: 1,
+      errorCode: null,
+    });
+    const proposal = await repo.createProposal(scope, {
+      id: newId(),
+      threadId: thread.id,
+      runId,
+      businessId: workspaceId(kim.ownWorkspace),
+      routeKey: 'POST /products',
+      path: '/products',
+      query: null,
+      body: {},
+      summary: 'Thêm sản phẩm',
+      preview: { body: {}, query: null },
+      expiresAt: new Date(Date.now() + 86_400_000),
+    });
+
+    // Answering: 409 thread_running, nothing deleted.
+    const busy = await call(kim.h, 'DELETE', `/assistant/threads/${thread.id}`);
+    expect(busy.statusCode, busy.body).toBe(409);
+    expect(busy.json()).toMatchObject({ error: { details: { reason: 'thread_running' } } });
+    await repo.finishRun(scope, runId, { status: 'done' });
+
+    // Staff of the business are not the account owner.
+    const lien = await user('lien@assistant.vn', 'Lien');
+    await invite(kim, lien, 'lien@assistant.vn', 'admin');
+    expect(
+      (await call(lien.in(kim.ownWorkspace), 'DELETE', `/assistant/threads/${thread.id}`))
+        .statusCode,
+    ).toBe(403);
+
+    const deleted = await call(kim.h, 'DELETE', `/assistant/threads/${thread.id}`);
+    expect(deleted.statusCode, deleted.body).toBe(204);
+    const countOf = async (
+      table:
+        | typeof schema.assistantMessages
+        | typeof schema.assistantRuns
+        | typeof schema.assistantProposals,
+    ) => (await owner.db.select().from(table).where(eq(table.threadId, thread.id))).length;
+    expect(await countOf(schema.assistantMessages)).toBe(0);
+    expect(await countOf(schema.assistantRuns)).toBe(0);
+    expect(await countOf(schema.assistantProposals)).toBe(0);
+    expect(
+      await owner.db
+        .select()
+        .from(schema.assistantRunSteps)
+        .where(eq(schema.assistantRunSteps.runId, runId)),
+    ).toEqual([]);
+    expect(await repo.getProposal(scope, proposal.id)).toBeNull();
+    expect((await call(kim.h, 'DELETE', `/assistant/threads/${thread.id}`)).statusCode).toBe(404);
+    expect((await call(kim.h, 'DELETE', '/assistant/threads/not-a-uuid')).statusCode).toBe(404);
   });
 });
 

@@ -39,6 +39,7 @@ const PK = schema.lodgingPackages;
 const S = schema.lodgingSettings;
 const BP = schema.lodgingBotProperties;
 const NN = schema.lodgingNightNotes;
+const B = schema.lodgingBookings;
 
 const toNote = (r: typeof NN.$inferSelect) => ({
   id: r.id,
@@ -112,6 +113,28 @@ function lodgingTx(tx: TenantTx, ws: WorkspaceId): LodgingTx {
           .set(set)
           .where(and(eq(P.workspaceId, ws), eq(P.id, p.id))),
       );
+    },
+
+    async propertyHasBookings(propertyId) {
+      const [r] = await tx
+        .select({ x: sql`1` })
+        .from(B)
+        .where(and(eq(B.workspaceId, ws), eq(B.propertyId, propertyId)))
+        .limit(1);
+      return Boolean(r);
+    },
+
+    async deleteProperty(propertyId) {
+      try {
+        await tx.delete(P).where(and(eq(P.workspaceId, ws), eq(P.id, propertyId)));
+      } catch (e) {
+        if (pgCode(e) === '23503') {
+          throw new LodgingError('CONFLICT', 'The property has bookings', {
+            reason: 'property_has_bookings',
+          });
+        }
+        throw e;
+      }
     },
 
     async units(propertyIds) {

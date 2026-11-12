@@ -32,6 +32,7 @@ import { catalogTerms, coversAge, queryAge } from '../domain/bot-catalog-query.j
 import { LodgingError } from '../domain/lodging.js';
 import {
   BotNotFoundError,
+  ProductNotDeletableError,
   ProductNotFoundError,
   WarehouseInUseError,
   WarehouseNotFoundError,
@@ -563,6 +564,29 @@ export class CatalogService {
         updatedAt: new Date(),
       });
       return this.#productDto(tx, id);
+    });
+  }
+
+  /**
+   * Hard delete of a product nobody ordered (a product created by mistake). Order lines keep a
+   * variant reference, so a product in any order (`product_in_orders`) is archived instead; a
+   * PMS-synced one (`product_synced`) would come back on the next sync. Pictures stay in storage:
+   * the same object can be referenced elsewhere (a lodging gallery, a copied product).
+   */
+  deleteProduct(ws: WorkspaceId, id: string, actorUserId: string): Promise<void> {
+    return this.store.run(ws, async (tx) => {
+      const product = await this.#product(tx, id, { forUpdate: true });
+      if (product.external) throw new ProductNotDeletableError('product_synced');
+      if (await tx.products.usedByOrders(product.id))
+        throw new ProductNotDeletableError('product_in_orders');
+      await tx.products.remove(product.id);
+      await tx.audit.write({
+        actorUserId,
+        action: 'commerce.product.deleted',
+        targetType: 'product',
+        targetId: product.id,
+        data: { code: product.code },
+      });
     });
   }
 

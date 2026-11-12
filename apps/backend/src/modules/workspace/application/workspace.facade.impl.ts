@@ -48,6 +48,10 @@ export class WorkspaceFacadeImpl implements WorkspaceFacade {
     return this.directory.listActiveIds(q.afterId, Math.max(1, Math.min(q.limit, 1000)));
   }
 
+  isActive(workspaceId: WorkspaceId): Promise<boolean> {
+    return this.directory.isActive(workspaceId);
+  }
+
   listByAccounts(accountIds: readonly string[]): Promise<AccountBusiness[]> {
     return accountIds.length
       ? this.directory.listByAccounts([...new Set(accountIds)])

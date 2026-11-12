@@ -108,6 +108,7 @@
     "crm.contact.updated": "Customer updated",
     "crm.contact.status_changed": "Customer status changed",
     "crm.contact.assigned": "Customer assigned",
+    "crm.contact.deleted": "Customer deleted",
     "crm.tag.assigned": "Tag added",
     "crm.tag.removed": "Tag removed",
     "lodging.booking.created": "Booking created",

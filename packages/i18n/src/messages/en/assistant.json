@@ -626,6 +626,27 @@
     "month": "Previous 30 days",
     "older": "Older"
   },
+  "threadMenu": {
+    "open": "Options for “{{title}}”",
+    "rename": "Rename",
+    "renameLabel": "Conversation name",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "delete": "Delete",
+    "deleteTitle": "Delete this conversation?",
+    "deleteBody": "“{{title}}” and all its messages and proposals will be deleted for good. This cannot be undone.",
+    "cancel": "Cancel",
+    "showArchived": "Archived",
+    "hideArchived": "Back to conversations",
+    "noArchived": "No archived conversations.",
+    "archived": "Conversation archived",
+    "unarchived": "Conversation moved back to the list",
+    "deleted": "Conversation deleted",
+    "running": "The assistant is still answering in this conversation. Try again when it is done.",
+    "error": "Could not do that. Try again later."
+  },
   "starters": {
     "title": "Rapiz Agent — the operations assistant for business owners",
     "body": "Knows all the data and settings of the businesses in your account. Every data change waits for your approval.",

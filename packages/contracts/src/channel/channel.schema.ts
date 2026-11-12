@@ -45,3 +45,17 @@ export const UpdateChannelRequest = z.object({
   disconnect: z.literal(true).optional(),
 });
 export type UpdateChannelRequest = z.infer<typeof UpdateChannelRequest>;
+
+/**
+ * Public status of a Meta data deletion request (docs/07 "Data deletion callback"): what the
+ * person sees at the URL Meta gives them. Counts only, no personal data.
+ */
+export const MetaDataDeletionStatus = z.object({
+  confirmationCode: z.string(),
+  status: z.enum(['pending', 'completed']),
+  requestedAt: z.iso.datetime(),
+  completedAt: z.iso.datetime().nullable(),
+  /** Facebook Pages the person had connected that were disconnected and their tokens deleted. */
+  connectionsRemoved: z.number().int().min(0),
+});
+export type MetaDataDeletionStatus = z.infer<typeof MetaDataDeletionStatus>;

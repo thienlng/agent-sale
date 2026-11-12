@@ -34,6 +34,8 @@ export class InMemoryCommerce implements CommerceStore {
   items = new Map<string, OrderItemRecord[]>();
   history = new Map<string, HistoryRecord[]>();
   events: CommerceOutboxEvent[] = [];
+  /** `audit_events` rows written through `tx.audit`. */
+  audits: Array<{ actorUserId: string; action: string; targetId: string }> = [];
   drafts = new Map<string, BotOrderDraftRecord>();
   lastListFilter: OrderListFilter | null = null;
   /** Orders soft-deleted (the Drizzle store's `deleted_at`). */
@@ -85,11 +87,37 @@ export class InMemoryCommerce implements CommerceStore {
           this.events.push(clone(e));
         },
       },
+      audit: {
+        write: async (r: { actorUserId: string; action: string; targetId: string }) => {
+          this.audits.push({ actorUserId: r.actorUserId, action: r.action, targetId: r.targetId });
+        },
+      },
       warehouses: {
         find: async (id: string) => this.warehouses.find((w) => w.id === id) ?? null,
         findDefault: async () => this.warehouses.find((w) => w.isDefault) ?? null,
       },
       products: {
+        find: async (id: string) => clone(this.products.find((p) => p.id === id) ?? null),
+        usedByOrders: async (productId: string) => {
+          const ids = new Set(
+            this.variants.filter((v) => v.productId === productId).map((v) => v.id),
+          );
+          return [...this.items.values()].some((lines) => lines.some((i) => ids.has(i.variantId)));
+        },
+        // Variants, stock and the bot selection cascade, as the foreign keys do.
+        remove: async (productId: string) => {
+          const ids = new Set(
+            this.variants.filter((v) => v.productId === productId).map((v) => v.id),
+          );
+          this.products = this.products.filter((p) => p.id !== productId);
+          this.variants = this.variants.filter((v) => !ids.has(v.id));
+          this.stock = this.stock.filter((s) => !ids.has(s.variantId));
+          for (const [bot, chosen] of this.botSelection)
+            this.botSelection.set(
+              bot,
+              chosen.filter((id) => id !== productId),
+            );
+        },
         matchCodes: async (codes: string[], skus: string[]) => {
           const found = (values: string[], known: string[]) => {
             const lower = new Set(known.map((k) => k.toLowerCase()));

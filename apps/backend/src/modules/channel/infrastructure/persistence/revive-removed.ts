@@ -30,6 +30,7 @@ export async function reviveOwnRemoved(
           tokenSealed: a.tokenSealed,
           status: 'connected',
           name: a.name,
+          metaUserHash: a.metaUserHash ?? null,
           expiresAt: a.expiresAt ? new Date(a.expiresAt) : null,
         })
         .where(and(eq(c.workspaceId, ws), eq(c.id, removed.id)))

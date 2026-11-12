@@ -973,6 +973,21 @@
       "available": "Available",
       "update": "Update",
       "updated": "Stock updated"
+    },
+    "delete": {
+      "title": "Delete product",
+      "hint": "Only a product that no order uses can be deleted. Archive a product that has sold instead.",
+      "action": "Delete product",
+      "confirmTitle": "Delete product {{name}}?",
+      "confirmBody": "The product, its variants and its stock are deleted for good, and the bot stops offering it. This cannot be undone.",
+      "confirm": "Delete for good",
+      "deleting": "Deleting…",
+      "deleted": "Product {{name}} deleted.",
+      "inOrders": "This product is in orders, so it cannot be deleted (order history is kept). Archive it: it stops selling and past orders stay.",
+      "inOrdersArchived": "This product is in orders, so it cannot be deleted (order history is kept). It is already archived.",
+      "synced": "This product is synced from KiotViet and would come back on the next sync. Delete or discontinue it in KiotViet.",
+      "archiveInstead": "Archive product",
+      "archivedDone": "Product {{name}} archived."
     }
   },
   "commerce": {
@@ -1216,7 +1231,12 @@
       "noTags": "No tags yet.",
       "filesSoon": "Customer files come once storage (S3) is enabled.",
       "createdBy": "Created {{at}}",
-      "close": "Close"
+      "close": "Close",
+      "deleteNote": "Delete note",
+      "deleteNoteTitle": "Delete this note?",
+      "deleteNoteBody": "The note is removed for good, its text in the history too. This cannot be undone.",
+      "noteDeleted": "Note deleted",
+      "confirmDeleteNote": "Delete note"
     },
     "history": {
       "allTypes": "All changes",
@@ -1234,7 +1254,8 @@
         "tag.updated": "Tag details edited",
         "tag.removed": "Tag removed",
         "contact.request_recorded": "New request",
-        "contact.request_updated": "Request updated"
+        "contact.request_updated": "Request updated",
+        "note.deleted": "Note deleted"
       },
       "empty_value": "empty"
     },
@@ -1355,6 +1376,23 @@
       "loading": "Loading requests…",
       "loadError": "Could not load the requests.",
       "retry": "Retry"
+    },
+    "delete": {
+      "zoneTitle": "Delete customer",
+      "zoneHint": "Use this when the customer asks for their personal data to be deleted. This cannot be undone.",
+      "action": "Delete customer",
+      "title": "Delete {{name}} for good?",
+      "intro": "This cannot be undone.",
+      "removedTitle": "Deleted",
+      "removedProfile": "The profile, notes, history, tags and tasks of the customer",
+      "removedConversations": "Conversations with the customer and all their messages",
+      "removedFiles": "Pictures the customer sent through website chat",
+      "keptTitle": "Kept, but anonymized",
+      "kept": "Orders and stay bookings: the name becomes “Khách đã xoá” and the phone, email and address are removed.",
+      "confirm": "Delete for good",
+      "deleting": "Deleting…",
+      "cancel": "Cancel",
+      "done": "Customer and {{conversations}} conversations deleted; {{orders}} orders and {{bookings}} bookings anonymized."
     }
   },
   "team": {
@@ -1924,7 +1962,42 @@
         "list": "List",
         "grid": "Grid"
       },
-      "loading": "Loading businesses…"
+      "loading": "Loading businesses…",
+      "deleted": {
+        "title": "Deleted (restorable for {{days}} days)",
+        "hint": "When the time is up, the business data is deleted for good.",
+        "daysLeft_one": "{{count}} day left to restore",
+        "daysLeft_other": "{{count}} days left to restore",
+        "lastDay": "Today is the last day to restore",
+        "deletedOn": "Deleted on {{date}}",
+        "restore": "Restore",
+        "restoreLabel": "Restore business {{name}}",
+        "restored": "{{name}} was restored. Reconnect its channels.",
+        "restoreError": "This business could not be restored. Its restore window may have ended."
+      }
+    },
+    "delete": {
+      "title": "Delete business",
+      "hint": "Deletes this business and all its data. You can restore it for {{days}} days; after that the data is deleted for good.",
+      "stopsTitle": "As soon as you delete it:",
+      "points": {
+        "bot": "The bot stops replying to customers on every channel.",
+        "care": "Automatic care and the Business Brain stop.",
+        "channels": "Facebook and Instagram pages and website chat are disconnected; KiotViet stops syncing. After a restore you reconnect them.",
+        "access": "Every member loses access to this business."
+      },
+      "exportFirst": "Export your data before you delete.",
+      "exportLink": "Export data",
+      "action": "Delete business…",
+      "ownerOnly": "Only the business owner can delete this business.",
+      "dialogTitle": "Delete business {{name}}?",
+      "dialogBody": "The business is hidden at once and deleted for good after {{days}} days. Until then you can restore it from My businesses.",
+      "confirmLabel": "Type the business name to confirm",
+      "confirmHint": "Type exactly: {{name}}",
+      "cancel": "Cancel",
+      "submit": "Delete business",
+      "done": "{{name}} was deleted. You can restore it for {{days}} days.",
+      "mismatch": "The name does not match. Type the business name exactly."
     }
   },
   "account": {
@@ -2098,5 +2171,21 @@
       "blocked": "The browser blocks Rapiz notifications. Allow them in the browser settings.",
       "failed": "Could not turn on notifications. Try again later."
     }
+  },
+  "dataDeletion": {
+    "title": "Data deletion request",
+    "intro": "You asked Rapiz to delete the data linked to the Facebook account you used to connect Pages (Facebook Login).",
+    "notFound": "No request has this code. Check the link Facebook gave you.",
+    "status": {
+      "pending": "In progress",
+      "completed": "Completed"
+    },
+    "code": "Confirmation code",
+    "requestedAt": "Requested",
+    "completedAt": "Completed",
+    "pendingBody": "Rapiz will disconnect the Pages you connected and delete your access tokens within minutes.",
+    "completedBody_one": "The {{count}} Page you connected was disconnected and your Facebook access tokens were deleted. Rapiz no longer keeps your Facebook login data.",
+    "completedBody_other": "The {{count}} Pages you connected were disconnected and your Facebook access tokens were deleted. Rapiz no longer keeps your Facebook login data.",
+    "scope": "This does not delete the businesses, orders or conversations a business keeps on Rapiz. If you messaged a business and want your data deleted, contact that business."
   }
 }

@@ -967,6 +967,21 @@
       "available": "Có thể bán",
       "update": "Cập nhật",
       "updated": "Đã cập nhật tồn kho"
+    },
+    "delete": {
+      "title": "Xoá sản phẩm",
+      "hint": "Chỉ xoá được sản phẩm chưa có trong đơn hàng nào. Sản phẩm đã bán thì hãy lưu trữ.",
+      "action": "Xoá sản phẩm",
+      "confirmTitle": "Xoá sản phẩm {{name}}?",
+      "confirmBody": "Sản phẩm, các mẫu mã và tồn kho sẽ bị xoá vĩnh viễn, bot cũng ngừng tư vấn sản phẩm này. Không thể hoàn tác.",
+      "confirm": "Xoá vĩnh viễn",
+      "deleting": "Đang xoá…",
+      "deleted": "Đã xoá sản phẩm {{name}}.",
+      "inOrders": "Sản phẩm này đã có trong đơn hàng nên không xoá được (để giữ lịch sử đơn). Hãy lưu trữ: sản phẩm ngừng bán, đơn cũ vẫn còn.",
+      "inOrdersArchived": "Sản phẩm này đã có trong đơn hàng nên không xoá được (để giữ lịch sử đơn). Sản phẩm đang được lưu trữ.",
+      "synced": "Sản phẩm này đồng bộ từ KiotViet nên sẽ quay lại ở lần đồng bộ sau. Hãy xoá hoặc ngừng kinh doanh trên KiotViet.",
+      "archiveInstead": "Lưu trữ sản phẩm",
+      "archivedDone": "Đã lưu trữ sản phẩm {{name}}."
     }
   },
   "commerce": {
@@ -1210,7 +1225,12 @@
       "noTags": "Chưa gắn tag nào.",
       "filesSoon": "Lưu file của khách hàng sẽ có khi bật kho lưu trữ (S3).",
       "createdBy": "Tạo lúc {{at}}",
-      "close": "Đóng"
+      "close": "Đóng",
+      "deleteNote": "Xoá ghi chú",
+      "deleteNoteTitle": "Xoá ghi chú này?",
+      "deleteNoteBody": "Ghi chú bị xoá hẳn, kể cả nội dung trong lịch sử. Không thể hoàn tác.",
+      "noteDeleted": "Đã xoá ghi chú",
+      "confirmDeleteNote": "Xoá ghi chú"
     },
     "history": {
       "allTypes": "Mọi thay đổi",
@@ -1228,7 +1248,8 @@
         "tag.updated": "Sửa thông tin tag",
         "tag.removed": "Gỡ tag",
         "contact.request_recorded": "Yêu cầu mới",
-        "contact.request_updated": "Cập nhật yêu cầu"
+        "contact.request_updated": "Cập nhật yêu cầu",
+        "note.deleted": "Xoá ghi chú"
       },
       "empty_value": "trống"
     },
@@ -1349,6 +1370,23 @@
       "loading": "Đang tải yêu cầu…",
       "loadError": "Không tải được yêu cầu.",
       "retry": "Thử lại"
+    },
+    "delete": {
+      "zoneTitle": "Xoá khách hàng",
+      "zoneHint": "Dùng khi khách yêu cầu xoá dữ liệu cá nhân của họ. Không thể hoàn tác.",
+      "action": "Xoá khách hàng",
+      "title": "Xoá vĩnh viễn {{name}}?",
+      "intro": "Thao tác này không thể hoàn tác.",
+      "removedTitle": "Bị xoá hẳn",
+      "removedProfile": "Hồ sơ, ghi chú, lịch sử, tag và công việc của khách",
+      "removedConversations": "Các hội thoại với khách và toàn bộ tin nhắn",
+      "removedFiles": "Ảnh khách gửi qua chat website",
+      "keptTitle": "Giữ lại nhưng ẩn danh",
+      "kept": "Đơn hàng và đặt phòng: tên khách đổi thành “Khách đã xoá”, số điện thoại, email và địa chỉ bị xoá.",
+      "confirm": "Xoá vĩnh viễn",
+      "deleting": "Đang xoá…",
+      "cancel": "Huỷ",
+      "done": "Đã xoá khách hàng và {{conversations}} hội thoại; {{orders}} đơn hàng, {{bookings}} đặt phòng được ẩn danh."
     }
   },
   "team": {
@@ -1916,7 +1954,41 @@
         "list": "Danh sách",
         "grid": "Lưới"
       },
-      "loading": "Đang tải danh sách business…"
+      "loading": "Đang tải danh sách business…",
+      "deleted": {
+        "title": "Đã xoá (khôi phục trong {{days}} ngày)",
+        "hint": "Hết hạn, dữ liệu của business bị xoá vĩnh viễn.",
+        "daysLeft_other": "Còn {{count}} ngày để khôi phục",
+        "lastDay": "Hôm nay là ngày cuối để khôi phục",
+        "deletedOn": "Xoá ngày {{date}}",
+        "restore": "Khôi phục",
+        "restoreLabel": "Khôi phục business {{name}}",
+        "restored": "Đã khôi phục {{name}}. Hãy kết nối lại các kênh.",
+        "restoreError": "Không khôi phục được business này. Thời hạn có thể đã hết."
+      }
+    },
+    "delete": {
+      "title": "Xoá business",
+      "hint": "Xoá business này cùng toàn bộ dữ liệu. Trong {{days}} ngày đầu bạn vẫn khôi phục được; sau đó dữ liệu bị xoá vĩnh viễn.",
+      "stopsTitle": "Ngay khi xoá:",
+      "points": {
+        "bot": "Bot ngừng trả lời khách trên mọi kênh.",
+        "care": "Chăm sóc tự động và Business Brain dừng lại.",
+        "channels": "Trang Facebook, Instagram và chat website bị ngắt kết nối; KiotViet ngừng đồng bộ. Khi khôi phục, bạn cần kết nối lại.",
+        "access": "Mọi thành viên mất quyền vào business này."
+      },
+      "exportFirst": "Nên xuất dữ liệu trước khi xoá.",
+      "exportLink": "Xuất dữ liệu",
+      "action": "Xoá business…",
+      "ownerOnly": "Chỉ chủ business mới xoá được business này.",
+      "dialogTitle": "Xoá business {{name}}?",
+      "dialogBody": "Business sẽ bị ẩn ngay và xoá vĩnh viễn sau {{days}} ngày. Trong thời gian đó bạn khôi phục được ở mục Business của tôi.",
+      "confirmLabel": "Nhập tên business để xác nhận",
+      "confirmHint": "Nhập chính xác: {{name}}",
+      "cancel": "Huỷ",
+      "submit": "Xoá business",
+      "done": "Đã xoá {{name}}. Bạn có thể khôi phục trong {{days}} ngày.",
+      "mismatch": "Tên chưa khớp. Nhập đúng tên business."
     }
   },
   "account": {
@@ -2090,5 +2162,20 @@
       "blocked": "Trình duyệt đang chặn thông báo của Rapiz. Hãy cho phép trong cài đặt trình duyệt.",
       "failed": "Chưa bật được thông báo. Thử lại sau."
     }
+  },
+  "dataDeletion": {
+    "title": "Yêu cầu xoá dữ liệu",
+    "intro": "Bạn đã yêu cầu Rapiz xoá dữ liệu gắn với tài khoản Facebook đã dùng để kết nối Trang (Facebook Login).",
+    "notFound": "Không tìm thấy yêu cầu với mã này. Hãy kiểm tra lại đường dẫn Facebook đã gửi cho bạn.",
+    "status": {
+      "pending": "Đang xử lý",
+      "completed": "Đã hoàn tất"
+    },
+    "code": "Mã xác nhận",
+    "requestedAt": "Gửi lúc",
+    "completedAt": "Hoàn tất lúc",
+    "pendingBody": "Rapiz sẽ ngắt kết nối các Trang bạn đã kết nối và xoá mã truy cập (token) của bạn trong vài phút.",
+    "completedBody_other": "Đã ngắt kết nối {{count}} Trang bạn đã kết nối và xoá mã truy cập (token) Facebook của bạn. Rapiz không còn lưu dữ liệu đăng nhập Facebook của bạn.",
+    "scope": "Việc này không xoá doanh nghiệp, đơn hàng hay hội thoại mà chủ doanh nghiệp lưu trên Rapiz. Khách nhắn tin cho một doanh nghiệp muốn xoá dữ liệu của mình, hãy liên hệ doanh nghiệp đó."
   }
 }

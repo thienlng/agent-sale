@@ -53,7 +53,7 @@ and route contracts in `packages/contracts` already generate an OpenAPI document
    **and** at every delivery (DNS rebinding). No redirects are followed.
 7. **Public event catalog.** Only events listed in `PUBLIC_EVENT_TYPES` leave the platform, mapped by
    a per-type function to a stable `data` payload (never internal ids of other workspaces, never
-   secrets). v1: `crm.contact.created|updated|status_changed|assigned`, `crm.tag.assigned|removed`,
+   secrets). v1: `crm.contact.created|updated|status_changed|assigned|deleted` (deleted: amendment 2026-11-12, customer deletion, ids only), `crm.tag.assigned|removed`,
    `lodging.booking.*`, `commerce.order.created|status_changed`, `saas.subscription.changed`.
    Platform events (`account.*`, `billing.*`) are never public.
 8. **Modules.** API keys are credentials, so **`identity`** owns `api_keys` (like sessions) and the

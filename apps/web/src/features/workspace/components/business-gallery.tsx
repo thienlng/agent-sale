@@ -31,6 +31,7 @@ import {
   type GallerySearch,
   industriesOf,
 } from '../lib/business-gallery';
+import { DeletedBusinesses } from './deleted-businesses';
 
 const ALL = 'all';
 const SKELETONS = 3;
@@ -221,6 +222,8 @@ export function BusinessGallery({
           })}
         </ul>
       )}
+
+      <DeletedBusinesses />
     </section>
   );
 }

@@ -194,6 +194,13 @@ export class LiveMetaGateway implements MetaGateway {
         'VALIDATION_FAILED',
         `Facebook permissions not granted: ${missing.join(', ')}; enable them in the Facebook Login for Business configuration`,
       );
+    // Who granted the pages (Meta's data deletion callback names this app-scoped id); a failed
+    // lookup only means the pages cannot be matched to a later deletion request.
+    const grantorId = await this.request(`${base}/me?fields=id`, {
+      headers: { Authorization: `Bearer ${userToken}` },
+    })
+      .then((me) => (/^[0-9]{1,32}$/.test(str(me.id)) ? str(me.id) : null))
+      .catch(() => null);
     const accounts: GrantedAccount[] = [];
     let after = '';
     for (let page = 0; page < 20; page++) {
@@ -215,8 +222,8 @@ export class LiveMetaGateway implements MetaGateway {
         const deadlines = [d.expires_at, d.data_access_expires_at].filter(
           (n): n is number => typeof n === 'number' && n > 0,
         );
-        accounts.push(
-          Account.parse({
+        accounts.push({
+          ...Account.parse({
             externalId: str(a.id),
             name: str(a.name),
             token: str(a.access_token),
@@ -224,7 +231,8 @@ export class LiveMetaGateway implements MetaGateway {
               ? new Date(Math.min(...deadlines) * 1000).toISOString()
               : null,
           }),
-        );
+          grantorId,
+        });
       }
       if (!data.paging) break;
       const paging = rec(data.paging);

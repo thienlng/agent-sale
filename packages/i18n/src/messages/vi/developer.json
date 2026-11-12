@@ -108,6 +108,7 @@
     "crm.contact.updated": "Khách hàng được cập nhật",
     "crm.contact.status_changed": "Khách hàng đổi trạng thái",
     "crm.contact.assigned": "Khách hàng được phân công",
+    "crm.contact.deleted": "Khách hàng bị xoá",
     "crm.tag.assigned": "Gắn thẻ",
     "crm.tag.removed": "Gỡ thẻ",
     "lodging.booking.created": "Đặt phòng mới",

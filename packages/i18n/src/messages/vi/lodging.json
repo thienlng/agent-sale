@@ -754,5 +754,20 @@
       "packages": "Gói {{names}}",
       "call": "Gọi {{phone}}"
     }
+  },
+  "delete": {
+    "title": "Xoá căn hộ",
+    "hint": "Chỉ xoá được căn hộ chưa từng có booking. Căn hộ đã có booking thì hãy tạm dừng.",
+    "action": "Xoá căn hộ",
+    "confirmTitle": "Xoá căn hộ {{name}}?",
+    "confirmBody": "Căn hộ, các phòng, bảng giá, ghi chú đêm và danh sách ảnh sẽ bị xoá vĩnh viễn, bot cũng ngừng giới thiệu căn hộ này. Không thể hoàn tác.",
+    "confirm": "Xoá vĩnh viễn",
+    "deleting": "Đang xoá…",
+    "cancel": "Huỷ",
+    "deleted": "Đã xoá căn hộ {{name}}.",
+    "hasBookings": "Căn hộ này đã có booking nên không xoá được (để giữ lịch sử đặt phòng). Hãy tạm dừng: bot sẽ ngừng chào bán, booking cũ vẫn còn.",
+    "hasBookingsPaused": "Căn hộ này đã có booking nên không xoá được (để giữ lịch sử đặt phòng). Căn hộ đang tạm dừng, bot không chào bán nữa.",
+    "pauseInstead": "Tạm dừng căn hộ",
+    "paused": "Đã tạm dừng căn hộ {{name}}."
   }
 }

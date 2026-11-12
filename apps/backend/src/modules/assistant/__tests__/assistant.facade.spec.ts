@@ -19,6 +19,7 @@ import {
   AssistantForbiddenError,
   AssistantNotFoundError,
   AssistantProposalConflictError,
+  AssistantThreadRunningError,
 } from '../domain/assistant.errors.js';
 import type { RouteInvocation, RouteInvocationResult } from '../domain/ports/route-invoker.port.js';
 import { InMemoryAssistantRepository } from '../infrastructure/persistence/assistant.in-memory-repository.js';
@@ -222,6 +223,131 @@ describe('AssistantFacade (contract)', () => {
     expect(await repo.getJob(key, job.id)).toMatchObject({ status: 'queued' });
     await facade.updateThread(me, t.id, { archived: true });
     expect(await repo.getJob(key, job.id)).toMatchObject({ status: 'cancelled' });
+  });
+
+  it('deletes a thread with its messages, runs, steps, proposals and jobs; schedule runs keep their row', async () => {
+    const { facade, me, repo, accountId } = setup();
+    const keep = await facade.createThread({ ...me, ownerName: null }, { title: 'Giữ lại' });
+    const t = await facade.createThread({ ...me, ownerName: null }, { title: 'Xoá' });
+    const out = await facade.sendMessage(me, t.id, { turnId: newId(), text: 'Chào em' }, AUTH);
+    await facade.sendMessage(me, keep.id, { turnId: newId(), text: 'Chào' }, AUTH);
+    const scope = {
+      accountId,
+      ownerUserId: me.userId,
+      businessId: me.businessId,
+      businessIds: [me.businessId],
+    };
+    const proposal = await repo.createProposal(scope, {
+      id: newId(),
+      threadId: t.id,
+      runId: null,
+      businessId: me.businessId,
+      routeKey: 'POST /products',
+      path: '/products',
+      query: null,
+      body: {},
+      summary: 'Thêm sản phẩm',
+      preview: { body: {}, query: null },
+      expiresAt: new Date(Date.now() + 86_400_000),
+    });
+    const job = await repo.enqueueJob(scope, {
+      id: newId(),
+      threadId: t.id,
+      kind: 'review',
+      reviewScope: 'combined',
+      runAfter: new Date(Date.now() + 60_000),
+    });
+    const scheduleRunId = newId();
+    repo.scheduleRuns.set(scheduleRunId, {
+      id: scheduleRunId,
+      accountId,
+      ownerUserId: me.userId,
+      scheduleId: newId(),
+      trigger: 'manual',
+      scheduledFor: new Date(),
+      status: 'done',
+      errorCode: null,
+      report: null,
+      title: 'Báo cáo',
+      body: null,
+      commentaryRunId: null,
+      notificationId: null,
+      threadId: t.id,
+      startedAt: new Date(),
+      finishedAt: new Date(),
+    });
+
+    await facade.deleteThread(me, t.id);
+
+    expect(repo.threads.has(t.id)).toBe(false);
+    expect(repo.messages.some((m) => m.threadId === t.id)).toBe(false);
+    expect(repo.runs.has(out.run.id)).toBe(false);
+    expect(repo.steps.some((s) => s.runId === out.run.id)).toBe(false);
+    expect(repo.proposals.has(proposal.id)).toBe(false);
+    expect(repo.jobs.has(job.id)).toBe(false);
+    expect(repo.scheduleRuns.get(scheduleRunId)?.threadId).toBeNull();
+    // The other thread is untouched.
+    expect((await facade.listMessages(me, keep.id)).data).toHaveLength(2);
+    expect((await facade.listThreads(me, {})).data.map((x) => x.id)).toEqual([keep.id]);
+    await expect(facade.listMessages(me, t.id)).rejects.toBeInstanceOf(AssistantNotFoundError);
+    await expect(facade.deleteThread(me, t.id)).rejects.toBeInstanceOf(AssistantNotFoundError);
+  });
+
+  it('refuses to delete a thread while it is answering or a proposal executes (409 thread_running)', async () => {
+    const { facade, me, repo, accountId } = setup();
+    const t = await facade.createThread({ ...me, ownerName: null }, {});
+    const scope = {
+      accountId,
+      ownerUserId: me.userId,
+      businessId: me.businessId,
+      businessIds: [me.businessId],
+    };
+    const runId = newId();
+    expect(
+      await repo.startRun(scope, { id: runId, threadId: t.id, tier: 'pro', promptVersion: 'p' }),
+    ).toBe('started');
+    const refused = facade.deleteThread(me, t.id);
+    await expect(refused).rejects.toBeInstanceOf(AssistantThreadRunningError);
+    await expect(refused).rejects.toMatchObject({
+      code: 'CONFLICT',
+      details: { reason: 'thread_running' },
+    });
+    expect(repo.threads.has(t.id)).toBe(true);
+
+    await repo.finishRun(scope, runId, { status: 'done' });
+    const p = await repo.createProposal(scope, {
+      id: newId(),
+      threadId: t.id,
+      runId: null,
+      businessId: me.businessId,
+      routeKey: 'POST /products',
+      path: '/products',
+      query: null,
+      body: {},
+      summary: 'Thêm sản phẩm',
+      preview: { body: {}, query: null },
+      expiresAt: new Date(Date.now() + 86_400_000),
+    });
+    await repo.transitionProposal(scope, p.id, ['pending'], 'executing');
+    await expect(facade.deleteThread(me, t.id)).rejects.toBeInstanceOf(AssistantThreadRunningError);
+    await repo.transitionProposal(scope, p.id, ['executing'], 'done');
+    await facade.deleteThread(me, t.id);
+    expect(repo.threads.has(t.id)).toBe(false);
+  });
+
+  it('lets only the thread owner delete it: another owner gets 404, billing 403', async () => {
+    const { facade, me, repo, addAccountMember } = setup();
+    const t = await facade.createThread({ ...me, ownerName: null }, {});
+    const second = { ...me, userId: addAccountMember('owner') };
+    await expect(facade.deleteThread(second, t.id)).rejects.toBeInstanceOf(AssistantNotFoundError);
+    const billing = { ...me, userId: addAccountMember('billing') };
+    await expect(facade.deleteThread(billing, t.id)).rejects.toBeInstanceOf(
+      AssistantForbiddenError,
+    );
+    await expect(facade.deleteThread(me, 'not-a-uuid')).rejects.toBeInstanceOf(
+      AssistantNotFoundError,
+    );
+    expect(repo.threads.has(t.id)).toBe(true);
   });
 
   it('hides tool rows from the visible messages', async () => {

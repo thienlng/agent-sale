@@ -11,3 +11,7 @@ export {
 export * from './channel.events.js';
 
 export { FANPAGE_FACADE, type FanpageFacade } from './fanpage.facade.js';
+export {
+  CHANNEL_DATA_DELETION_RUNNER,
+  type ChannelDataDeletionRunner,
+} from './channel-data-deletion.js';

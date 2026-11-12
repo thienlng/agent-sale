@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { describe, expect, it, vi } from 'vitest';
+import { metaUserHash } from '@agent-sales/channels';
 import { workspaceId } from '@agent-sales/shared';
 import { SecretBox } from '../../../common/security/secret-box.js';
 import { ChannelModule } from '../channel.module.js';
@@ -56,6 +57,24 @@ describe('ChannelFacade OAuth contract', () => {
     await expect(service.select(ws, user, discoveryId, ['page'])).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });
+  });
+  it('stores only a hash of the Facebook user who connected the page', async () => {
+    const { service, store, gateway } = setup();
+    gateway.exchange = async () => [
+      {
+        externalId: 'page',
+        name: 'Shop Page',
+        token: 't',
+        expiresAt: null,
+        grantorId: '10234567890123456',
+      },
+    ];
+    const { state } = await service.connect(ws, user, 'facebook', 'browser');
+    const id = await service.callback('facebook', state, 'browser', 'code');
+    await service.select(ws, user, id, ['page']);
+    const row = [...store.records.values()][0];
+    expect(row?.metaUserHash).toBe(metaUserHash('10234567890123456'));
+    expect(JSON.stringify(row)).not.toContain('10234567890123456');
   });
   it('scopes discoveries and connections to the consenting user and workspace', async () => {
     const { service } = setup();
