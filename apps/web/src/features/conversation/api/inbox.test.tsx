@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useConversationTagActions, useInbox } from './inbox';
+import { useAddNote, useConversationTagActions, useInbox } from './inbox';
 
 const mocks = vi.hoisted(() => ({ api: vi.fn() }));
 vi.mock('@/lib/api-client', () => ({ api: mocks.api }));
@@ -99,4 +99,16 @@ it.each(['attach', 'remove'] as const)('restores cached tags after a failed %s',
     await mutation.catch(() => {});
   });
   expect(client.getQueryData(key)).toEqual(original);
+});
+
+it('treats the saved conversation the notes route answers as a success (LM2-9)', async () => {
+  mocks.api.mockImplementation((_path: string, schema: { parse: (v: unknown) => unknown }) =>
+    Promise.resolve(
+      schema.parse({ id: 'c1', mode: 'bot', notes: [{ id: 'n1', text: 'gọi lại' }] }),
+    ),
+  );
+  const { result } = renderHook(() => useAddNote('c1'), { wrapper });
+  await act(async () => result.current.mutateAsync('gọi lại'));
+  expect(mocks.api.mock.calls[0]?.[0]).toBe('/conversations/c1/notes');
+  expect(result.current.isError).toBe(false);
 });
