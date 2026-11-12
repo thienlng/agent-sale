@@ -94,3 +94,24 @@ describe('phoneReadBack (VL-B9, LM-14)', () => {
     });
   });
 });
+
+describe('handoff say line (TM2-7, TM-16)', () => {
+  it('leads the hand-over message when the model wrote no text', () => {
+    const output = newOutputState();
+    output.handoff = 'customer wants to cancel order DH000006';
+    output.handoffSay = 'Dạ em ghi nhận chị muốn huỷ đơn DH000006, em xin lỗi vì giao chậm ạ.';
+    const decision = decideReply({
+      loop: {
+        res: { text: '', toolCalls: [], stopReason: 'tool_use' },
+        outcome: 'final',
+        steps: [],
+      } as unknown as AgentLoopResult,
+      output,
+      bot: { language: 'vi', handoffMessage: 'Dạ em chuyển nhân viên ạ.' } as unknown as BotView,
+      actionFallback: null,
+    });
+    expect(decision.final).toBe(
+      'Dạ em ghi nhận chị muốn huỷ đơn DH000006, em xin lỗi vì giao chậm ạ.\nDạ em chuyển nhân viên ạ.',
+    );
+  });
+});

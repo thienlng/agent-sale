@@ -225,7 +225,9 @@ export function decideReply(input: {
       : { outcome: 'fallback', guardrail: 'interrupted', final: null };
   }
   if (output.handoff !== null) {
-    const written = normalizeReplyText(loop.res?.text ?? '');
+    // The model's own lead-in, else the handoff's `say` line (TM2-7): either must pass the guard.
+    const written =
+      normalizeReplyText(loop.res?.text ?? '') || normalizeReplyText(output.handoffSay ?? '');
     const lead = written && input.check && !input.check(written).ok ? '' : written;
     return {
       outcome: 'handoff',

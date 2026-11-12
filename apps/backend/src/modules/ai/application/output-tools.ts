@@ -43,7 +43,11 @@ const SendMessageInput = z
     path: ['albumId'],
   });
 
-const HandoffInput = z.object({ reason: z.string().trim().min(1).max(500) });
+const HandoffInput = z.object({
+  reason: z.string().trim().min(1).max(500),
+  /** TM2-7 / TM-16: what the customer reads before the shop's hand-over message. */
+  say: z.string().trim().max(300).optional(),
+});
 
 /** One message the bot sent during the turn, in order. */
 export interface SentMessage {
@@ -63,6 +67,8 @@ export interface OutputState {
   sent: SentMessage[];
   /** The handoff tool ran: its reason (kept server-side, never logged). */
   handoff: string | null;
+  /** The handoff's `say` line (the acknowledgement before the shop's hand-over message). */
+  handoffSay?: string | null;
   /** `suggest_next` ran: buttons for the final message (website only). */
   suggestions?: MessageSuggestion[] | null;
 }
@@ -167,7 +173,7 @@ const SEND_MESSAGE_DEFINITION: ToolDefinition = {
 const HANDOFF_DEFINITION: ToolDefinition = {
   name: HANDOFF_TOOL,
   description:
-    'Hands the conversation over to the shop staff: when the customer asks for a person or a staff decision is needed. The shop then sends its own hand-over message.',
+    "Hands the conversation over to the shop staff, only when the customer asks for a person, a complaint or a payment problem needs staff, or a request about an existing order (its status, cancelling it, changing its address) needs staff. Never for a question the shop's data answers (payment methods, warranty, returns, shipping), haggling or a price, discount or policy the customer claims, a fact you do not have (say so instead), or because the conversation was handed over before. reason: for staff, e.g. 'customer wants to cancel order DH000006'. say: the one short sentence the customer reads first: acknowledge what they asked (with the order code they gave) and apologise if they are upset. The shop then sends its own hand-over message.",
   input: HandoffInput,
 };
 
@@ -303,7 +309,9 @@ export function outputTools(opts: {
     readOnly: false,
     schema: HandoffInput,
     run: async (input) => {
-      state.handoff = (input as z.infer<typeof HandoffInput>).reason;
+      const args = input as z.infer<typeof HandoffInput>;
+      state.handoff = args.reason;
+      state.handoffSay = args.say?.trim() || null;
       return { content: safeJson({ status: 'handed_over' }) };
     },
   };
