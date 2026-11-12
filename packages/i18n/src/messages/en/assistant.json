@@ -1,5 +1,5 @@
 {
-  "title": "Thỏ Rapiz",
+  "title": "Rapiz Agent",
   "subtitle": "The shop owner's own assistant",
   "threads": "Conversations",
   "showThreads": "Show conversations",
@@ -12,9 +12,7 @@
   "noThreads": "No conversations yet.",
   "noResults": "No matching conversations.",
   "loadError": "Could not load. Try again later.",
-  "emptyTitle": "I'm Thỏ Rapiz",
-  "emptyBody": "Ask me how to use Rapiz and I'll show you exactly where to click.",
-  "placeholder": "Ask Thỏ Rapiz…",
+  "placeholder": "Ask Rapiz Agent…",
   "send": "Send",
   "thinking": "Looking it up…",
   "showSteps": "Show steps",
@@ -32,15 +30,15 @@
     "budget": "Turn budget used up"
   },
   "ms": "{{ms}} ms",
-  "busy": "Thỏ Rapiz is still answering your last question, please wait.",
-  "unavailable": "Thỏ Rapiz can't answer right now. Try again in a few minutes.",
+  "busy": "Rapiz Agent is still answering your last question, please wait.",
+  "unavailable": "Rapiz Agent can't answer right now. Try again in a few minutes.",
   "sendError": "Could not send the message. Try again.",
   "spotlightDismiss": "Click anywhere or press Esc to close",
   "showMemory": "What the assistant remembers",
   "fill": {
-    "notOnPage": "The form Thỏ Rapiz wanted to fill is not on this page. Open the right page and ask again.",
+    "notOnPage": "The form Rapiz Agent wanted to fill is not on this page. Open the right page and ask again.",
     "reviewHint": "I filled it in. Check it, then press Save.",
-    "busyEditing": "You are editing an item, so Thỏ Rapiz did not fill over it. Save or close the dialog, then ask again."
+    "busyEditing": "You are editing an item, so Rapiz Agent did not fill over it. Save or close the dialog, then ask again."
   },
   "proposals": {
     "label": "Proposed change",
@@ -136,14 +134,14 @@
       "expired": "Expired"
     },
     "notPending": "This proposal was already handled.",
-    "expired": "This proposal has expired. Ask Thỏ Rapiz again if you still need it.",
+    "expired": "This proposal has expired. Ask Rapiz Agent again if you still need it.",
     "decideError": "Could not do that. Try again.",
     "openAction": "Open to enter the key",
     "actionDisabled": "Off — turn it on after a test call"
   },
   "memory": {
     "title": "What the assistant remembers",
-    "hint": "Thỏ Rapiz keeps these to answer the way you like. Delete anything that is wrong.",
+    "hint": "Rapiz Agent keeps these to answer the way you like. Delete anything that is wrong.",
     "stores": {
       "owner_profile": "About you",
       "notes": "General notes"
@@ -318,8 +316,8 @@
       "mixed": "Send a sheet and photos in two separate messages.",
       "upload": "The photo could not be uploaded. Try again.",
       "unreadableImage": "This photo cannot be read.",
-      "batch": "The file could not be sent to Thỏ Rapiz. Try again.",
-      "busy": "Thỏ Rapiz is still answering; wait a moment and send again.",
+      "batch": "The file could not be sent to Rapiz Agent. Try again.",
+      "busy": "Rapiz Agent is still answering; wait a moment and send again.",
       "notReady": "Wait for the upload to finish, then send."
     },
     "card": {
@@ -610,5 +608,25 @@
     "skills": "Skills",
     "memory": "Memory",
     "settings": "Settings"
+  },
+  "threadGroups": {
+    "pinned": "Pinned",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "week": "Previous 7 days",
+    "month": "Previous 30 days",
+    "older": "Older"
+  },
+  "sections": "Assistant sections",
+  "starters": {
+    "title": "What can I help you with today?",
+    "body": "Ask for numbers, fix the bot, schedule a report or import products — I do it and point to exactly where to click.",
+    "label": "Ideas to start with",
+    "items": {
+      "sales": "How many orders did the shop get this week?",
+      "care": "Which customers need follow-up today?",
+      "report": "Send me yesterday's revenue every morning at 8",
+      "bot": "The bot answered wrong, help me fix it"
+    }
   }
 }

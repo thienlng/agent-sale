@@ -1,14 +1,14 @@
 {
   "app": {
     "name": "Rapiz",
-    "assistantLauncher": "Ask Thỏ Rapiz",
-    "assistantLauncherHint": "Ask Thỏ Rapiz · drag to move",
+    "assistantLauncher": "Ask Rapiz Agent",
+    "assistantLauncherHint": "Ask Rapiz Agent · drag to move",
     "assistantAskSample": "Ask the assistant to fill it in",
     "notifications": "Notifications",
     "notificationsUnread": "Notifications, {{count}} unread",
     "reportThreadError": "Could not open the report in the assistant. Try again.",
     "reportScheduleDeleted": "This schedule was deleted",
-    "assistantOwnersOnly": "The Thỏ Rapiz assistant is for account owners only."
+    "assistantOwnersOnly": "The Rapiz Agent assistant is for account owners only."
   },
   "nav": {
     "bots": "Bot training",
@@ -58,9 +58,8 @@
     "newBusiness": "New business",
     "services": "Services",
     "assistant": "Assistant",
-    "today": "Today",
-    "todayWaiting_one": "{{count}} thing to do today",
-    "todayWaiting_other": "{{count}} things to do today"
+    "analyticsWaiting_one": "{{count}} thing waiting",
+    "analyticsWaiting_other": "{{count}} things waiting"
   },
   "auth": {
     "login": "Log in",
@@ -1640,6 +1639,7 @@
   },
   "analytics": {
     "title": "Statistics",
+    "section": "Reports",
     "subtitle": "Customers, tags, statuses and conversations. Every number has a written definition — press (i) to read it.",
     "filters": {
       "from": "From",

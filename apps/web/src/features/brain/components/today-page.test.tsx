@@ -97,7 +97,7 @@ function today(over: Partial<TodayResponse> = {}): TodayResponse {
   };
 }
 
-/** Today plus an inbox page that shows the search it was opened with. */
+/** The statistics page's Today part plus an inbox page that shows the search it was opened with. */
 function renderApp() {
   const root = createRootRoute({
     component: () => (
@@ -109,7 +109,7 @@ function renderApp() {
   });
   const page = createRoute({
     getParentRoute: () => root,
-    path: '/app/today',
+    path: '/app/analytics',
     component: TodayPage,
   });
   const inbox = createRoute({
@@ -119,7 +119,7 @@ function renderApp() {
   });
   const router = createRouter({
     routeTree: root.addChildren([page, inbox]),
-    history: createMemoryHistory({ initialEntries: ['/app/today'] }),
+    history: createMemoryHistory({ initialEntries: ['/app/analytics'] }),
   });
   renderWithProviders(<RouterProvider router={router} />);
   return router;
@@ -151,7 +151,7 @@ function heldFetch(routes: Parameters<typeof stubFetch>[0], held: string[]) {
 }
 
 describe('TodayPage', () => {
-  it('renders the queues with their counts, items and empty states', async () => {
+  it('renders the queues that have items, with their counts, under the page header', async () => {
     vi.stubGlobal('fetch', stubFetch({ 'GET /today': { status: 200, body: today() } }).fetchStub);
     renderApp();
 
@@ -161,21 +161,71 @@ describe('TodayPage', () => {
       { name: 'Phàn nàn / cần người' },
       { timeout: 5000 },
     );
+    expect(screen.getByRole('heading', { level: 1, name: 'Thống kê' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Việc hôm nay' })).toBeInTheDocument();
     expect(within(attention).getByText('Chị Lan')).toBeInTheDocument();
     expect(within(attention).getByText('Giao sai màu áo')).toBeInTheDocument();
     expect(within(attention).getByText('Sắp chốt')).toBeInTheDocument();
     const unanswered = screen.getByRole('region', { name: 'Chưa trả lời' });
     expect(within(unanswered).getByText('Anh Minh')).toBeInTheDocument();
     expect(
-      within(screen.getByRole('region', { name: 'Sắp chốt' })).getByText(
-        'Chưa có khách nào sắp chốt.',
-      ),
-    ).toBeInTheDocument();
-    expect(
       within(screen.getByRole('region', { name: 'Việc của tôi' })).getByText('Gọi lại chị Mai'),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Làm mới \(còn 197 lượt\)/ })).toBeEnabled();
     expect(screen.queryByText(/Đã hết lượt đánh giá hôm nay/)).toBeNull();
+  });
+
+  it('lists the empty queues on one line instead of empty cards, and does not link their chips', async () => {
+    vi.stubGlobal('fetch', stubFetch({ 'GET /today': { status: 200, body: today() } }).fetchStub);
+    renderApp();
+    await screen.findByRole('region', { name: 'Phàn nàn / cần người' }, { timeout: 5000 });
+    expect(
+      screen.getByText('Không có: Sắp chốt · Hỏi giá rồi im · Đến hạn chăm lại'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Sắp chốt' })).toBeNull();
+    expect(screen.queryByText('Chưa có khách nào sắp chốt.')).toBeNull();
+    const chips = within(screen.getByRole('navigation', { name: 'Tóm tắt các hàng' }));
+    expect(chips.getByRole('link', { name: /Phàn nàn \/ cần người/ })).toHaveAttribute(
+      'href',
+      '#queue-attention',
+    );
+    expect(chips.getAllByRole('link')).toHaveLength(3);
+    expect(chips.getByText('Hỏi giá rồi im')).not.toHaveAttribute('href');
+    expect(chips.getByText('Hỏi giá rồi im').closest('a')).toBeNull();
+  });
+
+  it('shows one compact line when nothing needs doing today', async () => {
+    const empty = today({
+      queues: today().queues.map((q) => ({ ...q, count: 0, items: [] })) as TodayResponse['queues'],
+    });
+    vi.stubGlobal('fetch', stubFetch({ 'GET /today': { status: 200, body: empty } }).fetchStub);
+    renderApp();
+    expect(
+      await screen.findByText('Hôm nay chưa có việc nào cần làm', {}, { timeout: 5000 }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Tóm tắt các hàng' })).toBeNull();
+    expect(screen.queryByText(/^Không có:/)).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Việc của tôi' })).toBeNull();
+  });
+
+  it('renders what the route puts under it (the figures)', async () => {
+    vi.stubGlobal('fetch', stubFetch({ 'GET /today': { status: 200, body: today() } }).fetchStub);
+    const root = createRootRoute({ component: Outlet });
+    const page = createRoute({
+      getParentRoute: () => root,
+      path: '/app/analytics',
+      component: () => (
+        <TodayPage title="Thống kê">
+          <p>figures</p>
+        </TodayPage>
+      ),
+    });
+    const router = createRouter({
+      routeTree: root.addChildren([page]),
+      history: createMemoryHistory({ initialEntries: ['/app/analytics'] }),
+    });
+    renderWithProviders(<RouterProvider router={router} />);
+    expect(await screen.findByText('figures', {}, { timeout: 5000 })).toBeInTheDocument();
   });
 
   it('shows the cap banner and disables refresh when the evaluations are used up', async () => {
@@ -210,10 +260,12 @@ describe('TodayPage', () => {
     await user.click(within(attention).getByRole('button', { name: 'Thao tác khác cho Chị Lan' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Bỏ qua' }));
 
-    // Gone while the request is still held: the optimistic removal, not a refetch.
+    // Gone while the request is still held: the optimistic removal, not a refetch. The queue is
+    // empty now, so its card leaves too and the queue joins the "Không có" line.
     await waitFor(() => expect(isHeld(DISMISS)).toBe(true));
-    expect(within(attention).queryByText('Chị Lan')).toBeNull();
-    expect(within(attention).getByText('Không có khách nào đang phàn nàn hay cần người hỗ trợ.'));
+    expect(attention).not.toBeInTheDocument();
+    expect(screen.queryByText('Chị Lan')).toBeNull();
+    expect(screen.getByText(/^Không có: Phàn nàn \/ cần người · /)).toBeInTheDocument();
     release(DISMISS);
 
     // The toast follows the re-read of every brain query (Today, "AI đã làm"…): allow for load.
@@ -321,7 +373,9 @@ describe('TodayPage', () => {
     await waitFor(() =>
       expect(calls.some((c) => c.key === `POST /tasks/${TASK}/complete`)).toBe(true),
     );
-    await waitFor(() => expect(within(tasks).queryByText('Gọi lại chị Mai')).toBeNull());
+    // The last task is done: the queue has no card any more.
+    await waitFor(() => expect(screen.queryByText('Gọi lại chị Mai')).toBeNull());
+    expect(tasks).not.toBeInTheDocument();
     expect(await screen.findByText('Đã xong việc')).toBeInTheDocument();
   });
 
@@ -342,11 +396,12 @@ describe('TodayPage', () => {
       within(tasks).getByRole('checkbox', { name: 'Đánh dấu xong: Gọi lại chị Mai' }),
     );
     await waitFor(() => expect(isHeld(COMPLETE)).toBe(true));
-    expect(within(tasks).queryByText('Gọi lại chị Mai')).toBeNull();
+    expect(screen.queryByText('Gọi lại chị Mai')).toBeNull();
     release(COMPLETE);
-    const back = await within(tasks).findByRole('checkbox', {
-      name: 'Đánh dấu xong: Gọi lại chị Mai',
-    });
+    // The card comes back with the task when the queue is no longer empty.
+    const back = await within(
+      await screen.findByRole('region', { name: 'Việc của tôi' }),
+    ).findByRole('checkbox', { name: 'Đánh dấu xong: Gọi lại chị Mai' });
     expect(back).not.toBeChecked();
     expect(await screen.findByText('Chưa lưu được việc')).toBeInTheDocument();
   });

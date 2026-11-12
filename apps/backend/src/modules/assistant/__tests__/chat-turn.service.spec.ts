@@ -880,7 +880,7 @@ describe('ChatTurnService', () => {
       id: newId(),
       title: 'Báo cáo',
       systemPrompt: 'SYSTEM PROMPT',
-      promptVersion: 'assistant@3',
+      promptVersion: 'assistant@4',
       origin: 'schedule',
     });
     await t.service.send(t.scope, report.id, { turnId: newId(), text: 'Vì sao giảm?' }, AUTH);

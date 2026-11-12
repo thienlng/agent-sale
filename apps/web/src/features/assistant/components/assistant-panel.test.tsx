@@ -132,7 +132,7 @@ describe('AssistantPanel', () => {
     vi.stubGlobal('fetch', fetchStub);
     renderApp();
 
-    expect(await screen.findByText('Mình là Thỏ Rapiz')).toBeInTheDocument();
+    expect(await screen.findByText('Hôm nay anh/chị cần mình giúp gì?')).toBeInTheDocument();
     expect(useAssistantUi.getState()).toMatchObject({
       workspaceId: WS,
       threadId: null,
@@ -173,8 +173,8 @@ describe('AssistantPanel', () => {
     const router = renderApp(() => <button data-assistant-target="orders.new">Tạo đơn</button>);
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
-    const box = await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' });
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' }));
+    const box = await screen.findByRole('textbox', { name: 'Hỏi Rapiz Agent…' });
     await user.type(box, 'mở trang sản phẩm{Enter}');
 
     expect(await screen.findByText('Đây là trang sản phẩm.')).toBeInTheDocument();
@@ -205,8 +205,8 @@ describe('AssistantPanel', () => {
     const router = renderApp();
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
-    await user.type(await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }), 'đi{Enter}');
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' }));
+    await user.type(await screen.findByRole('textbox', { name: 'Hỏi Rapiz Agent…' }), 'đi{Enter}');
 
     expect(await screen.findByText('Đi thôi.')).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/app/orders');
@@ -232,10 +232,10 @@ describe('AssistantPanel', () => {
     renderApp();
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
-    const box = await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' });
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' }));
+    const box = await screen.findByRole('textbox', { name: 'Hỏi Rapiz Agent…' });
     await user.type(box, 'xin chào{Enter}');
-    const busy = 'Thỏ Rapiz đang trả lời câu trước, anh/chị đợi chút nhé.';
+    const busy = 'Rapiz Agent đang trả lời câu trước, anh/chị đợi chút nhé.';
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith(busy, expect.objectContaining({ duration: 8000 })),
     );
@@ -251,7 +251,7 @@ describe('AssistantPanel', () => {
     await user.clear(box);
     await user.type(box, 'lần nữa{Enter}');
     expect(
-      await screen.findByText('Thỏ Rapiz tạm thời không trả lời được. Thử lại sau ít phút.'),
+      await screen.findByText('Rapiz Agent tạm thời không trả lời được. Thử lại sau ít phút.'),
     ).toBeInTheDocument();
   });
 
@@ -304,9 +304,9 @@ describe('AssistantPanel', () => {
     const router = renderApp();
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' }));
     await user.type(
-      await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }),
+      await screen.findByRole('textbox', { name: 'Hỏi Rapiz Agent…' }),
       'mở trang sản phẩm{Enter}',
     );
     await held.waiting;
@@ -336,8 +336,11 @@ describe('AssistantPanel', () => {
     renderApp();
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
-    await user.type(await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }), 'chào{Enter}');
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' }));
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Hỏi Rapiz Agent…' }),
+      'chào{Enter}',
+    );
     await held.waiting;
     switchBusiness();
     held.release();
@@ -401,9 +404,9 @@ describe('AssistantPanel', () => {
     renderApp(ProductFormPage, '/app/products/new');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' }));
     await user.type(
-      await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }),
+      await screen.findByRole('textbox', { name: 'Hỏi Rapiz Agent…' }),
       'điền giúp{Enter}',
     );
 
@@ -497,9 +500,9 @@ describe('AssistantPanel', () => {
     const router = renderApp(ProductRoutePage, '/app/bots');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' }));
     await user.type(
-      await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }),
+      await screen.findByRole('textbox', { name: 'Hỏi Rapiz Agent…' }),
       'Mở trang tạo sản phẩm và điền giúp{Enter}',
     );
 
@@ -564,9 +567,9 @@ describe('AssistantPanel', () => {
     const user = userEvent.setup();
 
     await screen.findByRole('textbox', { name: 'Tên bot' });
-    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' }));
     await user.type(
-      await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }),
+      await screen.findByRole('textbox', { name: 'Hỏi Rapiz Agent…' }),
       'Mở trang tạo doanh nghiệp mới và điền sẵn giúp em{Enter}',
     );
 
@@ -591,9 +594,9 @@ describe('AssistantPanel', () => {
     const router = renderApp(ProductRoutePage, '/app/bots');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' }));
     await user.type(
-      await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }),
+      await screen.findByRole('textbox', { name: 'Hỏi Rapiz Agent…' }),
       'Mở trang tạo sản phẩm{Enter}',
     );
 
@@ -610,15 +613,15 @@ describe('AssistantPanel', () => {
     renderApp();
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' }));
     await user.type(
-      await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }),
+      await screen.findByRole('textbox', { name: 'Hỏi Rapiz Agent…' }),
       'điền giúp{Enter}',
     );
 
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
-        'Biểu mẫu Thỏ Rapiz định điền không có trên trang này. Mở đúng trang rồi hỏi lại nhé.',
+        'Biểu mẫu Rapiz Agent định điền không có trên trang này. Mở đúng trang rồi hỏi lại nhé.',
       ),
     );
     expect(useAssistantUi.getState().spotlight).toBeNull();
@@ -658,9 +661,9 @@ describe('AssistantPanel', () => {
     const router = renderApp(ProductFormPage, '/app/products/new');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' }));
     await user.type(
-      await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }),
+      await screen.findByRole('textbox', { name: 'Hỏi Rapiz Agent…' }),
       'doanh thu tuần này{Enter}',
     );
 
@@ -890,7 +893,7 @@ describe('AssistantPanel', () => {
     await user.click(apply);
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith(
-        'Đề xuất này đã hết hạn. Hỏi lại Thỏ Rapiz nếu vẫn cần.',
+        'Đề xuất này đã hết hạn. Hỏi lại Rapiz Agent nếu vẫn cần.',
       ),
     );
     expect(await screen.findByText('Đã hết hạn')).toBeInTheDocument();
@@ -1236,11 +1239,11 @@ describe('AssistantPanel', () => {
     const user = userEvent.setup();
 
     // Load the panel, then close it: it stays mounted and takes the next request itself.
-    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
-    await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' });
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' }));
+    await screen.findByRole('textbox', { name: 'Hỏi Rapiz Agent…' });
     act(() => useAssistantUi.getState().setOpen(false));
     await waitFor(() =>
-      expect(screen.queryByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' })).not.toBeInTheDocument(),
+      expect(screen.queryByRole('textbox', { name: 'Hỏi Rapiz Agent…' })).not.toBeInTheDocument(),
     );
 
     await user.click(screen.getByRole('button', { name: 'Nhờ trợ lý điền mẫu' }));
@@ -1272,8 +1275,8 @@ describe('AssistantPanel', () => {
     renderApp(EmptyFaqPage, '/app/bots/b1/knowledge');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
-    const box = await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' });
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' }));
+    const box = await screen.findByRole('textbox', { name: 'Hỏi Rapiz Agent…' });
     await user.type(box, 'xin chào{Enter}');
     await held.waiting;
     await user.click(screen.getByRole('button', { name: 'Nhờ trợ lý điền mẫu' }));
@@ -1292,9 +1295,9 @@ describe('AssistantPanel', () => {
     renderApp(EmptyFaqPage, '/app/bots/b1/knowledge');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' }));
     await user.type(
-      await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }),
+      await screen.findByRole('textbox', { name: 'Hỏi Rapiz Agent…' }),
       'điền giúp{Enter}',
     );
 
@@ -1332,7 +1335,7 @@ describe('AssistantPanel', () => {
     const user = userEvent.setup();
 
     await user.click(await screen.findByRole('button', { name: 'Hỏi vì sao' }));
-    const box = await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' });
+    const box = await screen.findByRole('textbox', { name: 'Hỏi Rapiz Agent…' });
     await waitFor(() => expect(box).toHaveValue('Vì sao bot trả lời tin nhắn lúc 15:04 như vậy?'));
     await user.type(box, '{Enter}');
     expect(await screen.findByText('Dạ do thiếu FAQ ạ.')).toBeInTheDocument();
@@ -1370,8 +1373,11 @@ describe('AssistantPanel', () => {
     renderApp();
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
-    await user.type(await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }), 'curl{Enter}');
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Rapiz Agent' }));
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Hỏi Rapiz Agent…' }),
+      'curl{Enter}',
+    );
     expect(await screen.findByText('Dạ em đọc được rồi.')).toBeInTheDocument();
     expect(
       screen.getByText('Đã ẩn khoá bí mật trong tin nhắn. Hãy nhập khoá trực tiếp vào form API.'),

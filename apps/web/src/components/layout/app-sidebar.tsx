@@ -14,7 +14,6 @@ import {
   Sparkles,
   House,
   CalendarDays,
-  ListChecks,
   Users,
   UsersRound,
 } from 'lucide-react';
@@ -57,8 +56,7 @@ interface NavItem {
 
 /** P0 items of docs/03 §2; the ones not built yet say so instead of pretending. */
 const HOME: readonly NavItem[] = [
-  /** What needs doing today (Business Brain, BRN-05): first, with its count. */
-  { to: '/app/today', key: 'nav.today', icon: ListChecks, ready: true },
+  /** Statistics with what needs doing today (Business Brain, BRN-05) on top: first, with its count. */
   { to: '/app/analytics', key: 'nav.analytics', icon: BarChart3, ready: true },
 ];
 /** The owner assistant on its own page (ADR-024): account owners only, like its launcher. */

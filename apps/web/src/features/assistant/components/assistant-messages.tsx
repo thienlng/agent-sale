@@ -4,7 +4,6 @@ import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
-import { BrandMark } from '@/components/logo';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
@@ -14,6 +13,9 @@ import { NAVIGATE_FOLLOW_UP_TEXT } from '../utils/navigate-follow-up';
 import { AssistantMarkdown } from './assistant-markdown';
 import { AssistantProposal } from './assistant-proposals';
 import { AssistantStepList, AssistantSteps } from './assistant-steps';
+
+/** Starter questions of the empty conversation, one per thing the assistant is good at. */
+const STARTERS = ['sales', 'care', 'report', 'bot'] as const;
 
 /** Lazy, so recharts loads only when an answer has a chart (docs/16). */
 const AssistantChart = lazy(() => import('./assistant-chart'));
@@ -143,6 +145,8 @@ export function AssistantMessages({
   loading,
   pendingTurn,
   unavailable,
+  onStarter,
+  roomy = false,
 }: {
   messages: readonly AssistantMessageDto[];
   /** The thread's proposals (writes waiting for, or past, the owner's decision). */
@@ -150,6 +154,10 @@ export function AssistantMessages({
   loading: boolean;
   pendingTurn: string | null;
   unavailable: boolean;
+  /** Sends a starter question from the empty state; absent while a message is on its way. */
+  onStarter?: ((text: string) => void) | undefined;
+  /** The full page: a larger welcome with room for the starters in two columns. */
+  roomy?: boolean;
 }) {
   const { t } = useTranslation('assistant');
   const end = useRef<HTMLDivElement>(null);
@@ -170,12 +178,41 @@ export function AssistantMessages({
   return (
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
       {messages.length === 0 && proposals.length === 0 && !pendingTurn ? (
-        <div data-measure className="flex flex-col items-center px-6 py-12 text-center">
-          <span className="grid size-14 place-items-center rounded-full bg-sidebar">
-            <BrandMark className="h-6" />
-          </span>
-          <p className="mt-4 font-semibold">{t('emptyTitle')}</p>
-          <p className="mt-1 max-w-xs text-sm text-muted-foreground">{t('emptyBody')}</p>
+        <div
+          data-measure
+          className={cn(
+            'flex flex-col px-4',
+            roomy ? 'min-h-full justify-center py-10 sm:px-8' : 'py-8',
+          )}
+        >
+          <p
+            className={cn(
+              'font-semibold text-balance',
+              roomy ? 'text-2xl tracking-tight' : 'text-base',
+            )}
+          >
+            {t('starters.title')}
+          </p>
+          <p className="mt-1.5 max-w-xl text-sm text-pretty text-muted-foreground">
+            {t('starters.body')}
+          </p>
+          <ul
+            aria-label={t('starters.label')}
+            className={cn('mt-6 grid gap-2', roomy && 'sm:grid-cols-2')}
+          >
+            {STARTERS.map((key) => (
+              <li key={key}>
+                <button
+                  type="button"
+                  disabled={!onStarter}
+                  onClick={() => onStarter?.(t(`starters.items.${key}`))}
+                  className="flex h-full w-full items-start rounded-xl border bg-background px-3.5 py-3 text-left text-sm transition-colors hover:border-primary/40 hover:bg-primary-soft/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-60"
+                >
+                  {t(`starters.items.${key}`)}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       ) : (
         <ol data-measure className="flex flex-col gap-3 p-4">

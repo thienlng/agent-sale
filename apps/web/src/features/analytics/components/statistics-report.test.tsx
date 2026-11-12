@@ -8,7 +8,7 @@ import { login } from '@/lib/session';
 import { renderWithRouter } from '@/testing/render';
 
 import type { FiltersSearch } from '../lib/filters';
-import { StatisticsPage } from './statistics-page';
+import { StatisticsReport } from './statistics-report';
 
 const WS = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d01';
 const USER = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d02';
@@ -182,7 +182,7 @@ function install(role: string, setup: Setup = {}) {
 async function show(role = 'owner', setup: Setup = {}) {
   install(role, setup);
   await login({ email: 'lan@shop.vn', password: 'x' });
-  return renderWithRouter(() => <StatisticsPage search={{}} onSearch={() => {}} />);
+  return renderWithRouter(() => <StatisticsReport search={{}} onSearch={() => {}} />);
 }
 
 const queryBodies = () => requests.filter((r) => r.path === '/analytics/query').map((r) => r.body);
@@ -191,7 +191,30 @@ const byFirst = (key: string) => queryBodies().find((b) => (b['metrics'] as stri
 beforeEach(() => vi.useRealTimers());
 afterEach(() => vi.unstubAllGlobals());
 
-describe('StatisticsPage', () => {
+describe('StatisticsReport', () => {
+  it('is a "Báo cáo" section of the statistics page, not a page with its own title', async () => {
+    await show();
+    expect(await screen.findByRole('heading', { level: 2, name: 'Báo cáo' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+  });
+
+  it('renders nothing and asks nothing for a role without analytics.view', async () => {
+    // A role the access table does not know (legacy data) may do nothing.
+    install('guest');
+    await login({ email: 'lan@shop.vn', password: 'x' });
+    renderWithRouter(() => (
+      <>
+        <p>above</p>
+        <StatisticsReport search={{}} onSearch={() => {}} />
+      </>
+    ));
+    expect(await screen.findByText('above')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Báo cáo' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Chỉ số chính' })).toBeNull();
+    expect(screen.queryByText('Bạn không có quyền xem thống kê.')).toBeNull();
+    expect(queryBodies()).toHaveLength(0);
+  });
+
   it('shows four primary metrics before progressively disclosing the existing analysis', async () => {
     await show();
     const primary = await screen.findByRole('region', { name: 'Chỉ số chính' });
@@ -297,7 +320,7 @@ describe('StatisticsPage', () => {
     install('owner');
     await login({ email: 'lan@shop.vn', password: 'x' });
     renderWithRouter(() => (
-      <StatisticsPage search={{ from: '2026-10-24', to: '2026-10-01' }} onSearch={() => {}} />
+      <StatisticsReport search={{ from: '2026-10-24', to: '2026-10-01' }} onSearch={() => {}} />
     ));
     expect(await screen.findByText('Ngày bắt đầu phải trước ngày kết thúc.')).toBeInTheDocument();
     expect(queryBodies()).toHaveLength(0);
@@ -325,7 +348,7 @@ describe('StatisticsPage', () => {
     });
     function Harness() {
       const [search, setSearch] = useState<FiltersSearch>({});
-      return <StatisticsPage search={search} onSearch={setSearch} />;
+      return <StatisticsReport search={search} onSearch={setSearch} />;
     }
     renderWithRouter(() => <Harness />);
 

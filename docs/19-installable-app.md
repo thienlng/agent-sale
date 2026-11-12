@@ -22,7 +22,7 @@ The mobile app for the beta is the dashboard itself, installable as a PWA (ADR-0
 |---|---|---|
 | The bot hands a conversation to staff | `inbox.handoff` "{customer} cần nhân viên hỗ trợ" | the assignee, else every active member with `contacts.edit` |
 | A customer writes while staff hold the conversation (bot paused or off) | `inbox.message` "Tin nhắn mới từ {customer}" | same |
-| A task assigned to the member reaches its due time (CRM-04) | `task.due` "Đến hạn: {title}", once per task, opens `/app/today` | the assignee (an active member) |
+| A task assigned to the member reaches its due time (CRM-04) | `task.due` "Đến hạn: {title}", once per task, opens `/app/analytics` ("Việc hôm nay") | the assignee (an active member) |
 | Scheduled reports and assistant alerts (T-172) | `assistant.*` when the schedule asks for push | the account owner |
 
 At most one alert per conversation and member every 5 minutes (one per handoff); the device groups pushes of one conversation. A click opens `/app/inbox?conversation=…&ws=…`, switching to that business first.

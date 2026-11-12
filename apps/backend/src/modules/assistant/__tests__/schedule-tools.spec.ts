@@ -85,7 +85,7 @@ async function setup(opts: { email?: boolean } = {}) {
     id: newId(),
     title: '',
     systemPrompt: 'p',
-    promptVersion: 'assistant@3',
+    promptVersion: 'assistant@4',
   });
   const proposalIds: string[] = [];
   const tool = scheduleTool({
