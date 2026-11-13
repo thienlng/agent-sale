@@ -115,3 +115,14 @@ describe('normalizeReplyText: stray scripts and meta lines (TM-22, TM3-8)', () =
     );
   });
 });
+
+describe('normalizeReplyText: reworded repeats (LM3-1)', () => {
+  it('drops a line that rewords an earlier one, keeps different lines', () => {
+    expect(
+      normalizeReplyText(
+        'Lớp nhóm có sĩ số 8–10 học viên, học phí liên hệ ạ.\nDạ lớp nhóm sĩ số 8–10 học viên, học phí là liên hệ.\nLớp 1-1 học theo lịch riêng ạ.',
+      ),
+    ).toBe('Lớp nhóm có sĩ số 8–10 học viên, học phí liên hệ ạ.\nLớp 1-1 học theo lịch riêng ạ.');
+    expect(normalizeReplyText('Dạ có ạ.\nDạ có size 41 ạ.')).toBe('Dạ có ạ.\nDạ có size 41 ạ.');
+  });
+});

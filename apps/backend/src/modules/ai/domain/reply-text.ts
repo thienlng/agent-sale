@@ -48,17 +48,32 @@ export function withoutMetaLines(text: string): string {
  * earlier one (case and spacing ignored) is dropped; blank lines stay as they are.
  */
 export function withoutRepeatedLines(text: string): string {
-  const seen = new Set<string>();
+  const seen: Set<string>[] = [];
   return text
     .split('\n')
     .filter((line) => {
-      const key = line.replace(/\s+/g, ' ').trim().toLowerCase();
-      if (!key) return true;
-      if (seen.has(key)) return false;
-      seen.add(key);
+      const words = new Set(
+        foldVietnamese(line)
+          .replace(/^\W*(da|vang)\b/u, '')
+          .split(/[^a-z0-9]+/)
+          .filter(Boolean),
+      );
+      if (!words.size) return true;
+      // LM3-1: a reworded repeat (most of its words in an earlier line) counts as a repeat too.
+      if (seen.some((earlier) => similar(words, earlier))) return false;
+      seen.push(words);
       return true;
     })
     .join('\n');
+}
+
+/** Two lines share at least 80% of the shorter one's words, and it has 5 words or more. */
+function similar(a: Set<string>, b: Set<string>): boolean {
+  const [small, big] = a.size <= b.size ? [a, b] : [b, a];
+  if (small.size < 5) return [...a].join(' ') === [...b].join(' ');
+  let shared = 0;
+  for (const w of small) if (big.has(w)) shared += 1;
+  return shared / small.size >= 0.8;
 }
 
 /** A line as compared for repeats: no "Dạ"/"Vâng" lead, no accents, case, spacing or end mark. */

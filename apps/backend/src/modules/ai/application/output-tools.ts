@@ -29,6 +29,8 @@ const SendMessageInput = z
     imageIds: z.array(z.string().max(200)).max(MAX_SEND_IMAGES).optional(),
     albumId: z.string().max(200).optional(),
     videoId: z.string().max(200).optional(),
+    /** LM3-3: the customer asked to see pictures they already received again. */
+    resend: z.boolean().optional(),
   })
   .refine(
     (v) =>
@@ -247,12 +249,16 @@ export function outputTools(opts: {
           : picked
               .map(({ id, url, label }) => ({ id, url, label }))
               // MS2-5 / LM2-4: a picture the conversation already received is not sent again.
-              .filter((image) => !earlier.has(sentKey(image.url)) && !sentIn(0, image.url));
+              .filter(
+                (image) =>
+                  args.resend === true ||
+                  (!earlier.has(sentKey(image.url)) && !sentIn(0, image.url)),
+              );
       if (!album && picked.length && !images.length)
         return {
           content: safeJson({
             error: 'pictures_already_sent',
-            hint: 'The customer already received these pictures: do not send them or a caption again.',
+            hint: 'These pictures went out earlier in the conversation: do not send them or a caption again and do not claim how many the customer saw; if the customer asks to see them again, call send_message with resend true.',
           }),
           ok: false,
         };

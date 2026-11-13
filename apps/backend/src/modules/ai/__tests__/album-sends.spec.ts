@@ -265,5 +265,8 @@ describe('send_message: pictures already received (MS2-5, LM2-4)', () => {
     expect(sent).toHaveLength(0);
     await tool.run({ text: 'Thú gỗ', imageIds: ['p:thu-go:0', 'p:thu-go:1'] });
     expect(sent[0]?.images.map((i) => i.url)).toEqual(['https://cdn.example.com/b.jpg']);
+    // LM3-3: the customer asked to see them again.
+    await tool.run({ text: 'Thú gỗ', imageIds: ['p:thu-go:0'], resend: true });
+    expect(sent[1]?.images.map((i) => i.url)).toEqual(['https://cdn.example.com/a.jpg']);
   });
 });
