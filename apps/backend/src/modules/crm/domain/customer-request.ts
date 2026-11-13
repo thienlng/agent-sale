@@ -64,7 +64,10 @@ const DATE_ONLY_HOUR = 8;
  */
 export function requestDueAt(details: Readonly<Record<string, unknown>>, now: Date): Date {
   const endOfToday = endOfLocalDay(now);
-  const date = typeof details['preferredDate'] === 'string' ? details['preferredDate'] : '';
+  const words = typeof details['preferredTime'] === 'string' ? details['preferredTime'] : '';
+  const given = typeof details['preferredDate'] === 'string' ? details['preferredDate'] : '';
+  // Without a date the time words may still name the day ("sau 9h tối thứ 3").
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(given) ? given : (dayFromWords(words, now) ?? '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return endOfToday;
   const time =
     typeof details['preferredTime'] === 'string' ? slotTime(details['preferredTime']) : null;
@@ -72,6 +75,49 @@ export function requestDueAt(details: Readonly<Record<string, unknown>>, now: Da
   const mm = String(time?.minute ?? 0).padStart(2, '0');
   const at = new Date(Date.parse(`${date}T${hh}:${mm}:00Z`) - REQUEST_TIME_ZONE_OFFSET_MS);
   return Number.isNaN(at.getTime()) || at.getTime() <= now.getTime() ? endOfToday : at;
+}
+
+const WEEKDAYS: Readonly<Record<string, number>> = {
+  '2': 1,
+  hai: 1,
+  '3': 2,
+  ba: 2,
+  '4': 3,
+  tu: 3,
+  '5': 4,
+  nam: 4,
+  '6': 5,
+  sau: 5,
+  '7': 6,
+  bay: 6,
+};
+
+/**
+ * The local date (YYYY-MM-DD) the customer's time words name, from today on: "hôm nay", "mai" /
+ * "ngày mai", a weekday ("thứ 3", "thứ ba", "chủ nhật", "CN": the next one, today included) or
+ * "17/11". Null when they name none.
+ */
+export function dayFromWords(text: string, now: Date): string | null {
+  const t = foldVietnamese(text).toLowerCase();
+  const today = localToday(now);
+  const plus = (days: number) =>
+    new Date(Date.parse(`${today}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+  const dm = /\b(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\b/.exec(t);
+  if (dm) {
+    const year = Number(dm[3] ?? today.slice(0, 4));
+    const iso = `${year}-${dm[2]!.padStart(2, '0')}-${dm[1]!.padStart(2, '0')}`;
+    if (Number.isNaN(Date.parse(`${iso}T00:00:00Z`))) return null;
+    // "17/11" without a year in the past means next year.
+    return !dm[3] && iso < today ? `${year + 1}${iso.slice(4)}` : iso;
+  }
+  if (/\bhom nay\b|\btoi nay\b|\bchieu nay\b|\bsang nay\b/.test(t)) return today;
+  if (/\b(ngay )?mai\b/.test(t) && !/\bmai\s*(lan|anh)\b/.test(t)) return plus(1);
+  const weekday = /\b(?:thu\s*(2|3|4|5|6|7|hai|ba|tu|nam|sau|bay)\b|(chu\s*nhat|cn)\b)/.exec(t);
+  if (!weekday) return null;
+  const target = weekday[2] ? 0 : (WEEKDAYS[weekday[1]!] ?? null);
+  if (target === null) return null;
+  const current = new Date(`${today}T00:00:00Z`).getUTCDay();
+  return plus((target - current + 7) % 7);
 }
 
 /** The first line of a bot request note without its "Cập nhật: " prefix: which request it is. */

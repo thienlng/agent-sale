@@ -13,6 +13,7 @@ import {
   historyDetails,
   isPastDate,
   mergeRequestDetails,
+  dayFromWords,
   requestDueAt,
   requestNote,
   requestNoteHead,
@@ -161,6 +162,19 @@ describe('request task due time (LM2-8)', () => {
     expect(
       requestDueAt({ preferredDate: '2026-11-13', preferredTime: '8h' }, now).toISOString(),
     ).toBe('2026-11-13T16:59:59.000Z');
+  });
+
+  it('takes the day from the time words when no date was given (S3 sign-off)', () => {
+    // Friday 13/11/2026, 10:00 in Vietnam: "thứ 3" is Tuesday 17/11.
+    expect(dayFromWords('sau 9h tối thứ 3', now)).toBe('2026-11-17');
+    expect(requestDueAt({ preferredTime: 'sau 9h tối thứ 3' }, now).toISOString()).toBe(
+      '2026-11-17T14:00:00.000Z',
+    );
+    expect(dayFromWords('chủ nhật', now)).toBe('2026-11-15');
+    expect(dayFromWords('thứ sáu 4h chiều', now)).toBe('2026-11-13');
+    expect(dayFromWords('9h sáng mai', now)).toBe('2026-11-14');
+    expect(dayFromWords('lúc 3h 20/11', now)).toBe('2026-11-20');
+    expect(dayFromWords('cuối tuần', now)).toBeNull();
   });
 
   it('names a note by its request, update or not', () => {

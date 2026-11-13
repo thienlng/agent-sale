@@ -531,6 +531,19 @@ describe('request tasks and reschedules (MS-10, MS-21)', () => {
     expect(await statusKey(a.headers, id)).toBe('booking_requested');
   });
 
+  it('moves the task due time when an update names a new day in words (sign-off S3)', async () => {
+    const a = await owner('spa');
+    const base = { name: 'Chị Hân', phone: '0987654324', service: 'Phun mày' };
+    const res = await record(a.ws, 'appointment', { ...base, preferredTime: 'chiều nay' });
+    await record(a.ws, 'appointment', { ...base, preferredTime: 'sau 9h tối chủ nhật' });
+    const [task] = await tasks(a.headers, contactIdOf(res));
+    // The coming Sunday (today included) at 21:00 in Vietnam.
+    const today = vnDate(0);
+    const dow = new Date(`${today}T00:00:00Z`).getUTCDay();
+    const sunday = vnDate((7 - dow) % 7);
+    expect(task?.dueAt).toBe(new Date(`${sunday}T14:00:00.000Z`).toISOString());
+  });
+
   it('is due at the end of today without a day', async () => {
     const a = await owner('spa');
     const res = await record(a.ws, 'appointment', {
