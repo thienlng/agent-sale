@@ -137,6 +137,8 @@ import {
 } from './reply-pipeline.js';
 import { ReplyGuard } from './reply-guard.js';
 import type { RequestToolContext } from './request-tools.js';
+import { AI_SPEND_LIMITS, budgetHandoff, type AiSpendLimits } from './spend-guard.js';
+import type { CommitKind } from './commit-quota.js';
 import { sha256, TraceRecorder, traceExcerpt } from './trace-recorder.js';
 
 export { EMAIL_KNOWN_LINE, PHONE_KNOWN_LINE };
@@ -236,6 +238,7 @@ export class PlaygroundService implements AiFacade {
     @Inject(CRM_FACADE) @Optional() private readonly crm?: CrmFacade,
     @Inject(TURN_TRACE_REPOSITORY) @Optional() private readonly traces?: TurnTraceRepository,
     @Inject(REPLY_FIGURE_GUARD) @Optional() private readonly figureGuard?: boolean,
+    @Inject(AI_SPEND_LIMITS) @Optional() private readonly spend: AiSpendLimits = {},
   ) {
     this.#forcedPrompt = promptVersion
       ? { name: 'sales-agent', version: promptVersion }
@@ -256,12 +259,23 @@ export class PlaygroundService implements AiFacade {
     ws: WorkspaceId,
     botId: string,
     input: PlaygroundRequest,
+    actor?: { userId: string },
   ): Promise<PlaygroundResponse> {
-    return this.reply(ws, botId, input, {
-      conversationId: null,
-      isTest: true,
-      ...(input.sessionId ? { playgroundSession: input.sessionId } : {}),
-    });
+    // Owner-side spend (audit #15): the user's run rate and the account's tokens of the day.
+    const owner = this.spend.owner;
+    const accountId = owner && actor ? await this.workspaces.accountOf(ws) : null;
+    if (owner && actor && accountId) await owner.playgroundRun(accountId, actor.userId);
+    return this.#turn(
+      ws,
+      botId,
+      input,
+      {
+        conversationId: null,
+        isTest: true,
+        ...(input.sessionId ? { playgroundSession: input.sessionId } : {}),
+      },
+      accountId,
+    );
   }
 
   async reply(
@@ -270,8 +284,25 @@ export class PlaygroundService implements AiFacade {
     input: PlaygroundRequest,
     options: ReplyOptions = { conversationId: null, isTest: false },
   ): Promise<ReplyResult> {
+    return this.#turn(ws, botId, input, options, null);
+  }
+
+  /** One turn; `accountId` set = an owner-side run charged to the account's daily tokens. */
+  async #turn(
+    ws: WorkspaceId,
+    botId: string,
+    input: PlaygroundRequest,
+    options: ReplyOptions,
+    accountId: string | null,
+  ): Promise<ReplyResult> {
     const startedAt = new Date();
     const bot = await this.bots.getBot(ws, botId);
+    // A conversation over its hourly model budget (audit #15): no model call, staff take over.
+    const budget = options.conversationId ? this.spend.conversation : undefined;
+    if (budget && options.conversationId && (await budget.exhausted(ws, options.conversationId))) {
+      this.#logger.warn(`Conversation model budget spent, handing off (bot ${botId})`);
+      return budgetHandoff(bot);
+    }
     const prompt = this.#forcedPrompt ?? salesPromptFor(bot.industry);
     const workspace = await this.workspaces.getById(ws);
     const customerTexts = input.messages.filter((m) => m.role === 'customer').map((m) => m.content);
@@ -395,6 +426,14 @@ export class PlaygroundService implements AiFacade {
     // Orders need a private conversation: never for a public comment reply. Hotel bots sell
     // lodging properties, which commerce orders cannot hold (T-160). A request industry converts
     // through record_request, never an order, even with order taking on (ESV-R7).
+    // Orders and holds per customer and day (audit #18); never for a test run.
+    const commitQuota = (kind: CommitKind) =>
+      options.isTest
+        ? null
+        : (this.spend.commits?.for(kind, ws, {
+            contactId: options.contactId ?? null,
+            conversationId: conversationKey,
+          }) ?? null);
     const orders: OrderToolContext | null =
       this.commerce &&
       bot.orderTaking &&
@@ -420,6 +459,7 @@ export class PlaygroundService implements AiFacade {
             state: newOrderToolState(),
             onError: (error: unknown) =>
               this.#logger.warn(`Order draft drop failed: ${errorClass(error)}`),
+            quota: commitQuota('order'),
           }
         : null;
     const hotel = Boolean(this.lodgingBot && this.lodgingCatalog && bot.industry === 'hotel');
@@ -445,6 +485,7 @@ export class PlaygroundService implements AiFacade {
             privateChat: !isCommentReply,
             answered: answeredSince(input.messages, options.turnTimes, startedAt),
             warn: (message) => this.#logger.warn(message),
+            quota: commitQuota('hold'),
             customerTexts,
             earlierHolds,
             language: holdLanguage,
@@ -568,7 +609,17 @@ export class PlaygroundService implements AiFacade {
       sentMediaUrls: options.sentMediaUrls ?? input.sentMediaUrls ?? [],
     });
 
-    const meter = meteredGenerate((req) => this.llm.generate(req));
+    // Every call is charged as it completes, so interrupted or undelivered turns count too.
+    const meter = meteredGenerate(async (req) => {
+      const res = await this.llm.generate(req);
+      await Promise.all([
+        budget && options.conversationId
+          ? budget.charge(ws, options.conversationId, res.usage)
+          : undefined,
+        accountId ? this.spend.owner?.charge(accountId, res.usage) : undefined,
+      ]).catch(() => this.#logger.warn('Model spend not counted'));
+      return res;
+    });
     const promptVersion = [prompt, ...contextPrompts]
       .map((p) => `${p.name}@${p.version}`)
       .join('+');

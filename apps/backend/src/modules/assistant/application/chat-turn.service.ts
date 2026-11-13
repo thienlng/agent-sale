@@ -12,6 +12,8 @@ import type { AssistantUiAction, SendAssistantMessageRequest } from '@agent-sale
 import { newId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
+import { OWNER_LLM_BUDGET, type OwnerLlmBudget } from '../../../common/limits/llm-budget.js';
+
 import {
   AI_LLM_GATEWAY,
   isAiNotConfiguredError,
@@ -277,6 +279,9 @@ export class ChatTurnService {
     @Inject(ACCESS_DELEGATION)
     @Optional()
     private readonly delegation: AccessDelegation | null = null,
+    @Inject(OWNER_LLM_BUDGET)
+    @Optional()
+    private readonly budget: OwnerLlmBudget | null = null,
   ) {}
 
   /**
@@ -314,6 +319,23 @@ export class ChatTurnService {
   ): Promise<TurnResult> {
     const thread = await this.repo.getThread(scope, threadId);
     if (!thread) throw new AssistantNotFoundError('thread', threadId);
+    // Audit #15: the account's model tokens of the day and the user's runs in flight (all threads).
+    const slot = await this.budget?.assistantRun(scope.accountId, scope.ownerUserId);
+    try {
+      return await this.#send(scope, thread, req, authorization, ownerName);
+    } finally {
+      await slot?.release();
+    }
+  }
+
+  async #send(
+    scope: OwnerScope,
+    thread: ThreadRecord,
+    req: SendAssistantMessageRequest,
+    authorization: string,
+    ownerName?: () => Promise<string | null>,
+  ): Promise<TurnResult> {
+    const threadId = thread.id;
     const importBlock = await this.#importBlock(scope, threadId, req.importBatchId);
     // A turn whose process died would hold the owner's lock for minutes (AS2-3).
     await this.reapStaleRuns(scope);
@@ -527,7 +549,12 @@ export class ChatTurnService {
             turnTaint,
           ),
         ),
-        generate: (r) => this.gateway.generate(r),
+        // Each call is charged to the account's day as it completes (failed runs count too).
+        generate: async (r) => {
+          const res = await this.gateway.generate(r);
+          await this.budget?.charge(scope.accountId, res.usage).catch(() => undefined);
+          return res;
+        },
         maxRounds: TURN_MAX_ROUNDS,
         budgetMs,
         wrapUpNotice: OWNER_WRAP_UP_NOTICE,

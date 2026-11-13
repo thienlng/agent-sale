@@ -20,6 +20,7 @@ import { ASSISTANT_RUNNER, ASSISTANT_SCHEDULE_RUNNER } from './api/assistant.run
 import { AssistantJobRunner } from './application/assistant-runner.js';
 import { AssistantFacadeImpl } from './application/assistant.facade.impl.js';
 import { ChatTurnService } from './application/chat-turn.service.js';
+import { OWNER_LLM_BUDGET, ownerLlmBudgetFromEnv } from '../../common/limits/llm-budget.js';
 import { CompactionService } from './application/compaction.service.js';
 import { CuratorService } from './application/curator.service.js';
 import { ImportBatchService } from './application/import-batch.service.js';
@@ -102,6 +103,7 @@ import { SchedulesController } from './interface/http/schedules.controller.js';
     },
     ThreadPromptService,
     CompactionService,
+    { provide: OWNER_LLM_BUDGET, useFactory: ownerLlmBudgetFromEnv },
     ChatTurnService,
     ProposalService,
     ReviewService,

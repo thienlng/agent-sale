@@ -122,7 +122,7 @@ describe('downloadImage', () => {
 
     it('blocks a literal loopback host before any request', async () => {
       calls.length = 0;
-      expect(await reason(downloadImage('http://127.0.0.1/a', ok, to('93.184.216.34')))).toBe(
+      expect(await reason(downloadImage('https://127.0.0.1/a', ok, to('93.184.216.34')))).toBe(
         'blocked_address',
       );
       expect(calls).toHaveLength(0);
@@ -145,12 +145,17 @@ describe('downloadImage', () => {
       '::ffff:100.64.0.1',
       '100.64.0.1',
       '100.127.255.254',
+      '198.18.0.1',
+      '224.0.0.1',
+      '255.255.255.255',
+      '192.0.0.8',
+      '64:ff9b::a00:1',
     ])('blocks a host resolving to %s', async (addr) => {
       expect(await reason(downloadImage('https://x.test/a', ok, to(addr)))).toBe('blocked_address');
     });
 
     it('blocks literal IPv6 loopback hosts', async () => {
-      expect(await reason(downloadImage('http://[::1]/a', ok, to('93.184.216.34')))).toBe(
+      expect(await reason(downloadImage('https://[::1]/a', ok, to('93.184.216.34')))).toBe(
         'blocked_address',
       );
     });
@@ -165,12 +170,76 @@ describe('downloadImage', () => {
       calls.length = 0;
       const fetchImpl = (u: unknown) => {
         calls.push(String(u as string));
-        return Promise.resolve(redirect('http://169.254.169.254/latest/meta-data'));
+        return Promise.resolve(redirect('https://169.254.169.254/latest/meta-data'));
       };
       expect(
         await reason(downloadImage('https://x.test/a', fetchImpl as typeof fetch, PUBLIC)),
       ).toBe('blocked_address');
       expect(calls).toEqual(['https://x.test/a']);
+    });
+
+    it('refuses plain http and non-default ports, on the first hop and on redirects', async () => {
+      calls.length = 0;
+      expect(await reason(downloadImage('http://x.test/a', ok, PUBLIC))).toBe('insecure_scheme');
+      expect(await reason(downloadImage('https://x.test:8443/a', ok, PUBLIC))).toBe('blocked_port');
+      expect(calls).toHaveLength(0);
+      const toHttp = () => Promise.resolve(redirect('http://x.test/b'));
+      expect(await reason(downloadImage('https://x.test/a', toHttp, PUBLIC))).toBe(
+        'insecure_scheme',
+      );
+      const toPort = () => Promise.resolve(redirect('https://x.test:6379/b'));
+      expect(await reason(downloadImage('https://x.test/a', toPort, PUBLIC))).toBe('blocked_port');
+      expect((await downloadImage('https://x.test:443/a', ok, PUBLIC)).mime).toBe('image/png');
+    });
+
+    it('refuses credentials in the url', async () => {
+      expect(await reason(downloadImage('https://u:p@x.test/a', ok, PUBLIC))).toBe(
+        'blocked_address',
+      );
+    });
+
+    it('resolves each hop once and pins the connection to the checked address', async () => {
+      let lookups = 0;
+      const answers = ['93.184.216.34', '127.0.0.1'];
+      const rebinding: DownloadOptions = {
+        resolve: () => Promise.resolve([answers[lookups++] ?? '127.0.0.1']),
+      };
+      const pinned: (string | undefined)[] = [];
+      const fetchImpl = (_u: URL, init: { address?: string | undefined }) => {
+        pinned.push(init.address);
+        return Promise.resolve(new Response(PNG));
+      };
+      expect((await downloadImage('https://x.test/a', fetchImpl, rebinding)).mime).toBe(
+        'image/png',
+      );
+      expect(lookups).toBe(1);
+      expect(pinned).toEqual(['93.184.216.34']);
+    });
+
+    it('re-checks the address of every redirect hop', async () => {
+      const resolved: string[] = [];
+      const perHost: DownloadOptions = {
+        resolve: (host) => {
+          resolved.push(host);
+          return Promise.resolve([host === 'cdn.test' ? '10.0.0.1' : '93.184.216.34']);
+        },
+      };
+      const hop = () => Promise.resolve(redirect('https://cdn.test/img'));
+      expect(await reason(downloadImage('https://x.test/a', hop, perHost))).toBe('blocked_address');
+      expect(resolved).toEqual(['x.test', 'cdn.test']);
+    });
+
+    it('prefers an IPv4 address to pin', async () => {
+      const pinned: (string | undefined)[] = [];
+      await downloadImage(
+        'https://x.test/a',
+        (_u, init) => {
+          pinned.push(init.address);
+          return Promise.resolve(new Response(PNG));
+        },
+        to('2606:2800:220:1:248:1893:25c8:1946', '93.184.216.34'),
+      );
+      expect(pinned).toEqual(['93.184.216.34']);
     });
 
     it('allows a public address and honours allowPrivateHosts', async () => {

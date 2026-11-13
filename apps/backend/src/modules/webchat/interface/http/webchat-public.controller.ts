@@ -120,6 +120,7 @@ export class WebchatPublicController {
       referrer: text('referrer'),
       pageUrl: text('pageUrl'),
       pageTitle: text('pageTitle'),
+      turnstileToken: text('turnstileToken'),
     };
     return this.reply(reply, req, 200, () =>
       this.service.upload(

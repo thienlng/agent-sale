@@ -88,4 +88,26 @@ describe('InboxAlerts', () => {
     notify.mockRejectedValueOnce(new Error('db down'));
     await expect(alerts.raise(WS, conv(), 'handoff')).resolves.toBeUndefined();
   });
+
+  it('tells only the owners that AI replies to website visitors are capped, once per window', async () => {
+    const { notify, alerts } = setup();
+    await alerts.aiCapped(WS, { scope: 'workspace', window: 'day', windowStart: 86_400_000 });
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'owner',
+        type: 'inbox.ai_capped',
+        title: 'AI tạm dừng trả lời khách trên website',
+        body: expect.stringContaining('Langmaster · Doanh nghiệp đã hết lượt AI') as string,
+        target: { kind: 'path', path: '/app/inbox' },
+        dedupKey: `inbox-capped:${WS}:workspace:day:86400000`,
+      }),
+    );
+    const body = (notify.mock.calls[0] as unknown as [{ body: string }])[0].body;
+    expect(body).toContain('trong ngày này');
+    notify.mockRejectedValueOnce(new Error('db down'));
+    await expect(
+      alerts.aiCapped(WS, { scope: 'site', window: 'hour', windowStart: 0 }),
+    ).resolves.toBeUndefined();
+  });
 });

@@ -24,7 +24,12 @@ import {
   type BotFacade,
   type BotLifecycle,
 } from '../../bot/api/index.js';
-import type { ChannelFacade, OutboundInboxMessage, WebsiteSite } from '../api/channel.facade.js';
+import type {
+  ChannelFacade,
+  ClaimOptions,
+  OutboundInboxMessage,
+  WebsiteSite,
+} from '../api/channel.facade.js';
 import { ChannelError } from '../domain/channel.errors.js';
 import { hostAllowed, newSiteKey, signVisitor, verifyVisitor } from '../domain/website-key.js';
 import { CHANNEL_STORE, type ChannelStore, type ConnectionRecord } from './ports/channel-store.js';
@@ -397,8 +402,8 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
       return null;
     }
   }
-  claimEvents(limit: number) {
-    return this.store.claimEvents(limit);
+  claimEvents(limit: number, options?: ClaimOptions) {
+    return this.store.claimEvents(limit, options);
   }
   renewEvent(id: string, claimToken: string) {
     return this.store.renewEvent(id, claimToken);

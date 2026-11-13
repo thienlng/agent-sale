@@ -16,11 +16,15 @@ export interface AiFacade {
    * did not deliver that reply: the customer's next "ok" must not confirm an unseen question.
    */
   discardPendingConfirmation(workspaceId: WorkspaceId, conversationId: string): Promise<void>;
-  /** One grounded test reply for a bot; metered in ai_runs with is_test = true. */
+  /**
+   * One grounded test reply for a bot; metered in ai_runs with is_test = true. With `actor`, the
+   * user's playground rate and the account's daily model tokens apply (429 RATE_LIMITED).
+   */
   playground(
     workspaceId: WorkspaceId,
     botId: string,
     input: PlaygroundRequest,
+    actor?: { userId: string },
   ): Promise<PlaygroundResponse>;
   /**
    * The stored rolling summary of a conversation's older messages (the Business Brain's first

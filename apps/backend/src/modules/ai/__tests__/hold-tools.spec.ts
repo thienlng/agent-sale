@@ -35,6 +35,8 @@ import {
   newHoldToolState,
   PREPARE_HOLD_TOOL,
 } from '../application/hold-tools.js';
+import { InMemoryLimiter } from '../../../common/limits/limiter.js';
+import { BotCommitQuota, COMMIT_LIMIT_REPLY } from '../application/commit-quota.js';
 import { adultsVouched, unvouchedChildAges } from '../domain/child-ages.js';
 import type { LlmRuntime } from '../application/llm-runtime.js';
 import { newOutputState } from '../application/output-tools.js';
@@ -524,6 +526,62 @@ describe('confirm_hold / cancel_hold_draft', () => {
     const out = await tool(ctx, CONFIRM_HOLD_TOOL).run({});
     expect(JSON.parse(out.content)).toEqual({ ok: false, code: 'not_confirmable' });
     expect(facade.confirmBotHold).not.toHaveBeenCalled();
+  });
+
+  it('stops at the holds one visitor may get per day, keyed by conversation without a contact (audit #18)', async () => {
+    const quota = new BotCommitQuota(
+      {
+        ordersPerContactDay: 0,
+        holdsPerContactDay: 1,
+        anonymousOrdersPerWorkspaceDay: 0,
+        anonymousHoldsPerWorkspaceDay: 0,
+      },
+      new InMemoryLimiter(),
+    );
+    const facade = fakeLodging({ storedAt: new Date(0) });
+    const allowance = () => quota.for('hold', ws, { contactId: null, conversationId });
+    const first = await tool(
+      context(facade, { confirmable: true, quota: allowance() }),
+      CONFIRM_HOLD_TOOL,
+    ).run({});
+    expect(first.ok).toBe(true);
+    const second = await tool(
+      context(facade, { confirmable: true, quota: allowance() }),
+      CONFIRM_HOLD_TOOL,
+    ).run({});
+    expect(JSON.parse(second.content)).toEqual(COMMIT_LIMIT_REPLY);
+    expect(facade.confirmBotHold).toHaveBeenCalledTimes(1);
+  });
+
+  it('caps the holds of contact-less conversations per workspace, so rotating visitors stay bounded', async () => {
+    const quota = new BotCommitQuota(
+      {
+        ordersPerContactDay: 0,
+        holdsPerContactDay: 1,
+        anonymousOrdersPerWorkspaceDay: 0,
+        anonymousHoldsPerWorkspaceDay: 2,
+      },
+      new InMemoryLimiter(),
+    );
+    let confirmed = 0;
+    const run = async (who: { contactId: string | null; conversationId: string }) => {
+      // One draft per conversation, as in the store.
+      const facade = fakeLodging({ storedAt: new Date(0) });
+      const out = await tool(
+        context(facade, { confirmable: true, quota: quota.for('hold', ws, who) }),
+        CONFIRM_HOLD_TOOL,
+      ).run({});
+      confirmed += facade.confirmBotHold.mock.calls.length;
+      return out;
+    };
+    // Each new widget token is a new conversation: the per-conversation cap alone never stops it.
+    expect((await run({ contactId: null, conversationId: newId() })).ok).toBe(true);
+    expect((await run({ contactId: null, conversationId: newId() })).ok).toBe(true);
+    const third = await run({ contactId: null, conversationId: newId() });
+    expect(JSON.parse(third.content)).toEqual(COMMIT_LIMIT_REPLY);
+    expect(confirmed).toBe(2);
+    // A known customer is not held back by the anonymous total.
+    expect((await run({ contactId: 'contact-1', conversationId: newId() })).ok).toBe(true);
   });
 
   it('reports a lost hold with id-free alternatives', async () => {

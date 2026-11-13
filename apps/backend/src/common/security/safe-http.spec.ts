@@ -3,11 +3,7 @@ import type { AddressInfo } from 'node:net';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  createSafeHttp,
-  SafeHttpTransportError,
-  type SafeHttpTransport,
-} from '../domain/safe-http.js';
+import { createSafeHttp, SafeHttpTransportError, type SafeHttpTransport } from './safe-http.js';
 
 const okTransport = (body = '{"ok":true}', status = 200): SafeHttpTransport =>
   vi.fn(async () => ({ status, body }));

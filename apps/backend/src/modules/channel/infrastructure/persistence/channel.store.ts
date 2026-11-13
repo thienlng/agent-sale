@@ -8,6 +8,7 @@ import {
   withTenant,
   writeAudit,
   type Database,
+  type SQL,
 } from '@agent-sales/db';
 import { newId, type WorkspaceId } from '@agent-sales/shared';
 import type { MetaProvider } from '@agent-sales/contracts';
@@ -21,7 +22,12 @@ import type {
   PendingMetaEvent,
 } from '../../application/ports/channel-store.js';
 import { ChannelError } from '../../domain/channel.errors.js';
-import { EVENT_MAX_WAIT_MS, EVENT_QUIET_MS, MAX_EVENT_ATTEMPTS } from '../../api/channel.facade.js';
+import {
+  EVENT_MAX_WAIT_MS,
+  EVENT_QUIET_MS,
+  MAX_EVENT_ATTEMPTS,
+  type ClaimOptions,
+} from '../../api/channel.facade.js';
 import { connection, flow } from './record-mappers.js';
 import { findDiscovery, selectDiscoveredAccounts } from './oauth-discovery.js';
 import { enqueueWebsiteEvent, findWebsiteRecord, hasPendingMessage } from './website.store.js';
@@ -31,6 +37,42 @@ const c = schema.channelConnections,
   dd = schema.metaDataDeletionRequests;
 /** A request that failed this often is left for an operator (it stays `pending`). */
 const MAX_DELETION_ATTEMPTS = 10;
+
+/**
+ * Ids of a fair inbox claim (security audit 2026-11-12 #3), picked per workspace in SQL so one
+ * flooded shop's backlog cannot hide the others, however large it is. A conversation is a
+ * connection + customer; each workspace's claimable conversations are ranked by their oldest
+ * event and only the first `perWorkspace` take part. Their events are then ordered round-robin:
+ * every admitted conversation's first event, then every second event, and so on, so the claim
+ * reaches every workspace with work as long as `limit` covers the workspaces waiting. A
+ * conversation always contributes a prefix of its events (its oldest ones), so its events keep
+ * their order. `${e.*}` inside resolves to this subquery's own `channel_webhook_events`.
+ */
+function fairClaimIds(claimable: SQL | undefined, limit: number, perWorkspace: number): SQL {
+  const sender = sql`coalesce(${e.payload}->>'senderExternalId', '')`;
+  return sql`select r.id from (
+    select k.id, k.created_at, k.ev_rank,
+      dense_rank() over (
+        partition by k.workspace_id order by k.first_at, k.connection_id, k.sender
+      ) as conv_rank
+    from (
+      select ${e.id} as id, ${e.workspaceId} as workspace_id, ${e.connectionId} as connection_id,
+        ${e.createdAt} as created_at, ${sender} as sender,
+        min(${e.createdAt}) over (
+          partition by ${e.workspaceId}, ${e.connectionId}, ${sender}
+        ) as first_at,
+        row_number() over (
+          partition by ${e.workspaceId}, ${e.connectionId}, ${sender}
+          order by ${e.createdAt}, ${e.id}
+        ) as ev_rank
+      from ${e}
+      where ${claimable}
+    ) k
+  ) r
+  where r.conv_rank <= ${perWorkspace}
+  order by r.ev_rank, r.conv_rank, r.created_at
+  limit ${limit}`;
+}
 export class DrizzleChannelStore implements ChannelStore {
   constructor(
     private readonly db: Database,
@@ -220,26 +262,32 @@ export class DrizzleChannelStore implements ChannelStore {
   select(ws: WorkspaceId, userId: string, id: string, accounts: ConnectionRecord[]) {
     return selectDiscoveredAccounts(this.db, ws, userId, id, accounts);
   }
-  claimEvents(limit: number) {
+  claimEvents(limit: number, options: ClaimOptions = {}) {
     return withSystem(this.system, async (tx) => {
+      const claimable = and(
+        sql`${e.processedAt} is null`,
+        sql`(${e.leaseUntil} is null or ${e.leaseUntil}<now())`,
+        sql`${e.attempts}<${MAX_EVENT_ATTEMPTS}`,
+        // Wait for a quiet moment (the customer stopped typing) so a burst becomes one turn, but
+        // never longer than the maximum wait for the oldest message of the burst.
+        sql`(${e.createdAt} < now() - ${`${EVENT_MAX_WAIT_MS} milliseconds`}::interval or not exists (
+          select 1 from channel_webhook_events n
+          where n.connection_id = ${e.connectionId} and n.processed_at is null
+            and n.payload->>'type' = 'message'
+            and n.payload->>'senderExternalId' = ${e.payload}->>'senderExternalId'
+            and n.created_at >= now() - ${`${EVENT_QUIET_MS} milliseconds`}::interval))`,
+      );
+      const perWorkspace =
+        options.perWorkspace && options.perWorkspace > 0 ? options.perWorkspace : 0;
       const rows = await tx
         .select()
         .from(e)
         .where(
-          and(
-            sql`${e.processedAt} is null`,
-            sql`(${e.leaseUntil} is null or ${e.leaseUntil}<now())`,
-            sql`${e.attempts}<${MAX_EVENT_ATTEMPTS}`,
-            // Wait for a quiet moment (the customer stopped typing) so a burst becomes one turn, but
-            // never longer than the maximum wait for the oldest message of the burst.
-            sql`(${e.createdAt} < now() - ${`${EVENT_MAX_WAIT_MS} milliseconds`}::interval or not exists (
-              select 1 from channel_webhook_events n
-              where n.connection_id = ${e.connectionId} and n.processed_at is null
-                and n.payload->>'type' = 'message'
-                and n.payload->>'senderExternalId' = ${e.payload}->>'senderExternalId'
-                and n.created_at >= now() - ${`${EVENT_QUIET_MS} milliseconds`}::interval))`,
-          ),
+          perWorkspace
+            ? and(claimable, sql`${e.id} in (${fairClaimIds(claimable, limit, perWorkspace)})`)
+            : claimable,
         )
+        // Claim order = receipt order, so each conversation's events run in order.
         .orderBy(e.createdAt)
         .limit(limit)
         .for('update', { skipLocked: true });

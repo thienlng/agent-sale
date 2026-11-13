@@ -114,6 +114,13 @@
     "message": {
       "title": "New message from {{customer}}",
       "body": "{{business}} · {{excerpt}}"
+    },
+    "ai_capped": {
+      "title": "AI replies paused for website visitors",
+      "body_site": "{{business}} · One website chat reached its limit of AI replies to visitors this {{window}}. Visitors get a short message and wait for your team.",
+      "body_workspace": "{{business}} · The business reached its limit of AI replies to website visitors this {{window}}. Visitors get a short message and wait for your team.",
+      "hour": "hour",
+      "day": "day"
     }
   },
   "task": {

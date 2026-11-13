@@ -1,6 +1,8 @@
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 
+import { isPublicAddress } from '../../../../common/security/ip-guard.js';
+import { pinnedFetch, type PinnedFetch } from '../../../../common/security/pinned-fetch.js';
 import { verifyImageBytes, type ImageMime } from '../../../../common/storage/image-bytes.js';
 import { ExternalImageError } from '../../api/catalog-sync.facade.js';
 import type { ExternalImageDownloader } from '../../application/ports/external-image-downloader.js';
@@ -31,20 +33,11 @@ export interface DownloadOptions {
 const systemResolve: HostResolver = async (host) =>
   (await lookup(host, { all: true, verbatim: true })).map((a) => a.address);
 
-function isBlockedV4(a: number[]): boolean {
-  const [o1 = 0, o2 = 0] = a;
-  return (
-    o1 === 0 ||
-    o1 === 10 ||
-    o1 === 127 ||
-    (o1 === 100 && o2 >= 64 && o2 <= 127) ||
-    (o1 === 169 && o2 === 254) ||
-    (o1 === 172 && o2 >= 16 && o2 <= 31) ||
-    (o1 === 192 && o2 === 168)
-  );
-}
-
-/** True for loopback, private, link-local, unique-local and unspecified addresses. */
+/**
+ * True for every address an import must not reach: loopback, private, link-local (cloud
+ * metadata), CGNAT, reserved, multicast, documentation ranges and their IPv4-mapped forms.
+ * Delegates to the shared guard of the action executor (`common/security/ip-guard.ts`).
+ */
 export function isBlockedAddress(address: string): boolean {
   let ip = address.replace(/^\[|\]$/g, '').toLowerCase();
   if (isIP(ip) === 6) {
@@ -55,22 +48,14 @@ export function isBlockedAddress(address: string): boolean {
       return true;
     }
   }
-  if (isIP(ip) === 4) return isBlockedV4(ip.split('.').map(Number));
-  if (isIP(ip) !== 6) return true;
-  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(ip);
-  if (mapped?.[1]) return isBlockedV4(mapped[1].split('.').map(Number));
-  const hex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(ip);
-  if (hex?.[1] && hex[2]) {
-    const hi = parseInt(hex[1], 16);
-    const lo = parseInt(hex[2], 16);
-    return isBlockedV4([hi >> 8, hi & 255, lo >> 8, lo & 255]);
-  }
-  if (ip === '::' || ip === '::1') return true;
-  const first = parseInt(ip.split(':')[0] || '0', 16);
-  return (first & 0xfe00) === 0xfc00 || (first & 0xffc0) === 0xfe80;
+  return !isPublicAddress(ip);
 }
 
-async function assertPublicHost(hostname: string, resolve: HostResolver): Promise<void> {
+/**
+ * Resolves the hop's host once and returns the address to connect to. Every address must be
+ * public (a mixed answer is refused), IPv4 is preferred; the connection is then pinned to it.
+ */
+async function publicAddressOf(hostname: string, resolve: HostResolver): Promise<string> {
   const host = hostname.replace(/^\[|\]$/g, '');
   let addresses: string[];
   if (isIP(host)) addresses = [host];
@@ -83,6 +68,7 @@ async function assertPublicHost(hostname: string, resolve: HostResolver): Promis
   }
   if (addresses.length === 0 || addresses.some(isBlockedAddress))
     throw new ImageDownloadError('blocked_address');
+  return addresses.find((a) => isIP(a) === 4) ?? (addresses[0] as string);
 }
 
 async function readLimited(res: Response): Promise<Uint8Array> {
@@ -105,10 +91,15 @@ async function readLimited(res: Response): Promise<Uint8Array> {
   return Buffer.concat(chunks);
 }
 
-/** GET (public hosts only, checked on every hop) with a 15 s budget, at most 3 redirects, a 10 MiB cap and magic-byte verification. */
+/**
+ * GET with a 15 s budget, at most 3 redirects, a 10 MiB cap and magic-byte verification. Every
+ * hop must be https on the default port and resolve only to public addresses; the connection is
+ * pinned to the address that was checked, so DNS rebinding cannot swap the target (security
+ * audit R1). `fetchImpl` is for tests; production uses the pinned node:https client.
+ */
 export async function downloadImage(
   url: string,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: PinnedFetch = pinnedFetch,
   options: DownloadOptions = {},
 ): Promise<DownloadedImage> {
   const signal = AbortSignal.timeout(TIMEOUT_MS);
@@ -118,12 +109,19 @@ export async function downloadImage(
       const target = new URL(current);
       if (target.protocol !== 'http:' && target.protocol !== 'https:')
         throw new ImageDownloadError('unsupported_scheme');
-      if (!options.allowPrivateHosts)
-        await assertPublicHost(target.hostname, options.resolve ?? systemResolve);
+      if (target.username || target.password) throw new ImageDownloadError('blocked_address');
+      let address: string | undefined;
+      if (!options.allowPrivateHosts) {
+        if (target.protocol !== 'https:') throw new ImageDownloadError('insecure_scheme');
+        if (target.port !== '' && target.port !== '443')
+          throw new ImageDownloadError('blocked_port');
+        address = await publicAddressOf(target.hostname, options.resolve ?? systemResolve);
+      }
       const res = await fetchImpl(target, {
         redirect: 'manual',
         signal,
         headers: { Accept: IMPORT_ACCEPT },
+        address,
       });
       if (res.status >= 300 && res.status < 400) {
         const location = res.headers.get('location');

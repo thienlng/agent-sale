@@ -4,6 +4,8 @@ import { Body, Controller, HttpCode, Inject, Param, Post } from '@nestjs/common'
 import { RouteConfig } from '@nestjs/platform-fastify';
 
 import {
+  CurrentUser,
+  type AuthState,
   CurrentWorkspace,
   RequireCapability,
   WorkspaceScoped,
@@ -27,7 +29,8 @@ export class AiController {
     @CurrentWorkspace() ws: WorkspaceId,
     @Param('botId') botId: string,
     @Body(new ZodValidationPipe(PlaygroundRequest)) body: PlaygroundRequest,
+    @CurrentUser() actor: AuthState,
   ): Promise<PlaygroundResponse> {
-    return this.ai.playground(ws, botId, body);
+    return this.ai.playground(ws, botId, body, { userId: actor.userId });
   }
 }

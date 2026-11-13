@@ -18,7 +18,7 @@ import {
   newId,
   normalizeLeadPhone,
 } from '@agent-sales/shared';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { BOT_FACADE, type BotFacade } from '../../bot/api/index.js';
 import { CHANNEL_FACADE, type ChannelFacade, type WebsiteSite } from '../../channel/api/index.js';
@@ -34,6 +34,11 @@ import { WebchatStorageUnavailableError } from '../domain/webchat.errors.js';
 import { WidgetError } from './widget-error.js';
 import { RATE_LIMITER, type RateLimiter } from './rate-limiter.js';
 import { WEBCHAT_UPLOAD_STORAGE, type WebchatUploadStorage } from './ports/upload-storage.js';
+import {
+  DEFAULT_WEBCHAT_OPTIONS,
+  WEBCHAT_OPTIONS,
+  type WebchatOptions,
+} from './ports/webchat-options.js';
 import { VISITOR_STORE, type VisitorStore } from './ports/visitor-store.js';
 
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -45,6 +50,11 @@ const LANGUAGE_CACHE_MAX = 500;
 /** Site lookups are cached briefly (also misses), so unauthenticated traffic cannot drive one DB query per request. */
 const SITE_TTL_MS = 5 * SECOND;
 const SITE_CACHE_MAX = 1000;
+const DAY = 24 * HOUR;
+/** Uploads live here until a message references them; the worker purges what stays (#17). */
+export const TEMPORARY_UPLOAD_ROOT = 'webchat-tmp/';
+/** Unreferenced uploads older than this are deleted. */
+export const TEMPORARY_UPLOAD_TTL_MS = DAY;
 
 /** What the controller knows about the HTTP request; the service never sees Fastify types. */
 export interface PublicCall {
@@ -60,7 +70,12 @@ export interface UploadContext {
   referrer?: string | undefined;
   pageUrl?: string | undefined;
   pageTitle?: string | undefined;
+  /** Turnstile token of a new visitor's first upload, when the challenge is on. */
+  turnstileToken?: string | undefined;
 }
+
+/** An attachment of this site: already permanent, or temporary and moved on send. */
+type OwnUpload = { url: string } | { temporaryKey: string; key: string };
 
 /** Public site keys are `wk_` + 22 base62 characters (see channel module); anything else cannot exist. */
 const SITE_KEY = /^wk_[0-9A-Za-z]{22}$/;
@@ -93,6 +108,9 @@ export class WebchatService {
     @Inject(VISITOR_STORE) private readonly visitors: VisitorStore,
     @Inject(WEBCHAT_UPLOAD_STORAGE) private readonly storage: WebchatUploadStorage,
     @Inject(RATE_LIMITER) private readonly limiter: RateLimiter,
+    @Inject(WEBCHAT_OPTIONS)
+    @Optional()
+    private readonly options: WebchatOptions = DEFAULT_WEBCHAT_OPTIONS,
   ) {}
 
   /** The site when it exists, is on and the Origin belongs to it; otherwise the uniform 404. */
@@ -111,7 +129,7 @@ export class WebchatService {
   private async lookup(key: string, ip: string): Promise<WebsiteSite | null> {
     const hit = this.#sites.get(key);
     if (hit && Date.now() - hit.at < SITE_TTL_MS) return hit.site;
-    this.limit(`ip:${this.ipHash(ip)}:c`, 300, 10 * MINUTE);
+    await this.limit(`ip:${this.ipHash(ip)}:c`, 300, 10 * MINUTE);
     const site = await this.channels.resolveWebsite(key);
     if (this.#sites.size >= SITE_CACHE_MAX) this.#sites.clear();
     this.#sites.set(key, { at: Date.now(), site });
@@ -146,6 +164,7 @@ export class WebchatService {
       phonePrompt: s.phonePrompt,
       phoneChipText: s.phoneChipText,
       language: await this.languageOf(site),
+      ...(this.options.captcha ? { turnstileSiteKey: this.options.captcha.siteKey } : {}),
     };
   }
 
@@ -156,21 +175,25 @@ export class WebchatService {
     const body = parsed.data;
     const existing = call.authorization ? await this.visitorOf(site, call.authorization) : null;
     const existingToken = call.authorization?.slice('Visitor '.length).trim() ?? '';
-    this.limit(`ip:${site.connectionId}:${this.ipHash(call.ip)}:m`, 120, 10 * MINUTE);
-    if (!existing) this.limit(`site:${site.connectionId}:new`, 120, MINUTE);
+    await this.limit(`ip:${site.connectionId}:${this.ipHash(call.ip)}:m`, 120, 10 * MINUTE);
+    if (!existing) await this.limit(`site:${site.connectionId}:new`, 120, MINUTE);
     const visitorId = existing ?? newId();
-    this.limit(`v:${visitorId}:burst`, 5, 5 * SECOND);
-    this.limit(`v:${visitorId}:h`, 60, HOUR);
-    const attachmentUrl = body.attachmentUrl;
-    if (attachmentUrl && !this.ownUpload(site, attachmentUrl))
-      throw new WidgetError(400, 'INVALID_ATTACHMENT');
+    await this.limit(`v:${visitorId}:burst`, 5, 5 * SECOND);
+    await this.limit(`v:${visitorId}:h`, 60, HOUR);
+    if (!existing) await this.challenge(body.turnstileToken);
+    const upload = body.attachmentUrl ? this.ownUpload(site, body.attachmentUrl) : null;
+    if (body.attachmentUrl && !upload) throw new WidgetError(400, 'INVALID_ATTACHMENT');
 
+    // Leads are captured from the first message again: a captured lead no longer lifts the AI
+    // reply caps (see inbox-guards), so a typed number cannot buy a visitor unlimited replies.
     // A number typed in the message is accepted even while a phone is required (it satisfies it).
     const typedPhone = body.text ? findVnPhone(body.text) : null;
+    const typedEmail = body.text ? findEmail(body.text) : null;
     if (existing && !typedPhone) {
       const visitor = await this.visitors.find(site.workspaceId, site.connectionId, visitorId);
       if (phoneRequired(site, visitor)) throw new WidgetError(409, 'PHONE_REQUIRED');
     }
+    const attachmentUrl = upload ? await this.promote(upload) : undefined;
 
     await this.visitors.recordMessage(site.workspaceId, site.connectionId, visitorId, {
       firstUrl: cut(body.firstUrl ?? body.page.url, 1000),
@@ -185,7 +208,6 @@ export class WebchatService {
     // A phone and an email left in one message end on one customer: the phone is captured first.
     const leadUrl = cut(body.firstUrl ?? body.page.url, 1000);
     if (typedPhone) await this.capture(site, visitorId, { phone: typedPhone }, leadUrl);
-    const typedEmail = body.text ? findEmail(body.text) : null;
     if (typedEmail) await this.capture(site, visitorId, { email: typedEmail }, leadUrl);
 
     const occurredAt = new Date();
@@ -223,8 +245,8 @@ export class WebchatService {
     const site = await this.site(call.key, call.origin, call.ip);
     if (after !== undefined && !isUuid(after)) throw new WidgetError(400, 'VALIDATION_FAILED');
     const visitorId = await this.requireVisitor(site, call.authorization);
-    this.limit(`ip:${site.connectionId}:${this.ipHash(call.ip)}:p`, 2400, 10 * MINUTE);
-    this.limit(`v:${visitorId}:p`, 300, 10 * MINUTE);
+    await this.limit(`ip:${site.connectionId}:${this.ipHash(call.ip)}:p`, 2400, 10 * MINUTE);
+    await this.limit(`v:${visitorId}:p`, 300, 10 * MINUTE);
     const [page, typing, visitor] = await Promise.all([
       this.conversations.listForVisitor(
         site.workspaceId,
@@ -276,18 +298,23 @@ export class WebchatService {
     const existing = call.authorization ? await this.visitorOf(site, call.authorization) : null;
     if (!this.storage.available()) throw new WidgetError(503, 'UNAVAILABLE');
     if (!existing) {
-      this.limit(`ip:${site.connectionId}:${this.ipHash(call.ip)}:m`, 120, 10 * MINUTE);
-      this.limit(`site:${site.connectionId}:new`, 120, MINUTE);
+      await this.limit(`ip:${site.connectionId}:${this.ipHash(call.ip)}:m`, 120, 10 * MINUTE);
+      await this.limit(`site:${site.connectionId}:new`, 120, MINUTE);
     }
     const visitorId = existing ?? newId();
-    this.limit(`v:${visitorId}:up`, 10, HOUR);
-    this.limit(`ip:${this.ipHash(call.ip)}:up`, 60, HOUR);
+    await this.limit(`v:${visitorId}:up`, 10, HOUR);
+    await this.limit(`ip:${this.ipHash(call.ip)}:up`, 60, HOUR);
+    if (!existing) await this.challenge(context.turnstileToken);
     // The body is read only after the visitor and the limits passed.
     const bytes = await readBytes();
     if (bytes.length > MAX_UPLOAD_BYTES) throw new WidgetError(413, 'TOO_LARGE');
     const mime = sniffUpload(bytes);
     if (!mime) throw new WidgetError(415, 'UNSUPPORTED_MEDIA');
-    const key = `${this.uploadPrefix(site)}${newId()}.${UPLOAD_EXTENSIONS[mime]}`;
+    // Charged only for a real image, so rejected files do not use up the site's day.
+    if (this.options.uploadsPerSiteDay > 0)
+      await this.limit(`site:${site.connectionId}:up:d`, this.options.uploadsPerSiteDay, DAY);
+    // Stored under the temporary prefix until a message references it (promoted on send).
+    const key = `${this.temporaryPrefix(site)}${newId()}.${UPLOAD_EXTENSIONS[mime]}`;
     let url: string;
     try {
       url = await this.storage.put(key, bytes, mime);
@@ -311,8 +338,8 @@ export class WebchatService {
   async phone(call: PublicCall, rawBody: unknown): Promise<{ phoneCaptured: true }> {
     const site = await this.site(call.key, call.origin, call.ip);
     const visitorId = await this.requireVisitor(site, call.authorization);
-    this.limit(`ip:${this.ipHash(call.ip)}:ph`, 30, HOUR);
-    this.limit(`v:${visitorId}:ph`, 10, HOUR);
+    await this.limit(`ip:${this.ipHash(call.ip)}:ph`, 30, HOUR);
+    await this.limit(`v:${visitorId}:ph`, 10, HOUR);
     const parsed = WidgetPhoneRequest.safeParse(rawBody);
     if (!parsed.success) throw new WidgetError(400, 'VALIDATION_FAILED');
     const phone = normalizeLeadPhone(parsed.data.phone);
@@ -408,27 +435,70 @@ export class WebchatService {
     }
   }
 
+  /** Deletes uploads no message referenced within `TEMPORARY_UPLOAD_TTL_MS` (worker job). */
+  async purgeTemporaryUploads(now: Date = new Date()): Promise<number> {
+    if (!this.storage.available()) return 0;
+    return this.storage.purge(
+      TEMPORARY_UPLOAD_ROOT,
+      new Date(now.getTime() - TEMPORARY_UPLOAD_TTL_MS),
+    );
+  }
+
   private uploadPrefix(site: WebsiteSite): string {
     return `webchat/${site.workspaceId}/${site.connectionId}/`;
   }
 
-  /** Visitors may only attach pictures that this site's upload route produced (exact URL shape). */
-  private ownUpload(site: WebsiteSite, raw: string): boolean {
+  private temporaryPrefix(site: WebsiteSite): string {
+    return `${TEMPORARY_UPLOAD_ROOT}${site.workspaceId}/${site.connectionId}/`;
+  }
+
+  /**
+   * Visitors may only attach pictures that this site's upload route produced (exact URL shape):
+   * a temporary upload (moved to the permanent prefix on send), or an already permanent one (a
+   * retried send, or an upload made before temporary uploads existed).
+   */
+  private ownUpload(site: WebsiteSite, raw: string): OwnUpload | null {
     const prefix = this.storage.publicPrefix();
-    if (prefix === null) return false;
+    if (prefix === null) return null;
     try {
       const base = new URL(prefix);
       const u = new URL(raw);
-      if (u.origin !== base.origin || u.search || u.hash || u.username || u.password) return false;
+      if (u.origin !== base.origin || u.search || u.hash || u.username || u.password) return null;
       const basePath = base.pathname.replace(/\/$/, '');
-      const own = `${basePath}/${this.uploadPrefix(site)}`;
-      return (
-        u.pathname.startsWith(own) &&
-        /^[0-9a-f-]{36}\.(jpg|png|webp|gif)$/.test(u.pathname.slice(own.length))
-      );
+      const file = (dir: string): string | null => {
+        const own = `${basePath}/${dir}`;
+        if (!u.pathname.startsWith(own)) return null;
+        const name = u.pathname.slice(own.length);
+        return /^[0-9a-f-]{36}\.(jpg|png|webp|gif)$/.test(name) ? name : null;
+      };
+      if (file(this.uploadPrefix(site))) return { url: raw };
+      const temporary = file(this.temporaryPrefix(site));
+      if (!temporary) return null;
+      return {
+        temporaryKey: `${this.temporaryPrefix(site)}${temporary}`,
+        key: `${this.uploadPrefix(site)}${temporary}`,
+      };
     } catch {
-      return false;
+      return null;
     }
+  }
+
+  private async promote(upload: OwnUpload): Promise<string> {
+    if ('url' in upload) return upload.url;
+    try {
+      return await this.storage.promote(upload.temporaryKey, upload.key);
+    } catch (error) {
+      if (error instanceof WebchatStorageUnavailableError)
+        throw new WidgetError(400, 'INVALID_ATTACHMENT');
+      throw error;
+    }
+  }
+
+  /** A new visitor's challenge, when Turnstile is on (off by default). */
+  private async challenge(token: string | undefined): Promise<void> {
+    const captcha = this.options.captcha;
+    if (!captcha) return;
+    if (!token || !(await captcha.verify(token))) throw new WidgetError(403, 'CHALLENGE_REQUIRED');
   }
 
   private async visitorOf(site: WebsiteSite, authorization: string): Promise<string> {
@@ -443,8 +513,8 @@ export class WebchatService {
     return this.visitorOf(site, authorization);
   }
 
-  private limit(key: string, limit: number, windowMs: number): void {
-    const r = this.limiter.hit(key, limit, windowMs);
+  private async limit(key: string, limit: number, windowMs: number): Promise<void> {
+    const r = await this.limiter.hit(key, limit, windowMs);
     if (!r.ok)
       throw new WidgetError(429, 'RATE_LIMITED', Math.max(1, Math.ceil(r.retryAfterMs / 1000)));
   }

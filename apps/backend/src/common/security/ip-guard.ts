@@ -1,7 +1,8 @@
 import { isIPv4, isIPv6 } from 'node:net';
 
 /**
- * Decides whether a resolved IP address may be contacted by the action executor.
+ * Decides whether a resolved IP address may be contacted by outbound fetchers (bot
+ * actions, catalog image downloads).
  * Fails closed: anything that is not a canonical IPv4/IPv6 literal is "not public".
  * Pure, framework-free.
  */
