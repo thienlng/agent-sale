@@ -180,8 +180,8 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
       ws,
       rows.map((r) => named(r.conversation.provider, r.conversation.customerId, r.conversation)),
     );
-    return rows.map(({ lastHumanReplyAt }, i) => {
-      const c = shown[i]!;
+    return rows.map(({ conversation, lastHumanReplyAt }, i) => {
+      const c = shown[i] ?? conversation;
       return {
         id: c.id,
         provider: c.provider,
