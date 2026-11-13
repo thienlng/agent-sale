@@ -43,61 +43,83 @@ export function withoutMetaLines(text: string): string {
     .join('\n');
 }
 
+/** A sentence as compared for repeats: its words without a "Dạ"/"Vâng" lead, accents or case. */
+const wordsOf = (text: string): Set<string> =>
+  new Set(
+    foldVietnamese(text)
+      .replace(/^\W*(da|vang|yes|ok)\b/u, '')
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean),
+  );
+
 /**
- * TM-22: the model sometimes writes the same sentence twice in one answer. A line equal to an
- * earlier one (case and spacing ignored) is dropped; blank lines stay as they are.
+ * `later` says nothing `earlier` did not: a short one (under 6 words) has the same words, a longer
+ * one has at least 80% of its own words in `earlier` (LM3-1: a reworded repeat). A figure of
+ * `later` that `earlier` lacks always keeps it (R5-4: "EVANI tiêu chuẩn 24 người lớn" then
+ * "…tiêu chuẩn 24 người lớn, tối đa 35 khách" is new information, never a repeat).
  */
-export function withoutRepeatedLines(text: string): string {
+function repeats(later: Set<string>, earlier: Set<string>): boolean {
+  for (const w of later) if (/\d/.test(w) && !earlier.has(w)) return false;
+  if (later.size < 6) return later.size === earlier.size && [...later].every((w) => earlier.has(w));
+  let shared = 0;
+  for (const w of later) if (earlier.has(w)) shared += 1;
+  return shared / later.size >= 0.8;
+}
+
+const SENTENCE_END = /(?<=[.!?…])\s+/u;
+
+/**
+ * Drops every sentence of `text` that repeats one said before it: in `said` (texts already sent
+ * this turn) or earlier in `text`. A line keeps its other sentences; a line left with none goes;
+ * blank lines stay as they are.
+ */
+function withoutRepeats(text: string, said: readonly string[]): string {
   const seen: Set<string>[] = [];
-  return text
-    .split('\n')
-    .filter((line) => {
-      const words = new Set(
-        foldVietnamese(line)
-          .replace(/^\W*(da|vang)\b/u, '')
-          .split(/[^a-z0-9]+/)
-          .filter(Boolean),
-      );
+  const remember = (part: string) => {
+    const words = wordsOf(part);
+    if (words.size) seen.push(words);
+  };
+  for (const line of said.flatMap((t) => t.split('\n'))) {
+    remember(line);
+    line.split(SENTENCE_END).forEach(remember);
+  }
+  const kept: string[] = [];
+  for (const line of text.split('\n')) {
+    if (!wordsOf(line).size) {
+      kept.push(line);
+      continue;
+    }
+    const sentences = line.split(SENTENCE_END);
+    const fresh = sentences.filter((sentence) => {
+      const words = wordsOf(sentence);
       if (!words.size) return true;
-      // LM3-1: a reworded repeat (most of its words in an earlier line) counts as a repeat too.
-      if (seen.some((earlier) => similar(words, earlier))) return false;
+      if (seen.some((earlier) => repeats(words, earlier))) return false;
       seen.push(words);
       return true;
-    })
-    .join('\n');
+    });
+    if (!fresh.some((sentence) => wordsOf(sentence).size)) continue;
+    remember(line);
+    kept.push(fresh.length === sentences.length ? line : fresh.join(' '));
+  }
+  return kept.join('\n');
 }
-
-/** Two lines share at least 80% of the shorter one's words, and it has 5 words or more. */
-function similar(a: Set<string>, b: Set<string>): boolean {
-  const [small, big] = a.size <= b.size ? [a, b] : [b, a];
-  if (small.size < 5) return [...a].join(' ') === [...b].join(' ');
-  let shared = 0;
-  for (const w of small) if (big.has(w)) shared += 1;
-  return shared / small.size >= 0.8;
-}
-
-/** A line as compared for repeats: no "Dạ"/"Vâng" lead, no accents, case, spacing or end mark. */
-const lineKey = (line: string): string =>
-  foldVietnamese(line)
-    .replace(/^\W*(da|vang|yes|ok)\b[\s,]*/u, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
 
 /**
- * VL-B8: the final answer must not repeat what `send_message` already sent this turn: every line
- * of the answer that a sent message already said (a "Dạ" lead, case and punctuation ignored) is
- * dropped. Returns '' when nothing new is left.
+ * TM-22 / R5-6: the model sometimes writes the same sentence twice in one answer, or rewords it
+ * (LM3-1). A sentence that repeats an earlier one is dropped (see {@link repeats}); blank lines
+ * stay as they are.
+ */
+export function withoutRepeatedLines(text: string): string {
+  return withoutRepeats(text, []);
+}
+
+/**
+ * VL-B8 / R5-6: the final answer must not repeat what `send_message` already sent this turn: every
+ * sentence of the answer that a sent message already said (or reworded) is dropped. Returns ''
+ * when nothing new is left.
  */
 export function withoutSentLines(answer: string, sent: readonly string[]): string {
-  const said = new Set(
-    sent.flatMap((text) => text.split('\n').map(lineKey)).filter((key) => key.length > 0),
-  );
-  if (!said.size) return answer;
-  return answer
-    .split('\n')
-    .filter((line) => !said.has(lineKey(line)))
-    .join('\n')
-    .trim();
+  return withoutRepeats(answer, sent).trim();
 }
 
 const QUOTE_WORDS = 6;

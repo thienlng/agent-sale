@@ -126,3 +126,40 @@ describe('normalizeReplyText: reworded repeats (LM3-1)', () => {
     expect(normalizeReplyText('Dạ có ạ.\nDạ có size 41 ạ.')).toBe('Dạ có ạ.\nDạ có size 41 ạ.');
   });
 });
+
+describe('repeats are dropped sentence by sentence, figures never (R5-4, R5-6)', () => {
+  it('keeps a later line that adds a figure, even when it restates an earlier one', () => {
+    const text =
+      'Dạ EVANI tiêu chuẩn 24 người lớn và 9 trẻ em dưới 10 tuổi ạ.\nEVANI tiêu chuẩn 24 người lớn và 9 trẻ em dưới 10 tuổi, tối đa 35 khách ạ.';
+    expect(normalizeReplyText(text)).toBe(text);
+    const total =
+      'Dạ D14 còn trống từ 18/12 đến 20/12/2026 ạ.\nD14 còn trống từ 18/12 đến 20/12/2026, tổng 33.000.000đ ạ.';
+    expect(normalizeReplyText(total)).toBe(total);
+  });
+
+  it('drops the sentences of the answer that a sent message already said or reworded', () => {
+    const sent =
+      'Dạ trường hợp đang mang thai cần được bác sĩ thăm khám trực tiếp, em không thể tư vấn chị có phun môi được hay không ạ. Chị cho em xin họ tên và số điện thoại để nhân viên hỗ trợ chuyển bác sĩ tư vấn nhé.';
+    expect(
+      withoutSentLines(
+        'Dạ đang mang thai cần được bác sĩ thăm khám trực tiếp, em không thể tư vấn chị có phun môi được hay không ạ.\nChị cho em xin họ tên và số điện thoại để nhân viên hỗ trợ chuyển bác sĩ tư vấn nhé.',
+        [sent],
+      ),
+    ).toBe('');
+    expect(
+      withoutSentLines(
+        'Dạ đang mang thai cần được bác sĩ thăm khám trực tiếp, em không thể tư vấn chị có phun môi được hay không ạ. Bên em mở cửa đến 21h ạ.',
+        [sent],
+      ),
+    ).toBe('Bên em mở cửa đến 21h ạ.');
+  });
+
+  it('drops a sentence repeated inside the same answer, keeps short different ones', () => {
+    expect(
+      normalizeReplyText(
+        'Dạ bộ thú gỗ phù hợp bé từ 1 tuổi trở lên ạ. Giá 340.000đ ạ.\nBộ thú gỗ phù hợp bé từ 1 tuổi trở lên ạ.',
+      ),
+    ).toBe('Dạ bộ thú gỗ phù hợp bé từ 1 tuổi trở lên ạ. Giá 340.000đ ạ.');
+    expect(normalizeReplyText('Dạ còn ạ.\nDạ còn hàng ạ.')).toBe('Dạ còn ạ.\nDạ còn hàng ạ.');
+  });
+});

@@ -10,6 +10,7 @@ import {
   phoneAsk,
   phoneReadBack,
   withCustomerPronoun,
+  withKnownPronoun,
   withoutStaleReadBack,
   writesEnglish,
 } from '../application/reply-pipeline.js';
@@ -126,6 +127,70 @@ describe('handoff say line (TM2-7, TM-16)', () => {
   });
 });
 
+describe('a hand-off reply says each thing once, to the right person (R5-6, R5-7)', () => {
+  const handoffBot = {
+    language: 'vi',
+    handoffMessage: 'Dạ, em đã chuyển cho nhân viên, anh/chị đợi một chút ạ.',
+  } as unknown as BotView;
+  const handoffLoop = (text: string) =>
+    ({
+      res: { text, toolCalls: [], stopReason: 'tool_use' },
+      outcome: 'final',
+      steps: [],
+    }) as unknown as AgentLoopResult;
+
+  it('drops a lead-in that send_message already sent and names the customer in the hand-over', () => {
+    const output = newOutputState();
+    output.handoff = 'wholesale quote';
+    output.handoffSay = 'Dạ em đã nhận được tên chị Hạnh và số điện thoại chị cung cấp ạ.';
+    output.sent.push({
+      text: 'Dạ em đã nhận được tên chị Hạnh và số điện thoại chị cung cấp ạ.',
+      images: [],
+      via: 'send_message',
+    });
+    const decision = decideReply({
+      loop: handoffLoop(''),
+      output,
+      bot: handoffBot,
+      actionFallback: null,
+      customerTexts: ['Chị bên trường mầm non, muốn lấy 30 bộ', 'Chị tên Hạnh, số 0912 345 678'],
+    });
+    expect(decision.final).toBe(
+      'Dạ em đã ghi nhận số 0912 345 678 ạ.\nDạ, em đã chuyển cho nhân viên, chị đợi một chút ạ.',
+    );
+  });
+
+  it('asks for a missing phone after the hand-over line, not before it', () => {
+    const output = newOutputState();
+    output.handoff = 'wants a manager';
+    const decision = decideReply({
+      loop: handoffLoop('Dạ em xin lỗi vì mình đã chờ 3 tuần mà chưa được xếp lớp ạ.'),
+      output,
+      bot: handoffBot,
+      actionFallback: null,
+      customerTexts: ['Tôi đóng tiền 3 tuần rồi mà chưa ai xếp lớp, tôi muốn gặp quản lý ngay!'],
+    });
+    expect(decision.final).toBe(
+      [
+        'Dạ em xin lỗi vì mình đã chờ 3 tuần mà chưa được xếp lớp ạ.',
+        'Dạ, em đã chuyển cho nhân viên, anh/chị đợi một chút ạ.',
+        'Trong lúc chờ, anh/chị để lại số điện thoại để nhân viên gọi lại ạ.',
+      ].join('\n'),
+    );
+  });
+
+  it('withKnownPronoun replaces only the unknown "anh/chị" and leaves "em" customers alone', () => {
+    expect(withKnownPronoun('Anh/chị đợi một chút ạ.', ['anh muốn hỏi'])).toBe(
+      'Anh đợi một chút ạ.',
+    );
+    expect(withKnownPronoun('Dạ, anh chị đợi chút ạ.', ['cô cần tư vấn'])).toBe(
+      'Dạ, cô đợi chút ạ.',
+    );
+    expect(withKnownPronoun('anh/chị đợi ạ.', ['em muốn hỏi'])).toBe('anh/chị đợi ạ.');
+    expect(withKnownPronoun('anh/chị đợi ạ.', ['shop ơi'])).toBe('anh/chị đợi ạ.');
+  });
+});
+
 describe('English customers at a hand-off (MS2-2)', () => {
   it('reads the phone back and hands over in English', () => {
     expect(writesEnglish('I want to complain, call me on 0977 123 456 please')).toBe(true);
@@ -171,14 +236,15 @@ describe('withCustomerPronoun (EV-4)', () => {
 describe('phoneAsk (MS2-1)', () => {
   it('asks for a phone only when the conversation has none and the lead-in does not ask', () => {
     const health = ['da em đang uống kháng sinh thì làm liệu trình được không ạ'];
+    // R5-7: the ask follows the shop's hand-over line ("…đợi một chút ạ"), so it reads "meanwhile".
     expect(phoneAsk(health, [''], false)).toBe(
-      'Anh/chị để lại số điện thoại để nhân viên gọi tư vấn ạ.',
+      'Trong lúc chờ, anh/chị để lại số điện thoại để nhân viên gọi lại ạ.',
     );
     expect(phoneAsk(['Chị muốn hỏi về liệu trình'], [''], false)).toBe(
-      'Chị để lại số điện thoại để nhân viên gọi tư vấn ạ.',
+      'Trong lúc chờ, chị để lại số điện thoại để nhân viên gọi lại ạ.',
     );
     expect(phoneAsk(['Can I do this treatment while pregnant?'], [''], false, true)).toBe(
-      'Could you leave your phone number so our staff can call you back?',
+      'Meanwhile, could you leave your phone number so our staff can call you back?',
     );
     expect(phoneAsk(health, [''], true)).toBe('');
     expect(phoneAsk(['số em 0912 345 678'], [''], false)).toBe('');
@@ -205,13 +271,13 @@ describe('withoutStaleReadBack (TM2-1)', () => {
 describe('phoneAsk pronouns (TM3-7, MS3-4)', () => {
   it('follows the lead-in pronoun and never calls an "em" customer "em"', () => {
     expect(phoneAsk(['alo shop, hôm qua chị có đặt đơn'], ['Dạ em xin lỗi chị ạ.'], false)).toBe(
-      'Chị để lại số điện thoại để nhân viên gọi tư vấn ạ.',
+      'Trong lúc chờ, chị để lại số điện thoại để nhân viên gọi lại ạ.',
     );
     expect(phoneAsk(['e muốn hỏi liệu trình'], [''], false)).toBe(
-      'Cho em xin số điện thoại để nhân viên gọi tư vấn ạ.',
+      'Trong lúc chờ, cho em xin số điện thoại để nhân viên gọi lại ạ.',
     );
     expect(phoneAsk(['shop ơi'], ['Dạ anh/chị chờ em ạ.'], false)).toBe(
-      'Anh/chị để lại số điện thoại để nhân viên gọi tư vấn ạ.',
+      'Trong lúc chờ, anh/chị để lại số điện thoại để nhân viên gọi lại ạ.',
     );
   });
 });

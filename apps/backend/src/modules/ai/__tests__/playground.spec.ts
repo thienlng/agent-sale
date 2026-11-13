@@ -368,6 +368,7 @@ describe('channel metering and training context evals', () => {
 });
 
 describe('sales-agent prompt and handoff reply', () => {
+  const ASK = 'Trong lúc chờ, anh/chị để lại số điện thoại để nhân viên gọi lại ạ.';
   const trainingWith = (items: object[]) =>
     ({ list: async () => items }) as unknown as TrainingFacade;
   const build = (reply: string | Partial<GenerateResponse>[], items: object[] = []) => {
@@ -500,8 +501,9 @@ describe('sales-agent prompt and handoff reply', () => {
     expect(res).toMatchObject({
       outcome: 'handoff',
       guardrail: null,
-      // MS2-1: no phone known in the conversation: the hand-off asks for one.
-      reply: `Em xin lỗi anh/chị về trải nghiệm này ạ.\nAnh/chị để lại số điện thoại để nhân viên gọi tư vấn ạ.\n${bot.handoffMessage}`,
+      // MS2-1: no phone known in the conversation: the hand-off asks for one, after the
+      // hand-over line (R5-7).
+      reply: `Em xin lỗi anh/chị về trải nghiệm này ạ.\n${bot.handoffMessage}\n${ASK}`,
     });
     // handoff ends the turn: no model call after its batch.
     expect(fake.calls).toHaveLength(1);
@@ -518,15 +520,13 @@ describe('sales-agent prompt and handoff reply', () => {
     expect(a.reply).toBe(`Em đã ghi nhận số 0912345678 ạ.\n${bot.handoffMessage}`);
   });
 
-  it('asks for the phone before the shop handoff message when none is known (MS2-1)', async () => {
+  it('asks for the phone after the shop handoff message when none is known (MS2-1, R5-7)', async () => {
     const { svc } = build([handoff('')]);
     const res = await svc.playground(ws, botId, ask('gặp người thật'));
-    expect(res.reply).toBe(
-      `Anh/chị để lại số điện thoại để nhân viên gọi tư vấn ạ.\n${bot.handoffMessage}`,
-    );
+    expect(res.reply).toBe(`${bot.handoffMessage}\n${ASK}`);
     expect(res.messages).toEqual([
       {
-        text: `Anh/chị để lại số điện thoại để nhân viên gọi tư vấn ạ.\n${bot.handoffMessage}`,
+        text: `${bot.handoffMessage}\n${ASK}`,
         images: [],
         via: 'final',
       },

@@ -264,7 +264,8 @@ export function phoneAsk(
 ): string {
   if (phoneKnown || customerTexts.some((t) => phonesIn(t).length > 0)) return '';
   if (said.some((t) => ASKS_PHONE.test(t))) return '';
-  if (english) return 'Could you leave your phone number so our staff can call you back?';
+  if (english)
+    return 'Meanwhile, could you leave your phone number so our staff can call you back?';
   // TM3-7: the pronoun the lead-in already uses wins ("Dạ em xin lỗi chị…" → "Chị để lại…").
   const used = said
     .join(' ')
@@ -272,10 +273,23 @@ export function phoneAsk(
     ?.toLowerCase();
   const pronoun = used ?? customerSelfPronoun(customerTexts);
   // MS3-4 / TM3-9: a customer who says "em" is not called "em" (nor "anh/chị").
-  if (pronoun === 'em') return 'Cho em xin số điện thoại để nhân viên gọi tư vấn ạ.';
-  const who =
-    pronoun && pronoun !== 'em' ? pronoun.charAt(0).toUpperCase() + pronoun.slice(1) : 'Anh/chị';
-  return `${who} để lại số điện thoại để nhân viên gọi tư vấn ạ.`;
+  if (pronoun === 'em') return 'Trong lúc chờ, cho em xin số điện thoại để nhân viên gọi lại ạ.';
+  return `Trong lúc chờ, ${pronoun ?? 'anh/chị'} để lại số điện thoại để nhân viên gọi lại ạ.`;
+}
+
+const UNKNOWN_PRONOUN = /(?<![\p{L}])(anh\s*\/\s*chị|anh chị|a\/c)(?![\p{L}])/giu;
+
+/**
+ * R5-7: the shop's hand-over line (an owner setting, often "…anh/chị đợi một chút ạ") addresses a
+ * customer who told how they refer to themselves ("Chị tên Hạnh") with that pronoun. A customer
+ * who is "em", or one who never said, keeps the line as written.
+ */
+export function withKnownPronoun(text: string, customerTexts: readonly string[]): string {
+  const pronoun = customerSelfPronoun(customerTexts);
+  if (!pronoun || pronoun === 'em') return text;
+  return text.replace(UNKNOWN_PRONOUN, (found) =>
+    /^\p{Lu}/u.test(found) ? pronoun.charAt(0).toUpperCase() + pronoun.slice(1) : pronoun,
+  );
 }
 
 /**
@@ -343,23 +357,23 @@ export function decideReply(input: {
     const written =
       normalizeReplyText(loop.res?.text ?? '') || normalizeReplyText(output.handoffSay ?? '');
     const checked = written && input.check && !input.check(written).ok ? '' : written;
-    const lead = withoutStaleReadBack(checked, input.customerTexts ?? []);
+    const customerTexts = input.customerTexts ?? [];
+    const handover = english ? ENGLISH_HANDOFF : withKnownPronoun(handoffText(bot), customerTexts);
+    const sentTexts = output.sent.map((m) => m.text);
+    // R5-6: a lead-in that send_message already said this turn is not sent twice.
+    const lead = withoutSentLines(withoutStaleReadBack(checked, customerTexts), sentTexts);
     return {
       outcome: 'handoff',
       guardrail: null,
+      // R5-7: the phone ask follows the hand-over line, so the message reads "passed on, wait;
+      // meanwhile leave your number", not "leave your number" then "already passed on".
       final: [
         lead,
+        bot.language === 'vi' ? phoneReadBack(customerTexts, [lead, ...sentTexts], english) : '',
+        handover,
         bot.language === 'vi'
-          ? phoneReadBack(
-              input.customerTexts ?? [],
-              [lead, ...output.sent.map((m) => m.text)],
-              english,
-            )
+          ? phoneAsk(customerTexts, [lead, ...sentTexts], input.phoneKnown === true, english)
           : '',
-        bot.language === 'vi'
-          ? phoneAsk(input.customerTexts ?? [], [lead], input.phoneKnown === true, english)
-          : '',
-        english ? ENGLISH_HANDOFF : handoffText(bot),
       ]
         .filter(Boolean)
         .join('\n'),
