@@ -160,6 +160,15 @@ const RULES: readonly Rule[] = [
     hint: "check_availability answers dates, free properties, prices, totals, surcharges, children and capacity: call it (ask only for missing dates, adults or the children's ages) and quote its result as the shop's. Staff confirming the booking later is not a reason to hand off.",
   },
   {
+    // S2-A (TM3-6): an extra the shop has no data on (gift wrap, a card) or a reuse of the
+    // details given before never blocks an order the bot can prepare.
+    tool: 'prepare_order',
+    topic: 'order_extra',
+    pattern:
+      /\b(goi qua|viet thiep|thiep|boc qua|giay goi|ruy bang|gift ?wrap\w*|greeting card|cung (dia chi|so|sdt|thong tin)|nhu (cu|tren|don truoc|lan truoc)|dia chi cu|so cu)\b/,
+    hint: 'An extra the shop has no data on (gift wrap, a card) never blocks the order: say you do not have that information and will note it for the shop to confirm, put it in the order note, and call prepare_order with the details already given in this conversation (name, phone, address; ask only for what is missing). Do not hand off.',
+  },
+  {
     tool: 'prepare_order',
     topic: 'order',
     pattern:
