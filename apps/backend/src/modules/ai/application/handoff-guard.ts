@@ -27,6 +27,8 @@ export function guardHandoff(
   tools: readonly RunnableTool[],
   opts: {
     customerText: string;
+    /** The customer's last few messages (DEC-2: an earlier complaint still lets staff in). */
+    recentCustomerText?: string;
     offeredTools: readonly string[];
     /** The shop's text in the model's context (profile, focus products, knowledge). */
     shopText: string;
@@ -56,6 +58,7 @@ export function guardHandoff(
         const verdict = handoffVerdict({
           reason,
           customerText: opts.customerText,
+          ...(opts.recentCustomerText ? { recentCustomerText: opts.recentCustomerText } : {}),
           offeredTools: opts.offeredTools,
           shopText: [opts.shopText, ...results].join('\n'),
           refused,

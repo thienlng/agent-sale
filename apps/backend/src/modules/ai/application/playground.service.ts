@@ -657,6 +657,7 @@ export class PlaygroundService implements AiFacade {
             // VL2-1: a handoff the turn's tools or the shop's data answer is refused once.
             guardHandoff(tools.runnable, {
               customerText: latestCustomerBlock(input.messages),
+              recentCustomerText: customerTexts.slice(-4).join('\n'),
               offeredTools: tools.definitions.map((d) => d.name),
               shopText: [profile, focusText, ...sources.map((s) => `${s.question}\n${s.answer}`)]
                 .filter(Boolean)

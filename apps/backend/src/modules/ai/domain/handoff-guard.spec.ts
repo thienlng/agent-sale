@@ -236,3 +236,60 @@ describe('handoffVerdict: a call-back asked through staff', () => {
     ).toBe('allowed:asked_for_person');
   });
 });
+
+describe('handoffVerdict: payment problems in English (VL3-2)', () => {
+  it.each([
+    'I already transferred a 10 million deposit yesterday and nobody confirmed. This is unacceptable.',
+    'We paid the deposit 3 days ago, no one has confirmed',
+    'I sent the money already, please check',
+  ])('%s → allowed', (text) => {
+    expect(refusedFor(verdict(text, 'payment', { shopText: E64_POLICIES }))).toBe(
+      'allowed:complaint_or_payment',
+    );
+  });
+  it('still answers a plain deposit question from the data', () => {
+    expect(
+      refusedFor(verdict('How much is the deposit?', 'deposit', { shopText: E64_POLICIES })),
+    ).toBe('deposit');
+  });
+});
+
+describe('handoffVerdict: complaints, refunds, exchanges and cancels always pass (DEC-2, TM3-4)', () => {
+  const retail = {
+    offeredTools: RETAIL_ORDERS,
+    shopText: 'Đổi trả: email support@shop.test trong 30 ngày.',
+  };
+  it.each([
+    'Shop ơi hôm qua em đặt bộ nhạc cụ gỗ, hôm nay nhận hàng thì cái trống bị nứt',
+    'Em rất bực, mới mua mà đã hỏng. Em muốn hoàn tiền ngay',
+    'shop ơi tuần trước chị đặt Bread & Bakery Set mà nhận được Meat Set, giao nhầm rồi',
+    'chị bực lắm, quà sinh nhật bé mà giao sai. chị muốn đổi sang Vegetable Set được không',
+    'còn vụ đổi hàng thì bao giờ có người gọi chị',
+    'ừ thì chờ, nhưng Vegetable Set còn hàng không em, hết thì chị lấy lại tiền',
+    'thôi được rồi. mà đơn hôm qua giao chậm quá, chị muốn huỷ đơn DH000006',
+    'The wooden drum arrived cracked, I want a refund',
+    'Please cancel my order, it never arrived',
+  ])('%s → allowed', (text) => {
+    expect(
+      handoffVerdict({ ...retail, customerText: text, reason: 'complaint', refused: 0 }).allow,
+    ).toBe(true);
+  });
+
+  it('lets a follow-up of a complaint through (the complaint is in the recent messages)', () => {
+    const base = { ...retail, reason: 'customer wants staff', refused: 0 };
+    expect(
+      handoffVerdict({
+        ...base,
+        customerText: 'chị chắc chắn huỷ, đừng hỏi nữa',
+        recentCustomerText: 'chị muốn huỷ đơn DH000006\nchị chắc chắn huỷ, đừng hỏi nữa',
+      }).allow,
+    ).toBe(true);
+    expect(
+      handoffVerdict({
+        ...base,
+        customerText: 'Mã đơn em không nhớ, em đặt qua facebook tên Phạm Quốc Bảo sđt 0977 222 333',
+        recentCustomerText: 'cái trống bị nứt\nEm muốn hoàn tiền ngay',
+      }).allow,
+    ).toBe(true);
+  });
+});
