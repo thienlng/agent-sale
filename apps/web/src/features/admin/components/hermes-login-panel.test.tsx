@@ -1,10 +1,13 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { loadNamespace } from '@/lib/i18n';
 import { renderWithProviders, stubFetch } from '@/testing/render';
 
 import { HermesLoginPanel } from './hermes-login-panel';
+
+beforeAll(() => loadNamespace('backoffice'));
 
 const id = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d10';
 const path = `/admin/llm/providers/${id}/hermes-login`;

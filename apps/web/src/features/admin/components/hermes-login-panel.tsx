@@ -52,7 +52,7 @@ function PendingView({
   busy: boolean;
   onRestart: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['backoffice', 'common']);
   const left = useCountdown(status.expiresAt);
   const code = status.userCode ?? '';
   // Only ever open an https verification page returned by the bridge.
@@ -107,7 +107,7 @@ function PendingView({
 
 /** Lets a platform admin sign the Hermes runtime in to ChatGPT (OAuth device-code flow). */
 export function HermesLoginPanel({ providerId }: { providerId: string }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['backoffice', 'common']);
   const status = useHermesLogin(providerId);
   const { start, logout } = useHermesLoginAction(providerId);
   const [confirmLogout, setConfirmLogout] = useState(false);
