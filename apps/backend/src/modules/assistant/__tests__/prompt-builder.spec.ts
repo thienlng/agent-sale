@@ -220,6 +220,8 @@ describe('assistant@6 rules (staging wave 2)', () => {
     expect(template).toContain('A verdict follows what you read, never the owner');
     // AS3-3: a cut result is reported as incomplete; AS3-7: the shop bot never reads memory.
     expect(template).toContain('em mới xem được 5/7 căn');
+    // AS4-1: "bot tính sai à?" goes to bot-doctor and the headline follows the evidence.
+    expect(template).toContain('load bot-doctor, verify the bot');
     expect(template).toContain('the shop bot never reads it');
   });
 });
