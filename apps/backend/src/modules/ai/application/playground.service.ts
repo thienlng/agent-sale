@@ -409,6 +409,7 @@ export class PlaygroundService implements AiFacade {
             channel: options.channel ?? PLAYGROUND_ORDER_CHANNEL,
             ...(options.sink ? { sink: options.sink } : {}),
             output,
+            customerBlock: latestCustomerBlock(input.messages),
             confirmable: await confirmableDraft(
               this.commerce,
               ws,

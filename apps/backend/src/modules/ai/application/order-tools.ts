@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import type { CommerceFacade } from '../../commerce/api/index.js';
 import type { MessageSink, OutgoingMessage, QuickReply } from '../api/reply-options.js';
+import { isOrderAgreement } from '../domain/order-agreement.js';
 import { safeJson } from './action-tools.js';
 import type { OutputState } from './output-tools.js';
 
@@ -82,6 +83,8 @@ export interface OrderToolContext {
   output: OutputState;
   /** A draft stored before the customer's newest message: the only one this turn can confirm or cancel. */
   confirmable: boolean;
+  /** The customer's newest messages (after the shop's last one): a plain yes confirms (R5-1). */
+  customerBlock?: string;
   state: OrderToolState;
   /** Logs a failure the turn survives (the error class only). */
   onError?: (error: unknown) => void;
@@ -267,6 +270,17 @@ export function orderTools(ctx: OrderToolContext): {
           {
             ok: false,
             error: state.undelivered ? 'not_delivered_retry_next_turn' : 'already_sent',
+          },
+          false,
+        );
+      // R5-1: "Ok đúng rồi, chị xác nhận đặt đơn" answers the summary that waits; preparing it
+      // again would only re-send it and ask for a second yes.
+      if (draftOpen() && isOrderAgreement(ctx.customerBlock ?? ''))
+        return reply(
+          {
+            ok: false,
+            error: 'summary_waiting',
+            hint: 'The customer agreed to the order summary already sent: call confirm_order now and give the order code from its result.',
           },
           false,
         );

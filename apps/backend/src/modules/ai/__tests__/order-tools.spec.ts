@@ -293,6 +293,33 @@ describe('order tools (spec §4.1)', () => {
     });
   });
 
+  it('refuses to re-prepare a waiting summary the customer just agreed to (R5-1)', async () => {
+    const facade = fakeCommerce({ storedAt: new Date(Date.now() - 60_000) });
+    const ctx = context(facade, {
+      confirmable: true,
+      customerBlock: 'Ok đúng rồi, chị xác nhận đặt đơn',
+    });
+    const out = await runnable(ctx, PREPARE_ORDER_TOOL).run(ORDER_INPUT);
+    expect(out.ok).toBe(false);
+    expect(JSON.parse(out.content)).toMatchObject({ ok: false, error: 'summary_waiting' });
+    expect(facade.prepareBotOrder).not.toHaveBeenCalled();
+    const confirmed = await runnable(ctx, CONFIRM_ORDER_TOOL).run({});
+    expect(JSON.parse(confirmed.content)).toEqual({ ok: true, orderCode: 'DH0042' });
+  });
+
+  it('still re-prepares on a change, or when no summary waits (R5-1)', async () => {
+    const waiting = () => fakeCommerce({ storedAt: new Date(Date.now() - 60_000) });
+    const changed = waiting();
+    const change = context(changed, { confirmable: true, customerBlock: 'ok đổi sang 3 bộ nhé' });
+    expect((await runnable(change, PREPARE_ORDER_TOOL).run(ORDER_INPUT)).ok).not.toBe(false);
+    expect(changed.prepareBotOrder).toHaveBeenCalledTimes(1);
+    // A first "ok, lấy luôn" with no summary from an earlier turn prepares one.
+    const fresh = fakeCommerce();
+    const first = context(fresh, { customerBlock: 'ok lấy luôn' });
+    expect((await runnable(first, PREPARE_ORDER_TOOL).run(ORDER_INPUT)).ok).not.toBe(false);
+    expect(fresh.prepareBotOrder).toHaveBeenCalledTimes(1);
+  });
+
   it('confirm refuses a draft stored in the same turn', async () => {
     const facade = fakeCommerce({ storedAt: new Date(Date.now() - 60_000) });
     const ctx = context(facade, { confirmable: true });

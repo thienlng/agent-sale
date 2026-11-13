@@ -1,0 +1,54 @@
+id: tinymind-order-confirm-plain-yes
+group: orders
+tags: []
+bot:
+  industry: retail
+  name: TinyMind
+  orderTaking: true
+  orderShippingFeeVnd: 30000
+  profile:
+    fields: { displayName: TinyMind }
+    notes: 'Shop bán đồ chơi gỗ Montessori cho bé.'
+products:
+  - name: 'Xương rồng gỗ xếp thăng bằng'
+    code: TM-002
+    description: 'Bộ xương rồng gỗ xếp thăng bằng, phù hợp bé từ 2 tuổi trở lên.'
+    variants:
+      - { name: 'Tiêu chuẩn', sku: TM-002-STD, price: 460000, stock: 8 }
+# R5-1: a written yes ("Ok đúng rồi, chị xác nhận đặt đơn") to the summary sent last turn places the
+# order; it never re-sends the summary and asks for a second yes.
+order_draft:
+  items: [{ sku: TM-002-STD, qty: 1 }]
+  recipient:
+    name: 'Lê Thu Trang'
+    phone: '0905 111 222'
+    address: '25 Nguyễn Văn Linh, Hải Châu, Đà Nẵng'
+conversation:
+  - customer: 'Chị lấy 1 xương rồng gỗ xếp thăng bằng nhé. Tên Lê Thu Trang, sđt 0905 111 222, địa chỉ 25 Nguyễn Văn Linh, Hải Châu, Đà Nẵng'
+  - bot: "Dạ em tóm tắt đơn của mình ạ:\n• Xương rồng gỗ xếp thăng bằng (Tiêu chuẩn) ×1 — 460.000đ\nPhí ship: 30.000đ\nTổng: 490.000đ\nNgười nhận: Lê Thu Trang · 0905 111 222\nĐịa chỉ: 25 Nguyễn Văn Linh, Hải Châu, Đà Nẵng"
+  - customer: 'Ok đúng rồi, chị xác nhận đặt đơn'
+expect:
+  outcome: answered
+  steps_succeeded: ['confirm_order']
+  steps_not_succeeded: ['prepare_order']
+  order_created: true
+  contains_all: ['DH000001']
+fake_turns:
+  - tool_calls:
+      [
+        {
+          name: prepare_order,
+          input:
+            {
+              items: [{ sku: TM-002-STD, qty: 1 }],
+              recipient:
+                {
+                  name: 'Lê Thu Trang',
+                  phone: '0905 111 222',
+                  address: '25 Nguyễn Văn Linh, Hải Châu, Đà Nẵng',
+                },
+            },
+        },
+      ]
+  - tool_calls: [{ name: confirm_order, input: {} }]
+  - text: 'Dạ em đã tạo đơn DH000001 cho chị ạ. Shop sẽ gọi xác nhận trước khi gửi hàng ạ.'
