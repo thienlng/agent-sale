@@ -133,6 +133,7 @@ import {
   runBase,
   turnMessages,
   turnTools,
+  writesEnglish,
 } from './reply-pipeline.js';
 import { ReplyGuard } from './reply-guard.js';
 import type { RequestToolContext } from './request-tools.js';
@@ -423,6 +424,10 @@ export class PlaygroundService implements AiFacade {
     const hotel = Boolean(this.lodgingBot && this.lodgingCatalog && bot.industry === 'hotel');
     // VL2-4 / VL2-5: the holds the bot placed earlier in this conversation (its messages name them).
     const earlierHolds = hotel && !isCommentReply ? holdCodesIn(input.messages) : [];
+    // VL4-1: an English-speaking guest (a button tap is not their language) gets English holds.
+    const guestWords = [...customerTexts].reverse().find((t) => !/^\W*(✅|✏️)/u.test(t));
+    const holdLanguage: 'vi' | 'en' =
+      bot.language === 'en' || writesEnglish(guestWords) ? 'en' : 'vi';
     const holds =
       this.lodgingBot && this.lodgingCatalog && hotel
         ? await hotelHoldContext({
@@ -441,6 +446,7 @@ export class PlaygroundService implements AiFacade {
             warn: (message) => this.#logger.warn(message),
             customerTexts,
             earlierHolds,
+            language: holdLanguage,
           })
         : null;
     const lodgingBlocks =
@@ -761,7 +767,7 @@ export class PlaygroundService implements AiFacade {
     if (held) {
       decision = announceCreated(decision, {
         code: held.code,
-        line: holdCreatedText(held.code, held.expiresAt, held.replaced),
+        line: holdCreatedText(held.code, held.expiresAt, held.replaced, holdLanguage),
         sentTexts: output.sent.map((m) => m.text),
         fallback: fallbackText(bot),
         // The code alone is not enough: the customer must also read until when it is held.

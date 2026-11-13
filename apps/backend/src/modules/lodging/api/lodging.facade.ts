@@ -186,6 +186,8 @@ export interface PrepareBotHoldInput {
    * the new stay and it is cancelled when the new hold is placed.
    */
   earlierHolds?: string[];
+  /** VL4-1: the language of the summary (default Vietnamese). */
+  language?: 'vi' | 'en';
 }
 
 /** One hold the bot placed in this conversation, as the bot may restate it (VL2-5). */

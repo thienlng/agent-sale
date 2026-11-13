@@ -275,6 +275,7 @@ export class LodgingBotHolds implements LodgingBotFacade {
             name: pk.name,
           })),
           replaces: replaced?.code ?? null,
+          ...(input.language ? { language: input.language } : {}),
         }),
       };
     });

@@ -901,3 +901,22 @@ describe('earlier holds of the conversation (VL2-4, VL2-5, VL2-6)', () => {
     expect(held).toContain('from 12 counted as adults');
   });
 });
+
+describe('English-speaking guest (VL4-1)', () => {
+  it('asks for an English summary with English buttons, and an English hold line', async () => {
+    const facade = fakeLodging();
+    const ctx = context(facade, { language: 'en' });
+    await tool(ctx, PREPARE_HOLD_TOOL).run(HOLD);
+    expect(facade.prepareBotHold).toHaveBeenCalledWith(
+      ws,
+      expect.objectContaining({ language: 'en' }),
+    );
+    expect(ctx.output.sent.at(-1)?.quickReplies?.map((q) => q.title)).toEqual([
+      '✅ Hold it',
+      '✏️ Edit details',
+    ]);
+    expect(holdCreatedText('BK-0017', '2026-11-01T09:30:00.000Z', 'BK-0016', 'en')).toBe(
+      'Your stay is held under code BK-0017 until 16:30 on 01/11. The earlier hold BK-0016 has been cancelled. Our staff will call you to confirm.',
+    );
+  });
+});

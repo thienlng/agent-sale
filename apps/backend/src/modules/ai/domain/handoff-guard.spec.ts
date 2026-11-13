@@ -217,10 +217,15 @@ describe('handoffVerdict: refused once (VL2-1, the Tam Dao Villas wave-2 turns)'
 });
 
 describe('isPlainAgreement (VL2-4)', () => {
-  it.each(['✅ Giữ chỗ', 'ok giữ luôn cho anh', 'chốt nhé em', 'Yes please', 'ok', 'đồng ý'])(
-    '%s agrees',
-    (text) => expect(isPlainAgreement(text)).toBe(true),
-  );
+  it.each([
+    '✅ Giữ chỗ',
+    '✅ Hold it',
+    'ok giữ luôn cho anh',
+    'chốt nhé em',
+    'Yes please',
+    'ok',
+    'đồng ý',
+  ])('%s agrees', (text) => expect(isPlainAgreement(text)).toBe(true));
   it.each(['ok đổi sang 3 người', 'ok nhưng cho anh hỏi giá', '✏️ Sửa thông tin', 'cọc bao nhiêu'])(
     '%s is not a plain agreement',
     (text) => expect(isPlainAgreement(text)).toBe(false),

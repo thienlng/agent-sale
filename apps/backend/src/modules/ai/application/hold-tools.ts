@@ -40,6 +40,11 @@ export const HOLD_QUICK_REPLIES: readonly QuickReply[] = [
   { title: '✅ Giữ chỗ', payload: HOLD_CONFIRM_PAYLOAD },
   { title: '✏️ Sửa thông tin', payload: 'HOLD_EDIT' },
 ];
+/** The same buttons for an English-speaking guest (VL4-1). */
+export const HOLD_QUICK_REPLIES_EN: readonly QuickReply[] = [
+  { title: '✅ Hold it', payload: HOLD_CONFIRM_PAYLOAD },
+  { title: '✏️ Edit details', payload: 'HOLD_EDIT' },
+];
 
 const Day = z
   .string()
@@ -142,6 +147,8 @@ export interface HoldToolContext {
    * new hold of the same property and guest replaces one of them.
    */
   earlierHolds?: readonly string[];
+  /** VL4-1: the guest writes English: summary, buttons and the placed-hold line in English. */
+  language?: 'vi' | 'en';
   state: HoldToolState;
   /** Logs a failure the turn survives (the error class only). */
   onError?: (error: unknown) => void;
@@ -189,8 +196,18 @@ export function localHoldTime(iso: string): { time: string; day: string } | null
  * The line that tells the customer the hold's code and until when it is held (when known), and
  * the earlier hold it replaced (VL2-4).
  */
-export function holdCreatedText(code: string, expiresAt: string, replaced?: string): string {
+export function holdCreatedText(
+  code: string,
+  expiresAt: string,
+  replaced?: string,
+  language: 'vi' | 'en' = 'vi',
+): string {
   const until = localHoldTime(expiresAt);
+  if (language === 'en') {
+    const at = until ? ` until ${until.time} on ${until.day}` : '';
+    const earlierEn = replaced ? ` The earlier hold ${replaced} has been cancelled.` : '';
+    return `Your stay is held under code ${code}${at}.${earlierEn} Our staff will call you to confirm.`;
+  }
   const when = until ? ` đến ${until.time} ngày ${until.day}` : '';
   const earlier = replaced ? ` Giữ chỗ ${replaced} trước đó đã được huỷ ạ.` : '';
   return `Dạ em đã giữ chỗ ${code}${when} ạ.${earlier} Nhân viên sẽ gọi xác nhận sớm ạ.`;
@@ -480,6 +497,7 @@ export function holdTools(ctx: HoldToolContext): {
           ...(args.note?.trim() ? { note: args.note.trim() } : {}),
           ...(rooms.packages.length ? { packages: rooms.packages } : {}),
           ...(ctx.earlierHolds?.length ? { earlierHolds: [...ctx.earlierHolds] } : {}),
+          ...(ctx.language === 'en' ? { language: 'en' as const } : {}),
         });
       } catch (error) {
         if (isValidationFailure(error)) return reply(INVALID_REQUEST, false);
@@ -500,7 +518,9 @@ export function holdTools(ctx: HoldToolContext): {
       const message: OutgoingMessage = {
         text: res.summary,
         images: [],
-        quickReplies: HOLD_QUICK_REPLIES.map((q) => ({ ...q })),
+        quickReplies: (ctx.language === 'en' ? HOLD_QUICK_REPLIES_EN : HOLD_QUICK_REPLIES).map(
+          (q) => ({ ...q }),
+        ),
       };
       state.summarySent = true;
       let sent: { delivered: number; complete?: boolean } = { delivered: 1 };
@@ -628,6 +648,8 @@ export async function hotelHoldContext(input: {
   customerTexts?: readonly string[];
   /** Codes of the bot's earlier holds in this conversation ({@link holdCodesIn}). */
   earlierHolds?: readonly string[];
+  /** The guest writes English (VL4-1). */
+  language?: 'vi' | 'en';
 }): Promise<HoldToolContext> {
   const { facade, ws, conversationId, lodging } = input;
   const errorName = (error: unknown) => (error instanceof Error ? error.name : 'unknown error');
@@ -655,6 +677,7 @@ export async function hotelHoldContext(input: {
       )),
     ...(input.customerTexts ? { customerTexts: input.customerTexts } : {}),
     ...(input.earlierHolds?.length ? { earlierHolds: input.earlierHolds } : {}),
+    ...(input.language ? { language: input.language } : {}),
     state: newHoldToolState(),
     onError: (error) => input.warn(`Hold draft drop failed: ${errorName(error)}`),
   };

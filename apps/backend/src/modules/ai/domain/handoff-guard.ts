@@ -82,12 +82,12 @@ const HAGGLING =
   /\b(giam gia|bot (gia|chut|cho)|giam (chut|them|cho)|re hon|dat qua|mac qua|chiet khau|khuyen mai|discount|cheaper|too expensive|best price|ben (kia|khac)|homestay [a-z]+ bao gia)\b/;
 
 const AGREEMENT_WORDS = new Set(
-  'ok oke okay okie okela uh u um vang da duoc dc chot dong y yes yep yeah sure confirm confirmed xac nhan giu dat lay'.split(
+  'ok oke okay okie okela uh u um vang da duoc dc chot dong y yes yep yeah sure confirm confirmed xac nhan giu dat lay hold'.split(
     ' ',
   ),
 );
 const FILLER_WORDS = new Set(
-  'cho cho anh chi em minh toi tui mk nhe nha nhen di a luon voi giup the vay roi ha nhi lai please thanks thank you great it that hold book go ahead nhanh'.split(
+  'cho cho anh chi em minh toi tui mk nhe nha nhen di a luon voi giup the vay roi ha nhi lai please thanks thank you great it that book go ahead nhanh details'.split(
     ' ',
   ),
 );
@@ -315,7 +315,7 @@ export function handoffVerdict(input: HandoffGuardInput): HandoffVerdict {
     return refuse(
       'unknown_fact',
       null,
-      "A fact the shop has not given is not a handoff: say briefly that you do not have that information and offer to take the customer's phone number so staff can answer.",
+      "A fact the shop has not given is not a handoff: say briefly that you do not have that information and offer to take the customer's phone number so staff can answer (when they already gave one, say staff will answer on that number instead of asking again).",
     );
   if (phone) return { allow: true, why: 'call_back_phone' };
   return { allow: true, why: 'no_rule' };
