@@ -59,6 +59,14 @@ describe('normalizeAnyPhone', () => {
     expect(normalizeVnPhone('0243 999 8888')).toBeNull();
     expect(normalizeAnyPhone('0243 999 888')).toBeNull();
   });
+  it('keeps international numbers given with + or the 00 call prefix (VL3-3b)', () => {
+    expect(normalizeAnyPhone('+61 412 345 678')).toBe('+61412345678');
+    expect(normalizeAnyPhone('0061 412 345 678')).toBe('+61412345678');
+    expect(normalizeAnyPhone('+44 20 7946 0958')).toBe('+442079460958');
+    expect(normalizeAnyPhone('0084 912 345 678')).toBe('+84912345678');
+    // Without a country code a foreign number is not recognisable.
+    expect(normalizeAnyPhone('412 345 678 91')).toBeNull();
+  });
   it('keeps foreign numbers written with a country code', () => {
     expect(normalizeAnyPhone('+1 (555) 123-4567')).toBe('+15551234567');
   });

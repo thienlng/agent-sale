@@ -128,14 +128,16 @@ export function normalizeVnLandline(input: string): string | null {
 
 /**
  * Normalizes any usable phone input to E.164: Vietnamese mobiles via
- * normalizeVnPhone, Vietnamese landlines (LM2-7), other numbers written with a `+` country code
- * as `+digits` (8–15 digits). Returns null for anything else (text, a short or unknown number).
+ * normalizeVnPhone, Vietnamese landlines (LM2-7), other numbers written with a `+` (or `00`)
+ * country code as `+digits` (8–15 digits, E.164; VL3-3b). Returns null for anything else (text, a short or unknown number).
  * Used for customer identity and duplicate detection.
  */
 export function normalizeAnyPhone(input: string): string | null {
-  const vn = normalizeVnPhone(input) ?? normalizeVnLandline(input);
+  // "00" is the international call prefix: "0061 412 345 678" is "+61 412 345 678" (VL3-3b).
+  const dialled = input.trim().replace(/^00(?=[1-9])/, '+');
+  const vn = normalizeVnPhone(dialled) ?? normalizeVnLandline(dialled);
   if (vn) return vn;
-  const trimmed = input.trim();
+  const trimmed = dialled;
   const digits = trimmed.replace(/\D/g, '');
   return /^\+|^\(\+/.test(trimmed) && digits.length >= 8 && digits.length <= 15
     ? `+${digits}`

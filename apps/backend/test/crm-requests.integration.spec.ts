@@ -605,6 +605,29 @@ describe('request phones (LM2-7)', () => {
     const res = await record(a.ws, 'consultation', { name: 'Anh Tùng', phone: '0243 999 8888' });
     expect(res).toMatchObject({ outcome: 'recorded', phoneE164: '+842439998888' });
   });
+
+  it('records a request left with an international number, and a contact keeps it (VL3-3b)', async () => {
+    const a = await owner('spa');
+    const res = await record(a.ws, 'consultation', {
+      name: 'Emily Carter',
+      phone: '+61 412 345 678',
+    });
+    expect(res).toMatchObject({ outcome: 'recorded', phoneE164: '+61412345678' });
+    const contact = (await call(a.headers, 'GET', `/contacts/${contactIdOf(res)}`)).json();
+    expect(contact.phoneNormalized).toBe('+61412345678');
+    // The same number written with the 00 prefix finds the same customer.
+    const again = await record(a.ws, 'consultation', {
+      name: 'Emily Carter',
+      phone: '0061 412 345 678',
+      note: 'gọi sau 5h chiều',
+    });
+    expect(again).toMatchObject({ contactId: contactIdOf(res) });
+    const created = await call(a.headers, 'POST', '/contacts', {
+      name: 'John Smith',
+      phone: '+44 20 7946 0958',
+    });
+    expect(created.json().phoneNormalized).toBe('+442079460958');
+  });
 });
 
 describe('request access', () => {
