@@ -20,6 +20,7 @@ import {
   slotChanged,
   slotTime,
   UPDATE_WINDOW_MS,
+  withoutDay,
   withCatalogItem,
 } from './customer-request.js';
 
@@ -198,6 +199,22 @@ describe('reschedules (MS-10)', () => {
     expect(
       slotChanged(earlier, { name: 'Thư', service: 'Phun môi', preferredDate: '2026-11-17' }),
     ).toBe(true);
+  });
+
+  it('names the day once, from the date, even when the time words repeat it (LM3-10)', () => {
+    expect(
+      requestTaskTitle(
+        spa,
+        'appointment',
+        { name: 'Chị Hân', preferredTime: '9h sáng Chủ nhật' },
+        'Chủ Nhật 15/11/2026',
+        false,
+      ),
+    ).toBe('Xác nhận – Đặt lịch: Chị Hân – Chủ Nhật 15/11/2026 9h sáng');
+    expect(withoutDay('chiều thứ 7 15/11 lúc 4h')).toBe('chiều lúc 4h');
+    expect(withoutDay('around 3pm')).toBe('around 3pm');
+    expect(withoutDay('9h thứ tư')).toBe('9h');
+    expect(withoutDay('Chủ nhật')).toBe('');
   });
 
   it('titles the staff task by kind, name and slot', () => {

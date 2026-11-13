@@ -180,6 +180,19 @@ export const REQUEST_TASK_SUBJECT = 'customer_request';
 /** Title prefix of that task once the customer moved a confirmed slot. */
 export const RESCHEDULED_PREFIX = 'Khách đổi lịch';
 
+/** Weekday names and d/m dates in a time wish ("9h sáng Chủ nhật 15/11"), for removal. */
+const DAY_WORDS =
+  /\s*(?:(?:vào\s+)?(?:thứ\s*(?:hai|ba|tư|tu|năm|nam|sáu|sau|bảy|bay|[2-7])|chủ\s*nhật|chu\s*nhat|cn)(?![\p{L}\p{N}])|\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|ngày(?![\p{L}\p{N}]))/giu;
+
+/** A time wish without the day it may repeat: "9h sáng Chủ nhật 15/11" → "9h sáng". */
+export function withoutDay(time: string): string {
+  return time
+    .replace(DAY_WORDS, ' ')
+    .replace(/\s*[,–-]\s*$/u, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /**
  * The staff task's title for a request (≤ 200 chars): "Xác nhận – <kind>: <name> – <day time>",
  * or "Khách đổi lịch – <kind>: …" when the customer moved a confirmed slot.
@@ -193,7 +206,9 @@ export function requestTaskTitle(
 ): string {
   const text = (k: string) => (typeof details[k] === 'string' ? (details[k] as string).trim() : '');
   const what = profile.kindLabels[kind] ?? kind;
-  const when = [label, text('preferredTime')].filter(Boolean).join(' ');
+  // The day comes once, from the structured date: the customer's time words may repeat it.
+  const time = label ? withoutDay(text('preferredTime')) : text('preferredTime');
+  const when = [label, time].filter(Boolean).join(' ');
   const who = [text('name'), when].filter(Boolean).join(' – ');
   const head = `${rescheduled ? RESCHEDULED_PREFIX : 'Xác nhận'} – ${what}`;
   return (who ? `${head}: ${who}` : head).slice(0, 200);
