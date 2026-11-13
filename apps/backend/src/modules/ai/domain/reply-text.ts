@@ -19,21 +19,32 @@ export function normalizeReplyText(text: string): string {
 
 // Scripts a Vietnamese shop chat never uses; the model sometimes leaks a character ("સố", "જો").
 const FOREIGN_SCRIPTS =
-  /[\p{Script=Gujarati}\p{Script=Devanagari}\p{Script=Bengali}\p{Script=Gurmukhi}\p{Script=Oriya}\p{Script=Tamil}\p{Script=Telugu}\p{Script=Kannada}\p{Script=Malayalam}\p{Script=Sinhala}\p{Script=Arabic}\p{Script=Hebrew}\p{Script=Armenian}\p{Script=Georgian}\p{Script=Ethiopic}]+/gu;
+  /[\p{Script=Gujarati}\p{Script=Devanagari}\p{Script=Bengali}\p{Script=Gurmukhi}\p{Script=Oriya}\p{Script=Tamil}\p{Script=Telugu}\p{Script=Kannada}\p{Script=Malayalam}\p{Script=Sinhala}\p{Script=Arabic}\p{Script=Hebrew}\p{Script=Armenian}\p{Script=Georgian}\p{Script=Ethiopic}]+/u;
+// `.test` needs a regex without the `g` flag (no `lastIndex` state); `.replace` needs it.
+const FOREIGN_SCRIPTS_ALL = new RegExp(FOREIGN_SCRIPTS.source, 'gu');
 
 /** TM-22: stray characters of scripts no Vietnamese chat uses are dropped. */
 export function withoutForeignScripts(text: string): string {
   return FOREIGN_SCRIPTS.test(text)
     ? text
-        .replace(FOREIGN_SCRIPTS, '')
+        .replace(FOREIGN_SCRIPTS_ALL, '')
         .replace(/[ \t]{2,}/g, ' ')
         .replace(/ +([.,!?])/g, '$1')
     : text;
 }
 
 // A line about the message instead of to the customer: the model's own reasoning (TM3-8).
-const META_LINE =
-  /^\s*(tin nhắn này|câu (này|hỏi này)|khách (đang|muốn|hỏi|vừa|chỉ)|người dùng|this message|the (customer|user) (is|wants|asks))(?![\p{L}])/iu;
+// Only clear reasoning openers: "Khách muốn đổi size thì nhắn shop…" is a real answer (review
+// 2026-11-13), "Khách hỏi: …" / "Khách đang chào." describing the message is not.
+const META_LINE = new RegExp(
+  [
+    String.raw`^\s*(tin nhắn này|câu (này|hỏi này) (là|thuộc|chỉ|không cần))(?![\p{L}])`,
+    String.raw`^\s*(khách( hàng)?|người dùng) (đang|muốn|hỏi|vừa|chỉ|chào|gửi)[^\n]{0,60}[:"“]`,
+    String.raw`^\s*(khách( hàng)?|người dùng) (đang|vừa|chỉ) (chào|hỏi thăm|cảm ơn|gửi lời)(?![\p{L}])`,
+    String.raw`^\s*(this message|the (customer|user) (is|wants|asks|just|only))(?![\p{L}])`,
+  ].join('|'),
+  'iu',
+);
 
 /** TM3-8: lines that describe the message ("Tin nhắn này là câu chào…") are not sent. */
 export function withoutMetaLines(text: string): string {
@@ -43,71 +54,85 @@ export function withoutMetaLines(text: string): string {
     .join('\n');
 }
 
-/** A sentence as compared for repeats: its words without a "Dạ"/"Vâng" lead, accents or case. */
-const wordsOf = (text: string): Set<string> =>
-  new Set(
-    foldVietnamese(text)
-      .replace(/^\W*(da|vang|yes|ok)\b/u, '')
-      .split(/[^a-z0-9]+/)
-      .filter(Boolean),
-  );
+/** A sentence's words as compared for repeats: no "Dạ"/"Vâng" lead, accents, case or marks. */
+const wordsOf = (text: string): string[] =>
+  foldVietnamese(text)
+    .replace(/^\W*(da|vang|yes|ok)\b/u, '')
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+
+/** The same words, the same number of times each (order, accents, case and marks ignored). */
+const sameWords = (a: readonly string[], b: readonly string[]): boolean =>
+  a.length === b.length && [...a].sort().join(' ') === [...b].sort().join(' ');
+
+// Words that carry no fact of their own (particles, pronouns, linking verbs). Negations
+// ("không", "chưa") are facts and never in this list.
+const FUNCTION_WORDS = new Set(
+  'da vang a ah oi nhe nha nhen the thi la co duoc se dang roi nay do va voi cua cho de ma nen em anh chi minh ban hay rat cung van ve'.split(
+    ' ',
+  ),
+);
+
+/** A list item ("- Áo size L: 150.000đ", "1. …", "• …"): only ever dropped as an exact repeat. */
+const LIST_ITEM = /^\s*[-•*\d]/u;
+
+/** Below this many words a sentence is only ever dropped as an exact repeat. */
+const REWORD_MIN_WORDS = 6;
 
 /**
- * `later` says nothing `earlier` did not: a short one (under 6 words) has the same words, a longer
- * one has at least 80% of its own words in `earlier` (LM3-1: a reworded repeat). A figure of
- * `later` that `earlier` lacks always keeps it (R5-4: "EVANI tiêu chuẩn 24 người lớn" then
- * "…tiêu chuẩn 24 người lớn, tối đa 35 khách" is new information, never a repeat).
+ * LM3-1 / R5-6: `later` rewords a text already SENT this turn: it has 6 words or more, and every
+ * one of its words except particles and pronouns (every figure, name, size, place, negation) is
+ * in `earlier`. "phòng Deluxe hướng vườn" never rewords "phòng Deluxe hướng biển".
  */
-function repeats(later: Set<string>, earlier: Set<string>): boolean {
-  for (const w of later) if (/\d/.test(w) && !earlier.has(w)) return false;
-  if (later.size < 6) return later.size === earlier.size && [...later].every((w) => earlier.has(w));
-  let shared = 0;
-  for (const w of later) if (earlier.has(w)) shared += 1;
-  return shared / later.size >= 0.8;
+function rewords(later: readonly string[], earlier: ReadonlySet<string>): boolean {
+  if (later.length < REWORD_MIN_WORDS) return false;
+  return later.every((w) => FUNCTION_WORDS.has(w) || earlier.has(w));
 }
 
 const SENTENCE_END = /(?<=[.!?…])\s+/u;
 
 /**
- * Drops every sentence of `text` that repeats one said before it: in `said` (texts already sent
- * this turn) or earlier in `text`. A line keeps its other sentences; a line left with none goes;
- * blank lines stay as they are.
+ * Drops the sentences of `text` that repeat what was said before them. Inside `text` only an
+ * exact repeat goes (the same words: two list items, villas or sizes that differ in one word both
+ * stay, review 2026-11-13). Against `sent` (texts already sent this turn) a reworded repeat goes
+ * too ({@link rewords}), except for list items. A line keeps its other sentences; a line left with
+ * none goes; blank lines stay as they are.
  */
-function withoutRepeats(text: string, said: readonly string[]): string {
-  const seen: Set<string>[] = [];
-  const remember = (part: string) => {
-    const words = wordsOf(part);
-    if (words.size) seen.push(words);
-  };
-  for (const line of said.flatMap((t) => t.split('\n'))) {
-    remember(line);
-    line.split(SENTENCE_END).forEach(remember);
-  }
+function withoutRepeats(text: string, sent: readonly string[]): string {
+  const sentParts = sent
+    .flatMap((t) => t.split('\n'))
+    .flatMap((line) => [line, ...line.split(SENTENCE_END)])
+    .map(wordsOf)
+    .filter((w) => w.length > 0);
+  const sentSets = sentParts.map((w) => new Set(w));
+  const own: string[][] = [];
   const kept: string[] = [];
   for (const line of text.split('\n')) {
-    if (!wordsOf(line).size) {
+    if (!wordsOf(line).length) {
       kept.push(line);
       continue;
     }
+    const listItem = LIST_ITEM.test(line);
     const sentences = line.split(SENTENCE_END);
     const fresh = sentences.filter((sentence) => {
       const words = wordsOf(sentence);
-      if (!words.size) return true;
-      if (seen.some((earlier) => repeats(words, earlier))) return false;
-      seen.push(words);
+      if (!words.length) return true;
+      const repeat =
+        [...own, ...sentParts].some((earlier) => sameWords(words, earlier)) ||
+        (!listItem && sentSets.some((earlier) => rewords(words, earlier)));
+      if (repeat) return false;
+      own.push(words);
       return true;
     });
-    if (!fresh.some((sentence) => wordsOf(sentence).size)) continue;
-    remember(line);
+    if (!fresh.some((sentence) => wordsOf(sentence).length)) continue;
     kept.push(fresh.length === sentences.length ? line : fresh.join(' '));
   }
   return kept.join('\n');
 }
 
 /**
- * TM-22 / R5-6: the model sometimes writes the same sentence twice in one answer, or rewords it
- * (LM3-1). A sentence that repeats an earlier one is dropped (see {@link repeats}); blank lines
- * stay as they are.
+ * TM-22: the model sometimes writes the same sentence twice in one answer. A sentence with exactly
+ * the words of an earlier one is dropped; anything that differs in a word stays; blank lines stay.
  */
 export function withoutRepeatedLines(text: string): string {
   return withoutRepeats(text, []);
@@ -115,8 +140,8 @@ export function withoutRepeatedLines(text: string): string {
 
 /**
  * VL-B8 / R5-6: the final answer must not repeat what `send_message` already sent this turn: every
- * sentence of the answer that a sent message already said (or reworded) is dropped. Returns ''
- * when nothing new is left.
+ * sentence of the answer that a sent message already said, or reworded without a new fact, is
+ * dropped. Returns '' when nothing new is left.
  */
 export function withoutSentLines(answer: string, sent: readonly string[]): string {
   return withoutRepeats(answer, sent).trim();

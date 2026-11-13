@@ -27,6 +27,13 @@ describe('isOrderAgreement (R5-1)', () => {
       'ok lấy 3 cái',
       '✏️ Sửa thông tin',
       'ok\nà đổi địa chỉ giúp chị',
+      // Review 2026-11-13: an acknowledgement alone is no agreement to the summary.
+      'dạ',
+      'dạ em',
+      'vâng',
+      'ok shop',
+      'ok',
+      'nhận hàng rồi nhé',
     ])
       expect(isOrderAgreement(text), text).toBe(false);
   });

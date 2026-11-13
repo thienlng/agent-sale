@@ -410,8 +410,12 @@ describe('asksForRequest (LM3-2)', () => {
       'có học thử ko em',
       'Chị là Hương, 0912 888 777, con chị đang A2 mà học mãi không tiến bộ, trung tâm làm ăn kiểu gì vậy',
       'học phí khoá IELTS bao nhiêu',
+      // Review 2026-11-13: "book" / "trial" are whole words only.
+      'mình thấy bên em trên facebook, khoá A2 học mấy buổi',
+      'industrial English có không',
     ])
       expect(asksForRequest([not]), not).toBe(false);
+    expect(asksForRequest(['I want to book a trial class'])).toBe(true);
   });
 });
 

@@ -116,14 +116,71 @@ describe('normalizeReplyText: stray scripts and meta lines (TM-22, TM3-8)', () =
   });
 });
 
-describe('normalizeReplyText: reworded repeats (LM3-1)', () => {
-  it('drops a line that rewords an earlier one, keeps different lines', () => {
-    expect(
-      normalizeReplyText(
-        'Lớp nhóm có sĩ số 8–10 học viên, học phí liên hệ ạ.\nDạ lớp nhóm sĩ số 8–10 học viên, học phí là liên hệ.\nLớp 1-1 học theo lịch riêng ạ.',
-      ),
-    ).toBe('Lớp nhóm có sĩ số 8–10 học viên, học phí liên hệ ạ.\nLớp 1-1 học theo lịch riêng ạ.');
+describe('reworded repeats (LM3-1)', () => {
+  const said = 'Lớp nhóm có sĩ số 8–10 học viên, học phí liên hệ ạ.';
+  const reworded = 'Dạ lớp nhóm sĩ số 8–10 học viên, học phí là liên hệ.';
+
+  it('drops a final line that rewords a message already sent this turn', () => {
+    expect(withoutSentLines(`${reworded}\nLớp 1-1 học theo lịch riêng ạ.`, [said])).toBe(
+      'Lớp 1-1 học theo lịch riêng ạ.',
+    );
+  });
+
+  it('inside one answer drops only an exact repeat (review 2026-11-13)', () => {
+    expect(normalizeReplyText(`${said}\n${reworded}`)).toBe(`${said}\n${reworded}`);
+    expect(normalizeReplyText(`${said}\nDạ ${said.toLowerCase()}`)).toBe(said);
     expect(normalizeReplyText('Dạ có ạ.\nDạ có size 41 ạ.')).toBe('Dạ có ạ.\nDạ có size 41 ạ.');
+  });
+});
+
+describe('lines that differ in one word are never dropped (review 2026-11-13)', () => {
+  it('keeps list items, villas and rooms that differ in a size, name or view', () => {
+    for (const text of [
+      '- Áo thun trắng size M: 150.000đ\n- Áo thun trắng size L: 150.000đ',
+      '- Villa A: 2.500.000đ/đêm\n- Villa B: 2.500.000đ/đêm',
+      '- Áo polo đen size M x1\n- Áo polo đen size L x1\nTổng: 300.000đ',
+      'Phòng Deluxe hướng biển còn trống tối thứ Bảy ạ.\nPhòng Deluxe hướng vườn còn trống tối thứ Bảy ạ.',
+    ])
+      expect(normalizeReplyText(text), text).toBe(text);
+  });
+
+  it('never suppresses a final answer that differs from a sent message in a content word', () => {
+    expect(
+      withoutSentLines('Dạ phòng Deluxe hướng vườn còn trống ạ.', [
+        'Dạ phòng Deluxe hướng biển còn trống ạ.',
+      ]),
+    ).toBe('Dạ phòng Deluxe hướng vườn còn trống ạ.');
+    expect(
+      withoutSentLines('Dạ phòng Deluxe hướng biển không còn trống ạ.', [
+        'Dạ phòng Deluxe hướng biển còn trống ạ.',
+      ]),
+    ).toBe('Dạ phòng Deluxe hướng biển không còn trống ạ.');
+    // A list item already sent is dropped only when it is the same item.
+    expect(withoutSentLines('- Áo thun trắng size L', ['- Áo thun trắng size M size L'])).toBe(
+      '- Áo thun trắng size L',
+    );
+    expect(withoutSentLines('- Áo thun trắng size L', ['- Áo thun trắng size L'])).toBe('');
+  });
+});
+
+describe('meta lines (TM3-8, review 2026-11-13)', () => {
+  it('drops only clear reasoning about the message, never an answer about customers', () => {
+    expect(normalizeReplyText('Dạ em đây ạ.\nKhách hỏi: "shop mở cửa mấy giờ".')).toBe(
+      'Dạ em đây ạ.',
+    );
+    expect(normalizeReplyText('Dạ em đây ạ.\nNgười dùng đang chào hỏi.')).toBe('Dạ em đây ạ.');
+    expect(normalizeReplyText('Dạ em đây ạ.\nThe customer is greeting.')).toBe('Dạ em đây ạ.');
+    for (const answer of [
+      'Khách muốn đổi size thì nhắn shop trong 7 ngày ạ.',
+      'Khách đang dùng thuốc nên hỏi bác sĩ trước khi làm liệu trình ạ.',
+      'Người dùng được tạo tối đa 5 tài khoản ạ.',
+    ])
+      expect(normalizeReplyText(answer), answer).toBe(answer);
+  });
+
+  it('checks stray scripts the same way on every call (no regex state)', () => {
+    expect(normalizeReplyText('Dạ giá 340.000đ ạ જો.')).toBe('Dạ giá 340.000đ ạ.');
+    expect(normalizeReplyText('Dạ giá 340.000đ ạ જો.')).toBe('Dạ giá 340.000đ ạ.');
   });
 });
 
