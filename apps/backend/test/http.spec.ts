@@ -158,6 +158,16 @@ describe('HTTP: platform', () => {
     ]);
   });
 
+  it('serves the build version and the full route map outside production', async () => {
+    const a = await app();
+    const health = HealthResponse.parse(
+      (await inject(a, { method: 'GET', url: '/api/v1/health' })).json(),
+    );
+    expect(health.version).toBeDefined();
+    const doc = (await inject(a, { method: 'GET', url: '/api/v1/openapi.json' })).json();
+    expect(Object.keys(doc.paths)).toContain('/me');
+  });
+
   it('GET /metrics (outside the prefix) exposes the latency histogram', async () => {
     const a = await app();
     await inject(a, { method: 'GET', url: '/api/v1/health' });

@@ -22,7 +22,7 @@ mkdir -p "$DIR/backups"
 chmod 750 "$DIR" "$DIR/backups"
 if [[ $HERE != "$DIR" ]]; then
   install -m 644 "$HERE/compose.yml" "$DIR/compose.yml"
-  for f in deploy.sh backup.sh set-host.sh beta-gate.sh backup-lib.sh backup-nightly.sh backup-check.sh \
+  for f in deploy.sh deploy-ssh.sh backup.sh set-host.sh beta-gate.sh backup-lib.sh backup-nightly.sh backup-check.sh \
     restore-drill.sh backup-keys.sh; do install -m 755 "$HERE/$f" "$DIR/$f"; done
   rm -rf "$DIR/postgres" && cp -r "$HERE/postgres" "$DIR/postgres"
 fi
@@ -32,7 +32,7 @@ if [[ ! -f $DIR/.env ]]; then
   pem() { awk '{printf "%s\\n", $0}'; }
   key=$(mktemp)
   openssl genpkey -algorithm ed25519 -out "$key"
-  owner=$(pw) tenant=$(pw) system=$(pw) assistant=$(pw)
+  owner=$(pw) tenant=$(pw) system=$(pw) assistant=$(pw) redis=$(pw)
   umask 077
   cat > "$DIR/.env" <<ENV
 # Rapiz production environment. Secrets: never commit, never paste into chat or logs.
@@ -45,13 +45,16 @@ DATABASE_URL=postgres://rapiz_tenant:$tenant@postgres:5432/rapiz
 DATABASE_SYSTEM_URL=postgres://rapiz_system:$system@postgres:5432/rapiz
 # Read-only SQL lane of the owner assistant (T-171); unset = lane off.
 DATABASE_ASSISTANT_SQL_URL=postgres://rapiz_assistant:$assistant@postgres:5432/rapiz
-REDIS_URL=redis://redis:6379
+REDIS_PASSWORD=$redis
+REDIS_URL=redis://:$redis@redis:6379
 
 S3_ENDPOINT=http://object-storage:8333
 S3_BUCKET=rapiz
 S3_ACCESS_KEY=rapiz
 S3_SECRET_KEY=$(pw)
 S3_PUBLIC_URL=https://$HOST/media
+# Signs SeaweedFS's internal filer and volume requests (compose.yml object-storage).
+SEAWEEDFS_JWT_KEY=$(pw)
 
 APP_ORIGINS=https://$HOST
 COOKIE_SECURE=true

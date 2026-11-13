@@ -1,7 +1,7 @@
 # Test only (backup-e2e.sh): a second SeaweedFS as the off-site destination.
 services:
   offsite:
-    image: chrislusf/seaweedfs:latest
+    image: chrislusf/seaweedfs:4.53@sha256:ccad23e18639c8b98cee17e7100b95830a06077b56d8e5b006d6dcf8ec5e94a0
     entrypoint: ['/bin/sh', '-c']
     command:
       - |

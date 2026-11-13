@@ -23,8 +23,18 @@ step() {
   fi
 }
 step base compose exec -T -u postgres postgres wal-g backup-push /var/lib/postgresql/data
-step retain compose exec -T -u postgres postgres wal-g delete retain FULL 30 --confirm
+# BACKUP_OBJECT_LOCK=1: the off-site bucket keeps versions under object lock and expires them with
+# its own lifecycle rules, and the server key cannot delete (docs/runbooks/backup-and-restore.md
+# "Protect the off-site copy"). The server then never deletes off-site data itself.
+lock=$(env_get BACKUP_OBJECT_LOCK)
+if [[ $lock != 1 ]]; then
+  step retain compose exec -T -u postgres postgres wal-g delete retain FULL 30 --confirm
+fi
 step media compose run --rm -T backup media
 step config compose run --rm -T backup config
-step prune compose run --rm -T backup prune
+if [[ $lock != 1 ]]; then
+  step prune compose run --rm -T backup prune
+else
+  log "retain, prune: skipped (BACKUP_OBJECT_LOCK=1, the bucket lifecycle expires old data)"
+fi
 exit "$failed"

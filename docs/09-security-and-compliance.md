@@ -111,6 +111,8 @@ The owner assistant answers number questions with one model-written `SELECT` ove
 
 - OWASP ASVS L2 as the checklist; SAST (Semgrep/CodeQL), dependency scanning (Dependabot/Renovate + `pnpm audit`), container scanning (Trivy), secret scanning (gitleaks) in CI.
 - Strict CSP for the dashboard; the widget is a Shadow DOM script (ADR-011), and CORS works by the site-domain allowlist.
+- **Edge headers (built, `infra/deploy/Caddyfile`, tested by `infra/deploy/test/edge-headers.sh` in CI).** Every response: HSTS `max-age=31536000` (no `includeSubDomains` until every subdomain is known to serve HTTPS), `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY`, a `Permissions-Policy` that turns off camera, microphone, geolocation, payment, USB, serial, HID and Bluetooth, an enforced `Content-Security-Policy: frame-ancestors 'none'; object-src 'none'; base-uri 'self'`, and no `Server` header. Nothing on the origin may be framed; the widget is a script, so customer sites still embed it. The marketing site enforces a full CSP (`script-src 'self'`, no inline script). The dashboard sends the same full policy as `Content-Security-Policy-Report-Only` (its shell has no inline script; the preferences boot script is `/boot.js`) until every flow has been checked, then it becomes enforced. `/media/*` (uploaded files on the shared origin) is served with `Content-Security-Policy: sandbox; default-src 'none'; …` and `Content-Disposition: attachment` for anything that is not a picture or a video, so an uploaded HTML or SVG file never runs as a page of the origin.
+- **Information exposure.** In production `/api/v1/health` omits the build version and `/api/v1/openapi.json` serves the public API only (ADR-022); readiness is answered only inside the container network.
 - Uploads: check the real MIME type, size limits (ticket images 2MB×5 as in Preny; imports 50MB), malware scanning (ClamAV) for document files, strip EXIF.
 - SSRF protection for the knowledge URL crawling feature (block internal IPs, metadata endpoints).
 - WAF + rate limiting at the edge; DDoS protection.
@@ -162,4 +164,4 @@ Year 1: prepare according to ISO/IEC 27001 (policies, risk register, access mana
 
 ## 12. Security audits
 
-Code audits live in `docs/security/`, one file per audit, with findings, status and the controls verified. Latest: [2026-11-12](security/2026-11-12-security-audit.md).
+Code audits live in `docs/security/`, one file per audit, with findings, status and the controls verified. Latest: [2026-11-12](security/2026-11-12-security-audit.md). The attacker's-view review of the same date, with every finding, its fix branch and the checks to do on the server: [2026-11-12 attack surface](security/2026-11-12-attack-surface.md).
