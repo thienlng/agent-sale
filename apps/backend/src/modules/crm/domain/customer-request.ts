@@ -105,7 +105,7 @@ export function dayFromWords(text: string, now: Date): string | null {
   const dm = /\b(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\b/.exec(t);
   if (dm) {
     const year = Number(dm[3] ?? today.slice(0, 4));
-    const iso = `${year}-${dm[2]!.padStart(2, '0')}-${dm[1]!.padStart(2, '0')}`;
+    const iso = `${year}-${(dm[2] ?? '').padStart(2, '0')}-${(dm[1] ?? '').padStart(2, '0')}`;
     if (Number.isNaN(Date.parse(`${iso}T00:00:00Z`))) return null;
     // "17/11" without a year in the past means next year.
     return !dm[3] && iso < today ? `${year + 1}${iso.slice(4)}` : iso;
@@ -114,7 +114,7 @@ export function dayFromWords(text: string, now: Date): string | null {
   if (/\b(ngay )?mai\b/.test(t) && !/\bmai\s*(lan|anh)\b/.test(t)) return plus(1);
   const weekday = /\b(?:thu\s*(2|3|4|5|6|7|hai|ba|tu|nam|sau|bay)\b|(chu\s*nhat|cn)\b)/.exec(t);
   if (!weekday) return null;
-  const target = weekday[2] ? 0 : (WEEKDAYS[weekday[1]!] ?? null);
+  const target = weekday[2] ? 0 : (WEEKDAYS[weekday[1] ?? ''] ?? null);
   if (target === null) return null;
   const current = new Date(`${today}T00:00:00Z`).getUTCDay();
   return plus((target - current + 7) % 7);
