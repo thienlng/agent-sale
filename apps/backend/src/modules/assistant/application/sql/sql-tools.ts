@@ -5,7 +5,7 @@ import { z, type ZodType } from 'zod';
 
 import type { OwnerScope } from '../../domain/owner-scope.js';
 import { SqlRunError, type SqlRunner } from '../../domain/ports/sql-runner.port.js';
-import { checkSql, MAX_SQL_CHARS } from '../../domain/sql-guard.js';
+import { checkSql, MAX_SQL_CHARS, sqlRejectionHint } from '../../domain/sql-guard.js';
 import { buildChart, ChartRequest, MAX_CHARTS_PER_TURN } from './chart.js';
 import { renderSqlOverview, renderSqlView, SQL_VIEW_NAMES } from './sql-views.js';
 
@@ -21,7 +21,40 @@ export interface NativeToolEntry {
   when: string;
   toolset: 'sql';
   input: ZodType;
+  /** Rewrites the common near-miss shapes of the body before `input` validates it (AS2-9). */
+  normalize?: (body: unknown) => unknown;
   run(input: unknown): Promise<{ content: string; ok?: boolean }>;
+}
+
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/**
+ * The `sql_query` body with the shapes a model often writes (AS2-9, about 1 call in 3): `query`
+ * for `sql`, `chart: null`, `chart.type` for `chart.kind`, one `chart.y` column as a string,
+ * `chart.x` as `{key}`, and one business id as a string. Anything else is left for validation.
+ */
+export function normalizeSqlQueryBody(body: unknown): unknown {
+  if (!isRecord(body)) return body;
+  const out: Record<string, unknown> = { ...body };
+  if (out['sql'] === undefined && typeof out['query'] === 'string') {
+    out['sql'] = out['query'];
+    delete out['query'];
+  }
+  if (out['chart'] === null) delete out['chart'];
+  if (typeof out['businessIds'] === 'string') out['businessIds'] = [out['businessIds']];
+  const chart = out['chart'];
+  if (isRecord(chart)) {
+    const c: Record<string, unknown> = { ...chart };
+    if (c['kind'] === undefined && typeof c['type'] === 'string') {
+      c['kind'] = c['type'];
+      delete c['type'];
+    }
+    if (typeof c['y'] === 'string') c['y'] = [c['y']];
+    if (isRecord(c['x']) && typeof c['x']['key'] === 'string') c['x'] = c['x']['key'];
+    out['chart'] = c;
+  }
+  return out;
 }
 
 export const SQL_TOOLSET = 'sql';
@@ -177,9 +210,10 @@ export function sqlTools(ctx: SqlToolContext): NativeToolEntry[] {
     key: SQL_QUERY_KEY,
     toolset: 'sql',
     summary:
-      'Run one read-only SELECT over the SQL views and get the rows (figures for the answer). Pass `chart` to show a bar, line or pie chart built from the result rows; do not repeat every point in the answer.',
+      'Run one read-only SELECT over the SQL views and get the rows (figures for the answer). Pass `chart` to show a bar, line or pie chart built from the result rows, with Vietnamese `labels` for the x and y columns; the app draws it under the answer, so do not write a placeholder line for it or repeat every point.',
     when: 'Count, sum or compare shop figures for a date range: revenue today, this week, this month or last month, sales, profit, order count, top products by quantity, stock, new customers by source, inbound and outbound messages per day, conversations per channel, lodging nights. Write the SQL after sql_schema. Pass chart to show a bar, line or pie chart of the rows (a series over days or a ranking).',
     input: SqlQueryInput,
+    normalize: normalizeSqlQueryBody,
     async run(raw) {
       const input = raw as z.output<typeof SqlQueryInput>;
       calls += 1;
@@ -189,7 +223,7 @@ export function sqlTools(ctx: SqlToolContext): NativeToolEntry[] {
       const guard = checkSql(input.sql, { views: SQL_VIEW_NAMES });
       if (!guard.ok) {
         logFailure('sql_rejected', null, input.sql);
-        return fail('sql_rejected', { reason: guard.reason });
+        return fail('sql_rejected', { reason: guard.reason, hint: sqlRejectionHint(guard.reason) });
       }
       const businessIds = input.businessIds
         ? [...new Set(input.businessIds.map((id) => id.toLowerCase()))]

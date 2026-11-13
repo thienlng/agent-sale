@@ -16,6 +16,8 @@ export interface WidgetConfig {
   phonePrompt: string;
   phoneChipText: string;
   language: WidgetLanguage;
+  /** Present only when new visitors must pass Cloudflare Turnstile. */
+  turnstileSiteKey?: string;
 }
 
 export interface WidgetMessage {
@@ -67,6 +69,8 @@ export interface WidgetSendRequest {
   firstUrl?: string;
   referrer?: string;
   seen?: string[];
+  /** Turnstile token of a new visitor's first message (when the config named a site key). */
+  turnstileToken?: string;
 }
 
 export interface WidgetSendResponse {

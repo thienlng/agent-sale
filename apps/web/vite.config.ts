@@ -37,7 +37,18 @@ export default defineConfig({
     preferencesBoot(),
   ],
   resolve: { alias: { '@': path.resolve(import.meta.dirname, 'src') } },
-  server: { port: 5173, proxy: { '/api': 'http://127.0.0.1:3000' } },
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': 'http://127.0.0.1:3000',
+      // Product pictures are host-relative `/media/<key>` paths (docs/lodging.md "Pictures"):
+      // in dev they come from the local bucket, like scripts/dev-tunnel-proxy.mjs serves them.
+      '/media': {
+        target: `http://127.0.0.1:${process.env.S3_PORT ?? 9000}`,
+        rewrite: (url) => `/${process.env.S3_BUCKET || 'rapiz-local'}${url.slice('/media'.length)}`,
+      },
+    },
+  },
   // Pre-bundle libraries that lazy routes pull in, so the dev server never re-optimizes
   // mid-session (which briefly loads two copies of React and forces a reload).
   optimizeDeps: { include: ['recharts', 'react-day-picker', 'cmdk', 'radix-ui'] },

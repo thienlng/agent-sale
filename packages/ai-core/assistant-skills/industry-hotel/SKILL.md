@@ -4,7 +4,7 @@ description: Hotels, homestays, villas: questions about villas, rooms and bookin
 title: Ngành lưu trú
 description_vi: Hướng dẫn cho khách sạn, homestay, villa: phòng, giá, đặt phòng và nội dung cho bot
 toolsets: [ui, routes]
-version: 1
+version: 2
 ---
 # Industry guide: hotels and lodging
 
@@ -30,6 +30,12 @@ Read the lodging properties (units and rates) first. Unit types and rates in the
 ## Questions about the business's own villas
 
 A hotel sells nights, not stock. When the owner names a villa or room by a short code or name ("A20 thì sao?", "căn nào có bể bơi?"), read the lodging properties (`GET /lodging/properties`, then `GET /lodging/properties/{id}` for units, rates and amenities) before anything else; the product catalog is for shops. Availability is in the calendar (`GET /lodging/calendar`, `POST /lodging/availability`), prices for given dates in `POST /lodging/quote`, bookings and bot holds in `GET /lodging/bookings`. Holds are built in: the bot checks the calendar and holds a villa itself, and the owner reviews holds on /app/bookings; it needs no API action for that.
+
+## Bookings, holds and free nights
+
+- A booking or hold marked `testChat: true` (tag "Chat thử") was made in the bot's test chat: list it apart as a test, never as a guest.
+- Which villas are free on a night: POST /lodging/availability (each option names its villa). A confirmed booking or a live hold that covers the night means the villa is taken: say so plainly, without hedging.
+- Bookings in a date range ("tuần sau", "tháng 12"): filter by check-in dates (SQL on lodging_bookings when it is available), never by reading a list that may be cut.
 
 ## Date-range prices (overrides)
 

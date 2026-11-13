@@ -26,6 +26,7 @@ import {
   CurrentWorkspace,
   Public,
   RequireCapability,
+  RequireRecentAuth,
   WorkspaceScoped,
 } from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
@@ -45,6 +46,7 @@ export class DataExportsController {
 
   @RequireCapability('data.export')
   @Post()
+  @RequireRecentAuth()
   async create(
     @CurrentWorkspace() ws: WorkspaceId,
     @CurrentUser() user: AuthState,

@@ -6,6 +6,7 @@ import {
   CONVERSATION_METRICS,
   daysAgo,
   groupOf,
+  impactRangeOf,
   PEOPLE_METRICS,
   rangeProblem,
   resolveFilters,
@@ -70,5 +71,18 @@ describe('statistics filters', () => {
     expect(rangeProblem({ from: '2026-10-10', to: '2026-10-01' })).toBe('rangeInvalid');
     expect(rangeProblem({ from: '2025-01-01', to: '2026-10-24' })).toBe('rangeTooLong');
     expect(rangeProblem({ from: '2026-10-01', to: '2026-10-24' })).toBeNull();
+  });
+});
+
+describe('impactRangeOf', () => {
+  const today = new Date(2026, 10, 13);
+  it('maps the report presets to the "Rapiz đã mang lại" period (MS-23, TM-12)', () => {
+    expect(impactRangeOf({ from: '2026-11-13', to: '2026-11-13' }, today)).toBe('today');
+    expect(impactRangeOf({ from: '2026-11-07', to: '2026-11-13' }, today)).toBe('7d');
+    expect(impactRangeOf({ from: '2026-10-15', to: '2026-11-13' }, today)).toBe('30d');
+  });
+  it('has no matching period for any other range', () => {
+    expect(impactRangeOf({ from: '2026-11-01', to: '2026-11-13' }, today)).toBeNull();
+    expect(impactRangeOf({ from: '2026-11-06', to: '2026-11-12' }, today)).toBeNull();
   });
 });

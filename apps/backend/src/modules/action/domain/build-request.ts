@@ -1,6 +1,12 @@
 import type { ActionAuth, ActionParam } from '@agent-sales/contracts';
 
-import type { SafeHttpRequest } from './safe-http.js';
+/** The outbound request shape `common/security/safe-http` sends (structural; domain stays pure). */
+export interface SafeHttpRequest {
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  body?: string;
+}
 
 /**
  * Turns model-supplied arguments into an outbound request. Pure. Arguments are validated

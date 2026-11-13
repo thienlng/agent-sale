@@ -6,11 +6,11 @@
 
 **Public API (`api/`):**
 - `BACKOFFICE_FACADE` → `listAccounts(query)`, `accountDetail(accountId)`, `listAudit(query)` (read views; nothing else imports this module)
-- HTTP (contracts in `packages/contracts/src/backoffice/`, every route `@PlatformAdmin()`, non-admins get 404):
-  - `GET|POST /admin/plans`, `POST /admin/plans/:code/versions`, `POST /admin/plans/:code/archive`
-  - `GET|PUT /admin/billing-settings`
-  - `GET /admin/accounts`, `GET /admin/accounts/:accountId`, `POST …/plan`, `POST …/trial`, `PUT|DELETE …/overrides/:key`, `POST …/status`, `POST …/payments`
-  - `GET /admin/payments`, `POST /admin/payments/:paymentId/confirm|cancel`
+- HTTP (contracts in `packages/contracts/src/backoffice/`, every route `@PlatformAdmin()`, non-admins get 404; admins without two-factor get 403 `admin_mfa_required`, and a session that did not pass it 403 `mfa_session_required` — `docs/runbooks/platform-admin-2fa.md`; routes marked † also need a recent step-up, 403 `reauth_required`):
+  - `GET|POST† /admin/plans`, `POST /admin/plans/:code/versions`†, `POST /admin/plans/:code/archive`†
+  - `GET|PUT† /admin/billing-settings`
+  - `GET /admin/accounts`, `GET /admin/accounts/:accountId`, `POST …/plan`†, `POST …/trial`†, `PUT|DELETE …/overrides/:key`†, `POST …/status`† (suspend/unsuspend), `POST …/payments`†
+  - `GET /admin/payments`, `POST /admin/payments/:paymentId/confirm`†, `POST /admin/payments/:paymentId/cancel`
   - `GET /admin/audit`
 - Events: none.
 

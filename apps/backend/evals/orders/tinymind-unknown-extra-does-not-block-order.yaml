@@ -1,0 +1,40 @@
+id: tinymind-unknown-extra-does-not-block-order
+group: orders
+tags: [critical]
+bot:
+  industry: retail
+  name: TinyMind
+  orderTaking: true
+  orderShippingFeeVnd: 30000
+  profile:
+    fields: { displayName: TinyMind }
+    notes: 'Shop bán đồ chơi gỗ Montessori cho bé.'
+products:
+  - name: 'Thú gỗ xếp thăng bằng'
+    code: TM-001
+    description: 'Bộ thú gỗ xếp thăng bằng, phù hợp bé từ 1 tuổi trở lên.'
+    variants:
+      - { name: 'Mặc định', sku: TM-001-STD, price: 340000, stock: 12 }
+# S2-A (TM3-6): an extra the shop has no data on (gift wrap, a card) never blocks the order: the
+# bot says it has no information, notes it, and prepares the order with the details given.
+conversation:
+  - customer: 'cho anh 2 bộ thú gỗ xếp thăng bằng'
+  - bot: 'Dạ 2 bộ Thú gỗ xếp thăng bằng, 340.000đ mỗi bộ ạ. Anh cho em xin tên, số điện thoại và địa chỉ nhận hàng nhé.'
+  - customer: 'Đỗ Minh Khoa, 0938 765 432, 21 Phan Xích Long, P2, Phú Nhuận, HCM. Shop gói quà và viết thiệp chúc mừng sinh nhật giúp anh được không'
+expect:
+  guardrail: none
+  steps_succeeded: ['prepare_order']
+  steps_exclude: ['handoff']
+fake_turns:
+  - tool_calls:
+      - name: prepare_order
+        input:
+          items: [{ sku: TM-001-STD, qty: 2 }]
+          recipient:
+            {
+              name: 'Đỗ Minh Khoa',
+              phone: '0938 765 432',
+              address: '21 Phan Xích Long, P2, Phú Nhuận, HCM',
+            }
+          note: 'Khách nhờ gói quà và viết thiệp chúc mừng sinh nhật'
+  - text: 'Dạ việc gói quà và viết thiệp em chưa có thông tin, em ghi chú lại để shop xác nhận ạ.'

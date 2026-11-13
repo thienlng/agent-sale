@@ -20,7 +20,15 @@
     "months_one": "{{count}} month",
     "months_other": "{{count}} months",
     "days_one": "{{count}} day",
-    "days_other": "{{count}} days"
+    "days_other": "{{count}} days",
+    "secondFactor": {
+      "title": "Turn on two-step verification",
+      "body": "The admin area needs two-step verification on your account. Turn it on in Account security, then come back.",
+      "action": "Open Account security",
+      "confirmTitle": "Confirm with your authenticator",
+      "confirmBody": "This sign-in has not passed two-step verification yet. Enter a code from your authenticator app to open the admin area.",
+      "confirm": "Enter code"
+    }
   },
   "accountStatus": {
     "active": "Active",

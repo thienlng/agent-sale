@@ -5,14 +5,19 @@ import type { CrmLookups } from '../hooks/use-crm-lookups';
 import { ContactHistoryTab } from './contact-history';
 import { statusFilter } from './contacts-search';
 import { CustomerRequestsCard } from './customer-requests-card';
-import { RequestSummaryStrip } from './request-summary-strip';
+import { balancedColumns, RequestSummaryStrip } from './request-summary-strip';
 
 const mocks = vi.hoisted(() => ({
   can: { 'contacts.view_all': true } as Record<string, boolean>,
   requests: { data: [] as unknown[] } as unknown,
   pending: false,
 }));
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+// A key list (service-group wording first) reads as its shared fallback key.
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string | string[]) => (Array.isArray(key) ? key[key.length - 1] : key),
+  }),
+}));
 vi.mock('@/lib/permissions', () => ({ useCan: (cap: string) => mocks.can[cap] ?? false }));
 
 const CONTACT = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d04';
@@ -160,5 +165,15 @@ describe('ContactHistoryTab', () => {
         'crm.requests.kind.placement_test · IELTS 6.5 · Cơ sở Cầu Giấy · Thứ Bảy 08/11/2026',
       ),
     ).toBeVisible();
+  });
+});
+
+describe('balancedColumns', () => {
+  it('keeps the rows of the strip even (LM-5)', () => {
+    expect(balancedColumns(9, 6)).toBe(5);
+    expect(balancedColumns(9, 4)).toBe(3);
+    expect(balancedColumns(6, 6)).toBe(6);
+    expect(balancedColumns(7, 6)).toBe(4);
+    expect(balancedColumns(2, 6)).toBe(2);
   });
 });

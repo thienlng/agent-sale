@@ -2,6 +2,7 @@ import {
   type AuthResponse,
   type BootstrapResponse,
   ForgotPasswordRequest,
+  type LinkedIdentityList,
   LoginRequest,
   MfaEnableRequest,
   type MfaSetup,
@@ -15,12 +16,31 @@ import {
   type SignupBusinessResponse,
   SignupCodeRequest,
   SignupRequest,
+  StepUpRequest,
+  type StepUpStatus,
   type UserDto,
 } from '@agent-sales/contracts';
-import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
-import { type AuthState, CurrentUser, Public } from '../../../../common/http/auth-context.js';
+import { ApiError } from '../../../../common/http/api-error.js';
+import {
+  type AuthState,
+  CurrentUser,
+  Public,
+  RequireRecentAuth,
+} from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
 import {
   AccountQueries,
@@ -30,8 +50,11 @@ import {
   SignupBusinessHandler,
   SignupHandler,
 } from '../../application/commands/auth.handlers.js';
+import { LinkedIdentityService } from '../../application/linked-identities.js';
 import { MfaService } from '../../application/mfa.service.js';
+import { SecurityEventService } from '../../application/security-events.js';
 import { type IssuedSession, SessionService } from '../../application/sessions.js';
+import { StepUpService } from '../../application/step-up.js';
 import { AUTH_HTTP_OPTIONS, type AuthHttpOptions } from './auth-http.options.js';
 import {
   assertAllowedOrigin,
@@ -56,6 +79,9 @@ export class AuthController {
     @Inject(AccountQueries) private readonly account: AccountQueries,
     @Inject(MfaService) private readonly mfa: MfaService,
     @Inject(AUTH_HTTP_OPTIONS) private readonly options: AuthHttpOptions,
+    @Inject(StepUpService) private readonly stepUp: StepUpService,
+    @Inject(LinkedIdentityService) private readonly linked: LinkedIdentityService,
+    @Inject(SecurityEventService) private readonly events: SecurityEventService,
   ) {}
 
   @Public()
@@ -141,9 +167,11 @@ export class AuthController {
   @HttpCode(204)
   async logout(
     @CurrentUser() user: AuthState,
+    @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<void> {
-    await this.sessions.revoke(user.sessionId);
+    await this.sessions.logout(user.userId, user.sessionId);
+    await this.events.record(user.userId, 'session.revoked', { reason: 'logout' }, meta(req).ip);
     void reply.clearCookie(REFRESH_COOKIE, { path: COOKIE_PATH });
   }
 
@@ -168,7 +196,7 @@ export class AuthController {
     @CurrentUser() user: AuthState,
     @Body(new ZodValidationPipe(MfaSetupRequest)) body: MfaSetupRequest,
   ): Promise<MfaSetup> {
-    return this.mfa.beginSetup(user.userId, body.password);
+    return this.mfa.beginSetup(user.userId, body.password, user.sessionId);
   }
 
   @Post('auth/mfa/enable')
@@ -203,6 +231,45 @@ export class AuthController {
         user.sessionId,
       ),
     };
+  }
+
+  @Get('auth/reauth')
+  reauthStatus(@CurrentUser() user: AuthState): Promise<StepUpStatus> {
+    return this.stepUp.status(user.userId, user.sessionId);
+  }
+
+  @Post('auth/reauth')
+  @HttpCode(200)
+  reauth(
+    @CurrentUser() user: AuthState,
+    @Body(new ZodValidationPipe(StepUpRequest)) body: StepUpRequest,
+    @Req() req: FastifyRequest,
+  ): Promise<StepUpStatus> {
+    return this.stepUp.verify(user.userId, user.sessionId, body, meta(req).ip);
+  }
+
+  @Post('auth/reauth/code')
+  @HttpCode(204)
+  async reauthCode(@CurrentUser() user: AuthState): Promise<void> {
+    await this.stepUp.sendCode(user.userId);
+  }
+
+  @Get('auth/identities')
+  async identities(@CurrentUser() user: AuthState): Promise<LinkedIdentityList> {
+    return { data: await this.linked.list(user.userId) };
+  }
+
+  @Delete('auth/identities/:provider/:subject')
+  @HttpCode(204)
+  @RequireRecentAuth()
+  async unlinkIdentity(
+    @CurrentUser() user: AuthState,
+    @Param('provider') provider: string,
+    @Param('subject') subject: string,
+    @Req() req: FastifyRequest,
+  ): Promise<void> {
+    if (provider !== 'google') throw new ApiError('NOT_FOUND', 'Linked sign-in not found');
+    await this.linked.unlink(user.userId, provider, subject, meta(req).ip);
   }
 
   private respond(

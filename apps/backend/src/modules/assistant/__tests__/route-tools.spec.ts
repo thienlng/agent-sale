@@ -1,14 +1,22 @@
 import { newId, userId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it, vi } from 'vitest';
+import { BUDGET_EXHAUSTED_GUIDANCE } from '../application/turn-budget.js';
 import { z } from 'zod';
 
-import { ROUTE_CATALOG, type RouteCatalog, searchCatalog } from '../application/route-catalog.js';
+import {
+  type CatalogEntry,
+  ROUTE_CATALOG,
+  type RouteCatalog,
+  searchCatalog,
+} from '../application/route-catalog.js';
 import {
   FORBIDDEN_MESSAGE,
+  LIST_DESCRIPTION_CUT,
   MAX_PENDING_PROPOSALS,
   MAX_PROPOSAL_BODY_CHARS,
   MAX_ROUTE_RESULT_CHARS,
   PROPOSAL_TTL_MS,
+  removedLines,
   routeTools,
   TRUNCATED,
   TURN_READ_BUDGET_CHARS,
@@ -405,6 +413,7 @@ describe('tool_call', () => {
     expect((await t.call({ key: 'GET /products' })).json).toEqual({
       ok: false,
       errorCode: 'turn_budget_exhausted',
+      guidance: BUDGET_EXHAUSTED_GUIDANCE,
     });
     expect(t.invoke).toHaveBeenCalledTimes(calls);
   });
@@ -437,6 +446,132 @@ describe('tool_call', () => {
       preview: { body: PRODUCT, query: null },
     });
     expect(stored?.expiresAt.getTime()).toBe(NOW.getTime() + PROPOSAL_TTL_MS);
+  });
+
+  it('cuts long product descriptions in a list read, never in a read by id (NEW-3)', async () => {
+    const long = 'Gỗ thông tự nhiên. '.repeat(40);
+    const product = {
+      id: newId(),
+      name: 'Xương rồng gỗ',
+      description: long,
+      variants: [{ price: 460_000 }],
+    };
+    const t = await setup((i) =>
+      i.path === '/products'
+        ? { status: 200, body: { data: [product], total: 1 } }
+        : { status: 200, body: product },
+    );
+    const list = await t.call({ key: 'GET /products', query: { q: 'xương rồng' } });
+    const row = (list.json.body as { data: { description: string; variants: unknown }[] }).data[0]!;
+    expect(row.description).toBe(long.slice(0, 200) + LIST_DESCRIPTION_CUT);
+    expect(row.variants).toEqual([{ price: 460_000 }]);
+    const one = await t.call({
+      key: 'GET /products/{productId}',
+      params: { productId: product.id },
+    });
+    expect((one.json.body as { description: string }).description).toBe(long);
+  });
+
+  it('tells the model which lines a text edit drops (AS3-2)', () => {
+    const before = {
+      title: 'Giá',
+      content: '- Báo giá từng món.\n- Không hứa giao chủ nhật.\n- Hỏi số điện thoại.',
+    };
+    expect(
+      removedLines(before, { content: '- Báo giá từng món, rồi cộng tổng.\n- Hỏi số điện thoại.' }),
+    ).toEqual(['- Báo giá từng món.', '- Không hứa giao chủ nhật.']);
+    expect(removedLines(before, { content: before.content + '\n- Thêm dòng.' })).toEqual([]);
+    expect(removedLines(before, { enabled: false })).toEqual([]);
+  });
+
+  it('marks test-chat bookings in lodging reads (AS3-4)', async () => {
+    const t = await setup(() => ({
+      status: 200,
+      body: {
+        data: [
+          { code: 'BK-0014', tags: ['Chat thử'] },
+          { code: 'BK-0012', tags: [] },
+        ],
+      },
+    }));
+    const out = await t.call({ key: 'GET /lodging/bookings', query: { view: 'holds' } });
+    expect(out.json.body).toEqual({
+      data: [
+        { testChat: true, code: 'BK-0014', tags: ['Chat thử'] },
+        { code: 'BK-0012', tags: [] },
+      ],
+    });
+  });
+
+  it('names the property of every availability option (AS3-3)', async () => {
+    const villa = newId();
+    const t = await setup((i) =>
+      i.path === '/lodging/properties'
+        ? { status: 200, body: { data: [{ id: villa, name: 'Villa D33', code: 'D33' }] } }
+        : { status: 200, body: { options: [{ propertyId: villa, fits: true }] } },
+    );
+    const out = await t.call({
+      key: 'POST /lodging/availability',
+      body: { checkIn: '2026-11-14', checkOut: '2026-11-15', party: { adults: 2, childAges: [] } },
+    });
+    expect(out.json.body).toEqual({
+      count: 1,
+      options: [{ propertyName: 'Villa D33', propertyCode: 'D33', propertyId: villa, fits: true }],
+    });
+  });
+
+  it('accepts a concrete path for a templated key (AS-14)', async () => {
+    const t = await setup(() => ({ status: 200, body: { items: [] } }));
+    const bot = newId();
+    const out = await t.call({ key: `GET /bots/${bot}/turns`, query: { q: 'gia' } });
+    expect(out.json).toEqual({ status: 200, body: { items: [] } });
+    expect(t.invoke.mock.calls[0]?.[0]).toMatchObject({
+      method: 'get',
+      path: `/bots/${bot}/turns`,
+    });
+    expect((await t.describe({ key: `GET /bots/${bot}/turns` })).json).toMatchObject({
+      key: 'GET /bots/{botId}/turns',
+    });
+    expect((await t.call({ key: 'GET /nowhere/1' })).json.errorCode).toBe('unknown_key');
+  });
+
+  it('turns the local instants the model writes back into UTC (AS-3)', async () => {
+    const write: CatalogEntry = {
+      key: 'POST /holds',
+      use: 'write',
+      summary: 'Extend a hold',
+      when: 'extend a hold',
+      method: 'post',
+      path: '/holds',
+      pathParams: [],
+      body: z.object({ holdExpiresAt: z.iso.datetime() }),
+    };
+    const read: CatalogEntry = {
+      key: 'GET /holds',
+      use: 'read',
+      summary: 'Holds',
+      when: 'list holds',
+      method: 'get',
+      path: '/holds',
+      pathParams: [],
+      query: z.object({ from: z.iso.datetime().optional() }),
+    };
+    const catalog: RouteCatalog = {
+      ...ROUTE_CATALOG,
+      entries: [write, read],
+      get: (key) => [write, read].find((e) => e.key === key),
+      readerOf: () => undefined,
+    };
+    const t = await setup(undefined, undefined, catalog);
+    await t.call({
+      key: 'POST /holds',
+      body: { holdExpiresAt: '2026-11-13T03:05:39+07:00' },
+      summary: 'Gia hạn giữ chỗ',
+    });
+    const [stored] = await t.repo.listProposals(t.scope, t.thread.id);
+    expect(stored?.body).toEqual({ holdExpiresAt: '2026-11-12T20:05:39.000Z' });
+    await t.call({ key: 'GET /holds', query: { from: '2026-11-16T00:00:00+07:00' } });
+    expect(t.invoke.mock.calls[0]?.[0].query).toEqual({ from: '2026-11-15T17:00:00.000Z' });
   });
 
   it('stores the parsed body of every write: unknown keys never reach the proposal', async () => {
@@ -731,7 +866,11 @@ describe('native entries (sql_schema, sql_query)', () => {
     }
     expect(used).toBe(TURN_READ_BUDGET_CHARS);
     const after = await t.call({ key: 'sql_query', body: { sql: 'select 1 from orders' } });
-    expect(after.json).toEqual({ ok: false, errorCode: 'turn_budget_exhausted' });
+    expect(after.json).toEqual({
+      ok: false,
+      errorCode: 'turn_budget_exhausted',
+      guidance: BUDGET_EXHAUSTED_GUIDANCE,
+    });
   });
 
   it('do not exist without native entries', async () => {

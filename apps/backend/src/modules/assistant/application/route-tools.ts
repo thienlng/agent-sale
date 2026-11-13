@@ -8,10 +8,18 @@ import { type AssistantPageContext, SECRET_IN_DRAFT } from '@agent-sales/contrac
 import { newId } from '@agent-sales/shared';
 import { z } from 'zod';
 
+import { utcInstants } from '../domain/local-time.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
 import type { AssistantRepository } from '../domain/ports/assistant.repository.js';
 import type { RouteInvoker } from '../domain/ports/route-invoker.port.js';
 import { readCurrentState } from './current-state.js';
+import { BUDGET_EXHAUSTED_GUIDANCE } from './turn-budget.js';
+import {
+  InitialStock,
+  PRODUCT_CREATE_KEY,
+  unknownStockSkus,
+  withStockShown,
+} from './initial-stock.js';
 import { summariseRouteError } from './route-errors.js';
 import { type CatalogEntry, type RouteCatalog, searchCatalog } from './route-catalog.js';
 import type { NativeToolEntry } from './sql/sql-tools.js';
@@ -63,6 +71,8 @@ const ToolCallInput = z.object({
   query: z.record(z.string().max(60), z.unknown()).optional(),
   body: z.unknown().optional(),
   summary: z.string().max(300).optional(),
+  /** Only with POST /products: counted stock of the new variants, set on the same approval. */
+  stock: z.unknown().optional(),
 });
 
 export const ROUTE_TOOL_DEFINITIONS: ToolDefinition[] = [
@@ -81,7 +91,7 @@ export const ROUTE_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: TOOL_CALL_TOOL,
     description:
-      'Run a route by key. A read returns { status, body }. A write is never run: it becomes a proposal the owner approves in the chat; give `summary` (Vietnamese, ≤ 300 chars: what will change). businessId defaults to the current business. Native tools (sql_schema, sql_query) take their input in `body`.',
+      'Run a route by key. A read returns { status, body }. A write is never run: it becomes a proposal the owner approves in the chat; give `summary` (Vietnamese, ≤ 300 chars: what will change). businessId defaults to the current business. Native tools (sql_schema, sql_query) take their input in `body`. With POST /products, `stock` ([{sku, onHand}]) sets the counted stock of the new variants in the default warehouse on the same approval: one card for "tạo sản phẩm, tồn 5 cái".',
     input: ToolCallInput,
   },
 ];
@@ -159,8 +169,157 @@ type Prepared =
       path: string;
       query?: Record<string, string | string[]>;
       body?: unknown;
+      stock?: InitialStock;
     }
   | { ok: false; errorCode: string; extra?: Record<string, unknown> };
+
+/**
+ * The catalog entry of a key, also when the model wrote a concrete path instead of the key's
+ * template (`GET /bots/01a1…/turns` for `GET /bots/{botId}/turns`, AS-14): the entry and the
+ * path params read from it. A query string in the key is ignored. Undefined when nothing matches.
+ */
+export function resolveRouteKey(
+  catalog: RouteCatalog,
+  key: string,
+): { entry: CatalogEntry; params: Record<string, string> } | undefined {
+  const exact = catalog.get(key);
+  if (exact) return { entry: exact, params: {} };
+  const m = /^([A-Z]+) (\/[^?\s]*)/.exec(key.trim());
+  if (!m) return undefined;
+  const [, method, path] = m as unknown as [string, string, string];
+  const parts = path.replace(/\/+$/, '').split('/');
+  for (const entry of catalog.entries) {
+    if (entry.method.toUpperCase() !== method || entry.pathParams.length === 0) continue;
+    const tpl = entry.path.split('/');
+    if (tpl.length !== parts.length) continue;
+    const params: Record<string, string> = {};
+    const fits = tpl.every((seg, i) => {
+      const value = parts[i] as string;
+      const name = /^\{(\w+)\}$/.exec(seg)?.[1];
+      if (!name) return seg === value;
+      if (!PATH_PARAM.test(value)) return false;
+      params[name] = value;
+      return true;
+    });
+    if (fits) return { entry, params };
+  }
+  return undefined;
+}
+
+const PRODUCT_LIST_KEY = 'GET /products';
+/** A product description in a list read is cut to this many characters (NEW-3). */
+export const LIST_DESCRIPTION_CHARS = 200;
+export const LIST_DESCRIPTION_CUT = '…[cut: GET /products/{productId} has the full text]';
+
+/**
+ * A product list as the model reads it (NEW-3): each description cut to 200 chars, so a few
+ * long descriptions do not push the names, prices and stock past the turn's read budget. A
+ * write never starts from a list: the full product is `GET /products/{productId}`, which is
+ * also what a proposal shows as the current state.
+ */
+export function compactProductList(body: unknown): unknown {
+  const data = (body as { data?: unknown } | null)?.data;
+  if (!Array.isArray(data)) return body;
+  return {
+    ...(body as object),
+    data: data.map((item: unknown) => {
+      const d = (item as { description?: unknown } | null)?.description;
+      return typeof d === 'string' && d.length > LIST_DESCRIPTION_CHARS
+        ? {
+            ...(item as object),
+            description: d.slice(0, LIST_DESCRIPTION_CHARS) + LIST_DESCRIPTION_CUT,
+          }
+        : item;
+    }),
+  };
+}
+
+/** Told with `removedLines` (AS3-2). */
+export const REMOVED_LINES_NOTE =
+  'This edit removes these lines the record has now. Unless the owner asked to remove them, draft the edit again keeping them; otherwise name them in your reply.';
+const MAX_REMOVED_LINES = 10;
+
+/** The rule lines or sentences of a text, normalised for comparison. */
+function textLines(text: string): string[] {
+  const lines = text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const parts = lines.length > 1 ? lines : text.split(/(?<=[.!?;])\s+/).map((l) => l.trim());
+  return parts.filter((l) => l.replace(/[-•*\s]/g, '').length > 0);
+}
+const fold = (l: string) =>
+  l
+    .toLowerCase()
+    .replace(/^[-•*\d.)\s]+/, '')
+    .replace(/\s+/g, ' ');
+
+/**
+ * Lines of a string field the record has now (`before`) that the drafted body no longer holds:
+ * a scenario edit that quietly drops existing rules (AS3-2). Only fields the body sets are
+ * compared; at most 10 lines, each cut to 160 chars.
+ */
+export function removedLines(before: unknown, body: unknown): string[] {
+  if (!before || typeof before !== 'object' || !body || typeof body !== 'object') return [];
+  const out: string[] = [];
+  for (const [key, value] of Object.entries(body as Record<string, unknown>)) {
+    const old = (before as Record<string, unknown>)[key];
+    if (typeof value !== 'string' || typeof old !== 'string' || value === old) continue;
+    const kept = new Set(textLines(value).map(fold));
+    const next = fold(value);
+    for (const line of textLines(old)) {
+      if (!kept.has(fold(line)) && !next.includes(fold(line))) out.push(line.slice(0, 160));
+    }
+  }
+  return out.slice(0, MAX_REMOVED_LINES);
+}
+
+/** The tag the bot's test chat puts on its orders and holds. */
+const TEST_CHAT_TAG = 'Chat thử';
+
+/**
+ * Every object carrying the test chat's tag gets `testChat: true` (AS3-4), so a hold made in
+ * "Chat thử" is never read as a guest's.
+ */
+export function markTestChat(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(markTestChat);
+  if (!value || typeof value !== 'object') return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = markTestChat(v);
+  const tags = (value as { tags?: unknown }).tags;
+  return Array.isArray(tags) && tags.includes(TEST_CHAT_TAG) ? { testChat: true, ...out } : out;
+}
+
+const AVAILABILITY_KEY = 'POST /lodging/availability';
+type PropertyLabel = { name: string; code?: string };
+
+/**
+ * An availability result as the model reads it (AS3-3): each option carries its property's name
+ * (and code) first, and the result says how many options there are, so the model never reads
+ * the villas one by one to name them.
+ */
+export function withPropertyNames(
+  body: unknown,
+  names: ReadonlyMap<string, PropertyLabel>,
+): unknown {
+  const options = (body as { options?: unknown } | null)?.options;
+  if (!Array.isArray(options)) return body;
+  return {
+    count: options.length,
+    ...(body as object),
+    options: options.map((o: unknown) => {
+      const id = (o as { propertyId?: unknown } | null)?.propertyId;
+      const label = typeof id === 'string' ? names.get(id) : undefined;
+      return label
+        ? {
+            propertyName: label.name,
+            ...(label.code ? { propertyCode: label.code } : {}),
+            ...(o as object),
+          }
+        : o;
+    }),
+  };
+}
 
 /** tool_search, tool_describe and tool_call for one turn (spec §6). */
 export function routeTools(ctx: RouteToolContext): RunnableTool[] {
@@ -171,7 +330,8 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
   /** Cuts a read result to what is left of the turn's read budget and counts it. */
   function spend(out: { content: string; ok?: boolean }) {
     const room = Math.min(MAX_ROUTE_RESULT_CHARS, TURN_READ_BUDGET_CHARS - readChars);
-    if (room <= TRUNCATED.length) return fail('turn_budget_exhausted');
+    if (room <= TRUNCATED.length)
+      return fail('turn_budget_exhausted', { guidance: BUDGET_EXHAUSTED_GUIDANCE });
     const content = cut(out.content, room);
     readChars += content.length;
     return { ...out, content };
@@ -180,9 +340,9 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
   /** A native entry: `body` is its input; businessId, params and query are ignored. */
   async function callNative(entry: NativeToolEntry, body: unknown) {
     if (Math.min(MAX_ROUTE_RESULT_CHARS, TURN_READ_BUDGET_CHARS - readChars) <= TRUNCATED.length) {
-      return fail('turn_budget_exhausted');
+      return fail('turn_budget_exhausted', { guidance: BUDGET_EXHAUSTED_GUIDANCE });
     }
-    const parsed = entry.input.safeParse(body ?? {});
+    const parsed = entry.input.safeParse((entry.normalize ?? ((b: unknown) => b))(body ?? {}));
     if (!parsed.success) {
       return spend(fail('invalid_input', { issues: issuesOf(parsed.error) }));
     }
@@ -190,15 +350,18 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
   }
 
   function prepare(input: z.output<typeof ToolCallInput>): Prepared {
-    const entry = ctx.catalog.get(input.key);
-    if (!entry) return { ok: false, errorCode: 'unknown_key' };
+    const resolved = resolveRouteKey(ctx.catalog, input.key);
+    if (!resolved) return { ok: false, errorCode: 'unknown_key' };
+    const entry = resolved.entry;
+    // Params the model wrote into the path count as given; explicit ones win.
+    const params: Record<string, string> = { ...resolved.params, ...input.params };
     const businessId = input.businessId ?? ctx.scope.businessId;
     if (!ctx.scope.businessIds.some((id) => id === businessId)) {
       return { ok: false, errorCode: 'unknown_business' };
     }
     let path = entry.path;
     for (const name of entry.pathParams) {
-      const value = input.params?.[name];
+      const value = params[name];
       if (value === undefined || !PATH_PARAM.test(value)) {
         return { ok: false, errorCode: 'bad_params', extra: { param: name } };
       }
@@ -206,7 +369,8 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
     }
     let query: Record<string, string | string[]> | undefined;
     if (entry.query) {
-      query = queryStrings(input.query ?? {});
+      // The model reads instants on the owner's clock (+07:00, AS-3); routes take UTC.
+      query = utcInstants(queryStrings(input.query ?? {})) as Record<string, string | string[]>;
       const parsed = entry.query.safeParse(query);
       if (!parsed.success) {
         return { ok: false, errorCode: 'invalid_input', extra: { issues: issuesOf(parsed.error) } };
@@ -216,7 +380,7 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
     // proposal (a narrowed, strict schema rejects them; others strip them).
     let body: unknown;
     if (entry.body) {
-      const parsed = entry.body.safeParse(input.body);
+      const parsed = entry.body.safeParse(utcInstants(input.body));
       if (!parsed.success) {
         const errorCode = parsed.error.issues.some((i) => i.message === SECRET_IN_DRAFT)
           ? SECRET_IN_DRAFT
@@ -225,6 +389,19 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
       }
       body = parsed.data;
     }
+    let stock: InitialStock | undefined;
+    if (input.stock !== undefined && input.stock !== null) {
+      if (entry.key !== PRODUCT_CREATE_KEY) return { ok: false, errorCode: 'stock_not_allowed' };
+      const parsed = InitialStock.safeParse(input.stock);
+      if (!parsed.success) {
+        return { ok: false, errorCode: 'invalid_stock', extra: { issues: issuesOf(parsed.error) } };
+      }
+      const unknown = unknownStockSkus(body, parsed.data);
+      if (unknown.length > 0) {
+        return { ok: false, errorCode: 'stock_unknown_sku', extra: { skus: unknown } };
+      }
+      stock = parsed.data;
+    }
     return {
       ok: true,
       entry,
@@ -232,12 +409,14 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
       path,
       ...(query && Object.keys(query).length ? { query } : {}),
       ...(entry.body ? { body } : {}),
+      ...(stock ? { stock } : {}),
     };
   }
 
   async function read(p: Extract<Prepared, { ok: true }>) {
     const room = Math.min(MAX_ROUTE_RESULT_CHARS, TURN_READ_BUDGET_CHARS - readChars);
-    if (room <= TRUNCATED.length) return fail('turn_budget_exhausted');
+    if (room <= TRUNCATED.length)
+      return fail('turn_budget_exhausted', { guidance: BUDGET_EXHAUSTED_GUIDANCE });
     const res = await ctx.invoker.invoke({
       method: p.entry.method,
       path: p.path,
@@ -256,10 +435,42 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
       readChars += out.content.length;
       return out;
     }
-    const body = BUSINESS_OWNED_READS.has(p.entry.key) ? res.body : redactPii(res.body);
+    const shown = BUSINESS_OWNED_READS.has(p.entry.key) ? res.body : redactPii(res.body);
+    const body =
+      p.entry.key === PRODUCT_LIST_KEY
+        ? compactProductList(shown)
+        : p.entry.key === AVAILABILITY_KEY
+          ? withPropertyNames(shown, await propertyNames(p.businessId))
+          : p.entry.key.startsWith('GET /lodging/')
+            ? markTestChat(shown)
+            : shown;
     const content = cut(json({ status: res.status, body }), room);
     readChars += content.length;
     return { content };
+  }
+
+  /** id → `{name, code}` of the business's properties; empty when they cannot be read. */
+  async function propertyNames(businessId: string): Promise<Map<string, PropertyLabel>> {
+    try {
+      const res = await ctx.invoker.invoke({
+        method: 'get',
+        path: '/lodging/properties',
+        businessId,
+        authorization: ctx.authorization,
+      });
+      const data = (res.body as { data?: unknown } | null)?.data;
+      if (res.status >= 300 || !Array.isArray(data)) return new Map();
+      return new Map(
+        data.flatMap((x: unknown) => {
+          const r = x as { id?: unknown; name?: unknown; code?: unknown };
+          return typeof r.id === 'string' && typeof r.name === 'string'
+            ? [[r.id, { name: r.name, ...(typeof r.code === 'string' ? { code: r.code } : {}) }]]
+            : [];
+        }),
+      );
+    } catch {
+      return new Map();
+    }
   }
 
   async function propose(p: Extract<Prepared, { ok: true }>, summary: string) {
@@ -302,15 +513,25 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
       body: p.body ?? null,
       summary,
       preview: {
-        body: p.body ?? null,
+        // The card shows each new variant with its stock; `stock` runs after the create.
+        body: p.stock ? withStockShown(p.body, p.stock) : (p.body ?? null),
         query: p.query ?? null,
+        ...(p.stock ? { stock: p.stock } : {}),
         ...(before !== undefined ? { before } : {}),
         ...(beforeUnavailable ? { beforeUnavailable: true } : {}),
       },
       expiresAt: new Date(now().getTime() + PROPOSAL_TTL_MS),
     });
     ctx.proposalIds.push(proposal.id);
-    return { content: json({ status: 'awaiting_owner_approval', proposalId: proposal.id }) };
+    // An edit that drops lines of a text the record has now must say so (AS3-2).
+    const removed = before !== undefined ? removedLines(before, p.body) : [];
+    return {
+      content: json({
+        status: 'awaiting_owner_approval',
+        proposalId: proposal.id,
+        ...(removed.length > 0 ? { removedLines: removed, note: REMOVED_LINES_NOTE } : {}),
+      }),
+    };
   }
 
   const search: RunnableTool = {
@@ -347,7 +568,7 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
         };
         return Promise.resolve({ content: cut(json(out), MAX_ROUTE_RESULT_CHARS) });
       }
-      const entry = ctx.catalog.get(key);
+      const entry = resolveRouteKey(ctx.catalog, key)?.entry;
       if (!entry) return Promise.resolve(fail('unknown_key'));
       const out = {
         key: entry.key,

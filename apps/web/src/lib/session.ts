@@ -158,6 +158,19 @@ export async function verifyGoogleSignIn(code: string): Promise<Session> {
   return load(auth);
 }
 
+/**
+ * Finishes a Google sign-up for an address Google does not own (`google=verify`): the code emailed
+ * to the address proves it before the account is created.
+ */
+export async function verifyGoogleSignUp(code: string): Promise<Session> {
+  const auth = await api('/auth/google/verify', AuthResponse, {
+    method: 'POST',
+    body: { code },
+    workspaceScoped: false,
+  });
+  return load(auth);
+}
+
 /** Emails the 6-digit signup code; signup needs it (ACC-01). 409 when the email has an account. */
 export async function requestSignupCode(email: string, name?: string): Promise<void> {
   await api('/auth/signup/code', z.null(), {

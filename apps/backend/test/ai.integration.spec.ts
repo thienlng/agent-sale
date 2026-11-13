@@ -26,6 +26,7 @@ import { DrizzleAiRunRepository } from '../src/modules/ai/infrastructure/persist
 import { DrizzleConversationSummaryRepository } from '../src/modules/ai/infrastructure/persistence/conversation-summary.drizzle.js';
 import { DrizzleUserRepository } from '../src/modules/identity/infrastructure/persistence/identity.drizzle-repositories.js';
 import { signUpVerified } from './support/signup.js';
+import { enableTwoFactor } from './support/mfa.js';
 
 /** Playground metering (ai_runs, RLS) and platform LLM config (system role, encrypted keys) on Postgres. */
 let pg: TestPostgres;
@@ -205,6 +206,11 @@ describe('ai on Postgres', () => {
         await new DrizzleUserRepository(system.db).setPlatformAdmin('root@rapiz.vn', true),
       ).toBe(true);
       const h = { authorization: `Bearer ${token}` };
+      await enableTwoFactor(
+        (path, payload) =>
+          inject({ method: 'POST', url: `/api/v1${path}`, headers: h, payload: { ...payload } }),
+        'a long enough password',
+      );
       const created = await inject({
         method: 'POST',
         url: '/api/v1/admin/llm/providers',

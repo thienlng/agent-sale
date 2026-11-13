@@ -157,6 +157,13 @@
       "submitting": "Đang lưu…",
       "done": "Đã đổi mật khẩu. Hãy đăng nhập lại.",
       "back": "Quay lại đăng nhập"
+    },
+    "googleVerify": {
+      "title": "Kiểm tra email",
+      "subtitle": "Để hoàn tất đăng ký bằng Google, hãy nhập mã 6 số chúng tôi đã gửi tới email của bạn.",
+      "code": "Mã xác minh",
+      "submit": "Tạo tài khoản",
+      "invalid": "Mã không đúng hoặc đã hết hạn. Hãy đăng nhập lại bằng Google để nhận mã mới."
     }
   },
   "industries": {
@@ -313,7 +320,6 @@
     "fallback": "Chưa có thông tin, đã gửi tin nhắn dự phòng",
     "handoff": "Đã chuyển cho nhân viên",
     "guardrail": "Đã chặn câu trả lời có con số không có trong dữ liệu",
-    "meta": "{{model}} · {{tokens}} token · {{seconds}} giây",
     "hide": "Ẩn chat thử",
     "show": "Mở chat thử",
     "error": "Bot chưa trả lời được: {{message}}",
@@ -330,12 +336,7 @@
     "imageOnly": "(Ảnh)",
     "imageRead": "Không đọc được ảnh, vui lòng thử lại.",
     "unavailable": "Chưa cấu hình mô hình AI cho gói này. Liên hệ quản trị hệ thống.",
-    "steps": {
-      "title": "Các bước bot đã làm",
-      "ok": "xong",
-      "failed": "lỗi",
-      "ms": "{{ms}} ms"
-    },
+    "busy": "Mô hình AI đang bận, vui lòng thử lại sau ít phút.",
     "interrupted": "Khách vừa nhắn thêm nên bot dừng lượt này giữa chừng",
     "quickReplies": {
       "label": "Trả lời nhanh"
@@ -459,6 +460,8 @@
     "home": "Về trang chính",
     "required": "Không được để trống",
     "invalidEmail": "Email không hợp lệ",
+    "invalidPhone": "Số điện thoại không hợp lệ",
+    "invalidValue": "Giá trị không hợp lệ",
     "minLength": "Cần ít nhất {{count}} ký tự",
     "invalidUrl": "Địa chỉ không hợp lệ (cần http:// hoặc https://)",
     "invalidName": "Chỉ dùng chữ thường, số và dấu gạch ngang (2–40 ký tự)",
@@ -605,6 +608,7 @@
     "prevPage": "Trang trước",
     "nextPage": "Trang sau",
     "summary": "{{count}} đơn · tổng {{total}}",
+    "summaryCancelled": "{{count}} đơn ({{cancelled}} đã huỷ) · tổng {{total}}",
     "filters": {
       "columns": "Cột",
       "resetColumns": "Cột mặc định",
@@ -908,6 +912,9 @@
       "variantsHint": "Mỗi mẫu mã có SKU, giá bán và giá vốn riêng (giá vốn dùng để tính lợi nhuận).",
       "addVariant": "Thêm mẫu mã",
       "sku": "SKU",
+      "skuAuto": "Để trống: tự tạo từ mã",
+      "skuDuplicate": "Mỗi mẫu mã cần một SKU khác nhau.",
+      "skuTaken": "SKU này đã dùng cho một sản phẩm khác.",
       "variantName": "Tên mẫu (màu, size…)",
       "price": "Giá bán",
       "cost": "Giá vốn",
@@ -949,14 +956,31 @@
       "visibleToBot": "Cho bot tư vấn dịch vụ này",
       "archived": "Lưu trữ (ngừng cung cấp)",
       "variants": "Gói dịch vụ",
-      "variantsHint": "Mỗi gói có SKU và giá riêng, ví dụ buổi lẻ, lớp tối hoặc gói 10 buổi.",
+      "variantsHint": "Mỗi gói có SKU và giá riêng, ví dụ buổi lẻ, gói 10 buổi hoặc cả liệu trình.",
       "addVariant": "Thêm gói",
-      "variantName": "Tên gói (buổi lẻ, lớp, liệu trình…)",
+      "variantName": "Tên gói (buổi lẻ, gói 10 buổi, liệu trình…)",
       "price": "Giá dịch vụ",
       "removeVariant": "Bỏ gói này",
       "save": "Lưu dịch vụ",
       "saved": "Đã lưu dịch vụ",
-      "created": "Đã tạo dịch vụ"
+      "created": "Đã tạo dịch vụ",
+      "colVariants": "Số gói",
+      "variantsCount": "{{count}} gói",
+      "images": "Ảnh dịch vụ",
+      "imagesHint": "Tối đa {{max}} ảnh (JPG, PNG hoặc WebP) chọn từ máy của bạn. Bot sẽ gửi các ảnh này khi khách muốn xem hình dịch vụ.",
+      "imageAlt": "Ảnh dịch vụ {{n}}",
+      "delete": {
+        "title": "Xoá dịch vụ",
+        "hint": "Chỉ xoá được dịch vụ chưa có khách mua. Dịch vụ đã có khách mua thì hãy lưu trữ.",
+        "action": "Xoá dịch vụ",
+        "confirmTitle": "Xoá dịch vụ {{name}}?",
+        "confirmBody": "Dịch vụ và các gói sẽ bị xoá vĩnh viễn, bot cũng ngừng tư vấn dịch vụ này. Không thể hoàn tác.",
+        "deleted": "Đã xoá dịch vụ {{name}}.",
+        "inOrders": "Dịch vụ này đã có khách mua nên không xoá được (để giữ lịch sử). Hãy lưu trữ: dịch vụ ngừng cung cấp, lịch sử vẫn còn.",
+        "inOrdersArchived": "Dịch vụ này đã có khách mua nên không xoá được (để giữ lịch sử). Dịch vụ đang được lưu trữ.",
+        "archiveInstead": "Lưu trữ dịch vụ",
+        "archivedDone": "Đã lưu trữ dịch vụ {{name}}."
+      }
     },
     "stock": {
       "title": "Tồn kho",
@@ -989,7 +1013,7 @@
       "title": "Chi tiết dịch vụ",
       "hint": "Bot dùng các thông tin này để tư vấn. Dịch vụ không có tồn kho.",
       "retail": "Đây là sản phẩm bán lẻ",
-      "retailHint": "Bật cho hàng có tồn kho, như mỹ phẩm hay giáo trình. Bot sẽ tư vấn như một sản phẩm thường.",
+      "retailHint": "Bật cho hàng có tồn kho, như mỹ phẩm, sách hay dụng cụ. Bot sẽ tư vấn như một sản phẩm thường.",
       "durationMinutes": "Thời lượng mỗi buổi (phút)",
       "sessions": "Số buổi",
       "period": "Tổng thời gian",
@@ -1011,7 +1035,9 @@
       "priceOnRequest": "Liên hệ",
       "col": "Thời lượng",
       "minutesCount": "{{count}} phút",
-      "sessionsCount": "{{count}} buổi"
+      "sessionsCount": "{{count}} buổi",
+      "priceFrom": "Từ {{price}}",
+      "priceWithOnRequest": "{{price}} · có gói liên hệ"
     }
   },
   "warehouses": {
@@ -1211,8 +1237,6 @@
       "editNote": "Sửa",
       "saveNote": "Lưu",
       "cancel": "Huỷ",
-      "tasks": "Công việc",
-      "tasksSoon": "Nhắc lịch và công việc sẽ có ở bản sau.",
       "save": "Lưu thay đổi",
       "saved": "Đã lưu khách hàng",
       "tags": "Tag",
@@ -1294,7 +1318,7 @@
       "typeHint": {
         "classification": "Nhãn để phân loại khách (VIP, Khách sỉ…).",
         "attribute": "Nhãn kèm thông tin cần điền khi gắn (vd. Sự kiện: tên, ngày).",
-        "work": "Việc cần làm với khách; nhắc lịch sẽ có ở bản sau."
+        "work": "Việc cần làm với khách."
       },
       "addField": "Thêm trường",
       "fieldLabel": "Tên trường",
@@ -1353,6 +1377,9 @@
         "consultation": "Xin tư vấn",
         "placement_test": "Đăng ký kiểm tra trình độ",
         "appointment": "Đặt lịch"
+      },
+      "kindService": {
+        "trial": "Đăng ký học thử"
       },
       "strip": {
         "label": "Yêu cầu của khách hàng",
@@ -1565,44 +1592,6 @@
       "zoom": "Phóng to",
       "cropSave": "Lưu logo"
     },
-    "security": {
-      "title": "Xác minh 2 bước",
-      "hint": "Thêm một lớp bảo vệ: ngoài mật khẩu, đăng nhập cần mã từ ứng dụng xác thực (Google Authenticator, Authy, 1Password…).",
-      "off": "Đang tắt",
-      "on": "Đang bật",
-      "recoveryLeft": "Còn {{count}} mã khôi phục",
-      "enable": "Bật xác minh 2 bước",
-      "disable": "Tắt xác minh 2 bước",
-      "newCodes": "Tạo mã khôi phục mới",
-      "password": "Mật khẩu hiện tại",
-      "code": "Mã xác minh",
-      "codeOrRecovery": "Mã xác minh hoặc mã khôi phục",
-      "continue": "Tiếp tục",
-      "confirm": "Xác nhận",
-      "cancel": "Huỷ",
-      "step1": "1. Xác nhận mật khẩu",
-      "step2": "2. Quét mã QR bằng ứng dụng xác thực",
-      "step3": "3. Nhập mã 6 số hiện trên ứng dụng",
-      "manual": "Không quét được? Nhập khóa này vào ứng dụng:",
-      "copy": "Sao chép",
-      "copied": "Đã sao chép",
-      "qrAlt": "Mã QR để thêm tài khoản vào ứng dụng xác thực",
-      "codesTitle": "Lưu các mã khôi phục",
-      "codesHint": "Mỗi mã dùng được một lần khi mất điện thoại. Chúng chỉ hiện ở đây một lần — hãy lưu ở nơi an toàn.",
-      "codesDone": "Tôi đã lưu các mã",
-      "downloadCodes": "Tải về",
-      "disableTitle": "Tắt xác minh 2 bước?",
-      "disableHint": "Tài khoản chỉ còn được bảo vệ bằng mật khẩu.",
-      "newCodesTitle": "Tạo mã khôi phục mới?",
-      "newCodesHint": "Các mã cũ sẽ không còn dùng được.",
-      "errors": {
-        "invalid_password": "Mật khẩu không đúng.",
-        "invalid_code": "Mã không đúng. Thử mã mới trên ứng dụng.",
-        "already_enabled": "Xác minh 2 bước đã bật."
-      },
-      "enabledToast": "Đã bật xác minh 2 bước",
-      "disabledToast": "Đã tắt xác minh 2 bước"
-    },
     "industry": {
       "title": "Lĩnh vực doanh nghiệp",
       "policy": "Lĩnh vực thuộc doanh nghiệp đang chọn, tách biệt với tài khoản đăng nhập và thông tin thanh toán. Hiện chưa hỗ trợ đổi lĩnh vực; bot và nội dung đào tạo được giữ nguyên."
@@ -1679,6 +1668,7 @@
       "origin": "Nguồn khách",
       "sales": "Nhân viên Sales",
       "page": "Trang / kênh",
+      "presetToday": "Hôm nay",
       "preset7": "7 ngày",
       "preset30": "30 ngày",
       "thisMonth": "Tháng này",
@@ -1854,7 +1844,6 @@
       "noPermission": "Bạn chưa có quyền xem thống kê business này.",
       "recordsNote": "Khách được tính riêng trong từng business, không phải số người duy nhất toàn tài khoản.",
       "scopeOwn": "Chỉ gồm khách bạn phụ trách và khách chưa có người phụ trách.",
-      "shopPending": "Thống kê theo shop chưa có dữ liệu.",
       "retry": "Thử lại",
       "allBusiness": "Tất cả business"
     },
@@ -1984,7 +1973,9 @@
       "dialogTitle": "Xoá business {{name}}?",
       "dialogBody": "Business sẽ bị ẩn ngay và xoá vĩnh viễn sau {{days}} ngày. Trong thời gian đó bạn khôi phục được ở mục Business của tôi.",
       "confirmLabel": "Nhập tên business để xác nhận",
-      "confirmHint": "Nhập chính xác: {{name}}",
+      "confirmHint": "Nhập chính xác:",
+      "copyName": "Chép tên {{name}}",
+      "nameCopied": "Đã chép tên business",
       "cancel": "Huỷ",
       "submit": "Xoá business",
       "done": "Đã xoá {{name}}. Bạn có thể khôi phục trong {{days}} ngày.",
@@ -2010,6 +2001,8 @@
       "includes": "Gói bao gồm",
       "unlimited": "Không giới hạn",
       "aiPerPeriod": "{{amount}} tin / {{days}} ngày",
+      "aiUsed": "Đã dùng {{used}} / {{limit}} tin, đến {{date}}",
+      "account": "Tài khoản {{account}} · đang xem {{business}}",
       "periodEnds": "Kỳ hiện tại đến {{date}}",
       "trialEnds": "Dùng thử đến {{date}}",
       "loadError": "Không tải được thông tin gói.",
@@ -2163,6 +2156,30 @@
       "failed": "Chưa bật được thông báo. Thử lại sau."
     }
   },
+  "stepUp": {
+    "title": "Xác nhận đó là bạn",
+    "hint": "Đây là thao tác nhạy cảm. Hãy xác nhận đó là bạn để tiếp tục.",
+    "adminHint": "Khu vực quản trị cần mã xác minh hai bước cho lần đăng nhập này.",
+    "explicitHint": "Để thay đổi xác minh hai bước, bạn cần nhập mã gửi tới email, kể cả khi vừa đăng nhập.",
+    "adminMfaRequired": "Khu vực quản trị yêu cầu bật xác minh hai bước cho tài khoản của bạn. Hãy bật trong Bảo mật tài khoản trước.",
+    "required": "Hãy xác nhận đó là bạn rồi thử lại.",
+    "password": "Mật khẩu hiện tại",
+    "code": "Mã xác minh hoặc mã khôi phục",
+    "emailCode": "Mã đã gửi tới email của bạn",
+    "sendCode": "Gửi mã qua email",
+    "resend": "Gửi lại",
+    "sent": "Đã gửi mã 6 số tới email của bạn.",
+    "google": "Hoặc đăng nhập lại bằng Google",
+    "confirm": "Xác nhận",
+    "cancel": "Huỷ",
+    "errors": {
+      "invalid_password": "Sai mật khẩu.",
+      "invalid_code": "Mã không đúng. Hãy thử mã mới.",
+      "code_invalid": "Mã không đúng. Hãy kiểm tra email mới nhất.",
+      "code_expired": "Mã đã hết hạn. Hãy gửi mã mới.",
+      "too_many": "Thử quá nhiều lần. Vui lòng đợi vài phút rồi thử lại."
+    }
+  },
   "dataDeletion": {
     "title": "Yêu cầu xoá dữ liệu",
     "intro": "Bạn đã yêu cầu Rapiz xoá dữ liệu gắn với tài khoản Facebook đã dùng để kết nối Trang (Facebook Login).",
@@ -2177,5 +2194,24 @@
     "pendingBody": "Rapiz sẽ ngắt kết nối các Trang bạn đã kết nối và xoá mã truy cập (token) của bạn trong vài phút.",
     "completedBody_other": "Đã ngắt kết nối {{count}} Trang bạn đã kết nối và xoá mã truy cập (token) Facebook của bạn. Rapiz không còn lưu dữ liệu đăng nhập Facebook của bạn.",
     "scope": "Việc này không xoá doanh nghiệp, đơn hàng hay hội thoại mà chủ doanh nghiệp lưu trên Rapiz. Khách nhắn tin cho một doanh nghiệp muốn xoá dữ liệu của mình, hãy liên hệ doanh nghiệp đó."
+  },
+  "trace": {
+    "show": "Xem các bước",
+    "hide": "Ẩn các bước",
+    "meta": "{{model}} · {{tokens}} token · {{seconds}} giây",
+    "metaTime": "{{seconds}} giây",
+    "noSteps": "Lượt này không dùng công cụ nào.",
+    "loading": "Đang tải các bước…",
+    "failed": "failed",
+    "requested": "requested:",
+    "args": "args",
+    "result": "result · {{chars}} chars",
+    "model": "model",
+    "tier": "tier",
+    "prompt": "prompt",
+    "tokens": "tokens",
+    "run": "run",
+    "guardrail": "guardrail",
+    "runId": "run id"
   }
 }

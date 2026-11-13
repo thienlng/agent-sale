@@ -1,13 +1,15 @@
 import type { CustomerRequestKind } from '@agent-sales/contracts';
 import type { TFunction } from 'i18next';
+import { groupWording } from '@/lib/industry-group';
 
-/** The kind of a recorded request; every industry shares one wording. */
+/** The kind of a recorded request, in the service-group words for education and spa. */
 export function requestKindLabel(
   t: TFunction,
   kind: CustomerRequestKind | string,
-  _industry?: string | undefined,
+  industry?: string | undefined,
 ): string {
-  return t(`crm.requests.kind.${kind}`);
+  // A service business (education, spa) words a trial as a trial class (LM3-10).
+  return t(groupWording(industry, 'crm.requests.kind', 'crm.requests.kindService')(kind));
 }
 
 /**

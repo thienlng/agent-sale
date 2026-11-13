@@ -113,9 +113,7 @@ export function PropertiesTable({
                     {warning && (
                       <span className="text-warning" title={t(`places.${warning}`)}>
                         <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                        <span className="sr-only">
-                          {t(`places.${warning}`)} {t('places.botHidden')}
-                        </span>
+                        <span className="sr-only">{t(`places.${warning}`)}</span>
                       </span>
                     )}
                   </span>

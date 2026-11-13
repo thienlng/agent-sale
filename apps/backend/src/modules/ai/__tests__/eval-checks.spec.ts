@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { runChecks } from '../evals/checks.js';
+import { hasFragment, runChecks } from '../evals/checks.js';
 import { loadCases } from '../evals/load.js';
 
 const base = {
@@ -80,6 +80,40 @@ describe('eval checks', () => {
     );
     expect(results[0]).toMatchObject({ name: 'numbers_only_from_sources', pass: false });
     expect(results[0]?.detail).toContain('299k');
+  });
+
+  it('numbers_only_from_sources treats dates derived from the current time as grounded (EV-11)', () => {
+    // Friday 13/11/2026, 01:06 in Asia/Ho_Chi_Minh: "cuối tuần này" is 14/11 and 15/11.
+    const now = new Date('2026-11-12T18:06:00Z');
+    const check = (reply: string) =>
+      runChecks({ numbers_only_from_sources: true }, { ...base, reply, now })[0];
+    expect(check('Dạ tối thứ Bảy 14/11 và Chủ nhật 15/11/2026 bảo hành 6 tháng ạ.')?.pass).toBe(
+      true,
+    );
+    // 27/11 is the last day of the window; 28/11 and a past date are checked like any figure.
+    expect(check('Dạ ngày 27/11 ạ.')?.pass).toBe(true);
+    expect(check('Dạ ngày 28/11 ạ.')?.detail).toContain('28');
+    expect(check('Dạ ngày 12/11 ạ.')?.pass).toBe(false);
+    // A near date vouches only for itself, not for the same numbers elsewhere in the reply.
+    expect(check('Dạ 14/11 còn 15 phòng ạ.')?.detail).toEqual('figures not in the sources: ["15"]');
+    // A range of near days ("cuối tuần này (14–16/11/2026)"); one far day keeps the whole range.
+    expect(check('Dạ cuối tuần này (14–16/11/2026) ạ.')?.pass).toBe(true);
+    expect(check('Dạ 14-16/11 ạ.')?.pass).toBe(true);
+    expect(check('Dạ 12–14/11 ạ.')?.pass).toBe(false);
+    // The year rolls over: 31/12 → 3/1 of the next year.
+    const late = new Date('2026-12-30T03:00:00Z');
+    expect(
+      runChecks(
+        { numbers_only_from_sources: true },
+        { ...base, reply: 'Dạ 3/1/2027 và 3/1 ạ.', now: late },
+      )[0]?.pass,
+    ).toBe(true);
+    // Without the turn's time nothing changes.
+    expect(check('Dạ ngày 14/11 ạ.')?.pass).toBe(true);
+    expect(
+      runChecks({ numbers_only_from_sources: true }, { ...base, reply: 'Dạ ngày 14/11 ạ.' })[0]
+        ?.pass,
+    ).toBe(false);
   });
 
   it('numbers_only_from_sources does not let the customer vouch for a price', () => {
@@ -251,5 +285,15 @@ describe('eval checks', () => {
       'Dạ Xương rồng gỗ xếp thăng bằng phù hợp bé từ 2 tuổi trở lên, còn hàng ạ.',
     ])
       expect(runChecks(expectation, { ...base, reply: answer })[0]?.pass, answer).toBe(true);
+  });
+});
+
+describe('hasFragment', () => {
+  it('matches a number only at its start, text anywhere', () => {
+    expect(hasFragment('gói 6pn giá 18.000.000đ', '8.000.000')).toBe(false);
+    expect(hasFragment('giá 8.000.000đ/đêm', '8.000.000')).toBe(true);
+    expect(hasFragment('8.000.000đ', '8.000.000')).toBe(true);
+    expect(hasFragment('18.000.000đ, còn 8.000.000đ', '8.000.000')).toBe(true);
+    expect(hasFragment('dạ không bán ạ', 'Không bán')).toBe(true);
   });
 });

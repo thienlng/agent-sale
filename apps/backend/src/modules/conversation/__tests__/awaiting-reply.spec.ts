@@ -2,7 +2,9 @@ import type { ConversationView } from '@agent-sales/contracts';
 import { newId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
 
+import { ConversationFacadeImpl } from '../application/conversation.facade.impl.js';
 import { newConversation } from '../domain/conversation-state.js';
+import { fakeCrm, fakeIdentity, fakeTeam } from './fakes.js';
 import { MemoryConversationStore } from './factories/memory-conversation-store.js';
 
 /** `awaitingReply` for owner reports (T-172): open conversations waiting since a threshold. */
@@ -112,5 +114,40 @@ describe('todayCandidates (memory store)', () => {
       }),
     );
     expect(rows.map((r) => r.conversation.id).sort()).toEqual([mine.id, free.id].sort());
+  });
+});
+
+describe('todayCandidates (facade)', () => {
+  it("shows the linked customer's name instead of a website placeholder (MS3-5)", async () => {
+    const store = new MemoryConversationStore();
+    const contactId = newId();
+    const visitor = conv('website', '2026-11-02T00:00:00.000Z', {
+      customerName: 'Khách website 51d4',
+      contactId,
+    });
+    const named = conv('facebook', '2026-11-02T00:00:00.000Z', { customerName: 'Trần Minh' });
+    await store.run(ws, async (tx) => {
+      for (const c of [visitor, named]) await tx.save(c);
+    });
+    const crm = fakeCrm();
+    crm.contactNames.mockResolvedValue(new Map([[contactId, 'Phạm Ngọc Hân']]));
+    const facade = new ConversationFacadeImpl(
+      store,
+      {} as never,
+      { getBot: async () => ({}) } as never,
+      fakeTeam(),
+      fakeIdentity(),
+      crm as never,
+    );
+    const rows = await facade.todayCandidates(ws, {
+      ids: [],
+      awaitingBefore: new Date('2026-11-02T01:00:00Z'),
+      followUpBefore: new Date('2026-11-02T17:00:00Z'),
+      limit: 100,
+      lastHumanFor: [],
+    });
+    const names = Object.fromEntries(rows.map((r) => [r.id, r.customerName]));
+    expect(names[visitor.id]).toBe('Phạm Ngọc Hân');
+    expect(names[named.id]).toBe('Trần Minh');
   });
 });

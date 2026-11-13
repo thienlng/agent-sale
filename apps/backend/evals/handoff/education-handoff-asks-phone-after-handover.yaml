@@ -1,0 +1,33 @@
+id: education-handoff-asks-phone-after-handover
+group: handoff
+tags: []
+bot:
+  industry: education
+  name: Sao Mai English
+  handoffMessage: 'Dạ, em đã chuyển cho nhân viên, anh/chị đợi một chút ạ.'
+  profile:
+    fields:
+      displayName: Sao Mai English
+      hotline: '024 3333 8888'
+      courseSchedule: 'Lớp người lớn học tối thứ 2-4-6 hoặc 3-5.'
+    notes: ''
+products:
+  - name: 'Tiếng Anh giao tiếp A2'
+    code: GT-A2
+    description: 'Khoá giao tiếp cho người đi làm.'
+    variants:
+      - { name: 'Trọn khoá', sku: GT-A2-FULL, price: 4500000 }
+    offering: { kind: course, durationMinutes: 90, sessions: 24 }
+# R5-7: a complaint that asks for a manager is handed over at once; the missing phone is asked for
+# after the shop's hand-over line ("…đợi một chút ạ"), never before it as if nothing was passed on.
+conversation:
+  - customer: 'Tôi đóng tiền 3 tuần rồi mà chưa ai xếp lớp, tôi muốn gặp quản lý ngay!'
+expect:
+  outcome: handoff
+  steps_succeeded: ['handoff']
+  contains_all: ['số điện thoại', 'đã chuyển cho nhân viên']
+  not_matches: ['số điện thoại[\s\S]*đã chuyển cho nhân viên']
+fake_turns:
+  - text: 'Dạ em xin lỗi vì mình đã chờ 3 tuần mà chưa được xếp lớp ạ.'
+    tool_calls:
+      - { name: handoff, input: { reason: 'paid 3 weeks ago, no class yet, wants a manager' } }

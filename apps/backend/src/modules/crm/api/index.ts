@@ -1,5 +1,6 @@
 export {
   type BotRequestResult,
+  type BotRequestStatus,
   CRM_FACADE,
   type ConversationTagFilter,
   type ConversationTagMatch,

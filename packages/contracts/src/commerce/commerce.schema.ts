@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { PublicImageUrl } from '../common/media.js';
-import { AccommodationDetails, CatalogAccommodationDetails } from './lodging.schema.js';
+import {
+  AccommodationDetails,
+  AccommodationWrite,
+  CatalogAccommodationDetails,
+} from './lodging.schema.js';
 import { Money } from './money.schema.js';
 import { OrderItemsPreviewFields, OrderOriginFields } from './order-review.schema.js';
 
@@ -179,7 +183,7 @@ export const ProductDto = z.object({
   variants: z.array(ProductVariantDto),
   priceMin: Money,
   priceMax: Money,
-  /** Σ available over variants and warehouses. */
+  /** Σ available over variants and warehouses, each row counted at 0 or more (oversold rows add 0). */
   available: z.number().int(),
   /**
    * The PMS record this product is synced from; null for a product managed in Rapiz. A response
@@ -220,7 +224,7 @@ const upsertProductShape = {
   visibleToBot: z.boolean().default(true),
   botInstructions: z.string().trim().max(4000).default(''),
   imageUrls: ProductImageUrls.default([]),
-  accommodation: AccommodationDetails.nullable().optional(),
+  accommodation: AccommodationWrite.nullable().optional(),
   /** Omitted on update: the stored offering stays. Null clears it. */
   offering: OfferingDetails.nullable().optional(),
   status: z.enum(['active', 'archived']).default('active'),
@@ -233,9 +237,27 @@ type UpsertProductShape = {
   offering?: unknown;
   accommodation?: unknown;
 };
-const distinctSkus = (p: UpsertProductShape) =>
-  new Set(p.variants.map((v) => v.sku.toLowerCase())).size === p.variants.length;
-const DISTINCT_SKUS = { message: 'each variant needs a different SKU', path: ['variants'] };
+/** Marks a variant whose SKU an earlier variant of the product already uses (case-insensitive). */
+export const DUPLICATE_SKU_MESSAGE = 'each variant needs a different SKU';
+/**
+ * Indexes of the variants whose SKU (trimmed, case-insensitive) an earlier variant of the same
+ * product already uses; the web form marks exactly these fields (TM-7).
+ */
+export function duplicateSkuIndexes(variants: readonly { sku: string }[]): number[] {
+  const seen = new Set<string>();
+  return variants.flatMap((v, i) => {
+    const key = v.sku.trim().toLowerCase();
+    if (!key) return [];
+    if (seen.has(key)) return [i];
+    seen.add(key);
+    return [];
+  });
+}
+/** The issue sits on the duplicate variant's SKU: `variants.<i>.sku`. */
+const distinctSkus = (p: UpsertProductShape, ctx: z.RefinementCtx) => {
+  for (const i of duplicateSkuIndexes(p.variants))
+    ctx.addIssue({ code: 'custom', message: DUPLICATE_SKU_MESSAGE, path: ['variants', i, 'sku'] });
+};
 const notBoth = (p: UpsertProductShape) => !p.offering || !p.accommodation;
 const NOT_BOTH = {
   message: 'a product is a course or service, or an accommodation, not both',
@@ -244,7 +266,7 @@ const NOT_BOTH = {
 
 export const UpsertProductRequest = z
   .object(upsertProductShape)
-  .refine(distinctSkus, DISTINCT_SKUS)
+  .superRefine(distinctSkus)
   .refine(notBoth, NOT_BOTH);
 export type UpsertProductRequest = z.input<typeof UpsertProductRequest>;
 
@@ -258,7 +280,7 @@ export const AssistantUpsertProductRequest = z
     ...upsertProductShape,
     accommodation: CatalogAccommodationDetails.nullable().optional(),
   })
-  .refine(distinctSkus, DISTINCT_SKUS)
+  .superRefine(distinctSkus)
   .refine(notBoth, NOT_BOTH);
 
 /**
@@ -714,7 +736,7 @@ export const OrderListResponse = z.object({
   pageSize: z.number().int(),
   /** Per status (and `all`) for the tabs, under the same search/date/source filter. */
   counts: z.record(z.string(), z.number().int()),
-  /** Footer totals over every matching order, not only this page. */
+  /** Footer totals over every matching order, not only this page; cancelled orders add nothing. */
   totals: z.object({
     itemQty: z.number().int(),
     shippingFeeCharged: Money,

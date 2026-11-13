@@ -2,9 +2,12 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { loadNamespace } from '@/lib/i18n';
 import { renderWithProviders, stubFetch } from '@/testing/render';
 
 import { TestChat } from './test-chat';
+
+beforeAll(() => loadNamespace('action'));
 
 const botId = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d11';
 const reply = {
@@ -57,6 +60,7 @@ describe('TestChat', () => {
         { role: 'bot', content: 'Dạ Shop Lan xin chào ạ!' },
         { role: 'customer', content: 'shop o dau vay' },
       ],
+      sessionId: expect.stringMatching(/^[0-9a-f-]{36}$/),
     });
   });
 
@@ -82,7 +86,11 @@ describe('TestChat', () => {
       [`POST /bots/${botId}/playground`]: {
         status: 503,
         body: {
-          error: { code: 'AI_UNAVAILABLE', message: 'No AI model is configured for this tier' },
+          error: {
+            code: 'AI_UNAVAILABLE',
+            message: 'No AI model is configured for this tier',
+            details: { tier: 'standard', reason: 'not_configured' },
+          },
         },
       },
     });
@@ -94,6 +102,106 @@ describe('TestChat', () => {
     expect(
       await screen.findByText('Chưa cấu hình mô hình AI cho gói này. Liên hệ quản trị hệ thống.'),
     ).toBeInTheDocument();
+  });
+
+  it('says the AI is busy for a temporary outage, not that it is not configured (TM-3)', async () => {
+    const { fetchStub } = stubFetch({
+      [`POST /bots/${botId}/playground`]: {
+        status: 503,
+        body: {
+          error: {
+            code: 'AI_UNAVAILABLE',
+            message: 'The AI model is temporarily unavailable',
+            details: { reason: 'temporarily_unavailable' },
+          },
+        },
+      },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithProviders(<TestChat botId={botId} greeting="" />);
+    await userEvent.type(screen.getByLabelText('Nhập tin nhắn của bạn'), 'alo{Enter}');
+    expect(
+      await screen.findByText(
+        'Mô hình AI đang bận, vui lòng thử lại sau ít phút.',
+        {},
+        { timeout: 8000 },
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('retries a busy reply without repeating the customer message (VL2-8)', async () => {
+    const key = `POST /bots/${botId}/playground`;
+    const routes: Record<string, { status: number; body?: unknown }> = {
+      [key]: {
+        status: 503,
+        body: {
+          error: {
+            code: 'AI_UNAVAILABLE',
+            message: 'The AI model is temporarily unavailable',
+            details: { reason: 'temporarily_unavailable' },
+          },
+        },
+      },
+    };
+    const { fetchStub, calls } = stubFetch(routes);
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithProviders(<TestChat botId={botId} greeting="" />);
+    await userEvent.type(screen.getByLabelText('Nhập tin nhắn của bạn'), 'alo{Enter}');
+    await screen.findByText(
+      'Mô hình AI đang bận, vui lòng thử lại sau ít phút.',
+      {},
+      { timeout: 8000 },
+    );
+    routes[key] = { status: 200, body: reply };
+    const before = calls.length;
+    await userEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+
+    expect(await screen.findByText('Dạ shop ở 12 Lê Lợi ạ')).toBeInTheDocument();
+    expect(screen.queryByText('Mô hình AI đang bận, vui lòng thử lại sau ít phút.')).toBeNull();
+    expect(screen.getAllByText('alo')).toHaveLength(1);
+    const retried = calls.slice(before).find((c) => c.key === key)?.body as {
+      messages: { role: string; content: string }[];
+    };
+    expect(retried.messages).toEqual([{ role: 'customer', content: 'alo' }]);
+  }, 15_000);
+
+  it('offers no retry when no model is configured', async () => {
+    const { fetchStub } = stubFetch({
+      [`POST /bots/${botId}/playground`]: {
+        status: 503,
+        body: {
+          error: {
+            code: 'AI_UNAVAILABLE',
+            message: 'No AI model is configured for this tier',
+            details: { tier: 'standard', reason: 'not_configured' },
+          },
+        },
+      },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithProviders(<TestChat botId={botId} greeting="" />);
+    await userEvent.type(screen.getByLabelText('Nhập tin nhắn của bạn'), 'alo{Enter}');
+    await screen.findByText('Chưa cấu hình mô hình AI cho gói này. Liên hệ quản trị hệ thống.');
+    expect(screen.queryByRole('button', { name: 'Thử lại' })).toBeNull();
+  });
+
+  it('keeps one session per test chat and starts a new one on reset (TM-18)', async () => {
+    const { fetchStub, calls } = stubFetch({
+      [`POST /bots/${botId}/playground`]: { status: 200, body: reply },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithProviders(<TestChat botId={botId} greeting="" />);
+    const input = () => screen.getByLabelText('Nhập tin nhắn của bạn');
+    await userEvent.type(input(), 'mot{Enter}');
+    expect(await screen.findByText('Dạ shop ở 12 Lê Lợi ạ')).toBeInTheDocument();
+    await userEvent.type(input(), 'hai{Enter}');
+    expect(await screen.findAllByText('Dạ shop ở 12 Lê Lợi ạ')).toHaveLength(2);
+    await userEvent.click(screen.getByRole('button', { name: 'Làm mới đoạn chat' }));
+    await userEvent.type(input(), 'ba{Enter}');
+    expect(await screen.findByText('Dạ shop ở 12 Lê Lợi ạ')).toBeInTheDocument();
+    const ids = calls.map((c) => (c.body as { sessionId: string }).sessionId);
+    expect(ids[0]).toBe(ids[1]);
+    expect(ids[2]).not.toBe(ids[0]);
   });
 
   it('offers the FAQ starters only while empty and resets the conversation', async () => {
@@ -140,6 +248,7 @@ describe('TestChat', () => {
       expect(calls[0]?.body).toEqual({
         messages: [{ role: 'customer', content: 'giay nay gia sao' }],
         images: [{ mimeType: 'image/png', base64: 'AAAAAA==' }],
+        sessionId: expect.any(String),
       });
       expect(screen.getAllByAltText('Ảnh đính kèm')).toHaveLength(1);
     });
@@ -310,22 +419,43 @@ describe('TestChat', () => {
         ).toBeTruthy();
     });
 
-    it('keeps the steps collapsed until the owner opens them', async () => {
-      await send(twoMessages);
-      const toggle = await screen.findByRole('button', { name: /Các bước bot đã làm/ });
+    it('keeps the steps collapsed under the model, tokens and time until opened', async () => {
+      await send({
+        ...twoMessages,
+        steps: [
+          {
+            kind: 'model_call',
+            ms: 812,
+            detail: {
+              tokens: { input: 30, cached: 10, output: 12 },
+              requested: ['search_products'],
+            },
+          },
+          {
+            kind: 'tool',
+            name: 'search_products',
+            ok: true,
+            ms: 34,
+            detail: { args: '{"q":"áo"}', resultChars: 120, result: '[{"code":"AO-1"}]' },
+          },
+          { kind: 'tool', name: 'send_message', ok: false, errorCode: 'blocked', ms: 5 },
+        ],
+      });
+      const toggle = await screen.findByRole('button', { name: /Xem các bước/ });
+      expect(toggle).toHaveAccessibleName(/Xem các bước\s*· 0,4 giây$/);
       expect(toggle).toHaveAttribute('aria-expanded', 'false');
-      expect(screen.getByText('search_products')).not.toBeVisible();
+      expect(screen.queryByText('search_products')).toBeNull();
 
       await userEvent.click(toggle);
       expect(toggle).toHaveAttribute('aria-expanded', 'true');
-      expect(screen.getByText('search_products')).toBeVisible();
-      expect(toggle).toHaveAttribute('aria-controls', screen.getByRole('list').id);
-      expect(screen.getByText('send_message')).toBeInTheDocument();
-      expect(screen.getByText('812 ms')).toBeInTheDocument();
-      expect(screen.getByText('lỗi')).toBeInTheDocument();
+      expect(screen.getAllByText('search_products').length).toBeGreaterThan(0);
+      expect(screen.getByText(/send_message ✕ blocked/)).toBeInTheDocument();
+      expect(screen.getByText('812ms')).toBeInTheDocument();
+      expect(screen.getByText('40(10c)→12')).toBeInTheDocument();
+      expect(screen.getByText('{"q":"áo"}')).toBeInTheDocument();
 
       await userEvent.click(toggle);
-      expect(screen.getByText('search_products')).not.toBeVisible();
+      expect(screen.queryByText('search_products')).toBeNull();
     });
 
     it('notes a turn that a newer customer message cut short', async () => {
@@ -338,7 +468,7 @@ describe('TestChat', () => {
     it('falls back to the reply when messages is empty and keeps the steps', async () => {
       await send({ ...reply, reply: 'Dạ có ạ.', messages: [], steps: twoMessages.steps });
       expect(await screen.findByText('Dạ có ạ.')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Các bước bot đã làm/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Xem các bước/ })).toBeInTheDocument();
     });
 
     it('shows an image-only message as its album without an empty bubble', async () => {

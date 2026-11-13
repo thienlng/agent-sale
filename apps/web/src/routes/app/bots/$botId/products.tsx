@@ -11,6 +11,7 @@ import { DataPageHeader } from '@/features/knowledge/components/data-page';
 import { BotProperties } from '@/features/lodging/components/bot-properties';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
 import { loadNamespace } from '@/lib/i18n';
+import { groupWording } from '@/lib/industry-group';
 
 export const Route = createFileRoute('/app/bots/$botId/products')({
   // Hotel bots list places from the lodging namespace; a failed load shows raw keys there
@@ -23,7 +24,7 @@ export const Route = createFileRoute('/app/bots/$botId/products')({
     return workspace.data?.industry === 'hotel' ? (
       <HotelBotProperties botId={botId} />
     ) : (
-      <BotProducts botId={botId} />
+      <BotProducts botId={botId} industry={workspace.data?.industry} />
     );
   },
 });
@@ -39,33 +40,33 @@ function HotelBotProperties({ botId }: { botId: string }) {
   );
 }
 
-function BotProducts({ botId }: { botId: string }) {
+function BotProducts({ botId, industry }: { botId: string; industry: string | undefined }) {
   const { t } = useTranslation('training');
+  // An education or spa business reads "dịch vụ" where a shop reads "sản phẩm" (MS-24, LM-3).
+  const k = groupWording(industry, 'data.products', 'data.services');
   const bot = useBot(botId);
   const update = useUpdateBot(botId);
   const mode = bot.data?.catalogMode ?? 'all';
   return (
     <section className="flex min-w-0 flex-col gap-4">
-      <DataPageHeader title={t('data.products.title')} subtitle={t('data.products.subtitle')} />
+      <DataPageHeader title={t(k('title'))} subtitle={t(k('subtitle'))} />
       <Tabs value="products">
         <TabsList variant="line" className="w-full justify-start border-b">
           <TabsTrigger value="products" className="flex-none px-4">
-            {t('data.products.tab')}
+            {t(k('tab'))}
           </TabsTrigger>
         </TabsList>
       </Tabs>
-      <p className="text-xs text-muted-foreground">{t('data.products.shared')}</p>
+      <p className="text-xs text-muted-foreground">{t(k('shared'))}</p>
       <BotCatalogMode
         mode={mode}
         disabled={!bot.data}
+        industry={industry}
         onChange={(catalogMode) =>
-          update.mutate(
-            { catalogMode },
-            { onError: () => toast.error(t('data.products.modeError')) },
-          )
+          update.mutate({ catalogMode }, { onError: () => toast.error(t(k('modeError'))) })
         }
       />
-      <BotProductsTable botId={botId} selecting={mode === 'selected'} />
+      <BotProductsTable botId={botId} selecting={mode === 'selected'} industry={industry} />
     </section>
   );
 }

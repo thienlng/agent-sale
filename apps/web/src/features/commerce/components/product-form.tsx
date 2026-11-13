@@ -1,4 +1,8 @@
-import type { ProductDto, UpsertProductRequest } from '@agent-sales/contracts';
+import {
+  duplicateSkuIndexes,
+  type ProductDto,
+  type UpsertProductRequest,
+} from '@agent-sales/contracts';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { ChevronLeft, Lock, Plus, Trash2 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
@@ -14,7 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { type AssistantFormField, useAssistantForm } from '@/lib/assistant-context';
 import { errorMessage } from '@/lib/errors';
 import { useCan } from '@/lib/permissions';
-import { productSaveErrorMessage } from '../hooks/lodging-errors';
+import { productSaveErrorMessage, type SkuProblem, skuProblemsOf } from '../hooks/lodging-errors';
 import { cn } from '@/lib/utils';
 
 import { useSaveProduct, useSaveProductBotSettings } from '../api/commerce';
@@ -42,6 +46,24 @@ interface VariantDraft {
   price: number;
   cost: number;
   weightGram: number;
+}
+
+/**
+ * SKUs left empty are made from the code, like the variants added with "Thêm mẫu mã" are
+ * (`<code>-<n>`): the first variant takes the code itself, the others `<code>-<n>`, skipping any
+ * SKU already in the list. A course or service no longer needs an invented package SKU (LM-3b).
+ */
+export function fillMissingSkus(code: string, skus: readonly string[]): string[] {
+  const base = code.trim();
+  const taken = new Set(skus.map((s) => s.trim().toLowerCase()).filter(Boolean));
+  return skus.map((sku, i) => {
+    if (sku.trim() || !base) return sku.trim();
+    let n = i + 1;
+    let next = i === 0 ? base : `${base}-${n}`;
+    while (taken.has(next.toLowerCase())) next = `${base}-${++n}`;
+    taken.add(next.toLowerCase());
+    return next;
+  });
 }
 
 let seq = 0;
@@ -119,9 +141,20 @@ export function ProductForm({
   );
   const setVariant = (i: number, patch: Partial<VariantDraft>) =>
     setVariants((vs) => vs.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
+  /** SKU fields to fix, by variant key (TM-7); a field's error clears when its SKU changes. */
+  const [skuProblems, setSkuProblems] = useState<ReadonlyMap<string, SkuProblem>>(new Map());
+  const markSkus = (byIndex: ReadonlyMap<number, SkuProblem>) =>
+    setSkuProblems(
+      new Map(
+        [...byIndex].flatMap(([i, problem]) => {
+          const key = variants[i]?.key;
+          return key ? [[key, problem] as const] : [];
+        }),
+      ),
+    );
 
   // The owner assistant may fill a new product's main fields (the first variant's SKU, price,
-  // cost and weight; the SKU is required to save), and the details of a course or service
+  // cost and weight; an empty SKU is made from the code on save), and the details of a course or service
   // (length, sessions, format, level, period, schedule, audience, price note);
   // the owner reviews them and saves. Editing an existing product is a proposal, not a fill.
   const first = variants[0];
@@ -163,7 +196,6 @@ export function ProductForm({
         label: t('products.form.sku'),
         type: 'text',
         empty: !first?.sku.trim(),
-        required: true,
         value: first?.sku ?? '',
       },
       { name: 'price', label: word('price'), type: 'number', empty: !first?.price },
@@ -197,7 +229,8 @@ export function ProductForm({
               name: 'format',
               label: offeringLabel('format'),
               type: 'select',
-              options: [...FORMATS],
+              // A spa service happens at the venue (MS2-9).
+              options: offeringKey === 'course' ? [...FORMATS] : ['offline'],
               empty: !offering.format,
             },
             ...(offeringKey === 'course'
@@ -293,6 +326,19 @@ export function ProductForm({
       );
       return;
     }
+    // A SKU repeated in the product: marked on the field before any request.
+    const repeated = duplicateSkuIndexes(variants);
+    if (repeated.length) {
+      markSkus(new Map(repeated.map((i) => [i, 'duplicate' as const])));
+      toast.error(t('products.form.skuDuplicate'));
+      const first = variants[repeated[0] ?? 0];
+      if (first) document.getElementById(`pv-sku-${first.key}`)?.focus();
+      return;
+    }
+    const skus = fillMissingSkus(
+      code,
+      variants.map((v) => v.sku),
+    );
     const body: UpsertProductRequest = {
       code: code.trim(),
       name: name.trim(),
@@ -304,9 +350,9 @@ export function ProductForm({
       status: archived ? 'archived' : 'active',
       ...(!product && botId ? { botId } : {}),
       ...(editKind ? { offering: retail ? null : toOffering(offering, editKind) } : {}),
-      variants: variants.map((v) => ({
+      variants: variants.map((v, i) => ({
         ...(v.id ? { id: v.id } : {}),
-        sku: v.sku.trim(),
+        sku: skus[i] ?? v.sku.trim(),
         name: v.name.trim(),
         price: v.price,
         cost: v.cost,
@@ -323,7 +369,21 @@ export function ProductForm({
           else if (!product)
             void navigate({ to: '/app/products/$productId', params: { productId: p.id } });
         },
-        onError: (err) => toast.error(productSaveErrorMessage(t, err)),
+        onError: (err) => {
+          const problems = skuProblemsOf(
+            err,
+            variants.map((v) => v.sku),
+          );
+          if (problems.size) {
+            markSkus(problems);
+            const first = [...problems.values()][0];
+            toast.error(
+              t(first === 'taken' ? 'products.form.skuTaken' : 'products.form.skuDuplicate'),
+            );
+            return;
+          }
+          toast.error(productSaveErrorMessage(t, err));
+        },
       },
     );
   }
@@ -409,7 +469,9 @@ export function ProductForm({
             ) : null}
           </div>
           <div className="flex flex-col gap-1.5 md:col-span-2">
-            <Label htmlFor="pf-bot-instructions">{training('productInstructions')}</Label>
+            <Label htmlFor="pf-bot-instructions">
+              {training(nounKind ? 'service.productInstructions' : 'productInstructions')}
+            </Label>
             <Textarea
               id="pf-bot-instructions"
               maxLength={4000}
@@ -417,7 +479,9 @@ export function ProductForm({
               value={botInstructions}
               onChange={(event) => setBotInstructions(event.target.value)}
             />
-            <p className="text-sm text-muted-foreground">{training('productInstructionsHint')}</p>
+            <p className="text-sm text-muted-foreground">
+              {training(nounKind ? 'service.productInstructionsHint' : 'productInstructionsHint')}
+            </p>
           </div>
           <div className="flex flex-col gap-1.5 md:col-span-2">
             <FieldLabel htmlFor="pf-description" locked={locked}>
@@ -445,6 +509,7 @@ export function ProductForm({
         ) : null}
 
         <ProductImagesEditor
+          service={nounKind !== null}
           value={imageUrls}
           onChange={setImageUrls}
           readOnly={locked}
@@ -481,7 +546,9 @@ export function ProductForm({
               <li
                 key={v.key}
                 className={cn(
-                  'grid gap-3 rounded-lg border p-3 sm:grid-cols-2 lg:items-end',
+                  // Top-aligned: an error under one field no longer pushes its row's other
+                  // fields down (TM2-14).
+                  'grid gap-3 rounded-lg border p-3 sm:grid-cols-2 lg:items-start',
                   isOffering
                     ? 'lg:grid-cols-[1fr_1.4fr_1fr_1fr_auto]'
                     : 'lg:grid-cols-[1fr_1.4fr_1fr_1fr_0.7fr_auto]',
@@ -494,11 +561,31 @@ export function ProductForm({
                   <Input
                     id={`pv-sku-${v.key}`}
                     {...lockedField('pv-locked-hint')}
-                    required
                     maxLength={64}
+                    placeholder={t('products.form.skuAuto')}
                     value={v.sku}
-                    onChange={(e) => setVariant(i, { sku: e.target.value })}
+                    {...(skuProblems.has(v.key)
+                      ? { 'aria-invalid': true, 'aria-describedby': `pv-sku-${v.key}-error` }
+                      : {})}
+                    onChange={(e) => {
+                      setVariant(i, { sku: e.target.value });
+                      if (skuProblems.has(v.key))
+                        setSkuProblems((all) => {
+                          const next = new Map(all);
+                          next.delete(v.key);
+                          return next;
+                        });
+                    }}
                   />
+                  {skuProblems.has(v.key) ? (
+                    <p id={`pv-sku-${v.key}-error`} className="text-xs text-destructive">
+                      {t(
+                        skuProblems.get(v.key) === 'taken'
+                          ? 'products.form.skuTaken'
+                          : 'products.form.skuDuplicate',
+                      )}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <FieldLabel htmlFor={`pv-name-${v.key}`} locked={locked}>
@@ -559,6 +646,8 @@ export function ProductForm({
                     variant="ghost"
                     size="icon"
                     disabled={variants.length === 1}
+                    // In line with the inputs, below their 20 px label and 6 px gap.
+                    className="lg:mt-6.5"
                     aria-label={word('removeVariant')}
                     onClick={() => setVariants((vs) => vs.filter((_, idx) => idx !== i))}
                   >
@@ -588,6 +677,7 @@ export function ProductForm({
       {product && !locked && canManage ? (
         <DeleteProductSection
           product={product}
+          service={nounKind !== null}
           onDeleted={() => void navigate({ to: '/app/products' })}
           onArchived={() => setArchived(true)}
         />

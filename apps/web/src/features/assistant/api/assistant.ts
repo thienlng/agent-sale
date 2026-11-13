@@ -176,6 +176,27 @@ function pendingMessage(turnId: string, text: string): AssistantMessageDto {
   };
 }
 
+/**
+ * The thread without the failed attempt a retry replaces (AS-1): when it ends with a busy reply
+ * (`retryable`) to the same text, the server drops that question and reply, so the cache does too.
+ */
+export function withoutRetriedAttempt(
+  messages: AssistantMessageDto[],
+  text: string,
+): AssistantMessageDto[] {
+  const answer = messages.at(-1);
+  const question = messages.at(-2);
+  if (
+    !answer?.retryable ||
+    question?.role !== 'user' ||
+    question.content !== text ||
+    question.runId !== answer.runId
+  ) {
+    return messages;
+  }
+  return messages.slice(0, -2);
+}
+
 export function useSendAssistantMessage() {
   const ws = useWorkspaceId();
   const queryClient = useQueryClient();
@@ -191,7 +212,7 @@ export function useSendAssistantMessage() {
       // A refetch landing now would drop the optimistic row.
       await queryClient.cancelQueries({ queryKey: key });
       queryClient.setQueryData<AssistantMessageDto[]>(key, (old = []) => [
-        ...old,
+        ...withoutRetriedAttempt(old, text),
         pendingMessage(turnId, text),
       ]);
     },

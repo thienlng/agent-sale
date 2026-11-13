@@ -109,7 +109,8 @@ export class CalendarService {
   ) {}
 
   /**
-   * Quote for one selection; `takenBy` lists the bookings already on those nights. Without
+   * Quote for one selection; `takenBy` lists the bookings already on those nights (except
+   * `excludeBookingId`, the booking an edit previews). Without
    * explicit `packageIds`, `keepPackageIds` keeps a booking's packages while they fit, exactly
    * as the booking edit prices it (`quoteKeepingPackages`), so its preview matches the save.
    */
@@ -132,7 +133,9 @@ export class CalendarService {
           ? quoteKeepingPackages(ctx, input, req.keepPackageIds)
           : quoteStay(ctx.property, ctx.units, ctx.rates, input, ctx.packages);
       const unitIds = resolveUnits(ctx.property, ctx.units, input);
-      const taken = await tx.takenNights(unitIds, req.checkIn, req.checkOut);
+      const taken = (await tx.takenNights(unitIds, req.checkIn, req.checkOut)).filter(
+        (t) => t.bookingId !== req.excludeBookingId,
+      );
       return toQuoteDto(quote, [...new Set(taken.map((t) => t.code))].sort());
     });
   }

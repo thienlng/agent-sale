@@ -16,6 +16,7 @@ import {
 } from '../domain/ports/external-identity.repository.js';
 import { USER_REPOSITORY, type UserRepository } from '../domain/ports/user.repository.js';
 import { User } from '../domain/user.js';
+import { CODE_TTL_MINUTES, EmailCodeService } from './email-codes.js';
 import { MfaService } from './mfa.service.js';
 import {
   GOOGLE_CALLBACK_LIMITER,
@@ -26,12 +27,15 @@ import {
   type GoogleSignInOptions,
 } from './ports/google-oauth.js';
 import { ATTEMPT_LIMITER, type AttemptLimiter } from './ports/security.js';
+import { SecurityEventService } from './security-events.js';
 import { type ClientMeta, type IssuedSession, SessionService } from './sessions.js';
 
 /** How long the user may stay on Google's screen. */
 export const GOOGLE_FLOW_TTL_MS = 10 * 60 * 1000;
 /** How long a Google sign-in waits for the second factor. */
 export const GOOGLE_MFA_TTL_MS = 5 * 60 * 1000;
+/** How long a Google sign-up waits for the emailed code (the code's own lifetime). */
+export const GOOGLE_VERIFY_TTL_MS = CODE_TTL_MINUTES * 60 * 1000;
 const DEFAULT_REDIRECT = '/app/analytics';
 const MAX_NAME = 120;
 
@@ -54,6 +58,8 @@ interface Pending {
   userId: UserId;
   link: { subject: string; email: string };
   claimUnverified: boolean;
+  /** The Google account is not linked yet (recorded as `identity.linked` once applied). */
+  newLink?: boolean;
 }
 
 /** Sealed in the cookie that waits for the second factor. */
@@ -66,9 +72,23 @@ interface MfaTicket {
   exp: number;
 }
 
+/**
+ * Sealed in the cookie that waits for the emailed code: a new account for an address Google is not
+ * authoritative for is created only once the code proves the mailbox (no pre-hijack).
+ */
+interface VerifyTicket {
+  p: 'verify';
+  subject: string;
+  email: string;
+  name: string | null;
+  redirect: string;
+  exp: number;
+}
+
 export type GoogleCallbackResult =
   | { kind: 'session'; issued: IssuedSession; redirect: string }
-  | { kind: 'mfa'; ticket: string; redirect: string };
+  | { kind: 'mfa'; ticket: string; redirect: string }
+  | { kind: 'verify'; ticket: string; redirect: string };
 
 /**
  * The reason word shown on /login for a failed callback; null for an unexpected error (logged by
@@ -109,7 +129,9 @@ export function googleOwnsEmail(email: string, hostedDomain: string | null): boo
  *
  * The Google account (its `sub`) is linked to a user on first use: a new password-less user, or the
  * existing user with the same email when Google is authoritative for it (`googleOwnsEmail`);
- * otherwise the sign-in is refused with `account_exists` (sign in with the password). Linking to an
+ * otherwise the sign-in is refused with `account_exists` (sign in with the password). A new user
+ * whose address Google is not authoritative for is created only after a code emailed to the
+ * address checks out (`completeVerify`): `email_verified` alone does not prove the mailbox today. Linking to an
  * address nobody proved yet drops that account's password and signs it out everywhere, so a
  * pre-registered look-alike account cannot keep access. A user with two-factor still enters a code,
  * and nothing is linked or changed before it checks out.
@@ -130,6 +152,8 @@ export class GoogleSignInService {
     @Inject(MfaService) private readonly mfa: MfaService,
     @Inject(ATTEMPT_LIMITER) private readonly limiter: AttemptLimiter,
     @Inject(GOOGLE_CALLBACK_LIMITER) private readonly callbackLimiter: AttemptLimiter,
+    @Inject(EmailCodeService) private readonly codes: EmailCodeService,
+    @Inject(SecurityEventService) private readonly events: SecurityEventService,
   ) {}
 
   get enabled(): boolean {
@@ -187,8 +211,22 @@ export class GoogleSignInService {
       throw new GoogleSignInError('failed');
     if (!profile.emailVerified) throw new GoogleSignInError('unverified_email');
 
-    const { user, pending } = await this.#resolveUser(profile, now);
+    const resolved = await this.#resolveUser(profile, now);
     await this.callbackLimiter.reset(key);
+    if ('verify' in resolved) {
+      const ticket: VerifyTicket = {
+        ...resolved.verify,
+        p: 'verify',
+        redirect: flow.redirect,
+        exp: now.getTime() + GOOGLE_VERIFY_TTL_MS,
+      };
+      return {
+        kind: 'verify',
+        ticket: this.box.seal(JSON.stringify(ticket)),
+        redirect: flow.redirect,
+      };
+    }
+    const { user, pending } = resolved;
     if (await this.mfa.isEnabled(user.id)) {
       const ticket: MfaTicket = {
         p: 'mfa',
@@ -205,9 +243,46 @@ export class GoogleSignInService {
     }
     return {
       kind: 'session',
-      issued: await this.sessions.start(await this.#apply(pending, user, now), meta),
+      issued: await this.sessions.start(await this.#apply(pending, user, now, meta), meta),
       redirect: flow.redirect,
     };
+  }
+
+  /**
+   * The emailed code that finishes a Google sign-up for an address Google is not authoritative for;
+   * `GoogleSignInError('expired')` without a live ticket. Wrong codes count against the code itself
+   * (`EmailCodeService`: a few attempts, then a new code is needed).
+   */
+  async completeVerify(
+    sealedTicket: string | undefined,
+    code: string,
+    meta: ClientMeta,
+    now = new Date(),
+  ): Promise<IssuedSession> {
+    const ticket = this.#open<VerifyTicket>(sealedTicket, 'verify');
+    if (!ticket || ticket.exp <= now.getTime()) throw new GoogleSignInError('expired');
+    await this.codes.consume(ticket.email, 'signup', code, now);
+    const link = { subject: ticket.subject, email: ticket.email };
+    // Linked or registered in the meantime (another tab): the normal rules apply.
+    const linkedId = await this.identities.findUserId('google', ticket.subject);
+    const linked = linkedId ? await this.users.findById(linkedId) : null;
+    if (linked) return this.#startAfterCode(linked, link, false, meta, now);
+    const created = await this.#register(ticket.email, ticket.name, now);
+    if (!created) throw new GoogleSignInError('account_exists');
+    return this.#startAfterCode(created, link, true, meta, now);
+  }
+
+  async #startAfterCode(
+    user: User,
+    link: Pending['link'],
+    newLink: boolean,
+    meta: ClientMeta,
+    now: Date,
+  ): Promise<IssuedSession> {
+    // A linked user with two-factor never skips it: send them through the normal Google sign-in.
+    if (await this.mfa.isEnabled(user.id)) throw new GoogleSignInError('expired');
+    const pending: Pending = { userId: user.id, link, claimUnverified: false, newLink };
+    return this.sessions.start(await this.#apply(pending, user, now, meta), meta);
   }
 
   /** The second factor after a Google sign-in; `GoogleSignInError('expired')` without a live ticket. */
@@ -226,11 +301,18 @@ export class GoogleSignInService {
     const user = await this.users.findById(ticket.userId);
     if (!user || ticket.pending?.userId !== user.id) throw new GoogleSignInError('expired');
     await this.limiter.reset(key);
-    return this.sessions.start(await this.#apply(ticket.pending, user, now), meta);
+    return this.sessions.start(await this.#apply(ticket.pending, user, now, meta), meta, {
+      assurance: { authenticatedAt: now, mfa: true },
+    });
   }
 
   /** Finds the user for a Google account without changing anything yet (see `#apply`). */
-  async #resolveUser(profile: GoogleProfile, now: Date): Promise<{ user: User; pending: Pending }> {
+  async #resolveUser(
+    profile: GoogleProfile,
+    now: Date,
+  ): Promise<
+    { user: User; pending: Pending } | { verify: Pick<VerifyTicket, 'subject' | 'email' | 'name'> }
+  > {
     const email = profile.email.trim().toLowerCase();
     const link = { subject: profile.subject, email };
     const linkedId = await this.identities.findUserId('google', profile.subject);
@@ -239,9 +321,17 @@ export class GoogleSignInService {
       return { user: linked, pending: { userId: linked.id, link, claimUnverified: false } };
     const existing = await this.users.findByEmail(email);
     if (existing) return this.#claim(existing, profile, link);
+    if (!googleOwnsEmail(email, profile.hostedDomain)) {
+      const name = profile.name?.trim() || null;
+      await this.#sendSignupCode(email, name);
+      return { verify: { subject: profile.subject, email, name } };
+    }
     const created = await this.#register(email, profile.name, now);
     if (created) {
-      return { user: created, pending: { userId: created.id, link, claimUnverified: false } };
+      return {
+        user: created,
+        pending: { userId: created.id, link, claimUnverified: false, newLink: true },
+      };
     }
     // The same address signed up a moment ago (another tab, or the email form).
     const raced = await this.users.findByEmail(email);
@@ -258,11 +348,23 @@ export class GoogleSignInService {
     if (!googleOwnsEmail(link.email, profile.hostedDomain)) {
       throw new GoogleSignInError('account_exists');
     }
-    return { user, pending: { userId: user.id, link, claimUnverified: !user.emailVerified } };
+    return {
+      user,
+      pending: { userId: user.id, link, claimUnverified: !user.emailVerified, newLink: true },
+    };
+  }
+
+  /** Within the resend cooldown the code already sent still works: no new email, same answer. */
+  async #sendSignupCode(email: string, name: string | null): Promise<void> {
+    try {
+      await this.codes.send({ email, name }, 'signup');
+    } catch (e) {
+      if (!(e instanceof TooManyAttemptsError)) throw e;
+    }
   }
 
   /** Makes the changes of a completed sign-in and returns the user as it now is. */
-  async #apply(pending: Pending, user: User, now: Date): Promise<User> {
+  async #apply(pending: Pending, user: User, now: Date, meta: ClientMeta): Promise<User> {
     if (pending.claimUnverified) {
       await this.users.confirmEmail(user.id, now, true);
       await this.sessions.revokeAll(user.id);
@@ -276,6 +378,8 @@ export class GoogleSignInService {
       },
       now,
     );
+    if (pending.newLink)
+      await this.events.record(user.id, 'identity.linked', { provider: 'google' }, meta.ip);
     return pending.claimUnverified ? ((await this.users.findById(user.id)) ?? user) : user;
   }
 
@@ -300,7 +404,10 @@ export class GoogleSignInService {
     return this.google;
   }
 
-  #open<T extends Flow | MfaTicket>(sealed: string | undefined, purpose: T['p']): T | null {
+  #open<T extends Flow | MfaTicket | VerifyTicket>(
+    sealed: string | undefined,
+    purpose: T['p'],
+  ): T | null {
     if (!sealed) return null;
     try {
       const value = JSON.parse(this.box.open(sealed)) as T;

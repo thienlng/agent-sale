@@ -94,9 +94,15 @@ export class CrmFacadeImpl implements CrmFacade {
       details: unknown;
       preview: boolean;
       catalogNames?: readonly string[];
+      channel?: string;
+      conversationId?: string | null;
     },
   ): Promise<BotRequestResult> {
     return this.requests.recordFromBot(ws, input);
+  }
+
+  requestStatus(ws: WorkspaceId, contactId: string) {
+    return this.requests.requestStatus(ws, contactId);
   }
 
   requestsRecorded(

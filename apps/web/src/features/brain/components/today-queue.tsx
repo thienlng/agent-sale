@@ -79,9 +79,14 @@ export function TodayQueue({
 
 /** A due time in Asia/Ho_Chi_Minh, the zone the task dialog uses, in the UI language. */
 function dueLabel(iso: string, locale: string): string {
-  return new Intl.DateTimeFormat(locale, {
-    dateStyle: 'short',
-    timeStyle: 'short',
+  // "09:00 14/11/2026": the full year, like every other date of the app (AS-23).
+  return new Intl.DateTimeFormat(locale === 'en' ? 'en-US' : 'vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
     timeZone: 'Asia/Ho_Chi_Minh',
   }).format(new Date(iso));
 }

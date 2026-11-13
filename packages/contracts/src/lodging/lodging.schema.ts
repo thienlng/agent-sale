@@ -280,6 +280,17 @@ export const UpdateOverrideRequest = z.object(overrideShape).partial().extend({
 export type UpdateOverrideRequest = z.infer<typeof UpdateOverrideRequest>;
 /** DELETE query: the property version. */
 export const DeleteOverrideQuery = z.object({ version: z.coerce.number().int().positive() });
+/**
+ * `withBookings=true`: the owner confirmed deleting a property that has bookings, so its bookings
+ * (and blocks) go too. Without it, such a property answers 409 `property_has_bookings` with
+ * `details.bookings` (all) and `details.upcoming` (live ones not yet checked out).
+ */
+export const DeletePropertyQuery = z.object({
+  withBookings: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
+});
 export const RateDto = z.object({
   id: z.uuid(),
   unitId: z.uuid().nullable(),
@@ -344,6 +355,8 @@ export const QuoteRequest = StaySelection.extend({
    * omitted. Used only when `packageIds` is empty.
    */
   keepPackageIds: z.array(z.uuid()).max(100).optional(),
+  /** A booking edit's preview: that booking's own nights are not reported in `takenBy` (VL-A3). */
+  excludeBookingId: z.uuid().optional(),
 });
 export type QuoteRequest = z.infer<typeof QuoteRequest>;
 export const QuoteNight = z.object({

@@ -14,6 +14,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import {
   type BotRequestResult,
+  type BotRequestStatus,
   type RequestsRecorded,
   websiteLeadName,
 } from '../api/crm.facade.js';
@@ -29,6 +30,8 @@ const DAY_MS = 86_400_000;
 const CONTACT_REQUESTS_LIMIT = 10;
 const OPEN_LIMIT = 10;
 const OPEN_WINDOW_MS = 30 * DAY_MS;
+/** Conversation channels that are also customer sources (`DEFAULT_SOURCES` keys). */
+const LEAD_CHANNELS: ReadonlySet<string> = new Set(['facebook', 'instagram', 'website', 'zalo']);
 const RECENT_WINDOW_MS = 7 * DAY_MS;
 
 /**
@@ -52,6 +55,8 @@ export class CustomerRequestService {
       details: unknown;
       preview: boolean;
       catalogNames?: readonly string[];
+      channel?: string;
+      conversationId?: string | null;
     },
   ): Promise<BotRequestResult> {
     // 1–2. The industry's profile, and a kind it offers.
@@ -88,7 +93,8 @@ export class CustomerRequestService {
     const name = String(details['name'] ?? '');
     const { contactId, created } = await this.contacts.upsertLead(ws, {
       phoneE164: phone,
-      sourceKey: 'bot',
+      // The conversation's channel is the new customer's source (MS-11); `bot` matches none.
+      sourceKey: input.channel && LEAD_CHANNELS.has(input.channel) ? input.channel : 'bot',
       displayName: name,
       firstUrl: null,
       renameFrom: websiteLeadName(phone),
@@ -100,10 +106,13 @@ export class CustomerRequestService {
       kind: input.kind,
       details,
       dateLabel: label,
+      conversationId:
+        input.conversationId && isUuid(input.conversationId) ? input.conversationId : null,
     });
     return {
       outcome: applied.updated ? 'updated' : 'recorded',
       contactId,
+      phoneE164: phone,
       created,
       // An update is judged on the merged details: what the earlier request said is not missing.
       missing: applied.updated
@@ -111,6 +120,37 @@ export class CustomerRequestService {
         : missing,
       dateLabel: applied.dateLabel,
     };
+  }
+
+  /**
+   * The customer's latest bot request of the last 30 days and whether staff confirmed it: the
+   * customer stands at a confirmed status of that kind (`keep` of a kind that can be reopened,
+   * e.g. spa `booked`) (MS2-7). Null outside the request industries or without a request.
+   */
+  async requestStatus(ws: WorkspaceId, contactId: string): Promise<BotRequestStatus | null> {
+    if (!isUuid(contactId)) return null;
+    const { industry } = await this.workspaces.getById(ws);
+    const profile = requestProfileFor(industry);
+    if (!profile) return null;
+    return this.store.run(ws, async (tx) => {
+      const contact = await tx.contacts.find(contactId);
+      if (!contact) return null;
+      const [entry] = await tx.history.requestEntries(contactId, 1);
+      const request = entry ? toRequestDto(entry) : null;
+      if (!request || Date.parse(request.recordedAt) < Date.now() - OPEN_WINDOW_MS) return null;
+      const status = (await tx.options.list('status')).find((s) => s.id === contact.statusId);
+      const move = profile.status[request.kind];
+      const confirmed =
+        move?.move === 'unless' && !!move.reopen && !!status?.key && move.keep.includes(status.key);
+      return {
+        kind: request.kind,
+        kindLabel: profile.kindLabels[request.kind] ?? request.kind,
+        dateLabel: request.dateLabel,
+        preferredTime: request.details['preferredTime'] ?? null,
+        confirmed,
+        statusName: status?.name ?? null,
+      };
+    });
   }
 
   /** The customer's latest requests, under the visibility of `GET /contacts/{id}`. */
@@ -123,7 +163,7 @@ export class CustomerRequestService {
       const contact = isUuid(contactId) ? await tx.contacts.find(contactId) : null;
       if (!contact || !canSee(contact, viewer)) throw new ContactNotFoundError(contactId);
       const rows = await tx.history.requestEntries(contactId, CONTACT_REQUESTS_LIMIT);
-      return { data: rows.flatMap((r) => toRequestDto(r) ?? []) };
+      return { data: foldUpdates(rows.flatMap((r) => toRequestDto(r) ?? [])) };
     });
   }
 
@@ -206,6 +246,32 @@ export class CustomerRequestService {
 }
 
 /** A history entry as a request; null for an entry whose data is not one (never written so). */
+/**
+ * One card per request (LM-4): entries come newest first, and the bot's updates of a request
+ * (`update`) are folded into its newest entry, which already holds the merged details. A request's
+ * chain ends at its first (not update) entry of the same kind.
+ */
+export function foldUpdates(entries: readonly CustomerRequestDto[]): CustomerRequestDto[] {
+  const out: CustomerRequestDto[] = [];
+  const open = new Map<string, CustomerRequestDto>();
+  for (const e of entries) {
+    const head = open.get(e.kind);
+    if (head) {
+      if (e.update) head.updates = (head.updates ?? 0) + 1;
+      else {
+        head.firstRecordedAt = e.recordedAt;
+        open.delete(e.kind);
+      }
+      continue;
+    }
+    const card: CustomerRequestDto = { ...e, updates: e.update ? 1 : 0 };
+    if (!e.update) card.firstRecordedAt = e.recordedAt;
+    else open.set(e.kind, card);
+    out.push(card);
+  }
+  return out;
+}
+
 function toRequestDto(r: HistoryRecord): CustomerRequestDto | null {
   const kind = CustomerRequestKind.safeParse(r.data['kind']);
   if (!kind.success) return null;

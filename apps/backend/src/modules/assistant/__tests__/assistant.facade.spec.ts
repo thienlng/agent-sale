@@ -131,12 +131,14 @@ describe('AssistantFacade (contract)', () => {
     expect(stored).toMatchObject({
       accountId,
       ownerUserId: me.userId,
-      promptVersion: 'assistant@4',
+      promptVersion: 'assistant@6',
     });
     expect(stored.systemPrompt).toContain('personal assistant of Lan,');
     expect(stored.systemPrompt).toContain(`- Thời trang Mây (retail) — id ${me.businessId}`);
     expect(stored.systemPrompt).not.toContain('Elsewhere');
-    expect(stored.systemPrompt).toMatch(/Today is \d{4}-\d{2}-\d{2} \(Asia\/Ho_Chi_Minh\)\./);
+    expect(stored.systemPrompt).toMatch(
+      /This conversation started on \d{4}-\d{2}-\d{2} \(Asia\/Ho_Chi_Minh\);/,
+    );
   });
 
   it('freezes the owner skills index in a new thread: a shadow replaces its platform skill', async () => {
@@ -878,6 +880,64 @@ describe('AssistantFacade (contract)', () => {
       const { data } = await facade.listMessages(me, t.id);
       expect(data.at(-1)?.content).toContain('(target_changed)');
       expect(data.at(-1)?.content).toContain('đề xuất lại');
+    });
+
+    it('retries once at the current version when a sibling proposal of the record applied first', async () => {
+      const villa = newId();
+      const first = await withProposal({
+        routeKey: 'PATCH /lodging/properties/{id}',
+        path: `/lodging/properties/${villa}`,
+        body: { version: 1, patch: { name: 'Sunshine Villa' } },
+      });
+      const { repo, scope, facade, me, t, invoke } = first;
+      const prices = await repo.createProposal(scope, {
+        id: newId(),
+        threadId: t.id,
+        runId: null,
+        businessId: me.businessId,
+        routeKey: 'PATCH /lodging/properties/{id}',
+        path: `/lodging/properties/${villa}`,
+        query: null,
+        body: { version: 1, patch: { description: 'Biệt thự view sân golf' } },
+        summary: 'Cập nhật mô tả',
+        preview: null,
+        expiresAt: new Date(Date.now() + 86_400_000),
+      });
+      expect(await facade.approveProposal(me, first.p.id, AUTH)).toMatchObject({ status: 'done' });
+      invoke
+        .mockResolvedValueOnce({ status: 409, body: { error: { code: 'CONFLICT' } } })
+        .mockResolvedValueOnce({ status: 200, body: { id: villa, version: 2 } })
+        .mockResolvedValueOnce({ status: 200, body: { id: villa, version: 3 } });
+      expect(await facade.approveProposal(me, prices.id, AUTH)).toMatchObject({ status: 'done' });
+      expect(invoke.mock.calls.slice(1).map(([c]) => [c.method, c.body, c.idempotencyKey])).toEqual(
+        [
+          [
+            'patch',
+            { version: 1, patch: { description: 'Biệt thự view sân golf' } },
+            `asst:${prices.id}`,
+          ],
+          ['get', undefined, undefined],
+          [
+            'patch',
+            { version: 2, patch: { description: 'Biệt thự view sân golf' } },
+            `asst:${prices.id}:rebased`,
+          ],
+        ],
+      );
+    });
+
+    it('keeps a version conflict failed when no proposal of the thread explains it', async () => {
+      const { facade, me, p, invoke } = await withProposal({
+        routeKey: 'PATCH /lodging/properties/{id}',
+        path: `/lodging/properties/${newId()}`,
+        body: { version: 1, patch: { name: 'Sunshine Villa' } },
+      });
+      invoke.mockResolvedValueOnce({ status: 409, body: { error: { code: 'CONFLICT' } } });
+      expect(await facade.approveProposal(me, p.id, AUTH)).toMatchObject({
+        status: 'failed',
+        errorCode: 'http_409',
+      });
+      expect(invoke).toHaveBeenCalledTimes(1);
     });
 
     it('applies a PATCH when only fields it does not touch changed', async () => {

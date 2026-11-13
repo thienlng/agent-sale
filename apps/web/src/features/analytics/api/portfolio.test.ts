@@ -110,7 +110,7 @@ describe('authorized business portfolio reads', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('bounds concurrency to three tenant reads even for a large portfolio', async () => {
+  it('bounds concurrency to four businesses (two reads each) even for a large portfolio', async () => {
     let active = 0,
       maximum = 0;
     vi.stubGlobal('fetch', async (_input: string, init: RequestInit) => {
@@ -131,7 +131,7 @@ describe('authorized business portfolio reads', () => {
       new AbortController().signal,
     );
     expect(rows).toHaveLength(9);
-    expect(maximum).toBeLessThanOrEqual(3);
+    expect(maximum).toBeLessThanOrEqual(8);
   });
 
   it('stops queued work when the portfolio is canceled', async () => {

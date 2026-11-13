@@ -11,7 +11,7 @@ import {
   Search,
   Star,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,6 +43,26 @@ export function externalInboxUrl(
 ): string | null {
   if (provider !== 'facebook' || !channel?.externalId) return null;
   return `https://business.facebook.com/latest/inbox/all?asset_id=${encodeURIComponent(channel.externalId)}`;
+}
+
+/** Below this width the header keeps one row by moving star, spam and "mark unread" into "…" (LM-8). */
+const COMPACT_WIDTH = 600;
+
+/** Whether the element is narrower than `width`; false until it is measured. */
+function useNarrow(width: number) {
+  const ref = useRef<HTMLElement>(null);
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => {
+      const w = entry?.contentRect.width ?? 0;
+      setNarrow(w > 0 && w < width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [width]);
+  return [ref, narrow] as const;
 }
 
 /** Meta's square outlined icon action with a tooltip; `pressed` marks an on/off state. */
@@ -100,6 +120,7 @@ export function ConversationHeader({
   onChange,
   onMarkUnread,
   canEdit = true,
+  replyModeLocked = false,
 }: {
   conversation: InboxConversation;
   channel: HeaderChannel | undefined;
@@ -118,6 +139,8 @@ export function ConversationHeader({
   onMarkUnread: () => void;
   /** Every control change needs permission to edit contacts. */
   canEdit?: boolean;
+  /** The Page was removed: neither the bot nor a person can answer here (TM-10). */
+  replyModeLocked?: boolean;
 }) {
   const { t } = useTranslation();
   const tr = (key: string, options?: Record<string, unknown>) =>
@@ -131,6 +154,7 @@ export function ConversationHeader({
   const link = externalInboxUrl(c.provider, channel);
   const seenAt = c.lastReadAt ? formatRowTime(c.lastReadAt, now) : null;
   const locked = busy || !canEdit;
+  const [headerRef, compact] = useNarrow(COMPACT_WIDTH);
   const seen =
     c.unreadCount > 0 ? (
       <span className="font-medium text-brand-text">{v2('unseen')}</span>
@@ -142,7 +166,10 @@ export function ConversationHeader({
       )
     ) : null;
   return (
-    <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b px-3 py-2.5">
+    <header
+      ref={headerRef}
+      className="flex items-center gap-x-2 gap-y-2 border-b px-2 py-2.5 sm:gap-x-3 sm:px-3"
+    >
       <Button
         size="icon-sm"
         variant="ghost"
@@ -153,10 +180,10 @@ export function ConversationHeader({
         <ArrowLeft />
       </Button>
       <CustomerAvatar conversation={c} name={name} />
-      <div className="min-w-0 flex-1 basis-40">
+      <div className="min-w-14 flex-1 sm:min-w-24">
         <h2 className="flex min-w-0 items-baseline gap-2 leading-tight">
-          <span className="truncate font-semibold">{name}</span>
-          <span className="truncate text-xs font-normal text-muted-foreground">
+          <span className="min-w-0 truncate font-semibold sm:max-w-full sm:shrink-0">{name}</span>
+          <span className="hidden truncate text-xs font-normal text-muted-foreground sm:inline">
             {channel?.name ? v2('via', { provider, page: channel.name }) : provider}
           </span>
         </h2>
@@ -178,7 +205,7 @@ export function ConversationHeader({
           ) : null}
         </div>
       </div>
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+      <div className="flex min-w-0 shrink items-center gap-1.5 [&>*:not(:first-child)]:shrink-0">
         <ReplyModeMenu
           mode={c.mode}
           autoResumeAt={c.autoResumeAt}
@@ -186,28 +213,35 @@ export function ConversationHeader({
           isMine={c.assigneeId === userId}
           botAvailable={botAvailable}
           takeoverMinutes={takeoverMinutes}
-          disabled={locked}
+          disabled={locked || replyModeLocked}
+          compact={compact}
           onChange={(change) => onChange(change)}
         />
-        <IconAction
-          label={meta(spam ? 'notSpam' : 'spam')}
-          pressed={spam}
-          disabled={locked}
-          onClick={() => onChange({ status: spam ? 'open' : 'spam' })}
-        >
-          <OctagonAlert />
-        </IconAction>
-        <IconAction
-          label={meta(c.starred ? 'unstar' : 'star')}
-          pressed={c.starred}
-          disabled={locked}
-          onClick={() => onChange({ starred: !c.starred })}
-        >
-          <Star className={cn(c.starred && 'fill-current')} />
-        </IconAction>
-        <IconAction label={v2('markUnread')} disabled={locked} onClick={onMarkUnread}>
-          <Mail />
-        </IconAction>
+        {compact ? null : (
+          <IconAction
+            label={meta(spam ? 'notSpam' : 'spam')}
+            pressed={spam}
+            disabled={locked}
+            onClick={() => onChange({ status: spam ? 'open' : 'spam' })}
+          >
+            <OctagonAlert />
+          </IconAction>
+        )}
+        {compact ? null : (
+          <IconAction
+            label={meta(c.starred ? 'unstar' : 'star')}
+            pressed={c.starred}
+            disabled={locked}
+            onClick={() => onChange({ starred: !c.starred })}
+          >
+            <Star className={cn(c.starred && 'fill-current')} />
+          </IconAction>
+        )}
+        {compact ? null : (
+          <IconAction label={v2('markUnread')} disabled={locked} onClick={onMarkUnread}>
+            <Mail />
+          </IconAction>
+        )}
         <IconAction
           label={v2(resolved ? 'reopen' : 'resolve')}
           pressed={resolved}
@@ -224,6 +258,28 @@ export function ConversationHeader({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
+            {compact ? (
+              <>
+                <DropdownMenuItem
+                  disabled={locked}
+                  onSelect={() => onChange({ starred: !c.starred })}
+                >
+                  <Star className={cn(c.starred && 'fill-current')} />
+                  {meta(c.starred ? 'unstar' : 'star')}
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={locked} onSelect={onMarkUnread}>
+                  <Mail />
+                  {v2('markUnread')}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={locked}
+                  onSelect={() => onChange({ status: spam ? 'open' : 'spam' })}
+                >
+                  <OctagonAlert />
+                  {meta(spam ? 'notSpam' : 'spam')}
+                </DropdownMenuItem>
+              </>
+            ) : null}
             <DropdownMenuItem onSelect={onToggleSearch}>
               <Search />
               {tr('sales.searchThread')}

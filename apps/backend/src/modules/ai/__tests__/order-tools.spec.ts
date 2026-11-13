@@ -16,6 +16,8 @@ import type { KnowledgeFacade } from '../../knowledge/api/index.js';
 import type { WorkspaceFacade } from '../../workspace/api/index.js';
 import type { OutgoingMessage } from '../api/reply-options.js';
 import { playgroundConversationId } from '../application/action-tools.js';
+import { InMemoryLimiter } from '../../../common/limits/limiter.js';
+import { BotCommitQuota, COMMIT_LIMIT_REPLY } from '../application/commit-quota.js';
 import { LlmRuntime } from '../application/llm-runtime.js';
 import {
   CANCEL_ORDER_DRAFT_TOOL,
@@ -293,6 +295,33 @@ describe('order tools (spec §4.1)', () => {
     });
   });
 
+  it('refuses to re-prepare a waiting summary the customer just agreed to (R5-1)', async () => {
+    const facade = fakeCommerce({ storedAt: new Date(Date.now() - 60_000) });
+    const ctx = context(facade, {
+      confirmable: true,
+      customerBlock: 'Ok đúng rồi, chị xác nhận đặt đơn',
+    });
+    const out = await runnable(ctx, PREPARE_ORDER_TOOL).run(ORDER_INPUT);
+    expect(out.ok).toBe(false);
+    expect(JSON.parse(out.content)).toMatchObject({ ok: false, error: 'summary_waiting' });
+    expect(facade.prepareBotOrder).not.toHaveBeenCalled();
+    const confirmed = await runnable(ctx, CONFIRM_ORDER_TOOL).run({});
+    expect(JSON.parse(confirmed.content)).toEqual({ ok: true, orderCode: 'DH0042' });
+  });
+
+  it('still re-prepares on a change, or when no summary waits (R5-1)', async () => {
+    const waiting = () => fakeCommerce({ storedAt: new Date(Date.now() - 60_000) });
+    const changed = waiting();
+    const change = context(changed, { confirmable: true, customerBlock: 'ok đổi sang 3 bộ nhé' });
+    expect((await runnable(change, PREPARE_ORDER_TOOL).run(ORDER_INPUT)).ok).not.toBe(false);
+    expect(changed.prepareBotOrder).toHaveBeenCalledTimes(1);
+    // A first "ok, lấy luôn" with no summary from an earlier turn prepares one.
+    const fresh = fakeCommerce();
+    const first = context(fresh, { customerBlock: 'ok lấy luôn' });
+    expect((await runnable(first, PREPARE_ORDER_TOOL).run(ORDER_INPUT)).ok).not.toBe(false);
+    expect(fresh.prepareBotOrder).toHaveBeenCalledTimes(1);
+  });
+
   it('confirm refuses a draft stored in the same turn', async () => {
     const facade = fakeCommerce({ storedAt: new Date(Date.now() - 60_000) });
     const ctx = context(facade, { confirmable: true });
@@ -300,6 +329,45 @@ describe('order tools (spec §4.1)', () => {
     const out = await runnable(ctx, CONFIRM_ORDER_TOOL).run({});
     expect(JSON.parse(out.content)).toEqual({ ok: false, code: 'not_confirmable' });
     expect(facade.confirmBotOrder).not.toHaveBeenCalled();
+  });
+
+  it('confirm stops at the orders one customer may get per day, counting only created orders (audit #18)', async () => {
+    const quota = new BotCommitQuota(
+      {
+        ordersPerContactDay: 1,
+        holdsPerContactDay: 0,
+        anonymousOrdersPerWorkspaceDay: 0,
+        anonymousHoldsPerWorkspaceDay: 0,
+      },
+      new InMemoryLimiter(),
+    );
+    const who = { contactId: 'contact-1', conversationId };
+    const facade = fakeCommerce({ storedAt: new Date(Date.now() - 60_000) });
+    vi.mocked(facade.confirmBotOrder).mockResolvedValueOnce({ ok: false, code: 'expired' });
+    const failed = context(facade, { confirmable: true, quota: quota.for('order', ws, who) });
+    expect((await runnable(failed, CONFIRM_ORDER_TOOL).run({})).ok).toBe(false);
+
+    const first = context(facade, { confirmable: true, quota: quota.for('order', ws, who) });
+    expect(JSON.parse((await runnable(first, CONFIRM_ORDER_TOOL).run({})).content)).toEqual({
+      ok: true,
+      orderCode: 'DH0042',
+    });
+    // The same customer in another conversation is refused without calling commerce.
+    const again = context(facade, {
+      confirmable: true,
+      quota: quota.for('order', ws, { contactId: 'contact-1', conversationId: newId() }),
+    });
+    const out = await runnable(again, CONFIRM_ORDER_TOOL).run({});
+    expect(out.ok).toBe(false);
+    expect(JSON.parse(out.content)).toEqual(COMMIT_LIMIT_REPLY);
+    expect(facade.confirmBotOrder).toHaveBeenCalledTimes(2);
+    // Another customer still orders; holds are not capped here.
+    const other = context(fakeCommerce({ storedAt: new Date(Date.now() - 60_000) }), {
+      confirmable: true,
+      quota: quota.for('order', ws, { contactId: 'contact-2', conversationId }),
+    });
+    expect((await runnable(other, CONFIRM_ORDER_TOOL).run({})).ok).toBe(true);
+    expect(quota.for('hold', ws, who)).toBeNull();
   });
 
   it('confirm reports a failed confirmation code', async () => {
@@ -566,7 +634,7 @@ describe('order tools in the reply pipeline', () => {
       ws,
       expect.objectContaining({
         conversationId: playgroundConversationId(botId),
-        channel: 'other',
+        channel: 'playground',
       }),
     );
 
@@ -577,6 +645,25 @@ describe('order tools in the reply pipeline', () => {
     await svc.playground(ws, botId, ask('✅ Đặt hàng'));
     expect(toolNames(requests[0])).toEqual(
       expect.arrayContaining([CONFIRM_ORDER_TOOL, CANCEL_ORDER_DRAFT_TOOL]),
+    );
+  });
+
+  it("keys the draft by the test chat session: a new chat cannot confirm another chat's order (TM-18)", async () => {
+    const { svc, commerce } = build(bot, [prepareCall, { text: '' }, { text: 'Dạ' }]);
+    const first = '018d0000-0000-7000-8000-0000000000a1';
+    const second = '018d0000-0000-7000-8000-0000000000a2';
+    await svc.playground(ws, botId, { ...ask('lấy 2 thú gỗ, Lan 0912345678'), sessionId: first });
+    expect(commerce.prepareBotOrder).toHaveBeenCalledWith(
+      ws,
+      expect.objectContaining({ conversationId: playgroundConversationId(botId, first) }),
+    );
+    await svc.playground(ws, botId, { ...ask('xác nhận đặt đơn nhé'), sessionId: second });
+    expect(commerce.hasBotOrderDraft).toHaveBeenLastCalledWith(
+      ws,
+      playgroundConversationId(botId, second),
+    );
+    expect(playgroundConversationId(botId, second)).not.toBe(
+      playgroundConversationId(botId, first),
     );
   });
 

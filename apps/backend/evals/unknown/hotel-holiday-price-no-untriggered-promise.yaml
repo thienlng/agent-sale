@@ -1,0 +1,25 @@
+id: hotel-holiday-price-no-untriggered-promise
+group: unknown
+tags: []
+bot:
+  industry: hotel
+  name: Tam Dao Golf Villas
+  profile:
+    fields:
+      displayName: 'Tam Dao Golf Villas'
+      address: 'Xã Tam Đảo, Vĩnh Phúc'
+      hotline: '032 569 7997'
+      checkInOut: 'Nhận phòng 14h, trả phòng 12h'
+      rates: 'Ngày thường từ 6.000.000đ/đêm, cuối tuần từ 8.000.000đ/đêm'
+    notes: 'Villa có sân vườn rộng, phù hợp tổ chức tiệc nhóm.'
+# R5-3 (Villas q13): the shop has no holiday price. The bot never promises that staff will send it
+# without a hand-over: it says it does not have the price yet and asks for the phone number.
+conversation:
+  - customer: 'Dịp Tết Nguyên đán bên mình giá villa có tăng không em, tăng bao nhiêu?'
+expect:
+  outcome_not: handoff
+  contains_any: ['số điện thoại', 'sđt', 'SĐT', 'số đt']
+  not_matches: ['nhân viên sẽ (báo|gửi|gọi)(?![^\n]*(số điện thoại|sđt))']
+  numbers_only_from_sources: true
+fake_turns:
+  - text: "Dạ giá dịp Tết Nguyên đán em chưa có thông tin ạ.\nAnh/chị để lại số điện thoại để nhân viên báo giá Tết nhé."

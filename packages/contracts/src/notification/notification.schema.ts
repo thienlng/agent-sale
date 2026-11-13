@@ -10,6 +10,8 @@ export const NotificationType = z.enum([
   'inbox.handoff',
   /** A customer wrote in a conversation staff are handling (T-190). */
   'inbox.message',
+  /** The AI stopped answering anonymous website visitors: a reply cap was reached (audit #2). */
+  'inbox.ai_capped',
   /** A whole-workspace data export is ready to download, or failed (SET-10). */
   'dataexport.ready',
   'dataexport.failed',

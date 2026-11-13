@@ -31,6 +31,7 @@ import {
   type VisionDraft,
 } from '../domain/product-import.js';
 import { toImportBatchDto } from './import-block.js';
+import { unsafeImportText } from './import-tools.js';
 
 /** The photo-drafting prompt (`packages/ai-core/prompts/assistant-import-vision@1.md`). */
 export const IMPORT_VISION_PROMPT = {
@@ -298,6 +299,7 @@ export class ImportBatchService {
       excluded: [],
       existing: null,
       createdKeys: new Set(),
+      unsafeText: unsafeImportText,
     });
     const preview = {
       spec: null,

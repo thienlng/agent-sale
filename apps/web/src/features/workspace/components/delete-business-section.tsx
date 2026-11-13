@@ -1,7 +1,7 @@
 import { BUSINESS_RESTORE_DAYS } from '@agent-sales/contracts';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { Check, Copy, Loader2, Trash2 } from 'lucide-react';
 import { type FormEvent, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -25,11 +25,12 @@ import { reloadSession, useSession } from '@/lib/session';
 import { useDeleteBusiness } from '../api/business-deletion';
 
 /**
- * Danger zone of the business data page (SET-10, ADR-033): the owner deletes the current business
- * after typing its name. It stops at once (bot, care, channels, access) and can be restored for
- * 30 days from "Business của tôi"; `exportAnchor` links to the data export on the same page.
+ * Danger zone at the bottom of the business profile settings (SET-10, ADR-033), where an owner
+ * looks for it first: the owner deletes the current business after typing its name. It stops at
+ * once (bot, care, channels, access) and can be restored for 30 days from "Business của tôi"; the
+ * section links to the data export tab so the owner can keep a copy first.
  */
-export function DeleteBusinessSection({ exportAnchor }: { exportAnchor?: string }) {
+export function DeleteBusinessSection() {
   const { t } = useTranslation();
   const session = useSession();
   const current = session?.memberships.find((m) => m.workspaceId === session.workspaceId);
@@ -41,7 +42,7 @@ export function DeleteBusinessSection({ exportAnchor }: { exportAnchor?: string 
   return (
     <section
       aria-labelledby="delete-business-title"
-      className="flex max-w-3xl flex-col gap-3 rounded-xl border border-destructive/40 p-4"
+      className="flex max-w-2xl flex-col gap-3 rounded-xl border border-destructive/40 p-4"
     >
       <div>
         <h2 id="delete-business-title" className="font-semibold text-destructive">
@@ -60,11 +61,9 @@ export function DeleteBusinessSection({ exportAnchor }: { exportAnchor?: string 
       </div>
       <p className="text-sm">
         {t('business.delete.exportFirst')}{' '}
-        {exportAnchor ? (
-          <a href={`#${exportAnchor}`} className="font-medium text-brand-text hover:underline">
-            {t('business.delete.exportLink')}
-          </a>
-        ) : null}
+        <Link to="/app/settings/data" className="font-medium text-brand-text hover:underline">
+          {t('business.delete.exportLink')}
+        </Link>
       </p>
       {isOwner ? (
         <div>
@@ -107,7 +106,8 @@ function DeleteBusinessDialog({
   const [error, setError] = useState<string | null>(null);
   const inputId = useId();
   const hintId = useId();
-  const matches = typed.trim() === name.trim();
+  const [copied, setCopied] = useState(false);
+  const matches = comparableName(typed) === comparableName(name);
   const days = BUSINESS_RESTORE_DAYS;
 
   const close = (next: boolean) => {
@@ -115,8 +115,19 @@ function DeleteBusinessDialog({
     if (!next) {
       setTyped('');
       setError(null);
+      setCopied(false);
     }
     onOpenChange(next);
+  };
+
+  const copyName = () => {
+    void navigator.clipboard
+      .writeText(name)
+      .then(() => {
+        setCopied(true);
+        toast.success(t('business.delete.nameCopied'));
+      })
+      .catch(() => undefined);
   };
 
   const onSubmit = (e: FormEvent) => {
@@ -168,9 +179,22 @@ function DeleteBusinessDialog({
                 setError(null);
               }}
             />
-            <p id={hintId} className="text-xs text-muted-foreground">
-              {t('business.delete.confirmHint', { name })}
-            </p>
+            <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              <span id={hintId}>
+                {t('business.delete.confirmHint')}{' '}
+                <span className="font-medium text-foreground select-all">{name}</span>
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label={t('business.delete.copyName', { name })}
+                title={t('business.delete.copyName', { name })}
+                onClick={copyName}
+              >
+                {copied ? <Check className="text-success" /> : <Copy />}
+              </Button>
+            </div>
             {error ? (
               <p role="alert" className="text-sm text-destructive">
                 {error}
@@ -192,4 +216,9 @@ function DeleteBusinessDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+/** The name as the server compares it (ADR-033): NFC, single spaces, trimmed. */
+function comparableName(name: string): string {
+  return name.normalize('NFC').replace(/\s+/g, ' ').trim();
 }

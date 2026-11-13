@@ -65,6 +65,12 @@ export interface ConversationFacade {
   refreshCustomerProfile(ws: WorkspaceId, id: string): Promise<void>;
   /** Bot-initiated hand-over to staff; resumes the bot automatically after the takeover window. */
   handOff(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationView>;
+  /**
+   * The temporary takeover is over (`autoResumeAt` passed), the customer's last message is still
+   * waiting and no staff member answered it: the bot takes the conversation back (LM2-2). Null when
+   * nothing changed (still paused, permanent takeover, answered by staff, bot off).
+   */
+  resumeIfDue(ws: WorkspaceId, id: string): Promise<ConversationView | null>;
   receive(ws: WorkspaceId, channelId: string, event: NormalizedEvent): Promise<ConversationView>;
   /**
    * What a website visitor may see of their own conversation: their messages and the bot/staff

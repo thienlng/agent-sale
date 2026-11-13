@@ -24,7 +24,10 @@ import {
   CANCEL_HOLD_DRAFT_TOOL,
   CHECK_AVAILABILITY_TOOL,
   CONFIRM_HOLD_TOOL,
+  conversationHoldsBlock,
+  currentPropertyBlock,
   HOLD_QUICK_REPLIES,
+  holdCodesIn,
   type HoldToolContext,
   holdCreatedText,
   holdTools,
@@ -32,6 +35,9 @@ import {
   newHoldToolState,
   PREPARE_HOLD_TOOL,
 } from '../application/hold-tools.js';
+import { InMemoryLimiter } from '../../../common/limits/limiter.js';
+import { BotCommitQuota, COMMIT_LIMIT_REPLY } from '../application/commit-quota.js';
+import { adultsVouched, unvouchedChildAges } from '../domain/child-ages.js';
 import type { LlmRuntime } from '../application/llm-runtime.js';
 import { newOutputState } from '../application/output-tools.js';
 import { PlaygroundService } from '../application/playground.service.js';
@@ -195,6 +201,11 @@ describe('hold tools: gating (spec §4)', () => {
       CONFIRM_HOLD_TOOL,
       CANCEL_HOLD_DRAFT_TOOL,
     ]);
+    // EV-8: a hold lost before the confirm is apologised for, then the alternatives offered.
+    const confirm = holdTools({ ...ctx, confirmable: true }).definitions.find(
+      (d) => d.name === CONFIRM_HOLD_TOOL,
+    );
+    expect(confirm?.description).toContain('apologise that it was just taken');
   });
 });
 
@@ -428,7 +439,12 @@ describe('prepare_hold', () => {
       check: availability({ options: [option({ package: '5PN', alternatives })] }),
     });
     const out = await tool(context(facade), CHECK_AVAILABILITY_TOOL).run(STAY);
-    expect(JSON.parse(out.content).options[0]).toMatchObject({ package: '5PN', alternatives });
+    // VL-B12: the nights are the picked package's; an alternative has its total and no nights.
+    expect(JSON.parse(out.content).options[0]).toMatchObject({
+      package: '5PN',
+      nightlyPackage: '5PN',
+      alternatives: alternatives.map((a) => ({ ...a, nightly: null })),
+    });
   });
 
   it('returns problems and id-free alternatives, sending nothing', async () => {
@@ -510,6 +526,62 @@ describe('confirm_hold / cancel_hold_draft', () => {
     const out = await tool(ctx, CONFIRM_HOLD_TOOL).run({});
     expect(JSON.parse(out.content)).toEqual({ ok: false, code: 'not_confirmable' });
     expect(facade.confirmBotHold).not.toHaveBeenCalled();
+  });
+
+  it('stops at the holds one visitor may get per day, keyed by conversation without a contact (audit #18)', async () => {
+    const quota = new BotCommitQuota(
+      {
+        ordersPerContactDay: 0,
+        holdsPerContactDay: 1,
+        anonymousOrdersPerWorkspaceDay: 0,
+        anonymousHoldsPerWorkspaceDay: 0,
+      },
+      new InMemoryLimiter(),
+    );
+    const facade = fakeLodging({ storedAt: new Date(0) });
+    const allowance = () => quota.for('hold', ws, { contactId: null, conversationId });
+    const first = await tool(
+      context(facade, { confirmable: true, quota: allowance() }),
+      CONFIRM_HOLD_TOOL,
+    ).run({});
+    expect(first.ok).toBe(true);
+    const second = await tool(
+      context(facade, { confirmable: true, quota: allowance() }),
+      CONFIRM_HOLD_TOOL,
+    ).run({});
+    expect(JSON.parse(second.content)).toEqual(COMMIT_LIMIT_REPLY);
+    expect(facade.confirmBotHold).toHaveBeenCalledTimes(1);
+  });
+
+  it('caps the holds of contact-less conversations per workspace, so rotating visitors stay bounded', async () => {
+    const quota = new BotCommitQuota(
+      {
+        ordersPerContactDay: 0,
+        holdsPerContactDay: 1,
+        anonymousOrdersPerWorkspaceDay: 0,
+        anonymousHoldsPerWorkspaceDay: 2,
+      },
+      new InMemoryLimiter(),
+    );
+    let confirmed = 0;
+    const run = async (who: { contactId: string | null; conversationId: string }) => {
+      // One draft per conversation, as in the store.
+      const facade = fakeLodging({ storedAt: new Date(0) });
+      const out = await tool(
+        context(facade, { confirmable: true, quota: quota.for('hold', ws, who) }),
+        CONFIRM_HOLD_TOOL,
+      ).run({});
+      confirmed += facade.confirmBotHold.mock.calls.length;
+      return out;
+    };
+    // Each new widget token is a new conversation: the per-conversation cap alone never stops it.
+    expect((await run({ contactId: null, conversationId: newId() })).ok).toBe(true);
+    expect((await run({ contactId: null, conversationId: newId() })).ok).toBe(true);
+    const third = await run({ contactId: null, conversationId: newId() });
+    expect(JSON.parse(third.content)).toEqual(COMMIT_LIMIT_REPLY);
+    expect(confirmed).toBe(2);
+    // A known customer is not held back by the anonymous total.
+    expect((await run({ contactId: 'contact-1', conversationId: newId() })).ok).toBe(true);
   });
 
   it('reports a lost hold with id-free alternatives', async () => {
@@ -731,5 +803,178 @@ describe('hotel bot pipeline (spec §4)', () => {
     );
     const once = await full.svc.playground(ws, botId, ask('ok'));
     expect(once.reply).toBe('Dạ em đã giữ chỗ BK0042 đến 16:30 hôm nay ạ.');
+  });
+});
+
+describe('check_availability child ages (VL-B3)', () => {
+  it('accepts only ages the customer wrote next to an age word', () => {
+    const said = (text: string, ages: number[]) => unvouchedChildAges(ages, [text]);
+    // "8" of the date is not an age; the kids' ages were never given.
+    expect(said('20 người lớn với 4 bé, A17 từ 8/1/2027 đến 10/1/2027', [8, 8, 8, 8])).toEqual([
+      8, 8, 8, 8,
+    ]);
+    expect(said('9 người lớn và 3 bé 4, 4, 9 tuổi', [4, 4, 9])).toEqual([]);
+    expect(said('2 bé 5 và 7 tuổi', [5, 7])).toEqual([]);
+    expect(said('kids aged 6 years', [6])).toEqual([]);
+    expect(said('bé 18 tháng với bé sơ sinh', [1, 0])).toEqual([]);
+    expect(said('bé 4t', [4])).toEqual([]);
+    expect(said('bé 4 tuổi', [5])).toEqual([5]);
+  });
+
+  it('accepts only an adult count the customer wrote next to a party word', () => {
+    expect(adultsVouched(20, ['nhà chị 20 người lớn với 4 bé'])).toBe(true);
+    expect(adultsVouched(10, ['Hi, we are 10 adults'])).toBe(true);
+    expect(adultsVouched(2, ['A17 còn trống cuối tuần này không? ở 2 đêm'])).toBe(false);
+    expect(adultsVouched(0, ['A17 còn trống không'])).toBe(true);
+  });
+
+  it('refuses a check with an age the customer never wrote, without calling the calendar', async () => {
+    const facade = fakeLodging();
+    const ctx = { ...context(facade), customerTexts: ['20 người lớn với 2 bé, 8/1/2027'] };
+    const out = await tool(ctx, CHECK_AVAILABILITY_TOOL).run({ ...STAY, childAges: [8, 8] });
+    expect(JSON.parse(out.content)).toEqual({ ok: false, problems: ['child_ages_not_given'] });
+    expect(facade.checkAvailabilityForBot).not.toHaveBeenCalled();
+  });
+});
+
+describe('earlier holds of the conversation (VL2-4, VL2-5, VL2-6)', () => {
+  it('reads the codes the shop named, never the customer', () => {
+    expect(
+      holdCodesIn([
+        { role: 'customer', content: 'mã BK-0099 của chị khác' },
+        { role: 'bot', content: 'Dạ em đã giữ chỗ BK-0016 đến 03:47 ngày 13/11 ạ.' },
+        { role: 'bot', content: 'Thay cho giữ chỗ bk-0016, mã mới BK-0017' },
+      ]),
+    ).toEqual(['BK-0016', 'BK-0017']);
+  });
+
+  it('passes the earlier holds to prepare and confirm, and names the replaced code', async () => {
+    const facade = fakeLodging({
+      prepare: { status: 'ready', summary: SUMMARY, holdMinutes: 120, replaces: 'BK-0016' },
+      confirm: {
+        status: 'held',
+        code: 'BK-0017',
+        holdExpiresAt: '2026-11-01T09:30:00.000Z',
+        replaced: 'BK-0016',
+      },
+    });
+    const prep = await tool(context(facade, { earlierHolds: ['BK-0016'] }), PREPARE_HOLD_TOOL).run(
+      HOLD,
+    );
+    expect(JSON.parse(prep.content)).toMatchObject({ ok: true, replaces: 'BK-0016' });
+    expect(facade.prepareBotHold).toHaveBeenCalledWith(
+      ws,
+      expect.objectContaining({ earlierHolds: ['BK-0016'] }),
+    );
+    const ctx = context(facade, { earlierHolds: ['BK-0016'], confirmable: true });
+    const out = await tool(ctx, CONFIRM_HOLD_TOOL).run({});
+    expect(JSON.parse(out.content)).toMatchObject({
+      code: 'BK-0017',
+      replacedAndCancelled: 'BK-0016',
+    });
+    expect(facade.confirmBotHold).toHaveBeenCalledWith(ws, {
+      conversationId,
+      earlierHolds: ['BK-0016'],
+    });
+    expect(ctx.state.created?.replaced).toBe('BK-0016');
+    expect(holdCreatedText('BK-0017', '2026-11-01T09:30:00.000Z', 'BK-0016')).toContain(
+      'Giữ chỗ BK-0016 trước đó đã được huỷ',
+    );
+  });
+
+  it('refuses to re-send a waiting summary when the customer only agreed (VL2-4)', async () => {
+    const facade = fakeLodging();
+    const ctx = context(facade, { confirmable: true, customerTexts: ['ok giữ luôn cho anh'] });
+    const out = await tool(ctx, PREPARE_HOLD_TOOL).run(HOLD);
+    expect(JSON.parse(out.content)).toMatchObject({ ok: false, error: 'summary_waiting' });
+    expect(facade.prepareBotHold).not.toHaveBeenCalled();
+    // A change is prepared again.
+    const change = context(facade, { confirmable: true, customerTexts: ['ok đổi sang 22 người'] });
+    await tool(change, PREPARE_HOLD_TOOL).run(HOLD);
+    expect(facade.prepareBotHold).toHaveBeenCalledTimes(1);
+  });
+
+  it('lists only the holds the calendar returns, with their status', () => {
+    const block = conversationHoldsBlock([
+      {
+        code: 'BK-0018',
+        propertyCode: 'EVANI',
+        propertyName: 'EVANI 7PN',
+        checkIn: '2026-12-09',
+        checkOut: '2026-12-10',
+        adults: 26,
+        childAges: [],
+        totalSell: 12_600_000,
+        status: 'hold',
+        holdExpiresAt: '2026-11-01T09:30:00.000Z',
+      },
+    ]);
+    expect(block).toContain('BK-0018: EVANI EVANI 7PN');
+    expect(block).toContain('12.600.000');
+    expect(block).toContain('đang giữ đến 16:30');
+    expect(block).toContain('Only these exist');
+    expect(conversationHoldsBlock([])).toBe('');
+  });
+
+  it('keeps the property the conversation named last in focus', () => {
+    const props = [
+      { code: 'A17', name: 'A17 – Sky Villa' },
+      { code: 'D33', name: 'D33 – Villa D33' },
+    ];
+    const block = currentPropertyBlock(props, [
+      { content: 'A17 còn không' },
+      { content: 'thôi cho e xem D33 đi' },
+      { content: 'co karaoke ko a' },
+    ]);
+    expect(block).toContain('about D33');
+    expect(currentPropertyBlock(props, [{ content: 'còn căn nào trống' }])).toBe('');
+    // A hold summary names the property, not its code; its policies come along (VL2-6, VL3-8).
+    const e27 = {
+      code: 'E27',
+      name: 'E27 – Villa E27',
+      accommodation: {
+        standardAdults: 20,
+        standardChildren: 5,
+        maxGuests: 30,
+        checkInOut: 'Nhận căn 14:00, trả căn 12:00',
+        depositPolicy: 'Đặt cọc 50%',
+        surcharges: {
+          extraAdult: 300000,
+          extraChild: 150000,
+          childFreeBelow: 6,
+          childAdultFrom: 12,
+        },
+      },
+    } as unknown as Parameters<typeof currentPropertyBlock>[0][number];
+    const held = currentPropertyBlock(
+      [...props, e27],
+      [
+        { content: 'A17 thế nào' },
+        { content: 'Giữ chỗ Villa E27 · Nguyên căn' },
+        { content: 'checkin mấy h' },
+      ],
+    );
+    expect(held).toContain('about E27');
+    expect(held).toContain('Nhận căn 14:00');
+    expect(held).toContain('from 12 counted as adults');
+  });
+});
+
+describe('English-speaking guest (VL4-1)', () => {
+  it('asks for an English summary with English buttons, and an English hold line', async () => {
+    const facade = fakeLodging();
+    const ctx = context(facade, { language: 'en' });
+    await tool(ctx, PREPARE_HOLD_TOOL).run(HOLD);
+    expect(facade.prepareBotHold).toHaveBeenCalledWith(
+      ws,
+      expect.objectContaining({ language: 'en' }),
+    );
+    expect(ctx.output.sent.at(-1)?.quickReplies?.map((q) => q.title)).toEqual([
+      '✅ Hold it',
+      '✏️ Edit details',
+    ]);
+    expect(holdCreatedText('BK-0017', '2026-11-01T09:30:00.000Z', 'BK-0016', 'en')).toBe(
+      'Your stay is held under code BK-0017 until 16:30 on 01/11. The earlier hold BK-0016 has been cancelled. Our staff will call you to confirm.',
+    );
   });
 });

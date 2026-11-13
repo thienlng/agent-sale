@@ -56,6 +56,10 @@ export interface HoldSummaryInput {
   note: string;
   /** The bedroom packages of the stay (T-193): `unitName` null = the whole property. */
   packages?: { unitName: string | null; name: string }[];
+  /** The code of the earlier bot hold this one replaces (VL2-4): released when it is placed. */
+  replaces?: string | null;
+  /** VL4-1: an English-speaking guest reads the summary in English. */
+  language?: 'vi' | 'en';
 }
 
 function clip(text: string, max: number): string {
@@ -102,7 +106,63 @@ function selectionText(input: HoldSummaryInput): string {
   return ` · Nguyên căn · gói ${names.join(', ')}`;
 }
 
+/** '2 hours', '15 minutes', '1 hour 30 minutes'. */
+function durationEn(minutes: number): string {
+  const total = Math.max(0, Math.round(minutes));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  const unit = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  return [h ? unit(h, 'hour') : '', m || !h ? unit(m, 'minute') : ''].filter(Boolean).join(' ');
+}
+
+const EN_WEEKDAY: Record<string, string> = {
+  T2: 'Mon',
+  T3: 'Tue',
+  T4: 'Wed',
+  T5: 'Thu',
+  T6: 'Fri',
+  T7: 'Sat',
+  CN: 'Sun',
+};
+
+/** The English variant of the summary (VL4-1): same lines, same figures. */
+function buildHoldSummaryEn(input: HoldSummaryInput): string {
+  const note = clip(input.note, MAX_NOTE_CHARS);
+  const dayEn = (night: string) =>
+    `${night.slice(8, 10)}/${night.slice(5, 7)} (${EN_WEEKDAY[shortWeekdayLabel(night)] ?? ''})`;
+  const nights = nightsBetween(input.checkIn, input.checkOut).length;
+  const packages = input.packages ?? [];
+  const selection = !input.whole
+    ? input.unitNames.length
+      ? ` · rooms ${input.unitNames
+          .map((unit) => {
+            const pk = packages.find((p) => p.unitName === unit);
+            return pk ? `${unit} (package ${pk.name})` : unit;
+          })
+          .join(', ')}`
+      : ''
+    : packages.length
+      ? ` · whole property · package ${packages.map((p) => (p.unitName === null ? p.name : `${p.unitName}: ${p.name}`)).join(', ')}`
+      : '';
+  const kids = input.childAges.length
+    ? `, ${input.childAges.length} ${input.childAges.length === 1 ? 'child' : 'children'} (aged ${input.childAges.join(', ')})`
+    : '';
+  return [
+    `Hold: ${clip(input.propertyName, MAX_NAME_CHARS)}${selection}`,
+    `${dayEn(input.checkIn)} → ${dayEn(input.checkOut)} · ${nights} night${nights === 1 ? '' : 's'}`,
+    `${input.adults} adult${input.adults === 1 ? '' : 's'}${kids}`,
+    `Total: ${formatVnd(input.totalSell)}`,
+    `Name: ${clip(input.guestName, MAX_NAME_CHARS)} · Phone: ${phoneText(input.guestPhone)}`,
+    ...(note ? [`Note: ${note}`] : []),
+    ...(input.replaces
+      ? [`Replaces hold ${input.replaces} (cancelled when this one is placed)`]
+      : []),
+    `Held for ${durationEn(input.holdMinutes)}; our staff will call you to confirm.`,
+  ].join('\n');
+}
+
 export function buildHoldSummary(input: HoldSummaryInput): string {
+  if (input.language === 'en') return buildHoldSummaryEn(input);
   const rooms = selectionText(input);
   const note = clip(input.note, MAX_NOTE_CHARS);
   return [
@@ -112,6 +172,7 @@ export function buildHoldSummary(input: HoldSummaryInput): string {
     `Tổng: ${formatVnd(input.totalSell)}`,
     `Tên: ${clip(input.guestName, MAX_NAME_CHARS)} · SĐT: ${phoneText(input.guestPhone)}`,
     ...(note ? [`Ghi chú: ${note}`] : []),
+    ...(input.replaces ? [`Thay cho giữ chỗ ${input.replaces} (huỷ khi giữ chỗ này)`] : []),
     `Giữ trong ${holdDurationText(input.holdMinutes)}, nhân viên sẽ gọi xác nhận.`,
   ].join('\n');
 }

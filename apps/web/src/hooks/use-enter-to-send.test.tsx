@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { useEnterToSend } from './use-enter-to-send';
@@ -32,6 +32,30 @@ describe('useEnterToSend', () => {
     fireEvent.keyDown(box, { key: 'Enter', shiftKey: true });
     fireEvent.keyDown(box, { key: 'Enter', isComposing: true });
     expect(onSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('breaks the line at the caret on Alt+Enter instead of sending', () => {
+    const onSend = vi.fn();
+    function Controlled() {
+      const [text, setText] = useState('ab');
+      const ref = useRef<HTMLTextAreaElement>(null);
+      const props = useEnterToSend(ref, onSend);
+      return (
+        <textarea
+          ref={ref}
+          aria-label="box"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          {...props}
+        />
+      );
+    }
+    render(<Controlled />);
+    const box = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'box' });
+    box.setSelectionRange(1, 1);
+    fireEvent.keyDown(box, { key: 'Enter', altKey: true });
+    expect(box.value).toBe('a\nb');
+    expect(onSend).not.toHaveBeenCalled();
   });
 
   it("turns a phone keyboard's line break into a send", () => {

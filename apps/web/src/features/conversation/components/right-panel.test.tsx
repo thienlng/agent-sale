@@ -137,7 +137,7 @@ describe('customer panel', () => {
     render(<CustomerSummary conversation={conv({ customerPhone: '0901234567' })} />);
     expect(screen.getByText('Nguyễn Thu Hà')).toBeInTheDocument();
     expect(screen.getByText('channelInbox.v2.header.via Facebook Shop Hoa')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '0901234567' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '0901 234 567' })).toHaveAttribute(
       'href',
       'tel:0901234567',
     );

@@ -8,6 +8,7 @@ import {
   ProductDto,
   UpdateProductBotSettingsRequest,
   UpsertProductRequest,
+  duplicateSkuIndexes,
 } from './commerce.schema.js';
 import {
   ApproveOrderRequest,
@@ -273,5 +274,26 @@ describe('AssistantUpsertProductRequest (T-193)', () => {
         accommodation: { ...accommodation, bedrooms: 2 },
       }).success,
     ).toBe(false);
+  });
+});
+
+describe('duplicate SKUs (TM-7)', () => {
+  it("puts the issue on the repeated variant's SKU, case-insensitively", () => {
+    const r = UpsertProductRequest.safeParse({
+      ...base,
+      variants: [
+        { sku: 'QA-TM-01-R', price: 1 },
+        { sku: 'QA-TM-01-B', price: 1 },
+        { sku: 'qa-tm-01-r', price: 1 },
+      ],
+    });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues.map((i) => i.path.join('.'))).toEqual(['variants.2.sku']);
+  });
+  it('lists only the later duplicates', () => {
+    expect(duplicateSkuIndexes([{ sku: 'A' }, { sku: 'a ' }, { sku: 'B' }, { sku: 'A' }])).toEqual([
+      1, 3,
+    ]);
+    expect(duplicateSkuIndexes([{ sku: '' }, { sku: '' }])).toEqual([]);
   });
 });

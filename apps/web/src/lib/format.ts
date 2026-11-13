@@ -21,13 +21,21 @@ export function formatCompactVnd(amount: number): string {
   );
 }
 
+/** "01:05 13/11/2026": the year in full, like `formatDay`, so one screen has one date form (AS-23). */
 export function formatDateTime(iso: string): string {
-  return new Intl.DateTimeFormat(locale(), { dateStyle: 'short', timeStyle: 'short' }).format(
-    new Date(iso),
-  );
+  return new Intl.DateTimeFormat(locale(), {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(iso));
 }
 
+/** A yyyy-mm-dd day without its year: "07/11" (vi; Intl's vi-VN pattern prints "07-11"). */
 export function formatDate(iso: string): string {
+  if (locale() === 'vi-VN') return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
   return new Intl.DateTimeFormat(locale(), { day: '2-digit', month: '2-digit' }).format(
     new Date(`${iso}T00:00:00`),
   );
@@ -40,6 +48,16 @@ export function formatDay(iso: string): string {
     month: '2-digit',
     year: 'numeric',
   }).format(new Date(`${iso}T00:00:00`));
+}
+
+/**
+ * A yyyy-mm-dd day in the one short Vietnamese form: "05/03", or "05/03/2027" when it is not
+ * in the year of `today` (yyyy-mm-dd, default: the browser's today). Built by hand because
+ * Intl's vi-VN day+month pattern prints "05-03".
+ */
+export function formatShortDate(iso: string, today: string = isoDate(new Date())): string {
+  const dm = `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+  return iso.slice(0, 4) === today.slice(0, 4) ? dm : `${dm}/${iso.slice(0, 4)}`;
 }
 
 /** yyyy-mm-dd of a local Date (the browser's day; the API buckets by the shop's time zone). */
@@ -69,4 +87,22 @@ export function formatRelativeTime(iso: string, now: number = Date.now()): strin
     value /= size;
   }
   return rtf.format(-Math.floor(value), 'year');
+}
+
+/**
+ * A phone number as Vietnamese people write it: "+84912000111" → "0912 000 111", a landline
+ * "+842438123456" → "024 3812 3456". Other numbers stay as stored. Display only: links and copy
+ * keep the stored E.164 form.
+ */
+export function formatPhone(phone: string): string {
+  const compact = phone.replace(/[\s.()-]/g, '');
+  const local = compact.startsWith('+84')
+    ? `0${compact.slice(3)}`
+    : compact.startsWith('84') && compact.length === 11
+      ? `0${compact.slice(2)}`
+      : compact;
+  if (!/^0\d+$/.test(local)) return phone;
+  if (local.length === 10) return `${local.slice(0, 4)} ${local.slice(4, 7)} ${local.slice(7)}`;
+  if (local.length === 11) return `${local.slice(0, 3)} ${local.slice(3, 7)} ${local.slice(7)}`;
+  return local;
 }

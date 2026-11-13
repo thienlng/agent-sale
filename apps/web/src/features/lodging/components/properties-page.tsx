@@ -212,6 +212,13 @@ function PropertyCard({
             </span>
           )}
         </div>
+        {warning && (
+          <p className="flex items-start gap-1.5 rounded-md bg-warning/10 p-2 text-xs text-warning">
+            <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+            <span>{t(`places.${warning}`)}</span>
+          </p>
+        )}
+        {/* Pinned to the bottom, so the status badges line up across a row of cards. */}
         <div className="mt-auto flex flex-wrap gap-1.5 pt-1">
           {p.status === 'paused' ? (
             <Badge variant="outline">{t('places.paused')}</Badge>
@@ -221,14 +228,6 @@ function PropertyCard({
             </Badge>
           )}
         </div>
-        {warning && (
-          <p className="flex items-start gap-1.5 rounded-md bg-warning/10 p-2 text-xs text-warning">
-            <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-            <span>
-              {t(`places.${warning}`)} {t('places.botHidden')}
-            </span>
-          </p>
-        )}
       </div>
     </article>
   );

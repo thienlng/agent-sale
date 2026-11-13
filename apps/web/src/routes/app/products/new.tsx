@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ProductForm } from '@/features/commerce/components/product-form';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
-import { offeringKindOf } from '@/features/workspace/utils/industry-group';
+import { offeringKindOf } from '@/lib/industry-group';
 
 /** `botId`: opened from a bot's product page; the new product is selected for that bot. */
 const Search = z.object({ botId: z.uuid().optional().catch(undefined) });

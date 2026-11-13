@@ -1,0 +1,36 @@
+# Owner assistant eval from the release-staging wave 4 test (AS4-1): the short "bot tính sai à?"
+# wording must be checked against the catalog (bot-doctor) and headlined with the verdict the
+# evidence supports. Fake mode checks the plumbing; `--live` is the real check.
+cases:
+  - id: bot-wrong-short-question-verified
+    tags: [critical]
+    industry: retail
+    message: 'lúc nãy anh hỏi giá thú gỗ xếp thăng bằng với cá voi gỗ thăng bằng, bot nói mua cả 2 là 840k. bot tính sai à?'
+    routes:
+      'GET /products':
+        data:
+          - id: 01a16d77-0000-7000-8000-000000000401
+            code: TG01
+            name: Thú gỗ xếp thăng bằng
+            status: active
+            variants: [{ sku: TG01, name: '', price: 340000, stock: 12 }]
+          - id: 01a16d77-0000-7000-8000-000000000402
+            code: CV01
+            name: Cá voi gỗ thăng bằng
+            status: active
+            variants: [{ sku: CV01, name: '', price: 500000, stock: 4 }]
+        total: 2
+    expect:
+      answer:
+        contains: ['840.000', 'đúng']
+        not_contains: ['tính sai anh', 'bot tính sai.', 'Bot tính sai']
+    fake_turns:
+      - tool_calls:
+          - name: load_skill
+            input: { name: bot-doctor }
+      - tool_calls:
+          - name: tool_call
+            input: { key: GET /products, query: { q: 'thú gỗ xếp thăng bằng', pageSize: 3 } }
+          - name: tool_call
+            input: { key: GET /products, query: { q: 'cá voi gỗ thăng bằng', pageSize: 3 } }
+      - text: 'Dạ bot tính đúng: Thú gỗ xếp thăng bằng 340.000đ + Cá voi gỗ thăng bằng 500.000đ = 840.000đ, khớp giá trong catalog ạ.'

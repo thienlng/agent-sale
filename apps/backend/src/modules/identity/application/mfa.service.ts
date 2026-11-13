@@ -6,6 +6,7 @@ import { SECRET_BOX, type SecretBox } from '../../../common/security/secret-box.
 import {
   MfaReauthError,
   MfaStateError,
+  ReauthRequiredError,
   SessionInvalidError,
   TooManyAttemptsError,
 } from '../domain/identity.errors.js';
@@ -22,6 +23,7 @@ import {
   otpauthUri,
   verifyTotp,
 } from '../domain/totp.js';
+import { SecurityEventService } from './security-events.js';
 import { SessionService } from './sessions.js';
 import {
   ATTEMPT_LIMITER,
@@ -35,9 +37,14 @@ const ISSUER = 'Rapiz';
 /**
  * TOTP second factor (ADM-04). Turning it on needs a confirmed first code;
  * changing it needs the password again (a stolen access token must not be
- * enough to disable it). Codes are single use (lastUsedStep), recovery codes
- * are hashed and burn on use. Every change signs out the user's other sessions:
- * turning 2FA on after a suspected compromise must also end the intruder's session.
+ * enough to disable it); a user without a password (Google sign-in only) needs a
+ * recent explicit step-up of the session instead (`POST /auth/reauth`: an emailed code) —
+ * a recent sign-in alone does not count, or a stolen token of a fresh Google session could
+ * turn two-factor on and lock the owner out.
+ * Codes are single use (lastUsedStep), recovery codes are hashed and burn on use.
+ * Every change signs out the user's other sessions (turning 2FA on after a suspected
+ * compromise must also end the intruder's session), is logged in the user's security
+ * log and emailed to them.
  */
 @Injectable()
 export class MfaService {
@@ -48,6 +55,7 @@ export class MfaService {
     @Inject(ATTEMPT_LIMITER) private readonly limiter: AttemptLimiter,
     @Inject(SECRET_BOX) private readonly secrets: SecretBox,
     @Inject(SessionService) private readonly sessions: SessionService,
+    @Inject(SecurityEventService) private readonly events: SecurityEventService,
   ) {}
 
   async status(userId: UserId): Promise<MfaStatus> {
@@ -63,9 +71,10 @@ export class MfaService {
 
   async beginSetup(
     userId: UserId,
-    password: string,
+    password: string | undefined,
+    sessionId: string,
   ): Promise<{ secret: string; otpauthUri: string }> {
-    const user = await this.reauth(userId, password);
+    const user = await this.reauth(userId, password, sessionId);
     const secret = newTotpSecret();
     if (!(await this.repo.savePending(userId, this.secrets.seal(secret)))) {
       throw new MfaStateError('already_enabled');
@@ -86,28 +95,43 @@ export class MfaService {
       throw new MfaStateError('already_enabled');
     }
     await this.limiter.reset(`mfa:${userId}`);
+    // Log and email first: the notice goes to the account address whatever happens to sessions,
+    // so an owner whose stolen session turned two-factor on learns it at once.
+    await this.events.record(userId, 'mfa.enabled');
+    await this.events.notify(userId, 'mfa_enabled');
     await this.sessions.revokeOthers(userId, sessionId);
+    // The code just proved the second factor on this session (not an explicit step-up).
+    await this.sessions.markAuthenticated(userId, sessionId, { mfa: true });
     return codes;
   }
 
-  async disable(userId: UserId, password: string, code: string, sessionId: string): Promise<void> {
-    await this.reauth(userId, password);
+  async disable(
+    userId: UserId,
+    password: string | undefined,
+    code: string,
+    sessionId: string,
+  ): Promise<void> {
+    await this.reauth(userId, password, sessionId);
     await this.requireValidCode(userId, code);
     await this.repo.remove(userId);
     await this.sessions.revokeOthers(userId, sessionId);
+    await this.events.record(userId, 'mfa.disabled');
+    await this.events.notify(userId, 'mfa_disabled');
   }
 
   async regenerateRecoveryCodes(
     userId: UserId,
-    password: string,
+    password: string | undefined,
     code: string,
     sessionId: string,
   ): Promise<string[]> {
-    await this.reauth(userId, password);
+    await this.reauth(userId, password, sessionId);
     await this.requireValidCode(userId, code);
     const codes = newRecoveryCodes();
     await this.repo.replaceRecovery(userId, codes.map(hashRecoveryCode));
     await this.sessions.revokeOthers(userId, sessionId);
+    await this.events.record(userId, 'mfa.recovery_codes_replaced');
+    await this.events.notify(userId, 'recovery_codes');
     return codes;
   }
 
@@ -117,9 +141,33 @@ export class MfaService {
     if (!row?.enabledAt) return true;
     // Per user, not per address: rotating IPs must not give a fresh budget of code guesses.
     await this.throttle(userId);
-    if (!(await this.accepts(row, code))) return false;
+    const used = await this.accepts(row, code);
+    if (!used) return false;
     await this.limiter.reset(`mfa:${userId}`);
+    if (used === 'recovery') await this.events.record(userId, 'mfa.recovery_code_used');
     return true;
+  }
+
+  /**
+   * Step-up of a user with two-factor on: an authenticator or recovery code, throttled like login.
+   * Throws `MfaReauthError('invalid_code')` when it does not check out.
+   */
+  async verifyStepUp(userId: UserId, code: string | undefined): Promise<void> {
+    if (!code) throw new MfaReauthError('invalid_code');
+    await this.requireValidCode(userId, code);
+  }
+
+  /**
+   * Checks the password for a step-up (throttled). A user without a password never passes here:
+   * they step up with an emailed code or a Google sign-in.
+   */
+  async verifyPassword(userId: UserId, password: string | undefined): Promise<void> {
+    await this.throttle(userId);
+    const user = await this.users.findById(userId);
+    if (!user) throw new SessionInvalidError('user_gone');
+    if (!password || !user.hasPassword || !(await this.hasher.verify(user.passwordHash, password)))
+      throw new MfaReauthError('invalid_password');
+    await this.limiter.reset(`mfa:${userId}`);
   }
 
   /** Operator reset (lost phone and recovery codes). */
@@ -131,27 +179,50 @@ export class MfaService {
     const row = await this.repo.find(userId);
     if (!row?.enabledAt) throw new MfaStateError('not_enabled');
     await this.throttle(userId);
-    if (!(await this.accepts(row, code))) throw new MfaReauthError('invalid_code');
+    const used = await this.accepts(row, code);
+    if (!used) throw new MfaReauthError('invalid_code');
     await this.limiter.reset(`mfa:${userId}`);
+    if (used === 'recovery') await this.events.record(userId, 'mfa.recovery_code_used');
   }
 
-  private async accepts(row: MfaRecord, code: string): Promise<boolean> {
+  /** Which kind of code checked out (and was used up), or null. */
+  private async accepts(row: MfaRecord, code: string): Promise<'totp' | 'recovery' | null> {
     const step = verifyTotp(
       this.secrets.open(row.secretSealed),
       code,
       row.lastUsedStep,
       Date.now(),
     );
-    if (step !== null) return this.repo.advanceStep(row.userId, step);
-    if (/^\d{6}$/.test(code)) return false;
-    return this.repo.consumeRecovery(row.userId, hashRecoveryCode(code));
+    if (step !== null) return (await this.repo.advanceStep(row.userId, step)) ? 'totp' : null;
+    if (/^\d{6}$/.test(code)) return null;
+    return (await this.repo.consumeRecovery(row.userId, hashRecoveryCode(code)))
+      ? 'recovery'
+      : null;
   }
 
-  private async reauth(userId: UserId, password: string) {
+  /**
+   * The password again. A user without one (Google sign-in only) has no password to give:
+   * - two-factor off (setup): the session must have passed an explicit step-up recently
+   *   (`steppedUpAt`, set only by `POST /auth/reauth`); a recent sign-in does not count
+   *   (`ReauthRequiredError(explicit)`, reason `step_up_required`);
+   * - two-factor on (disable, new recovery codes): the session passed two-factor recently (its
+   *   sign-in or a step-up asked for a code), and the action itself asks for one more code.
+   */
+  private async reauth(userId: UserId, password: string | undefined, sessionId: string) {
     await this.throttle(userId);
     const user = await this.users.findById(userId);
     if (!user) throw new SessionInvalidError('user_gone');
-    if (!(await this.hasher.verify(user.passwordHash, password))) {
+    if (!user.hasPassword) {
+      const state = await this.sessions.state(sessionId, true);
+      if (!state || state.userId !== userId) throw new ReauthRequiredError(true);
+      if (await this.isEnabled(userId)) {
+        if (!state.mfa || !this.sessions.isRecent(state)) throw new ReauthRequiredError();
+      } else if (!this.sessions.isSteppedUp(state)) {
+        throw new ReauthRequiredError(true);
+      }
+      return user;
+    }
+    if (!password || !(await this.hasher.verify(user.passwordHash, password))) {
       throw new MfaReauthError('invalid_password');
     }
     return user;

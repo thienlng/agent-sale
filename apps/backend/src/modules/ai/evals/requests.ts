@@ -88,6 +88,7 @@ export function evalRequests(
       return {
         outcome: updated ? 'updated' : 'recorded',
         contactId: '00000000-0000-7000-8000-000000000001',
+        phoneE164: '+84900000001',
         created: !updated,
         missing: unmetRules(profile.recommended[input.kind], details),
         dateLabel: date ? dateLabel(date) : null,

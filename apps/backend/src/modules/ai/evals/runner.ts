@@ -349,6 +349,7 @@ export async function runCase(
     return generate(req);
   };
   try {
+    const now = new Date();
     const res = await service.playground(workspaceId(newId()), botId, request(c));
     // Checks read what the customer received: every delivered message, not the joined view.
     const delivered = (res.messages ?? []).map((m) => ({
@@ -375,6 +376,7 @@ export async function runCase(
       requests: requests.recorded.map((r) => ({ kind: r.kind, updated: r.updated })),
       customerTexts,
       trusted: trustedTexts(c),
+      now,
     });
     return {
       id: c.id,

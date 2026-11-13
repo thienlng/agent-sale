@@ -7,7 +7,7 @@ import { SECRET_BOX, SecretBox } from '../../common/security/secret-box.js';
 import { ACTION_FACADE } from './api/action.facade.js';
 import { ActionFacadeImpl, SAFE_HTTP } from './application/action.facade.impl.js';
 import { ACTION_UOW } from './application/ports/action-unit-of-work.js';
-import { createSafeHttp } from './domain/safe-http.js';
+import { createSafeHttp } from '../../common/security/safe-http.js';
 import { DrizzleActionUnitOfWork } from './infrastructure/action.unit-of-work.js';
 import { InMemoryActionUnitOfWork } from './infrastructure/persistence/action.in-memory-repository.js';
 

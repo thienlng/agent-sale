@@ -56,6 +56,7 @@ export type BookingPort = Pick<
   LodgingTx,
   | 'findBooking'
   | 'findBookingByRequest'
+  | 'bookingsByCodes'
   | 'listBookings'
   | 'bookingsInRange'
   | 'stayTotals'
@@ -120,6 +121,8 @@ export function bookingPort(tx: TenantTx, ws: WorkspaceId): BookingPort {
       .onConflictDoNothing();
   }
 
+  /** `bookingsByCodes` reads at most this many codes. */
+  const MAX_CODES = 20;
   const bookings: BookingPort = {
     async findBooking(id, lock) {
       const q = tx
@@ -129,6 +132,17 @@ export function bookingPort(tx: TenantTx, ws: WorkspaceId): BookingPort {
         .limit(1);
       const rows = await (lock ? q.for('update') : q);
       return (await hydrate(rows))[0] ?? null;
+    },
+
+    async bookingsByCodes(codes, lock) {
+      const wanted = [...new Set(codes)].slice(0, MAX_CODES);
+      if (!wanted.length) return [];
+      const q = tx
+        .select()
+        .from(B)
+        .where(and(eq(B.workspaceId, ws), eq(B.kind, 'stay'), inArray(B.code, wanted)))
+        .orderBy(B.code);
+      return hydrate(await (lock ? q.for('update') : q));
     },
 
     async findBookingByRequest(clientRequestId) {

@@ -3,17 +3,17 @@ import { describe, expect, it } from 'vitest';
 
 import { requestDetailsLine, requestKindLabel } from './request-labels';
 
-const t = ((key: string) => key) as unknown as TFunction;
-
 describe('requestKindLabel', () => {
-  it('uses one wording for every industry', () => {
-    expect(requestKindLabel(t, 'trial', 'education')).toBe('crm.requests.kind.trial');
-    expect(requestKindLabel(t, 'consultation', 'education')).toBe('crm.requests.kind.consultation');
-    expect(requestKindLabel(t, 'placement_test', 'education')).toBe(
-      'crm.requests.kind.placement_test',
+  it('reads the service-group wording first for education and spa (LM3-10)', () => {
+    const tt = ((key: string | string[]) =>
+      Array.isArray(key) ? key.join('|') : key) as unknown as TFunction;
+    expect(requestKindLabel(tt, 'trial', 'education')).toBe(
+      'crm.requests.kindService.trial|crm.requests.kind.trial',
     );
-    expect(requestKindLabel(t, 'trial', 'saas')).toBe('crm.requests.kind.trial');
-    expect(requestKindLabel(t, 'appointment', 'spa')).toBe('crm.requests.kind.appointment');
+    expect(requestKindLabel(tt, 'trial', 'saas')).toBe('crm.requests.kind.trial');
+    expect(requestKindLabel(tt, 'appointment', 'spa')).toBe(
+      'crm.requests.kindService.appointment|crm.requests.kind.appointment',
+    );
   });
 });
 

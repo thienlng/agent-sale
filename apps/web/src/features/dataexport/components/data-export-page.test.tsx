@@ -1,11 +1,13 @@
 import type { DataExportDto } from '@agent-sales/contracts';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentType } from 'react';
+import { toast } from 'sonner';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { Route as SettingsRoute } from '@/routes/app/settings';
-import { renderWithRouter, stubFetch } from '@/testing/render';
+import { StepUpHost } from '@/components/step-up-dialog';
+import { renderWithRouter, stepUpStatus, stubFetch, stubFetchSequence } from '@/testing/render';
 
 import { DataExportPage, formatBytes } from './data-export-page';
 
@@ -74,6 +76,80 @@ describe('DataExportPage', () => {
         includeMedia: true,
       }),
     );
+  });
+
+  it('asks a Google-only user for an emailed code before exporting, then exports', async () => {
+    const reauth = {
+      status: 403,
+      body: { error: { code: 'FORBIDDEN', message: 'x', details: { reason: 'reauth_required' } } },
+    };
+    const { fetchStub, calls } = stubFetchSequence({
+      'GET /data-exports': { status: 200, body: { data: [], usedToday: 0, dailyLimit: 3 } },
+      'POST /data-exports': [reauth, { status: 201, body: exportItem({ status: 'queued' }) }],
+      'GET /auth/reauth': {
+        status: 200,
+        body: stepUpStatus({ methods: ['email', 'google'], hasPassword: false }),
+      },
+      'POST /auth/reauth/code': { status: 204 },
+      'POST /auth/reauth': { status: 200, body: stepUpStatus({ recent: true }) },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => (
+      <>
+        <DataExportPage />
+        <StepUpHost />
+      </>
+    ));
+    const user = userEvent.setup();
+    const button = await screen.findByRole('button', { name: 'Xuất toàn bộ dữ liệu' });
+    await waitFor(() => expect(button).toBeEnabled());
+    await user.click(button);
+
+    const stepUp = await screen.findByRole('dialog', { name: 'Xác nhận đó là bạn' });
+    expect(
+      within(stepUp).getByRole('link', { name: 'Hoặc đăng nhập lại bằng Google' }),
+    ).toHaveAttribute('href', '/api/v1/auth/google/start?redirect=%2F');
+    await user.click(within(stepUp).getByRole('button', { name: 'Gửi mã qua email' }));
+    expect(
+      await within(stepUp).findByText('Đã gửi mã 6 số tới email của bạn.'),
+    ).toBeInTheDocument();
+    await user.type(within(stepUp).getByLabelText('Mã đã gửi tới email của bạn'), '123456');
+    await user.click(within(stepUp).getByRole('button', { name: 'Xác nhận' }));
+
+    await waitFor(() =>
+      expect(calls.filter((c) => c.key === 'POST /data-exports')).toHaveLength(2),
+    );
+    expect(calls.find((c) => c.key === 'POST /auth/reauth')?.body).toEqual({ emailCode: '123456' });
+  });
+
+  it('keeps the export unstarted with a clear message when the step-up is cancelled', async () => {
+    const reauth = {
+      status: 403,
+      body: { error: { code: 'FORBIDDEN', message: 'x', details: { reason: 'reauth_required' } } },
+    };
+    const { fetchStub, calls } = stubFetchSequence({
+      'GET /data-exports': { status: 200, body: { data: [], usedToday: 0, dailyLimit: 3 } },
+      'POST /data-exports': reauth,
+      'GET /auth/reauth': { status: 200, body: stepUpStatus() },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    const toastError = vi.spyOn(toast, 'error');
+    renderWithRouter(() => (
+      <>
+        <DataExportPage />
+        <StepUpHost />
+      </>
+    ));
+    const user = userEvent.setup();
+    const button = await screen.findByRole('button', { name: 'Xuất toàn bộ dữ liệu' });
+    await waitFor(() => expect(button).toBeEnabled());
+    await user.click(button);
+    const stepUp = await screen.findByRole('dialog', { name: 'Xác nhận đó là bạn' });
+    await user.click(within(stepUp).getByRole('button', { name: 'Huỷ' }));
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith('Hãy xác nhận đó là bạn rồi thử lại.'),
+    );
+    expect(calls.filter((c) => c.key === 'POST /data-exports')).toHaveLength(1);
   });
 
   it('downloads a ready export through a one-time link', async () => {

@@ -17,7 +17,7 @@ import type {
   PendingAction,
 } from '../api/action.facade.js';
 import { ActionNotFoundError, InvalidActionError } from '../domain/action.errors.js';
-import { createSafeHttp } from '../domain/safe-http.js';
+import { createSafeHttp } from '../../../common/security/safe-http.js';
 import { ActionRunner, type SafeHttp } from './action-runner.js';
 import {
   ACTION_UOW,
