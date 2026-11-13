@@ -49,3 +49,24 @@ export function weekdayMismatch(yyyyMmDd: string, customerTexts: readonly string
   }
   return null;
 }
+
+/**
+ * LM2-6 when the model passed no preferredDate: the newest message pairs a weekday with a date
+ * that is another weekday ("thứ 7 ngày 15/11/2027", a Monday). The year is the one written, else
+ * `now`'s year (next year once the date has passed). Returns "15/11 là Thứ Hai", else null.
+ */
+export function weekdayMismatchInText(customerTexts: readonly string[], now: Date): string | null {
+  const text = customerTexts.at(-1) ?? '';
+  for (const hit of text.matchAll(PATTERN)) {
+    const day = Number(hit[3]);
+    const month = Number(hit[4]);
+    const written = /^\/(\d{4})/.exec(text.slice((hit.index ?? 0) + hit[0].length));
+    let year = written ? Number(written[1]) : now.getUTCFullYear();
+    if (!written && Date.UTC(year, month - 1, day) < now.getTime() - DAY_MS) year += 1;
+    const actual = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+    const said = hit[2] ? 0 : WEEKDAY[(hit[1] ?? '').toLowerCase()];
+    if (said !== undefined && said !== actual)
+      return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')} là ${NAMES[actual]}`;
+  }
+  return null;
+}

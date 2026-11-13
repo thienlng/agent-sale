@@ -7,7 +7,7 @@ import {
 import { REQUEST_PROFILES, requestDetailsSchema } from '@agent-sales/contracts';
 import { newId, workspaceId } from '@agent-sales/shared';
 import { asksForRequest } from '../domain/request-intent.js';
-import { weekdayMismatch } from '../domain/weekday-date.js';
+import { weekdayMismatch, weekdayMismatchInText } from '../domain/weekday-date.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { BotFacade, BotView } from '../../bot/api/index.js';
@@ -412,5 +412,17 @@ describe('asksForRequest (LM3-2)', () => {
       'học phí khoá IELTS bao nhiêu',
     ])
       expect(asksForRequest([not]), not).toBe(false);
+  });
+});
+
+describe('weekdayMismatchInText (LM2-6, no preferredDate)', () => {
+  it('flags a weekday/date pair that disagrees in the newest message', () => {
+    const now = new Date('2026-11-13T03:00:00Z');
+    expect(weekdayMismatchInText(['chiều thứ 7 ngày 15/11/2027 lúc 4h'], now)).toBe(
+      '15/11 là Thứ Hai',
+    );
+    expect(weekdayMismatchInText(['thứ 7 tuần này 15/11'], now)).toBe('15/11 là Chủ Nhật');
+    expect(weekdayMismatchInText(['thứ 7 14/11 nhé'], now)).toBeNull();
+    expect(weekdayMismatchInText(['chiều mai nhé'], now)).toBeNull();
   });
 });

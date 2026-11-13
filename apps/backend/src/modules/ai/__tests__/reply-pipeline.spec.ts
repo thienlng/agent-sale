@@ -215,3 +215,16 @@ describe('phoneAsk pronouns (TM3-7, MS3-4)', () => {
     );
   });
 });
+
+describe('withCustomerPronoun for an "em" customer (MS3-4)', () => {
+  it('thanks and greets her as "bạn", never "em"', () => {
+    expect(
+      withCustomerPronoun('Dạ giá 180.000đ ạ.\nCảm ơn em đã hỏi Lotus Spa ạ.', [
+        'em muốn hỏi giá ạ',
+      ]),
+    ).toBe('Dạ giá 180.000đ ạ.\nCảm ơn bạn đã hỏi Lotus Spa ạ.');
+    expect(withCustomerPronoun('Dạ cho em xin số điện thoại ạ.', ['em muốn hỏi giá'])).toBe(
+      'Dạ cho em xin số điện thoại ạ.',
+    );
+  });
+});

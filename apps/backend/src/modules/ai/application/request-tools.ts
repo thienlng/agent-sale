@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 import type { BotRequestResult, CrmFacade } from '../../crm/api/index.js';
 import { asksForRequest } from '../domain/request-intent.js';
-import { weekdayMismatch } from '../domain/weekday-date.js';
+import { weekdayMismatch, weekdayMismatchInText } from '../domain/weekday-date.js';
 import { spokenDigits } from './reply-context.js';
 import { type ActionCall, safeJson } from './action-tools.js';
 
@@ -125,7 +125,9 @@ export function requestTools(ctx: RequestToolContext): {
       if (!contactVouched(rest, ctx.customerTexts))
         return done(false, { ok: false, error: 'contact_not_from_customer' });
       const date = typeof rest['preferredDate'] === 'string' ? rest['preferredDate'] : '';
-      const actual = date ? weekdayMismatch(date, ctx.customerTexts) : null;
+      const actual = date
+        ? weekdayMismatch(date, ctx.customerTexts)
+        : weekdayMismatchInText(ctx.customerTexts, new Date());
       if (actual) return done(false, { ok: false, error: 'weekday_date_mismatch', dateIs: actual });
       const details = Object.fromEntries(
         Object.entries(rest).filter(([, v]) => typeof v === 'string' && v.trim() !== ''),

@@ -275,7 +275,9 @@ export function withCustomerPronoun(
   sent: readonly { text: string }[] = [],
 ): string {
   const pronoun = customerSelfPronoun(customerTexts);
-  if (!pronoun || pronoun === 'em') return text;
+  // MS3-4: the bot is "em"; a customer who is "em" too is thanked or greeted as "bạn".
+  if (pronoun === 'em') return text.replace(/(cảm ơn|chào)\s+em(?!\p{L})/giu, '$1 bạn');
+  if (!pronoun) return text;
   const word = new RegExp(`(?<!\\p{L})${pronoun}(?!\\p{L})`, 'iu');
   if ([text, ...sent.map((m) => m.text)].some((t) => word.test(t))) return text;
   return text.replace(/(?<!\p{L})ạ([.!]?)\s*$/u, `${pronoun} ạ$1`);
