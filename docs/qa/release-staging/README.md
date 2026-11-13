@@ -35,6 +35,17 @@ timeouts only when the machine is under eval load; each passes alone and on repe
 Branch `fix/release-staging`: ~158 commits, ~405 files. Prompts `sales-agent@25` (hotel), `@26`
 (saas/education/spa), `@27` (retail), `assistant@6`. 120 shop-bot eval cases (was 79) + 12 assistant cases.
 
+## After the report: data reseed and wave 5
+
+The owner asked to fix the seeded data. Four seeders made each business consistent through the owner API (the
+catalog and the lodging calendar are the truth; profile, knowledge, FAQs and bot situations follow them), keeping
+every conversation, order, booking and "QA" item; a DB backup was taken first. Values the seeders had to invent
+are listed in the ledger (RESEED) for the owner to confirm or replace. The clean data exposed 8 product bugs
+(R5-1..8: a plain yes did not confirm an order, wholesale hand-offs refused, untriggered staff promises, figures
+dropped by the repeat filter, duplicate lines, hand-off order and pronoun, situation hand-offs recorded as
+requests, empty JSON body → 500), all fixed with 5 new eval cases. Final live run: shop bot 124/126 (critical
+80/82, both failures pass on re-run), assistant 12/12; backend 4597/4597.
+
 ## Most important fixes
 
 - **Trust / consent:** Chat thử sessions no longer share order/hold drafts (a test chat could confirm another chat's
