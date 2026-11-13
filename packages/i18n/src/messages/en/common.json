@@ -159,6 +159,13 @@
       "submitting": "Saving…",
       "done": "Password changed. Log in again.",
       "back": "Back to log in"
+    },
+    "googleVerify": {
+      "title": "Check your email",
+      "subtitle": "To finish signing up with Google, enter the 6-digit code we sent to your email.",
+      "code": "Verification code",
+      "submit": "Create account",
+      "invalid": "That code is wrong or expired. Sign in with Google again to get a new one."
     }
   },
   "industries": {
@@ -1591,44 +1598,6 @@
       "zoom": "Zoom",
       "cropSave": "Save logo"
     },
-    "security": {
-      "title": "Two-step verification",
-      "hint": "An extra layer of protection: besides your password, signing in needs a code from an authenticator app (Google Authenticator, Authy, 1Password…).",
-      "off": "Off",
-      "on": "On",
-      "recoveryLeft": "{{count}} recovery codes left",
-      "enable": "Turn on two-step verification",
-      "disable": "Turn off two-step verification",
-      "newCodes": "Generate new recovery codes",
-      "password": "Current password",
-      "code": "Verification code",
-      "codeOrRecovery": "Verification or recovery code",
-      "continue": "Continue",
-      "confirm": "Confirm",
-      "cancel": "Cancel",
-      "step1": "1. Confirm your password",
-      "step2": "2. Scan the QR code with your authenticator app",
-      "step3": "3. Enter the 6-digit code the app shows",
-      "manual": "Can't scan? Enter this key in the app:",
-      "copy": "Copy",
-      "copied": "Copied",
-      "qrAlt": "QR code to add this account to an authenticator app",
-      "codesTitle": "Save your recovery codes",
-      "codesHint": "Each code works once if you lose your phone. They are shown only here, only now — keep them somewhere safe.",
-      "codesDone": "I saved the codes",
-      "downloadCodes": "Download",
-      "disableTitle": "Turn off two-step verification?",
-      "disableHint": "Your account will be protected by your password alone.",
-      "newCodesTitle": "Generate new recovery codes?",
-      "newCodesHint": "The old codes will stop working.",
-      "errors": {
-        "invalid_password": "Wrong password.",
-        "invalid_code": "Wrong code. Try a fresh one from the app.",
-        "already_enabled": "Two-step verification is already on."
-      },
-      "enabledToast": "Two-step verification is on",
-      "disabledToast": "Two-step verification is off"
-    },
     "industry": {
       "title": "Business industry",
       "policy": "This industry belongs to the selected business, independently of your login or billing details. Changing industry is not supported; existing bots and training are kept."
@@ -2194,6 +2163,30 @@
       "disabled": "Notifications are off for this device",
       "blocked": "The browser blocks Rapiz notifications. Allow them in the browser settings.",
       "failed": "Could not turn on notifications. Try again later."
+    }
+  },
+  "stepUp": {
+    "title": "Confirm it's you",
+    "hint": "This is a sensitive action. Confirm it's you to continue.",
+    "adminHint": "The admin area needs a two-step verification code on this sign-in.",
+    "explicitHint": "Changing two-step verification needs a code sent to your email, even right after signing in.",
+    "adminMfaRequired": "The admin area needs two-step verification on your account. Turn it on in Account security first.",
+    "required": "Confirm it's you to do this, then try again.",
+    "password": "Current password",
+    "code": "Verification or recovery code",
+    "emailCode": "Code sent to your email",
+    "sendCode": "Email me a code",
+    "resend": "Send again",
+    "sent": "We sent a 6-digit code to your email.",
+    "google": "Or sign in with Google again",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "errors": {
+      "invalid_password": "Wrong password.",
+      "invalid_code": "Wrong code. Try a fresh one.",
+      "code_invalid": "Wrong code. Check the latest email.",
+      "code_expired": "The code expired. Send a new one.",
+      "too_many": "Too many attempts. Wait a few minutes and try again."
     }
   },
   "dataDeletion": {

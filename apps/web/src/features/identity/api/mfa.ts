@@ -20,8 +20,13 @@ export function useMfaMutations() {
   const refresh = () => qc.invalidateQueries({ queryKey: queryKeys.mfa });
   return {
     setup: useMutation({
-      mutationFn: (password: string) =>
-        api('/auth/mfa/setup', MfaSetup, { ...account, method: 'POST', body: { password } }),
+      // Without a password (Google sign-in only) the server wants a recent step-up instead.
+      mutationFn: (password: string | undefined) =>
+        api('/auth/mfa/setup', MfaSetup, {
+          ...account,
+          method: 'POST',
+          body: password ? { password } : {},
+        }),
     }),
     enable: useMutation({
       mutationFn: (code: string) =>

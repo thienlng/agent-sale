@@ -11,6 +11,22 @@ let accessToken: string | null = null;
 let workspaceId: string | null = null;
 let onSessionExpired: () => void = () => {};
 let onWorkspaceLost: (workspaceId: string) => void = () => {};
+let onStepUpRequired: StepUpHandler | null = null;
+let steppingUp: Promise<boolean> | null = null;
+
+/**
+ * Why the server wants the user to confirm it is them before it runs a request.
+ * `step_up_required`: a recent sign-in does not count, only an explicit step-up (two-factor setup
+ * of a user without a password).
+ */
+export type StepUpReason = 'reauth_required' | 'step_up_required' | 'mfa_session_required';
+const STEP_UP_REASONS: readonly unknown[] = [
+  'reauth_required',
+  'step_up_required',
+  'mfa_session_required',
+] satisfies StepUpReason[];
+/** Asks the user to confirm it is them; resolves true once the session passed a fresh step-up. */
+export type StepUpHandler = (reason: StepUpReason) => Promise<boolean>;
 
 export function setAccessToken(token: string | null): void {
   accessToken = token;
@@ -28,6 +44,19 @@ export function setSessionExpiredHandler(handler: () => void): void {
 /** Called when the server says the user is no longer a member of the business a request named. */
 export function setWorkspaceLostHandler(handler: (workspaceId: string) => void): void {
   onWorkspaceLost = handler;
+}
+
+/**
+ * Registers the step-up prompt. A 403 `reauth_required` (sensitive action, docs/09 §2),
+ * `step_up_required` (explicit step-up) or `mfa_session_required` (platform admin) then opens it
+ * and, once the user confirmed, the request is sent again. Concurrent requests share one prompt.
+ *
+ * The retry sends the same body again, so it only happens for a replayable one: a JSON body
+ * (serialised anew by every `send`) or a `Blob` raw body. Anything else (a one-shot stream) is
+ * never retried: the 403 goes back to the caller once the user confirmed.
+ */
+export function setStepUpHandler(handler: StepUpHandler | null): void {
+  onStepUpRequired = handler;
 }
 
 export class ApiClientError extends Error {
@@ -127,18 +156,56 @@ async function request(
       onSessionExpired();
     }
   }
+  if (res.status === 403 && onStepUpRequired && !path.startsWith('/auth/reauth')) {
+    const reason = await errorReason(res);
+    if (isStepUpReason(reason)) {
+      const handler = onStepUpRequired;
+      steppingUp ??= handler(reason).finally(() => {
+        steppingUp = null;
+      });
+      const confirmed = await steppingUp;
+      if (confirmed && replayable(body, raw))
+        res = await send(path, method, body, scope, raw, accept, signal);
+    }
+  }
   if (res.status === 404 && scope && (await lostWorkspace(res))) onWorkspaceLost(scope);
   return res;
 }
 
-/** A 404 from the workspace guard (not a missing resource): the membership is gone. */
-async function lostWorkspace(res: Response): Promise<boolean> {
+function isStepUpReason(reason: unknown): reason is StepUpReason {
+  return STEP_UP_REASONS.includes(reason);
+}
+
+/**
+ * Whether `send` can send this body a second time: a raw body must be a `Blob` (re-readable), and
+ * a JSON body must be plain data (a stream, a `FormData` or a `Blob` passed as `body` would be
+ * neither JSON nor safe to resend).
+ */
+export function replayable(body: unknown, raw?: RawBody): boolean {
+  if (raw) return raw.data instanceof Blob;
+  if (body === undefined || body === null || typeof body !== 'object') return true;
+  return !(
+    body instanceof ReadableStream ||
+    body instanceof Blob ||
+    body instanceof FormData ||
+    body instanceof ArrayBuffer ||
+    ArrayBuffer.isView(body)
+  );
+}
+
+/** The `details.reason` of an error answer, without consuming its body. */
+async function errorReason(res: Response): Promise<unknown> {
   const json: unknown = await res
     .clone()
     .json()
     .catch(() => null);
   const parsed = ErrorResponse.safeParse(json);
-  return parsed.success && parsed.data.error.details?.['reason'] === 'workspace_access';
+  return parsed.success ? parsed.data.error.details?.['reason'] : undefined;
+}
+
+/** A 404 from the workspace guard (not a missing resource): the membership is gone. */
+async function lostWorkspace(res: Response): Promise<boolean> {
+  return (await errorReason(res)) === 'workspace_access';
 }
 
 export async function api<T>(

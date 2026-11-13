@@ -2,8 +2,9 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { StepUpHost } from '@/components/step-up-dialog';
 import { loadNamespace } from '@/lib/i18n';
-import { renderWithRouter, stubFetch } from '@/testing/render';
+import { renderWithRouter, stepUpStatus, stubFetch, stubFetchSequence } from '@/testing/render';
 
 import { expiryFromDate } from './create-api-key-dialog';
 import { DevelopersPage } from './developers-page';
@@ -96,6 +97,60 @@ describe('DevelopersPage', () => {
     });
     await user.click(screen.getByRole('button', { name: 'Tôi đã lưu khóa' }));
     await waitFor(() => expect(screen.queryByTestId('revealed-secret')).toBeNull());
+  });
+
+  it('asks the user to confirm it is them when the sign-in is old, then creates the key', async () => {
+    const reauth = {
+      status: 403,
+      body: { error: { code: 'FORBIDDEN', message: 'x', details: { reason: 'reauth_required' } } },
+    };
+    const { fetchStub, calls } = stubFetchSequence({
+      'GET /api-keys': { status: 200, body: { data: [apiKey()] } },
+      'GET /webhook-endpoints': { status: 200, body: { data: [endpoint()] } },
+      'POST /api-keys': [reauth, { status: 201, body: { apiKey: apiKey(), key: FULL_KEY } }],
+      'GET /auth/reauth': { status: 200, body: stepUpStatus() },
+      'POST /auth/reauth': [
+        {
+          status: 400,
+          body: {
+            error: {
+              code: 'VALIDATION_FAILED',
+              message: 'x',
+              details: { reason: 'invalid_password' },
+            },
+          },
+        },
+        { status: 200, body: stepUpStatus({ recent: true }) },
+      ],
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => (
+      <>
+        <DevelopersPage apiEnabled />
+        <StepUpHost />
+      </>
+    ));
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Tạo khóa API' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Tên khóa'), 'POS');
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Xem đơn hàng' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Tạo khóa' }));
+
+    const stepUp = await screen.findByRole('dialog', { name: 'Xác nhận đó là bạn' });
+    await user.type(within(stepUp).getByLabelText('Mật khẩu hiện tại'), 'wrong');
+    await user.click(within(stepUp).getByRole('button', { name: 'Xác nhận' }));
+    expect(await within(stepUp).findByRole('alert')).toHaveTextContent('Sai mật khẩu.');
+    await user.clear(within(stepUp).getByLabelText('Mật khẩu hiện tại'));
+    await user.type(within(stepUp).getByLabelText('Mật khẩu hiện tại'), 'the password');
+    await user.click(within(stepUp).getByRole('button', { name: 'Xác nhận' }));
+
+    expect(await screen.findByTestId('revealed-secret')).toHaveTextContent(FULL_KEY);
+    expect(calls.filter((c) => c.key === 'POST /api-keys')).toHaveLength(2);
+    expect(calls.filter((c) => c.key === 'POST /auth/reauth').map((c) => c.body)).toEqual([
+      { password: 'wrong' },
+      { password: 'the password' },
+    ]);
   });
 
   it('revokes a key after confirmation', async () => {

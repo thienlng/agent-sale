@@ -22,6 +22,7 @@ import {
   type BillingRunner,
 } from '../src/modules/billing/api/index.js';
 import { startHarness, type Harness, type TestUser } from './support/harness.js';
+import { enableTwoFactor } from './support/mfa.js';
 
 /**
  * Platform admin (ADR-021 §6) on Postgres: migration 0053, the signup trial, operator writes with
@@ -91,6 +92,8 @@ beforeAll(async () => {
     .update(schema.users)
     .set({ isPlatformAdmin: true })
     .where(eq(schema.users.id, admin.userId));
+  // The back office needs two-factor on and a session that passed it (enabling proves it).
+  await enableTwoFactor((path, body) => hx.call(admin.auth, 'POST', path, body), admin.password);
   billing = hx.app.get(BILLING_FACADE);
   runner = hx.app.get(BILLING_RUNNER);
 });

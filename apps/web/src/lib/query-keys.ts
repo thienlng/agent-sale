@@ -30,6 +30,8 @@ export const queryKeys = {
   invitations: (ws: string) => ['ws', ws, 'invitations'] as const,
   assignmentPolicies: (ws: string) => ['ws', ws, 'crm', 'assignment-policies'] as const,
   mfa: ['me', 'mfa'] as const,
+  stepUp: ['me', 'step-up'] as const,
+  linkedIdentities: ['me', 'identities'] as const,
   profile: (ws: string) => ['ws', ws, 'profile'] as const,
   logo: (ws: string, version: string | null) => ['ws', ws, 'logo', version] as const,
   audit: (ws: string) => ['ws', ws, 'audit'] as const,

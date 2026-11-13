@@ -28,11 +28,16 @@ import {
   type AuthState,
   CurrentUser,
   PlatformAdmin,
+  RequireRecentAuth,
 } from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
 import { LlmAdminService } from '../../application/llm-admin.service.js';
 
-/** Platform back-office for LLM providers and tier routing. Non-admins get 404. */
+/**
+ * Platform back-office for LLM providers and tier routing. Non-admins get 404. Every write
+ * (providers, model discovery with a key, Hermes login, tier routes) also needs a recent step-up
+ * (403 `reauth_required`): it moves provider keys and decides where every tenant's prompts go.
+ */
 @PlatformAdmin()
 @Controller('admin/llm')
 export class LlmAdminController {
@@ -44,6 +49,7 @@ export class LlmAdminController {
   }
 
   @Post('providers')
+  @RequireRecentAuth()
   @HttpCode(201)
   createProvider(
     @Body(new ZodValidationPipe(CreateLlmProviderRequest)) body: CreateLlmProviderRequest,
@@ -52,6 +58,7 @@ export class LlmAdminController {
   }
 
   @Post('providers/models')
+  @RequireRecentAuth()
   @HttpCode(200)
   discoverModels(
     @Body(new ZodValidationPipe(DiscoverLlmModelsRequest)) body: DiscoverLlmModelsRequest,
@@ -60,6 +67,7 @@ export class LlmAdminController {
   }
 
   @Patch('providers/:providerId')
+  @RequireRecentAuth()
   updateProvider(
     @Param('providerId') id: string,
     @Body(new ZodValidationPipe(UpdateLlmProviderRequest)) body: UpdateLlmProviderRequest,
@@ -68,6 +76,7 @@ export class LlmAdminController {
   }
 
   @Delete('providers/:providerId')
+  @RequireRecentAuth()
   @HttpCode(204)
   deleteProvider(@Param('providerId') id: string): Promise<void> {
     return this.admin.deleteProvider(id);
@@ -93,12 +102,14 @@ export class LlmAdminController {
   }
 
   @Post('providers/:providerId/hermes-login')
+  @RequireRecentAuth()
   @HttpCode(200)
   hermesLoginStart(@Param('providerId') id: string): Promise<HermesLoginStatus> {
     return this.admin.hermesLogin(id, 'start');
   }
 
   @Delete('providers/:providerId/hermes-login')
+  @RequireRecentAuth()
   @HttpCode(200)
   hermesLoginLogout(@Param('providerId') id: string): Promise<HermesLoginStatus> {
     return this.admin.hermesLogin(id, 'logout');
@@ -110,6 +121,7 @@ export class LlmAdminController {
   }
 
   @Put('tiers/:tier')
+  @RequireRecentAuth()
   putTier(
     @Param('tier') tier: string,
     @CurrentUser() user: AuthState,

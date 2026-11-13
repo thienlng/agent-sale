@@ -11,6 +11,10 @@ const COPY: Record<EmailCodePurpose, { subject: string; intro: string }> = {
     subject: 'Mã đặt lại mật khẩu Rapiz',
     intro: 'Nhập mã sau để đặt mật khẩu mới cho tài khoản Rapiz:',
   },
+  reauth: {
+    subject: 'Mã xác nhận thao tác bảo mật Rapiz',
+    intro: 'Nhập mã sau để xác nhận lại danh tính trước một thao tác bảo mật trên Rapiz:',
+  },
 };
 
 function escapeHtml(v: string): string {
@@ -41,6 +45,51 @@ export function codeEmail(input: {
 <p>${escapeHtml(intro)}</p>
 <p style="font-size:28px;font-weight:bold;letter-spacing:6px;margin:16px 0">${input.code}</p>
 <p>${escapeHtml(validity)}<br>${escapeHtml(ignore)}</p>
+<p>Rapiz</p>
+</div>`,
+  };
+}
+
+/** Account changes the user is told about by email (the account may not be in their hands). */
+export type SecurityNotice = 'password_reset' | 'mfa_enabled' | 'mfa_disabled' | 'recovery_codes';
+
+const NOTICE: Record<SecurityNotice, { subject: string; body: string }> = {
+  password_reset: {
+    subject: 'Mật khẩu Rapiz của bạn vừa được đổi',
+    body: 'Mật khẩu tài khoản Rapiz của bạn vừa được đặt lại. Mọi phiên đăng nhập, khoá API do bạn tạo và liên kết đăng nhập Google đã bị gỡ.',
+  },
+  mfa_enabled: {
+    subject: 'Đã bật xác thực hai lớp cho Rapiz',
+    body: 'Xác thực hai lớp vừa được bật cho tài khoản Rapiz của bạn.',
+  },
+  mfa_disabled: {
+    subject: 'Đã tắt xác thực hai lớp của Rapiz',
+    body: 'Xác thực hai lớp vừa được tắt cho tài khoản Rapiz của bạn.',
+  },
+  recovery_codes: {
+    subject: 'Mã khôi phục Rapiz vừa được tạo lại',
+    body: 'Bộ mã khôi phục mới vừa được tạo cho tài khoản Rapiz của bạn; các mã cũ không còn dùng được.',
+  },
+};
+
+/** "Was this you?" email after a security change of the account. */
+export function securityNoticeEmail(input: {
+  to: string;
+  name: string | null;
+  notice: SecurityNotice;
+}): EmailMessage {
+  const { subject, body } = NOTICE[input.notice];
+  const hello = input.name ? `Xin chào ${input.name},` : 'Xin chào,';
+  const warn =
+    'Nếu không phải bạn, hãy đặt lại mật khẩu ngay (Quên mật khẩu trên trang đăng nhập) và liên hệ hỗ trợ Rapiz.';
+  return {
+    to: input.to,
+    subject,
+    text: [hello, '', body, '', warn, '', 'Rapiz'].join('\n'),
+    html: `<div style="font-family:Arial,sans-serif;font-size:15px;color:#111;line-height:1.5">
+<p>${escapeHtml(hello)}</p>
+<p>${escapeHtml(body)}</p>
+<p>${escapeHtml(warn)}</p>
 <p>Rapiz</p>
 </div>`,
   };

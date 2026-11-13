@@ -28,6 +28,9 @@ import {
 import { InMemoryApiRateLimiter } from '../infrastructure/security/in-memory-rate-limiter.js';
 import { apiKeyRouteSet, routeKey } from '../interface/http/api-key-routes.js';
 import { AuthGuard } from '../interface/http/auth.guard.js';
+import type { MfaService } from '../application/mfa.service.js';
+import type { SessionService } from '../application/sessions.js';
+import { securityEvents } from './factories/security.js';
 import { IdempotencyInterceptor, requestHash } from '../interface/http/idempotency.interceptor.js';
 
 const WS = workspaceId('0190a000-0000-7000-8000-000000000001');
@@ -48,8 +51,9 @@ function setup(
       Promise.resolve(state.role ? { workspaceId: WS, userId: OWNER, role: state.role } : null),
   } as unknown as WorkspaceFacade;
   const users = { findByIds: () => Promise.resolve([]) } as unknown as UserRepository;
-  const service = new ApiKeyService(store, plan, workspaces, users);
-  return { store, state, service };
+  const events = securityEvents(users);
+  const service = new ApiKeyService(store, plan, workspaces, users, events.service);
+  return { store, state, service, events: events.repo };
 }
 
 const input = (over: Partial<CreateApiKeyRequest> = {}): CreateApiKeyRequest => ({
@@ -259,6 +263,8 @@ async function guardSetup(over: Parameters<typeof setup>[0] = {}) {
     {} as AccountQueries,
     s.service,
     new InMemoryApiRateLimiter(),
+    {} as SessionService,
+    {} as MfaService,
   );
   return { ...s, guard, key: created.key, id: created.apiKey.id };
 }

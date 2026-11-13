@@ -50,3 +50,46 @@ export function stubFetch(routes: Record<string, { status: number; body?: unknow
   };
   return { fetchStub, calls };
 }
+
+type StubAnswer = { status: number; body?: unknown };
+
+/**
+ * Like `stubFetch`, but a route may answer a list: each call takes the next answer and the last
+ * one repeats (e.g. a 403 `reauth_required`, then the success after the step-up).
+ */
+export function stubFetchSequence(routes: Record<string, StubAnswer | StubAnswer[]>) {
+  const seen: Record<string, number> = {};
+  const flat: Record<string, StubAnswer> = {};
+  const stub = stubFetch(
+    new Proxy(flat, {
+      get: (_, key: string) => {
+        const answer = routes[key];
+        if (!Array.isArray(answer)) return answer;
+        const index = Math.min(seen[key] ?? 0, answer.length - 1);
+        seen[key] = (seen[key] ?? 0) + 1;
+        return answer[index];
+      },
+    }),
+  );
+  return stub;
+}
+
+/** A step-up state (GET/POST /auth/reauth) for tests. */
+export function stepUpStatus(
+  overrides: Partial<{
+    methods: Array<'totp' | 'password' | 'email' | 'google'>;
+    recent: boolean;
+    mfa: boolean;
+    recentUntil: string | null;
+    hasPassword: boolean;
+  }> = {},
+) {
+  return {
+    methods: ['password'],
+    recent: false,
+    mfa: false,
+    recentUntil: null,
+    hasPassword: true,
+    ...overrides,
+  };
+}

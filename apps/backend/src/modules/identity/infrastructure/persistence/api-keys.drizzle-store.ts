@@ -1,5 +1,5 @@
 import { and, type Database, desc, eq, isNull, lt, schema, withSystem } from '@agent-sales/db';
-import { userId, workspaceId, type WorkspaceId } from '@agent-sales/shared';
+import { type UserId, userId, workspaceId, type WorkspaceId } from '@agent-sales/shared';
 
 import type {
   ApiKeyRecord,
@@ -85,6 +85,17 @@ export class DrizzleApiKeyStore implements ApiKeyStore {
   touch(id: string, at: Date): Promise<void> {
     return withSystem(this.systemDb, async (tx) => {
       await tx.update(k).set({ lastUsedAt: at }).where(eq(k.id, id));
+    });
+  }
+
+  revokeAllCreatedBy(userId: UserId, at: Date): Promise<ApiKeyRecord[]> {
+    return withSystem(this.systemDb, async (tx) => {
+      const rows = await tx
+        .update(k)
+        .set({ revokedAt: at })
+        .where(and(eq(k.createdBy, userId), isNull(k.revokedAt)))
+        .returning();
+      return rows.map(toRecord);
     });
   }
 }

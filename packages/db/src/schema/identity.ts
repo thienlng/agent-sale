@@ -4,6 +4,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -43,6 +44,12 @@ export const sessions = pgTable(
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     rotatedAt: timestamp('rotated_at', { withTimezone: true }),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    /** When the user last proved a factor on this session; copied on rotation (migration 0078). */
+    authenticatedAt: timestamp('authenticated_at', { withTimezone: true }),
+    /** The session passed the second factor (login code or TOTP step-up; migration 0078). */
+    mfa: boolean('mfa').notNull().default(false),
+    /** The last explicit step-up (`POST /auth/reauth`); a sign-in never sets it (migration 0078). */
+    steppedUpAt: timestamp('stepped_up_at', { withTimezone: true }),
   },
   (t) => [index('sessions_user_idx').on(t.userId), index('sessions_family_idx').on(t.familyId)],
 );
@@ -64,12 +71,15 @@ export const userMfa = pgTable('user_mfa', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** GLOBAL: emailed one-time codes, one live code per address and purpose (migration 0056). app_system only. */
+/**
+ * GLOBAL: emailed one-time codes, one live code per address and purpose (migration 0056; `reauth`
+ * since 0078). app_system only.
+ */
 export const emailCodes = pgTable(
   'email_codes',
   {
     email: text('email').notNull(),
-    purpose: text('purpose').$type<'signup' | 'reset_password'>().notNull(),
+    purpose: text('purpose').$type<'signup' | 'reset_password' | 'reauth'>().notNull(),
     codeHash: text('code_hash').notNull(),
     attempts: integer('attempts').notNull().default(0),
     sentAt: timestamp('sent_at', { withTimezone: true }).notNull(),
@@ -98,6 +108,26 @@ export const userIdentities = pgTable(
     primaryKey({ columns: [t.provider, t.subject] }),
     index('user_identities_user_idx').on(t.userId),
   ],
+);
+
+/**
+ * GLOBAL: account-level security events of a user (migration 0078): password reset, two-factor,
+ * linked sign-ins, session and API key changes. Append-only for app_system; never secrets.
+ */
+export const userSecurityEvents = pgTable(
+  'user_security_events',
+  {
+    id: uuid('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** `<area>.<verb>`, e.g. `password.reset`, `mfa.enabled`, `api_key.created`. */
+    action: text('action').notNull(),
+    data: jsonb('data').notNull().default({}).$type<Record<string, unknown>>(),
+    ip: text('ip'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('user_security_events_user_idx').on(t.userId, t.createdAt)],
 );
 
 /**

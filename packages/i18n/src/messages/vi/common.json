@@ -157,6 +157,13 @@
       "submitting": "Đang lưu…",
       "done": "Đã đổi mật khẩu. Hãy đăng nhập lại.",
       "back": "Quay lại đăng nhập"
+    },
+    "googleVerify": {
+      "title": "Kiểm tra email",
+      "subtitle": "Để hoàn tất đăng ký bằng Google, hãy nhập mã 6 số chúng tôi đã gửi tới email của bạn.",
+      "code": "Mã xác minh",
+      "submit": "Tạo tài khoản",
+      "invalid": "Mã không đúng hoặc đã hết hạn. Hãy đăng nhập lại bằng Google để nhận mã mới."
     }
   },
   "industries": {
@@ -1585,44 +1592,6 @@
       "zoom": "Phóng to",
       "cropSave": "Lưu logo"
     },
-    "security": {
-      "title": "Xác minh 2 bước",
-      "hint": "Thêm một lớp bảo vệ: ngoài mật khẩu, đăng nhập cần mã từ ứng dụng xác thực (Google Authenticator, Authy, 1Password…).",
-      "off": "Đang tắt",
-      "on": "Đang bật",
-      "recoveryLeft": "Còn {{count}} mã khôi phục",
-      "enable": "Bật xác minh 2 bước",
-      "disable": "Tắt xác minh 2 bước",
-      "newCodes": "Tạo mã khôi phục mới",
-      "password": "Mật khẩu hiện tại",
-      "code": "Mã xác minh",
-      "codeOrRecovery": "Mã xác minh hoặc mã khôi phục",
-      "continue": "Tiếp tục",
-      "confirm": "Xác nhận",
-      "cancel": "Huỷ",
-      "step1": "1. Xác nhận mật khẩu",
-      "step2": "2. Quét mã QR bằng ứng dụng xác thực",
-      "step3": "3. Nhập mã 6 số hiện trên ứng dụng",
-      "manual": "Không quét được? Nhập khóa này vào ứng dụng:",
-      "copy": "Sao chép",
-      "copied": "Đã sao chép",
-      "qrAlt": "Mã QR để thêm tài khoản vào ứng dụng xác thực",
-      "codesTitle": "Lưu các mã khôi phục",
-      "codesHint": "Mỗi mã dùng được một lần khi mất điện thoại. Chúng chỉ hiện ở đây một lần — hãy lưu ở nơi an toàn.",
-      "codesDone": "Tôi đã lưu các mã",
-      "downloadCodes": "Tải về",
-      "disableTitle": "Tắt xác minh 2 bước?",
-      "disableHint": "Tài khoản chỉ còn được bảo vệ bằng mật khẩu.",
-      "newCodesTitle": "Tạo mã khôi phục mới?",
-      "newCodesHint": "Các mã cũ sẽ không còn dùng được.",
-      "errors": {
-        "invalid_password": "Mật khẩu không đúng.",
-        "invalid_code": "Mã không đúng. Thử mã mới trên ứng dụng.",
-        "already_enabled": "Xác minh 2 bước đã bật."
-      },
-      "enabledToast": "Đã bật xác minh 2 bước",
-      "disabledToast": "Đã tắt xác minh 2 bước"
-    },
     "industry": {
       "title": "Lĩnh vực doanh nghiệp",
       "policy": "Lĩnh vực thuộc doanh nghiệp đang chọn, tách biệt với tài khoản đăng nhập và thông tin thanh toán. Hiện chưa hỗ trợ đổi lĩnh vực; bot và nội dung đào tạo được giữ nguyên."
@@ -2185,6 +2154,30 @@
       "disabled": "Đã tắt thông báo trên thiết bị này",
       "blocked": "Trình duyệt đang chặn thông báo của Rapiz. Hãy cho phép trong cài đặt trình duyệt.",
       "failed": "Chưa bật được thông báo. Thử lại sau."
+    }
+  },
+  "stepUp": {
+    "title": "Xác nhận đó là bạn",
+    "hint": "Đây là thao tác nhạy cảm. Hãy xác nhận đó là bạn để tiếp tục.",
+    "adminHint": "Khu vực quản trị cần mã xác minh hai bước cho lần đăng nhập này.",
+    "explicitHint": "Để thay đổi xác minh hai bước, bạn cần nhập mã gửi tới email, kể cả khi vừa đăng nhập.",
+    "adminMfaRequired": "Khu vực quản trị yêu cầu bật xác minh hai bước cho tài khoản của bạn. Hãy bật trong Bảo mật tài khoản trước.",
+    "required": "Hãy xác nhận đó là bạn rồi thử lại.",
+    "password": "Mật khẩu hiện tại",
+    "code": "Mã xác minh hoặc mã khôi phục",
+    "emailCode": "Mã đã gửi tới email của bạn",
+    "sendCode": "Gửi mã qua email",
+    "resend": "Gửi lại",
+    "sent": "Đã gửi mã 6 số tới email của bạn.",
+    "google": "Hoặc đăng nhập lại bằng Google",
+    "confirm": "Xác nhận",
+    "cancel": "Huỷ",
+    "errors": {
+      "invalid_password": "Sai mật khẩu.",
+      "invalid_code": "Mã không đúng. Hãy thử mã mới.",
+      "code_invalid": "Mã không đúng. Hãy kiểm tra email mới nhất.",
+      "code_expired": "Mã đã hết hạn. Hãy gửi mã mới.",
+      "too_many": "Thử quá nhiều lần. Vui lòng đợi vài phút rồi thử lại."
     }
   },
   "dataDeletion": {

@@ -45,8 +45,8 @@ export interface IdentityApiKeysFacade {
     actor: UserId,
     input: CreateApiKeyRequest,
   ): Promise<CreatedApiKey>;
-  /** Revokes a key (idempotent); NOT_FOUND outside the workspace. */
-  revoke(workspaceId: WorkspaceId, id: string): Promise<ApiKeyDto>;
+  /** Revokes a key (idempotent); NOT_FOUND outside the workspace. `actor` gets the security event. */
+  revoke(workspaceId: WorkspaceId, id: string, actor?: UserId): Promise<ApiKeyDto>;
 }
 
 export const IDENTITY_API_KEYS_FACADE = Symbol('IDENTITY_API_KEYS_FACADE');

@@ -20,7 +20,15 @@
     "months_one": "{{count}} tháng",
     "months_other": "{{count}} tháng",
     "days_one": "{{count}} ngày",
-    "days_other": "{{count}} ngày"
+    "days_other": "{{count}} ngày",
+    "secondFactor": {
+      "title": "Hãy bật xác minh hai bước",
+      "body": "Khu vực quản trị yêu cầu bật xác minh hai bước cho tài khoản của bạn. Hãy bật trong Bảo mật tài khoản rồi quay lại.",
+      "action": "Mở Bảo mật tài khoản",
+      "confirmTitle": "Xác nhận bằng ứng dụng xác thực",
+      "confirmBody": "Lần đăng nhập này chưa qua xác minh hai bước. Hãy nhập mã từ ứng dụng xác thực để vào khu vực quản trị.",
+      "confirm": "Nhập mã"
+    }
   },
   "accountStatus": {
     "active": "Hoạt động",

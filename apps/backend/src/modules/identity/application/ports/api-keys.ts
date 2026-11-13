@@ -28,6 +28,11 @@ export interface ApiKeyStore {
   /** Cross-tenant lookup by the public key id (authentication). */
   findByKeyId(keyId: string): Promise<ApiKeyRecord | null>;
   touch(id: string, at: Date): Promise<void>;
+  /**
+   * Revokes every active key the user created, in every workspace (password reset); returns the
+   * revoked keys.
+   */
+  revokeAllCreatedBy(userId: UserId, at: Date): Promise<ApiKeyRecord[]>;
 }
 export const API_KEY_STORE = Symbol('API_KEY_STORE');
 

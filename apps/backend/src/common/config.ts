@@ -157,6 +157,14 @@ export const EnvSchema = z
     GOOGLE_CLIENT_SECRET: z.string().min(10).optional(),
     GOOGLE_REDIRECT_URI: z.url().optional(),
     /**
+     * How long each API process trusts what it read about a session (revoked, two-factor, last
+     * authentication) before reading it again. A logout or password reset reaches the other
+     * processes within this time; 0 reads the session on every request.
+     */
+    AUTH_SESSION_CACHE_TTL_MS: z.coerce.number().int().min(0).max(60_000).default(15_000),
+    /** How recent a password, code or Google sign-in must be for a step-up protected action. */
+    AUTH_STEP_UP_WINDOW_MINUTES: z.coerce.number().int().min(1).max(60).default(10),
+    /**
      * Abuse and spend limits (security audit 2026-11-12 #2, #3, #15, #17, #18). Every limit has a
      * generous default; 0 turns that limit off. Counters live in Redis when `REDIS_URL` is set.
      * See docs/08 §"Abuse caps" and docs/16 for the reasoning behind each default.
