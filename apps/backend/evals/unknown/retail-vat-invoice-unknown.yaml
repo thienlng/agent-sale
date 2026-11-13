@@ -36,6 +36,9 @@ expect:
   steps_exclude: ['handoff']
   contains_any: ['chưa có thông tin', 'chưa rõ', 'chưa nắm']
   not_matches:
-    ['xuất ho[aá] đơn[^.?!\n]{0,30}khi (anh|chị|khách|quý khách) (yêu cầu|cần)', '^dạ,? (có|được)(?!\p{L})']
+    [
+      'xuất ho[aá] đơn[^.?!\n]{0,30}khi (anh|chị|khách|quý khách) (yêu cầu|cần)',
+      '^dạ,? (có|được)(?!\p{L})',
+    ]
 fake_turns:
   - text: 'Dạ em chưa có thông tin về việc xuất hoá đơn VAT ạ. Anh/chị để lại số điện thoại để nhân viên trả lời giúp nhé.'
