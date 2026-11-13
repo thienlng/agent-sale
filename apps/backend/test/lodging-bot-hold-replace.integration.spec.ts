@@ -185,14 +185,40 @@ describe('replacing an earlier bot hold of the conversation (VL2-4)', () => {
       return { prepared, held };
     };
     const first = await place(a.id, {}, []);
+    // VL3-1: the guest's own hold does not make their villa look taken for a change.
+    const own = await facade().checkAvailabilityForBot(o.ws, {
+      botId: o.botId,
+      checkIn: night(3),
+      checkOut: night(5),
+      adults: 6,
+      childAges: [],
+      propertyId: a.id,
+      conversationId,
+      channel: 'facebook',
+      earlierHolds: [first.held.code],
+    });
+    expect(own.requestedFull).toBe(false);
+    const other = await facade().checkAvailabilityForBot(o.ws, {
+      botId: o.botId,
+      checkIn: night(3),
+      checkOut: night(5),
+      adults: 6,
+      childAges: [],
+      propertyId: a.id,
+    });
+    expect(other.requestedFull).toBe(true);
     // Overlapping new dates of the same villa: its own nights do not block the replacement.
     const second = await place(a.id, { checkIn: night(4), checkOut: night(6) }, [first.held.code]);
     expect(second.prepared).toMatchObject({ replaces: first.held.code });
     if (second.prepared.status === 'ready')
       expect(second.prepared.summary).toContain(`Thay cho giữ chỗ ${first.held.code}`);
     expect(second.held.replaced).toBe(first.held.code);
-    // Another villa for the same group is a second hold, not a replacement (VL2-5).
-    const third = await place(b.id, {}, [first.held.code, second.held.code]);
+    // Another villa for the same group is a second hold, not a replacement (VL2-5); a foreign
+    // guest's number is accepted (VL3-3).
+    const third = await place(b.id, { guestPhone: '+61 412 345 678' }, [
+      first.held.code,
+      second.held.code,
+    ]);
     expect(third.held.replaced).toBeUndefined();
 
     const list = await ok(await call(o.headers, 'GET', '/lodging/bookings?view=all'), BookingList);

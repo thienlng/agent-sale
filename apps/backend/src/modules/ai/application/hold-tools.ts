@@ -1,4 +1,5 @@
 import type { RunnableTool, ToolDefinition } from '@agent-sales/ai-core';
+import type { ProductDto } from '@agent-sales/contracts';
 import { DomainError, formatVnd, type WorkspaceId } from '@agent-sales/shared';
 import { z } from 'zod';
 
@@ -11,7 +12,7 @@ import type {
 } from '../../lodging/api/index.js';
 import type { MessageSink, OutgoingMessage, QuickReply } from '../api/reply-options.js';
 import { partyNotGiven } from '../domain/child-ages.js';
-import { isPlainAgreement } from '../domain/handoff-guard.js';
+import { foldText, isPlainAgreement } from '../domain/handoff-guard.js';
 import { safeJson } from './action-tools.js';
 import { resolveRooms } from './hold-rooms.js';
 import { confirmableDraft } from './order-tools.js';
@@ -195,31 +196,62 @@ export function holdCreatedText(code: string, expiresAt: string, replaced?: stri
   return `Dạ em đã giữ chỗ ${code}${when} ạ.${earlier} Nhân viên sẽ gọi xác nhận sớm ạ.`;
 }
 
+/** The facts of a property a follow-up question usually needs (VL2-6, VL3-8). */
+function propertyFacts(p: CatalogRow): string[] {
+  const a = p.accommodation;
+  if (!a) return [];
+  const s = a.surcharges;
+  return [
+    `Standard: ${a.standardAdults} adults + ${a.standardChildren} children${a.maxGuests ? `, maximum ${a.maxGuests} guests` : ', no maximum set'}.`,
+    s
+      ? `Children: under ${s.childFreeBelow} free within the standard; from ${s.childAdultFrom} counted as adults.`
+      : '',
+    a.checkInOut ? `Check-in/out: ${a.checkInOut}` : '',
+    a.depositPolicy ? `Deposit: ${a.depositPolicy}` : '',
+    a.cancellationPolicy ? `Cancellation: ${a.cancellationPolicy}` : '',
+    a.extraGuestPolicy ? `Extra guests: ${a.extraGuestPolicy}` : '',
+  ].filter(Boolean);
+}
+
+type CatalogRow = Pick<ProductDto, 'code' | 'name'> & {
+  accommodation?: ProductDto['accommodation'] | null | undefined;
+};
+
 /**
- * VL2-6: the property the conversation is about: of the properties already discussed, the one
- * whose code the customer or the bot named last (a broad search lists another first, and stale
- * training talks about one villa). Empty when none was named.
+ * VL2-6: the property the conversation is about: the one whose code or name the customer or the
+ * bot (a quote, a hold summary) named last, with the facts follow-ups ask about (check-in,
+ * deposit, child ages), so a broad search or stale training cannot swap in another villa. Empty
+ * when none was named.
  */
 export function currentPropertyBlock(
-  focus: readonly { code?: string | null; name: string }[],
+  catalog: readonly CatalogRow[],
   messages: readonly { content: string }[],
 ): string {
-  const named = focus.filter((p) => (p.code ?? '').trim().length >= 2);
   const fold = (t: string) =>
     t
       .normalize('NFD')
       .replace(/\p{Diacritic}/gu, '')
+      .replace(/đ/gi, 'd')
       .toLowerCase();
+  const escape = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const word = (t: string) => new RegExp(`(?<![\\p{L}\\d])${escape(t)}(?![\\p{L}\\d])`, 'u');
+  const patterns = catalog.flatMap((p) => {
+    const code = fold(p.code ?? '').trim();
+    // "E27 – Villa E27": the name without its code prefix ("Villa E27"), as the summaries say it.
+    const name = fold(p.name.replace(/^[^–-]*[–-]\s*/, '')).trim();
+    const keys = [code.length >= 2 ? code : '', name.length >= 4 ? name : ''].filter(Boolean);
+    return keys.length ? [{ p, res: keys.map(word) }] : [];
+  });
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const text = fold(messages[i]?.content ?? '');
-    const escape = (code: string) => code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const hit = named.find((p) =>
-      new RegExp(`(?<![\\p{L}\\d])${escape(fold(p.code ?? '').trim())}(?![\\p{L}\\d])`, 'u').test(
-        text,
-      ),
-    );
+    const hit = patterns.find(({ res }) => res.some((re) => re.test(text)))?.p;
     if (hit)
-      return `<current_property>\nThe conversation is about ${hit.code} (${hit.name}). A question that names no property is about it: answer with its own data (search it by its code when needed), never another property's.\n</current_property>`;
+      return [
+        '<current_property>',
+        `The conversation is about ${hit.code} (${hit.name}). A question that names no property is about it: answer with its data below or its own tool results, never another property's.`,
+        ...propertyFacts(hit),
+        '</current_property>',
+      ].join('\n');
   }
   return '';
 }
@@ -273,11 +305,21 @@ export function conversationHoldsBlock(holds: readonly BotConversationHold[]): s
   ].join('\n');
 }
 
+/** The customer drops the waiting hold ("thôi", "huỷ", "không lấy nữa", "cancel"). */
+const DROPS =
+  /\b(thoi|huy|khong (lay|can|giu|dat|di)|bo (di|qua)|chua (can|lay|chot)|de sau|cancel|never ?mind|no thanks|drop)\b/;
+
 const reply = (value: unknown, ok = true) => ({ content: safeJson(value), ok });
 
 /** An option as the model sees it: no property or room ids, room names as `rooms`. */
 function optionView(option: BotAvailabilityOption) {
-  const { propertyId: _p, unitIds: _u, unitNames, ...rest } = option;
+  const { propertyId: _p, unitIds: _u, unitNames, ...view } = option;
+  // VL3-4 / VL3-7: what the model must say about a party the standard does not cover.
+  const rest = option.overStandard
+    ? { ...view, note: 'Over the standard: quote it and say staff must approve the extra guests.' }
+    : option.fits
+      ? view
+      : { ...view, note: 'Above the maximum for this party: never offer it or add it to a total.' };
   if (!option.package) return { ...rest, rooms: unitNames };
   // VL-B12: the nightly prices belong to the picked package only. An alternative package carries
   // its total and no nights, said explicitly so the model never pairs it with these nights.
@@ -372,6 +414,10 @@ export function holdTools(ctx: HoldToolContext): {
           botId: ctx.botId,
           ...stayOf(args),
           ...(propertyId ? { propertyId } : {}),
+          // VL3-1: the guest's own holds do not make their villa look taken.
+          ...(ctx.earlierHolds?.length
+            ? { conversationId, channel: ctx.channel, earlierHolds: [...ctx.earlierHolds] }
+            : {}),
         });
       } catch (error) {
         if (isValidationFailure(error)) return reply(INVALID_REQUEST, false);
@@ -527,6 +573,17 @@ export function holdTools(ctx: HoldToolContext): {
     schema: z.object({}),
     run: async () => {
       if (!draftOpen()) return reply({ ok: false, code: 'nothing_pending' }, false);
+      // VL3-1: "sửa lại thành 26 người" changes the hold: prepare it again, keep the summary.
+      const said = ctx.customerTexts?.at(-1) ?? '';
+      if (said && !DROPS.test(foldText(said)))
+        return reply(
+          {
+            ok: false,
+            code: 'not_a_drop',
+            hint: 'The customer did not drop the hold: to change it, call prepare_hold with the new details (it replaces the summary); for "Sửa thông tin" ask what to change.',
+          },
+          false,
+        );
       try {
         await facade.cancelBotHoldDraft(ws, { conversationId });
       } catch (error) {

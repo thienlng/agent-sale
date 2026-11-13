@@ -91,6 +91,13 @@ export interface BotAvailabilityInput {
   adults: number;
   childAges: number[];
   propertyId?: string;
+  /**
+   * VL3-1: the conversation and the codes of the bot's earlier holds in it (as for
+   * `prepareBotHold`): the guest's own live holds do not make their property look taken.
+   */
+  conversationId?: string;
+  channel?: string;
+  earlierHolds?: string[];
 }
 
 /** One free option, in sell prices only (never a cost, the internal note or night notes). */

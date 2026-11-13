@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { partyNotGiven, unvouchedChildAges } from './child-ages.js';
+import { adultsVouched, partyNotGiven, unvouchedChildAges } from './child-ages.js';
 
 const said = (text: string, ages: number[]) => unvouchedChildAges(ages, [text]);
 
@@ -42,5 +42,22 @@ describe('unvouchedChildAges (VL-B3, VL2-2)', () => {
         'Hi, we are 10 adults and 3 kids aged 1, 4 and 7, E64 from 18 to 20 December',
       ]),
     ).toBeNull();
+  });
+});
+
+describe('adultsVouched (VL3-5)', () => {
+  it('accepts the per-villa counts of a split, a group size and added guests', () => {
+    const split = ["Split us: 24 people in E64 and 16 in D33, both nights. What's the total?"];
+    expect(adultsVouched(16, split)).toBe(true);
+    expect(adultsVouched(24, split)).toBe(true);
+    expect(adultsVouched(16, ['đoàn 30 người, 16 ở D33, còn lại ở E64'])).toBe(true);
+    expect(adultsVouched(12, ['nhóm 12 đi Tam Đảo'])).toBe(true);
+    expect(adultsVouched(26, ['EVANI 22 người lớn', 'sếp bảo thêm 4 người nữa'])).toBe(true);
+  });
+
+  it('still refuses a count the customer never wrote', () => {
+    expect(adultsVouched(2, ['A17 còn trống cuối tuần này không? ở 2 đêm'])).toBe(false);
+    expect(adultsVouched(18, ['E64 từ 18/12 đến 20/12'])).toBe(false);
+    expect(adultsVouched(11, ['đến lúc 11 giờ'])).toBe(false);
   });
 });

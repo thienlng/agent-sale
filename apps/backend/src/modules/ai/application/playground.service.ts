@@ -765,7 +765,10 @@ export class PlaygroundService implements AiFacade {
         sentTexts: output.sent.map((m) => m.text),
         fallback: fallbackText(bot),
         // The code alone is not enough: the customer must also read until when it is held.
-        alsoRequired: [localHoldTime(held.expiresAt)?.time].filter((t) => t !== undefined),
+        // VL2-4: and which earlier hold it replaced.
+        alsoRequired: [localHoldTime(held.expiresAt)?.time, held.replaced].filter(
+          (t) => t !== undefined,
+        ),
       });
     }
     const messages = turnMessages(output, decision);

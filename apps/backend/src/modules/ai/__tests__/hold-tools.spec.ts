@@ -870,5 +870,34 @@ describe('earlier holds of the conversation (VL2-4, VL2-5, VL2-6)', () => {
     ]);
     expect(block).toContain('about D33');
     expect(currentPropertyBlock(props, [{ content: 'còn căn nào trống' }])).toBe('');
+    // A hold summary names the property, not its code; its policies come along (VL2-6, VL3-8).
+    const e27 = {
+      code: 'E27',
+      name: 'E27 – Villa E27',
+      accommodation: {
+        standardAdults: 20,
+        standardChildren: 5,
+        maxGuests: 30,
+        checkInOut: 'Nhận căn 14:00, trả căn 12:00',
+        depositPolicy: 'Đặt cọc 50%',
+        surcharges: {
+          extraAdult: 300000,
+          extraChild: 150000,
+          childFreeBelow: 6,
+          childAdultFrom: 12,
+        },
+      },
+    } as unknown as Parameters<typeof currentPropertyBlock>[0][number];
+    const held = currentPropertyBlock(
+      [...props, e27],
+      [
+        { content: 'A17 thế nào' },
+        { content: 'Giữ chỗ Villa E27 · Nguyên căn' },
+        { content: 'checkin mấy h' },
+      ],
+    );
+    expect(held).toContain('about E27');
+    expect(held).toContain('Nhận căn 14:00');
+    expect(held).toContain('from 12 counted as adults');
   });
 });

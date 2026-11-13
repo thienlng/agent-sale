@@ -42,10 +42,19 @@ export function adultsVouched(adults: number, customerTexts: readonly string[]):
   if (adults <= 0) return true;
   const text = customerTexts.join('\n').toLowerCase();
   const said = new Set<number>();
-  for (const m of text.matchAll(
+  const counts = [
     /(\d{1,3})\s*(người|nguoi|ng|khách|khach|nl|adults?|pax|guests?|people|persons?)(?![\p{L}])/gu,
-  ))
-    said.add(Number(m[1]));
+    // VL3-5: a split of the group: "16 in D33", "24 ở E64", "16 cho căn D33".
+    /(?<![\d/.:])(\d{1,3})\s+(?:in|at|for|ở|o|tại|tai|cho|bên|ben)\s+(?:căn\s+|can\s+|villa\s+)?[a-z]{0,6}\d{0,3}(?![\p{L}\d])/gu,
+    // "nhóm 12", "đoàn 30", "group of 12", "party of 8".
+    /(?:nhóm|nhom|đoàn|doan|group of|party of|team of)\s+(\d{1,3})(?![\d/.:])/gu,
+  ];
+  for (const re of counts) for (const m of text.matchAll(re)) said.add(Number(m[1]));
+  // "thêm 4 người": the earlier count plus the new guests.
+  const added = [...text.matchAll(/(?:thêm|them|more|extra)\s+(\d{1,3})/gu)].map((m) =>
+    Number(m[1]),
+  );
+  for (const base of [...said]) for (const n of added) said.add(base + n);
   return said.has(adults);
 }
 

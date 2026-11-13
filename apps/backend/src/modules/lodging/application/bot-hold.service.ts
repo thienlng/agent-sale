@@ -100,7 +100,21 @@ export class LodgingBotHolds implements LodgingBotFacade {
       const ctx = await this.#sold(tx, bot.id, now);
       const sold =
         input.propertyId === undefined || ctx.sold.some((p) => p.id === input.propertyId);
-      const options = await this.#options(tx, ctx, input);
+      // VL3-1: the guest's own live holds of this conversation stay free for them (a change of
+      // package or party replaces them).
+      const own =
+        input.conversationId && input.channel && input.earlierHolds?.length
+          ? (
+              await this.#conversationHolds(tx, {
+                conversationId: input.conversationId,
+                channel: input.channel,
+                codes: input.earlierHolds,
+              })
+            )
+              .filter((b) => b.status === 'hold')
+              .map((b) => b.id)
+          : [];
+      const options = await this.#options(tx, ctx, input, own);
       if (!sold) return { ...result, options: rankForBot(options).options, problems: ['not_sold'] };
       return { ...result, ...rankForBot(options, input.propertyId) };
     });
@@ -113,7 +127,7 @@ export class LodgingBotHolds implements LodgingBotFacade {
     const problems: HoldProblem[] = [];
     const guestName = tidy(input.guestName, MAX_NAME);
     const rawPhone = (input.guestPhone ?? '').trim();
-    const e164 = rawPhone ? normalizeVnPhone(rawPhone) : null;
+    const e164 = rawPhone ? (normalizeVnPhone(rawPhone) ?? internationalPhone(rawPhone)) : null;
     if (!guestName) problems.push('missing_name');
     if (!rawPhone) problems.push('missing_phone');
     else if (!e164) problems.push('invalid_phone');
@@ -141,7 +155,7 @@ export class LodgingBotHolds implements LodgingBotFacade {
           ? replacedHold(
               await this.#conversationHolds(tx, { ...input, codes: input.earlierHolds }),
               property.id,
-              `0${e164.slice(3)}`,
+              storedPhone(e164),
             )
           : undefined;
       let validPackages: string[] | undefined;
@@ -209,7 +223,7 @@ export class LodgingBotHolds implements LodgingBotFacade {
         };
       }
 
-      const guestPhone = `0${e164.slice(3)}`;
+      const guestPhone = storedPhone(e164);
       const note = tidy(input.note, MAX_NOTE);
       const draft: BotHoldDraftRecord = {
         id: newId(),
@@ -560,8 +574,13 @@ export class LodgingBotHolds implements LodgingBotFacade {
   }
 
   /** Free options of the sold properties, as the bot sees them (a min-stay breach is flagged). */
-  async #options(tx: LodgingTx, ctx: SoldContext, ask: StayAsk): Promise<BotAvailabilityOption[]> {
-    const free = await freeOptions(tx, ctx.sold, stayOf(ask), ctx);
+  async #options(
+    tx: LodgingTx,
+    ctx: SoldContext,
+    ask: StayAsk,
+    ignoreBookingIds: readonly string[] = [],
+  ): Promise<BotAvailabilityOption[]> {
+    const free = await freeOptions(tx, ctx.sold, stayOf(ask), ctx, ignoreBookingIds);
     return free.map((o) => toBotOption(o, ctx.ratesOf.get(o.property.id) ?? []));
   }
 }
@@ -584,3 +603,17 @@ function replacedHold(
       digits(b.guestPhone) === digits(guestPhone),
   );
 }
+
+/**
+ * VL3-3: a foreign guest's number in E.164 (`+61 412 345 678`, `0061…`): 8–15 digits after the
+ * country code, never a Vietnamese one (those go through `normalizeVnPhone`). Null otherwise.
+ */
+export function internationalPhone(raw: string): string | null {
+  const compact = raw.replace(/[\s.()-]/g, '');
+  const m = /^(?:\+|00)([1-9]\d{7,14})$/.exec(compact);
+  if (!m?.[1] || m[1].startsWith('84')) return null;
+  return `+${m[1]}`;
+}
+
+/** Vietnamese numbers are stored `0xxxxxxxxx`, foreign ones in E.164. */
+const storedPhone = (e164: string): string => (e164.startsWith('+84') ? `0${e164.slice(3)}` : e164);

@@ -291,7 +291,17 @@ export function evalLodging(
       const wanted = properties.find((p) => p.id === input.propertyId);
       if (input.propertyId && !wanted)
         return { ...result, options: ranked(stay), problems: ['not_sold'] };
-      if (wanted && isFree(wanted, stay)) return { ...result, options: [optionOf(wanted, stay)] };
+      // VL3-1: the guest's own live hold of the asked property does not make it look taken.
+      const own = wanted
+        ? earlier.find(
+            (h) =>
+              h.status === 'hold' &&
+              (input.earlierHolds ?? []).includes(h.hold) &&
+              h.code.toLowerCase() === wanted.code.toLowerCase(),
+          )?.hold
+        : undefined;
+      if (wanted && isFree(wanted, stay, own))
+        return { ...result, options: [optionOf(wanted, stay)] };
       if (wanted) return { ...result, requestedFull: true, options: ranked(stay, wanted.id) };
       return { ...result, options: ranked(stay) };
     },
@@ -299,7 +309,11 @@ export function evalLodging(
       const problems: HoldProblem[] = [];
       if (!input.guestName.trim()) problems.push('missing_name');
       if (!input.guestPhone.trim()) problems.push('missing_phone');
-      else if (!normalizeVnPhone(input.guestPhone)) problems.push('invalid_phone');
+      else if (
+        !normalizeVnPhone(input.guestPhone) &&
+        !/^(?:\+|00)[1-9]\d{7,14}$/.test(input.guestPhone.replace(/[\s.()-]/g, ''))
+      )
+        problems.push('invalid_phone');
       const stay = { ...input };
       problems.push(...stayProblems(stay));
       const p = properties.find((x) => x.id === input.propertyId);
