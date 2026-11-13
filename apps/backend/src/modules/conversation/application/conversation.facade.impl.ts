@@ -42,7 +42,7 @@ import { nextMessageId } from '../domain/message-id.js';
 import { toListFilter } from '../domain/conversation-filter.js';
 import { detectVietnamesePhone, normalizeVietnamesePhone } from '../domain/phone.js';
 import { applyControlUpdate, newConversation, preview } from '../domain/conversation-state.js';
-import { attachTags, tagConditions } from './conversation-tags.js';
+import { attachContactNames, attachTags, tagConditions } from './conversation-tags.js';
 import { refreshCustomerProfile } from './customer-profile.js';
 import { addNote, assertAssignable, markRead, markUnread, setStarred } from './inbox-state.js';
 import { InboxAlerts } from './inbox-alerts.js';
@@ -174,8 +174,14 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
     const rows = await this.store.run(ws, (tx) =>
       tx.todayCandidates({ ...q, ids, limit, lastHumanFor }),
     );
-    return rows.map(({ conversation, lastHumanReplyAt }) => {
-      const c = named(conversation.provider, conversation.customerId, conversation);
+    // A website visitor's placeholder gives way to the linked customer's name, as in the inbox (MS3-5).
+    const shown = await attachContactNames(
+      this.crm,
+      ws,
+      rows.map((r) => named(r.conversation.provider, r.conversation.customerId, r.conversation)),
+    );
+    return rows.map(({ lastHumanReplyAt }, i) => {
+      const c = shown[i]!;
       return {
         id: c.id,
         provider: c.provider,
