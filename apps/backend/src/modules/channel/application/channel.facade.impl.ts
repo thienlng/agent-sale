@@ -73,7 +73,11 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
     return secret;
   }
   async createWebsite(ws: WorkspaceId, input: CreateWebsiteRequest) {
-    if (input.botId) await this.bots.getBot(ws, input.botId);
+    const bot = input.botId ? await this.bots.getBot(ws, input.botId) : null;
+    // The widget speaks as the bot from the start: its name and greeting, not the generic ones
+    // (LM3-10). Existing sites keep what the owner set.
+    const name = bot?.name.trim().slice(0, 60);
+    const greeting = bot?.greeting.trim().slice(0, 300);
     const record = await this.store.create({
       id: newId(),
       workspaceId: ws,
@@ -85,7 +89,11 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
       // Signs visitor tokens; it never leaves the module.
       tokenSealed: this.box.seal(randomBytes(32).toString('base64')),
       expiresAt: null,
-      settings: WebsiteSettings.parse({ domains: input.domains }),
+      settings: WebsiteSettings.parse({
+        domains: input.domains,
+        ...(name ? { agentName: name } : {}),
+        ...(greeting ? { greeting } : {}),
+      }),
       createdAt: new Date().toISOString(),
     });
     return publicConnection(record);
