@@ -299,7 +299,7 @@ export function conversationHoldsBlock(holds: readonly BotConversationHold[]): s
   });
   return [
     '<holds_in_this_conversation>',
-    'The holds placed in this conversation, read from the calendar now. Only these exist: any other property, date or total discussed is not held. A hold waits for staff to call and confirm.',
+    'The holds placed in this conversation, read from the calendar now. Only these exist: any other property, date or total discussed is not held. A total of "the stays" or "both" adds only these holds; a property that was only quoted gets its own price on its own line, said to be not held yet (never add it in). A hold waits for staff to call and confirm.',
     ...lines,
     '</holds_in_this_conversation>',
   ].join('\n');
