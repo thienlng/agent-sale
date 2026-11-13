@@ -34,7 +34,8 @@ conversation:
 expect:
   outcome: answered
   guardrail: none
-  contains_all: ['690.000']
+  # PO decision DEC-6: an English reply may write the price the English way.
+  contains_any: ['690.000', '690,000']
   not_matches: ['(?<!\p{L})dạ(?!\p{L})', '(?<!\p{L})ạ(?!\p{L})', '(?<!\p{L})giá(?!\p{L})']
   numbers_only_from_sources: true
 fake_turns:

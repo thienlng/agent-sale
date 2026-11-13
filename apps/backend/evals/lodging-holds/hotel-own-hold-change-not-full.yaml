@@ -60,7 +60,8 @@ conversation:
 expect:
   guardrail: none
   outcome_not: handoff
-  steps_succeeded: ['check_availability', 'prepare_hold']
+  # PO decision DEC-7: prepare_hold checks the calendar itself; a separate check is not required.
+  steps_succeeded: ['prepare_hold']
   steps_exclude: ['cancel_hold_draft']
   contains_all: ['BK-0028', '26 người lớn']
   not_contains: ['đã kín', 'không còn trống']
