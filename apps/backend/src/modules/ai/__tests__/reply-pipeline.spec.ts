@@ -10,6 +10,7 @@ import {
   phoneAsk,
   phoneReadBack,
   withCustomerPronoun,
+  withoutStaleReadBack,
   writesEnglish,
 } from '../application/reply-pipeline.js';
 
@@ -182,5 +183,21 @@ describe('phoneAsk (MS2-1)', () => {
     expect(phoneAsk(health, [''], true)).toBe('');
     expect(phoneAsk(['số em 0912 345 678'], [''], false)).toBe('');
     expect(phoneAsk(health, ['Chị cho em xin số điện thoại nhé.'], false)).toBe('');
+  });
+});
+
+describe('withoutStaleReadBack (TM2-1)', () => {
+  it('drops a lead-in line reading back a phone given before the newest message', () => {
+    const texts = ['số chị 0977 123 456, gọi chị tư vấn nhé', 'Số tài khoản bên em là gì?'];
+    expect(withoutStaleReadBack('Dạ em đã ghi nhận số 0977 123 456 ạ.', texts)).toBe('');
+    expect(
+      withoutStaleReadBack(
+        'Dạ em chưa có số tài khoản ạ.\nDạ em đã ghi nhận số 0977123456 ạ.',
+        texts,
+      ),
+    ).toBe('Dạ em chưa có số tài khoản ạ.');
+    expect(
+      withoutStaleReadBack('Dạ em đã ghi nhận số 0977 123 456 ạ.', ['gọi chị số 0977 123 456']),
+    ).toBe('Dạ em đã ghi nhận số 0977 123 456 ạ.');
   });
 });

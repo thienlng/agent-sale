@@ -213,6 +213,28 @@ export function writesEnglish(text: string | undefined): boolean {
  */
 export const ENGLISH_HANDOFF = 'A member of our staff will get back to you here shortly.';
 
+const READ_BACK_LINE = /(ghi nhận số|ghi nhan so|noted,? your number|số (của )?(anh|chị|em) là)/iu;
+
+/**
+ * TM2-1: the model copies the earlier read-back line ("Dạ em đã ghi nhận số … ạ.") into later
+ * hand-offs. A lead-in line that reads back a phone the customer gave before their newest message
+ * is dropped; reading back a newly given number stays.
+ */
+export function withoutStaleReadBack(lead: string, customerTexts: readonly string[]): string {
+  const digits = (t: string) => t.replace(/\D/g, '');
+  const newest = digits(customerTexts.at(-1) ?? '');
+  const earlier = customerTexts
+    .slice(0, -1)
+    .flatMap((t) => phonesIn(t).map((p) => digits(p).slice(-9)))
+    .filter((tail) => !newest.includes(tail));
+  if (!earlier.length) return lead;
+  return lead
+    .split('\n')
+    .filter((line) => !(READ_BACK_LINE.test(line) && earlier.some((t) => digits(line).includes(t))))
+    .join('\n')
+    .trim();
+}
+
 const ASKS_PHONE = /(số điện thoại|sđt|sdt|phone|number)/iu;
 
 /**
@@ -291,7 +313,8 @@ export function decideReply(input: {
     // The model's own lead-in, else the handoff's `say` line (TM2-7): either must pass the guard.
     const written =
       normalizeReplyText(loop.res?.text ?? '') || normalizeReplyText(output.handoffSay ?? '');
-    const lead = written && input.check && !input.check(written).ok ? '' : written;
+    const checked = written && input.check && !input.check(written).ok ? '' : written;
+    const lead = withoutStaleReadBack(checked, input.customerTexts ?? []);
     return {
       outcome: 'handoff',
       guardrail: null,
