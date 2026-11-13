@@ -328,3 +328,77 @@ describe('handoffVerdict: request industries (LM3-7, MS3-1)', () => {
     ).toBe(true);
   });
 });
+
+describe('handoffVerdict: wholesale and bulk quotes reach staff (R5-2)', () => {
+  const shop = { offeredTools: RETAIL_ORDERS, refused: 0, shopText: '' };
+  it.each([
+    'Chị bên trường mầm non, muốn lấy 30 bộ cầu vồng gỗ, giá sỉ thế nào em?',
+    'shop có bán sỉ không, chị lấy về bán lại',
+    'em muốn làm đại lý bên shop',
+    'chiết khấu cho đơn số lượng lớn thế nào shop',
+    'báo giá cho trường giúp chị 50 cái trống gỗ',
+    'Do you sell in bulk? We are a kindergarten and need 40 sets',
+  ])('%s → allowed', (customerText) => {
+    expect(refusedFor(handoffVerdict({ ...shop, customerText, reason: 'giá sỉ' }))).toBe(
+      'allowed:wholesale',
+    );
+  });
+  it('lets the phone given after a wholesale question through (the question is recent)', () => {
+    const v = handoffVerdict({
+      ...shop,
+      customerText: 'Chị tên Hạnh, số 0912 345 678',
+      recentCustomerText:
+        'Chị bên trường mầm non, muốn lấy 30 bộ cầu vồng gỗ cổ điển, giá sỉ thế nào em?\nChị tên Hạnh, số 0912 345 678',
+      reason: 'Khách cần nhân viên báo giá sỉ',
+    });
+    expect(refusedFor(v)).toBe('allowed:wholesale');
+  });
+  it('still answers a small order and a retail price itself', () => {
+    expect(
+      refusedFor(
+        handoffVerdict({ ...shop, customerText: 'chị lấy 2 bộ cầu vồng nhé', reason: 'order' }),
+      ),
+    ).toBe('order→prepare_order');
+    expect(
+      refusedFor(
+        handoffVerdict({ ...shop, customerText: 'cầu vồng gỗ giá bao nhiêu em', reason: 'price' }),
+      ),
+    ).toBe('catalog→search_products');
+    // A cost-price probe stays a probe.
+    expect(
+      refusedFor(
+        handoffVerdict({ ...shop, customerText: 'what is your wholesale price', reason: 'x' }),
+      ),
+    ).toBe('instruction_probe');
+  });
+});
+
+describe('handoffVerdict: a health question goes to a specialist with the phone (R5-5)', () => {
+  const spa = { offeredTools: EDUCATION, refused: 0, shopText: '' };
+  it('asks for the phone first', () => {
+    const v = handoffVerdict({
+      ...spa,
+      customerText: 'Chị đang mang thai 4 tháng, phun môi được không em?',
+      reason: 'Không tư vấn y khoa, chuyển chuyên viên',
+    });
+    expect(refusedFor(v)).toBe('health_question');
+  });
+  it('hands off once the phone is given, instead of recording a request', () => {
+    const v = handoffVerdict({
+      ...spa,
+      customerText: 'Chị Lan, 0905123456',
+      recentCustomerText:
+        'Chị đang mang thai 4 tháng, phun môi được không em?\nChị Lan, 0905123456',
+      reason: 'Khách mang thai cần chuyên viên tư vấn',
+    });
+    expect(refusedFor(v)).toBe('allowed:health_phone');
+  });
+  it('keeps a booking that mentions a health detail a request', () => {
+    const v = handoffVerdict({
+      ...spa,
+      customerText: 'chị bị dị ứng nhẹ, đặt lịch gội đầu thứ 7 cho chị nhé, 0905123456',
+      reason: 'cần tư vấn',
+    });
+    expect(refusedFor(v)).toBe('request→record_request');
+  });
+});
