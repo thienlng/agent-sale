@@ -223,6 +223,10 @@ describe('assistant@6 rules (staging wave 2)', () => {
     // AS4-1: "bot tính sai à?" goes to bot-doctor and the headline follows the evidence.
     expect(template).toContain('load bot-doctor, verify the bot');
     expect(template).toContain('the shop bot never reads it');
+    // A +07:00 instant is said as written, never shifted again (hotel-hold-expiry-local-time).
+    expect(template).toContain(
+      'never add or subtract 7 hours (2026-11-13T03:05:39+07:00 is 03:05 13/11)',
+    );
   });
 });
 

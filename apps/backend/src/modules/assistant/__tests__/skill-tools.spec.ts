@@ -64,6 +64,19 @@ describe('add-products fill (QA TinyMind B10)', () => {
     expect(add.body).toContain('pass `stock` ([{sku, onHand}]) with the POST /products tool_call');
     expect(add.body).toContain('never move a part of it into the code');
     expect(add.body).toContain('The SKU is required to save');
+    // A failed duplicate search never blocks the card the owner asked for.
+    expect(add.body).toContain('When that search fails (an error, not an empty list), still draft');
+  });
+});
+
+describe('set-up-schedules', () => {
+  it('maps bot requests to new_requests and checks "mỗi khi có …" alerts every 15 minutes', async () => {
+    const skills = await loadSkillDir(ASSISTANT_SKILLS_DIR);
+    const body = skills.find((s) => s.name === 'set-up-schedules')!.body;
+    expect(body).toContain('→ new_requests (report: period params; alert: minCount, default 1');
+    expect(body).toContain(
+      'use 15 for an alert on each new order or request ("mỗi khi có …", "có … mới là báo", "báo ngay") and 30 otherwise',
+    );
   });
 });
 
