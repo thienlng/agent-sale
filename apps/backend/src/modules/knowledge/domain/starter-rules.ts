@@ -138,6 +138,8 @@ const FULL_PRICE_WORDING: StarterRule = {
     'Viết giá đầy đủ bằng số, có dấu chấm ngăn cách hàng nghìn và chữ "đ" ở cuối; không viết tắt bằng "k" hay "triệu". Chỉ báo mức giá có trong dữ liệu của cửa hàng.',
   section: 'general',
 };
+/** The spa's copy speaks of prices only: a spa sells no courses (MS-25). */
+const SPA_PRICE_WORDING: StarterRule = { ...FULL_PRICE_WORDING, trigger: 'Khi báo giá dịch vụ' };
 
 /**
  * Education and spa businesses convert through requests recorded for staff, not orders, so they
@@ -200,7 +202,7 @@ const EDUCATION_RULES: readonly StarterRule[] = [
 ];
 
 const SPA_RULES: readonly StarterRule[] = [
-  FULL_PRICE_WORDING,
+  SPA_PRICE_WORDING,
   PAYMENT,
   {
     title: 'Khách hỏi giá dịch vụ',

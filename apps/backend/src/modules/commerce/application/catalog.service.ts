@@ -78,6 +78,18 @@ function withMediaPaths<
   };
 }
 
+/**
+ * "Có thể bán" of a product: what each variant can still sell in each warehouse, never below 0. An
+ * oversold row (staff may oversell) must not hide another variant's stock (TM-6); the variant rows
+ * keep their negative figure.
+ */
+export function sellableTotal(variants: readonly { stock: readonly { available: number }[] }[]) {
+  return variants.reduce(
+    (n, v) => n + v.stock.reduce((m, s) => m + Math.max(0, s.available), 0),
+    0,
+  );
+}
+
 function toProductDto(
   p: ProductRecord,
   variants: VariantRecord[],
@@ -118,7 +130,7 @@ function toProductDto(
     variants: dtoVariants,
     priceMin: prices.length ? Math.min(...prices) : 0,
     priceMax: prices.length ? Math.max(...prices) : 0,
-    available: dtoVariants.reduce((n, v) => n + v.stock.reduce((m, s) => m + s.available, 0), 0),
+    available: sellableTotal(dtoVariants),
     external: p.external ?? null,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),

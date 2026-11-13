@@ -52,6 +52,13 @@ beforeEach(() => window.addEventListener('click', noNavigation, true));
 afterEach(() => window.removeEventListener('click', noNavigation, true));
 
 describe('OrderCreatedByCell ("Người tạo")', () => {
+  it('shows no review chip on a cancelled bot order, approved or not (TM3-10)', () => {
+    renderCell({ ...botApproved, status: 'cancelled' });
+    expect(screen.getByText('Bot')).toBeInTheDocument();
+    expect(screen.queryByText('Đã duyệt')).toBeNull();
+    expect(screen.queryByText('Chờ duyệt')).toBeNull();
+  });
+
   it('shows the staff name for a staff order, with no bot badge or conversation link', () => {
     renderCell(staff);
     expect(screen.getByText('Ngọc Anh')).toBeInTheDocument();

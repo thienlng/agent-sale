@@ -273,6 +273,24 @@ describe('ChannelFacade website lifecycle (T-100)', () => {
       expect(await status(false)).toBe(kept);
     }
   });
+  it("takes the bot's name and greeting for a new site, the defaults without a bot (LM3-10)", async () => {
+    const store = new MemoryChannelStore();
+    const getBot = vi.fn(async () => ({
+      name: 'Mai – Mailisa',
+      greeting: 'Dạ Mailisa xin chào ạ!',
+    }));
+    const service = new ChannelFacadeImpl(store, {} as never, SecretBox.insecureDevelopmentBox(), {
+      getBot,
+    } as never);
+    const botId = '018d0000-0000-7000-8000-0000000000b1';
+    const site = await service.createWebsite(ws, { name: 'Site', domains: ['shop.test'], botId });
+    expect(site.settings).toMatchObject({
+      agentName: 'Mai – Mailisa',
+      greeting: 'Dạ Mailisa xin chào ạ!',
+    });
+    const plain = await service.createWebsite(ws, { name: 'Site 2', domains: ['shop.test'] });
+    expect(plain.settings).toMatchObject({ agentName: 'Tư vấn viên' });
+  });
   it('does not resolve a site whose stored settings are unusable (no localhost fallback)', async () => {
     const { service, store } = setup();
     const { id, externalId } = await service.createWebsite(ws, {

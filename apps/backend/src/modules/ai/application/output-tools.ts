@@ -10,6 +10,7 @@ import {
   type AllowedVideo,
   nextAlbumPage,
   productAlbums,
+  productIdOfImage,
   productImages,
   productVideos,
 } from '../domain/image-allowlist.js';
@@ -21,6 +22,28 @@ export const SEND_MESSAGE_TOOL = 'send_message';
 export const HANDOFF_TOOL = 'handoff';
 export const MAX_SEND_TEXT_CHARS = 2_000;
 export const MAX_SEND_IMAGES = 3;
+/** Picture messages per turn (LM3-6: a first reply of 10 bubbles). */
+export const MAX_PICTURE_MESSAGES = 3;
+
+const foldCaption = (text: string): string =>
+  text
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/đ/gi, 'd')
+    .toLowerCase()
+    .replace(/\b(da|day la|anh|hinh|em gui|gui|cua|mau|bo|a)\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+/** The text only names a pictured product ("Thú gỗ xếp thăng bằng", "Dạ ảnh bộ thú gỗ ạ"). */
+export function isCaptionOnly(text: string, labels: readonly string[]): boolean {
+  const t = foldCaption(text);
+  if (!t) return Boolean(text.trim());
+  return labels.some((label) => {
+    const name = foldCaption(label.split(' – ')[0]?.replace(/\s*\(\d+\/\d+\)$/, '') ?? label);
+    return name.includes(t) || (t.includes(name) && t.length <= name.length + 12);
+  });
+}
 
 const SendMessageInput = z
   .object({
@@ -28,6 +51,8 @@ const SendMessageInput = z
     imageIds: z.array(z.string().max(200)).max(MAX_SEND_IMAGES).optional(),
     albumId: z.string().max(200).optional(),
     videoId: z.string().max(200).optional(),
+    /** LM3-3: the customer asked to see pictures they already received again. */
+    resend: z.boolean().optional(),
   })
   .refine(
     (v) =>
@@ -42,7 +67,11 @@ const SendMessageInput = z
     path: ['albumId'],
   });
 
-const HandoffInput = z.object({ reason: z.string().trim().min(1).max(500) });
+const HandoffInput = z.object({
+  reason: z.string().trim().min(1).max(500),
+  /** TM2-7 / TM-16: what the customer reads before the shop's hand-over message. */
+  say: z.string().trim().max(300).optional(),
+});
 
 /** One message the bot sent during the turn, in order. */
 export interface SentMessage {
@@ -62,6 +91,8 @@ export interface OutputState {
   sent: SentMessage[];
   /** The handoff tool ran: its reason (kept server-side, never logged). */
   handoff: string | null;
+  /** The handoff's `say` line (the acknowledgement before the shop's hand-over message). */
+  handoffSay?: string | null;
   /** `suggest_next` ran: buttons for the final message (website only). */
   suggestions?: MessageSuggestion[] | null;
 }
@@ -159,14 +190,14 @@ export class ImageAllowlist {
 const SEND_MESSAGE_DEFINITION: ToolDefinition = {
   name: SEND_MESSAGE_TOOL,
   description:
-    'Sends one chat message to the customer right away, while you keep working: optional text (max 2000 characters) and either up to 3 picture ids (from product "images" or the "Images you may send" list) or one albumId (from product "albums": sends the next 8 photos of that folder the customer has not received yet; the result says how many remain), plus at most one videoId (from product "videos"). Call it several times for more. Do not repeat its text in your answer.',
+    'Sends one chat message to the customer right away, while you keep working: optional text (max 2000 characters) and either up to 3 picture ids of one product (from its "images", or the "Images you may send" list); a text that only names the product is dropped (the pictures carry its name), so put the product names in your answer or one albumId (from product "albums": sends the next 8 photos of that folder the customer has not received yet; the result says how many remain), plus at most one videoId (from product "videos"). Call it several times for more. Do not repeat its text in your answer.',
   input: SendMessageInput,
 };
 
 const HANDOFF_DEFINITION: ToolDefinition = {
   name: HANDOFF_TOOL,
   description:
-    'Hands the conversation over to the shop staff: when the customer asks for a person or a staff decision is needed. The shop then sends its own hand-over message.',
+    "Hands the conversation over to the shop staff, only when the customer asks for a person, a complaint or a payment problem needs staff, or a request about an existing order (its status, cancelling it, changing its address) needs staff. Never for a question the shop's data answers (payment methods, warranty, returns, shipping), haggling or a price, discount or policy the customer claims, a fact you do not have (say so instead), or because the conversation was handed over before. reason: for staff, e.g. 'customer wants to cancel order DH000006'. say: the one short sentence the customer reads first: acknowledge what they asked (with the order code they gave) and apologise if they are upset. The shop then sends its own hand-over message.",
   input: HandoffInput,
 };
 
@@ -204,6 +235,8 @@ export function outputTools(opts: {
     return from === undefined ? earlier.has(sentKey(url)) || sentIn(0, url) : sentIn(from, url);
   };
 
+  // Product picture messages sent this turn (album pages page on freely).
+  let pictureMessages = 0;
   const sendMessage: RunnableTool = {
     name: SEND_MESSAGE_TOOL,
     readOnly: false,
@@ -213,6 +246,17 @@ export function outputTools(opts: {
       const albumId = args.albumId?.trim() ?? '';
       const videoId = args.videoId?.trim() ?? '';
       const { images: picked, dropped } = allowlist.resolve(args.imageIds ?? []);
+      // EV-5: one message per product, so each product's pictures arrive under its own name.
+      // Nothing is sent: the model sends each product in its own call.
+      const products = [...new Set(picked.flatMap((image) => productIdOfImage(image.id) ?? []))];
+      if (products.length > 1)
+        return {
+          content: safeJson({
+            error: 'one_product_per_message',
+            hint: 'Nothing was sent. Call send_message once per product: its pictures with a line naming it.',
+          }),
+          ok: false,
+        };
       const album = albumId ? allowlist.album(albumId) : undefined;
       const video = videoId ? allowlist.video(videoId) : undefined;
       if (albumId && !album) dropped.push(albumId.slice(0, 80));
@@ -226,16 +270,50 @@ export function outputTools(opts: {
               const image = album.images[k];
               return image ? [{ id: `${album.id}:${k}`, url: image.url, label: image.label }] : [];
             })
-          : picked.map(({ id, url, label }) => ({ id, url, label }));
+          : picked
+              .map(({ id, url, label }) => ({ id, url, label }))
+              // MS2-5 / LM2-4: a picture the conversation already received is not sent again.
+              .filter(
+                (image) =>
+                  args.resend === true ||
+                  (!earlier.has(sentKey(image.url)) && !sentIn(0, image.url)),
+              );
+      if (!album && picked.length && !images.length)
+        return {
+          content: safeJson({
+            error: 'pictures_already_sent',
+            hint: 'These pictures went out earlier in the conversation: do not send them or a caption again and do not claim how many the customer saw; if the customer asks to see them again, call send_message with resend true.',
+          }),
+          ok: false,
+        };
       // A link is text the customer opens; an uploaded video goes out as its own message.
       const link = video?.kind === 'link' ? `${video.title}: ${video.url}` : '';
-      const written = normalizeReplyText(args.text ?? '');
+      // TM2-10: a text that only names the pictured product is a caption, not a message of its
+      // own: the pictures carry the product's name as their label.
+      const raw = normalizeReplyText(args.text ?? '');
+      const written =
+        images.length &&
+        isCaptionOnly(
+          raw,
+          images.map((i) => i.label),
+        )
+          ? ''
+          : raw;
+      // LM3-6: at most MAX_PICTURE_MESSAGES picture messages per turn (one reply stays short).
+      if (!album && images.length && pictureMessages >= MAX_PICTURE_MESSAGES)
+        return {
+          content: safeJson({
+            error: 'too_many_picture_messages',
+            hint: 'Enough pictures for this reply: answer in text and offer more pictures.',
+          }),
+          ok: false,
+        };
       const verdict = written && opts.check ? opts.check(written) : null;
       if (verdict && !verdict.ok)
         return {
           content: safeJson({
             error: verdict.reason,
-            ...(verdict.reason === 'ungrounded_figures' ? { figures: verdict.figures } : {}),
+            ...(verdict.reason !== 'instruction_leak' ? { figures: verdict.figures } : {}),
             hint: correctionNote(verdict),
           }),
           ok: false,
@@ -263,6 +341,7 @@ export function outputTools(opts: {
       const firstRestart = Boolean(album && page?.restarted && !restartAt.has(album.id));
       if (album && page?.restarted) restartAt.set(album.id, state.sent.length);
       state.sent.push({ text, images, ...(videos.length ? { videos } : {}), via: 'send_message' });
+      if (!album && images.length) pictureMessages += 1;
       const albumResult = page
         ? {
             album: {
@@ -291,7 +370,9 @@ export function outputTools(opts: {
     readOnly: false,
     schema: HandoffInput,
     run: async (input) => {
-      state.handoff = (input as z.infer<typeof HandoffInput>).reason;
+      const args = input as z.infer<typeof HandoffInput>;
+      state.handoff = args.reason;
+      state.handoffSay = args.say?.trim() || null;
       return { content: safeJson({ status: 'handed_over' }) };
     },
   };

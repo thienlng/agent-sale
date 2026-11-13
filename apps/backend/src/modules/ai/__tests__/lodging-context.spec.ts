@@ -168,3 +168,30 @@ describe('lodging catalog grounding', () => {
     expect(JSON.stringify(full)).not.toContain('https://');
   });
 });
+
+describe('bedroom packages in the model view (VL-B11)', () => {
+  it('names the weekday of each package price and lists the days it is not sold', () => {
+    const combo4 = {
+      name: 'Combo 4 phòng',
+      bedrooms: 4,
+      standardAdults: 10,
+      standardChildren: 0,
+      maxGuests: null,
+      weekdaySell: [8_000_000, 8_000_000, 8_000_000, 8_000_000, 10_000_000, null, 10_000_000],
+    };
+    const withPackages = {
+      ...product,
+      accommodation: AccommodationDetails.parse({ ...details, packages: [combo4] }),
+    };
+    const view = catalogProductContext(withPackages) as unknown as {
+      accommodation: { packages: Record<string, unknown>[] };
+    };
+    const [pkg] = view.accommodation.packages;
+    expect(pkg).not.toHaveProperty('weekdaySell');
+    expect(pkg).toMatchObject({
+      name: 'Combo 4 phòng',
+      sellByWeekday: { 'Thứ Sáu': 10_000_000, 'Thứ Bảy': null, 'Chủ Nhật': 10_000_000 },
+      notSoldOn: ['Thứ Bảy'],
+    });
+  });
+});

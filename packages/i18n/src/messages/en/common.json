@@ -315,7 +315,6 @@
     "fallback": "No information yet, fallback message sent",
     "handoff": "Handed over to staff",
     "guardrail": "Blocked an answer with a figure that isn't in your data",
-    "meta": "{{model}} · {{tokens}} tokens · {{seconds}} s",
     "hide": "Hide test chat",
     "show": "Show test chat",
     "error": "The bot couldn't reply: {{message}}",
@@ -332,12 +331,7 @@
     "imageOnly": "(Image)",
     "imageRead": "Couldn't read the image, please try again.",
     "unavailable": "No AI model is configured for this plan. Contact the platform admin.",
-    "steps": {
-      "title": "What the bot did",
-      "ok": "ok",
-      "failed": "failed",
-      "ms": "{{ms}} ms"
-    },
+    "busy": "The AI model is busy right now. Please try again in a few minutes.",
     "interrupted": "A newer customer message cut this turn short",
     "quickReplies": {
       "label": "Quick replies"
@@ -462,6 +456,8 @@
     "home": "Go to dashboard",
     "required": "Required",
     "invalidEmail": "Invalid email",
+    "invalidPhone": "Invalid phone number",
+    "invalidValue": "Invalid value",
     "minLength": "At least {{count}} characters",
     "invalidUrl": "Invalid URL (needs http:// or https://)",
     "invalidName": "Lowercase letters, digits and dashes only (2–40 characters)",
@@ -608,6 +604,7 @@
     "prevPage": "Previous page",
     "nextPage": "Next page",
     "summary": "{{count}} orders · total {{total}}",
+    "summaryCancelled": "{{count}} orders ({{cancelled}} cancelled) · total {{total}}",
     "filters": {
       "columns": "Columns",
       "resetColumns": "Default columns",
@@ -914,6 +911,9 @@
       "variantsHint": "Each variant has its own SKU, price and cost (cost is used for profit).",
       "addVariant": "Add variant",
       "sku": "SKU",
+      "skuAuto": "Empty: made from the code",
+      "skuDuplicate": "Each variant needs a different SKU.",
+      "skuTaken": "Another product already uses this SKU.",
       "variantName": "Variant (colour, size…)",
       "price": "Price",
       "cost": "Cost",
@@ -962,7 +962,24 @@
       "removeVariant": "Remove package",
       "save": "Save service",
       "saved": "Service saved",
-      "created": "Service created"
+      "created": "Service created",
+      "colVariants": "Packages",
+      "variantsCount": "{{count}} packages",
+      "images": "Service images",
+      "imagesHint": "Up to {{max}} images (JPG, PNG or WebP) chosen from your device. The bot sends these when a customer asks to see the service.",
+      "imageAlt": "Service image {{n}}",
+      "delete": {
+        "title": "Delete service",
+        "hint": "Only a service no customer has bought can be deleted. Archive a service that has sold instead.",
+        "action": "Delete service",
+        "confirmTitle": "Delete service {{name}}?",
+        "confirmBody": "The service and its packages are deleted for good, and the bot stops offering it. This cannot be undone.",
+        "deleted": "Service {{name}} deleted.",
+        "inOrders": "Customers have bought this service, so it cannot be deleted (history is kept). Archive it: it is no longer offered and the history stays.",
+        "inOrdersArchived": "Customers have bought this service, so it cannot be deleted (history is kept). It is already archived.",
+        "archiveInstead": "Archive service",
+        "archivedDone": "Service {{name}} archived."
+      }
     },
     "stock": {
       "title": "Stock",
@@ -995,7 +1012,7 @@
       "title": "Service details",
       "hint": "The bot uses these details to advise customers. Services have no stock.",
       "retail": "This is a retail product",
-      "retailHint": "Turn on for goods with stock, such as cosmetics or textbooks. The bot then sells it as a regular product.",
+      "retailHint": "Turn on for goods with stock, such as cosmetics, books or tools. The bot then sells it as a regular product.",
       "durationMinutes": "Length per session (minutes)",
       "sessions": "Sessions",
       "period": "Total length",
@@ -1017,7 +1034,9 @@
       "priceOnRequest": "Ask us",
       "col": "Length",
       "minutesCount": "{{count}} min",
-      "sessionsCount": "{{count}} sessions"
+      "sessionsCount": "{{count}} sessions",
+      "priceFrom": "From {{price}}",
+      "priceWithOnRequest": "{{price}} · some packages on request"
     }
   },
   "warehouses": {
@@ -1217,8 +1236,6 @@
       "editNote": "Edit",
       "saveNote": "Save",
       "cancel": "Cancel",
-      "tasks": "Tasks",
-      "tasksSoon": "Reminders and tasks come in a later release.",
       "save": "Save changes",
       "saved": "Customer saved",
       "tags": "Tags",
@@ -1300,7 +1317,7 @@
       "typeHint": {
         "classification": "A label to group customers (VIP, Wholesale…).",
         "attribute": "A label with details to fill in when it is added (e.g. Event: name, date).",
-        "work": "Something to do for the customer; reminders come later."
+        "work": "Something to do for the customer."
       },
       "addField": "Add field",
       "fieldLabel": "Field name",
@@ -1359,6 +1376,9 @@
         "consultation": "Consultation request",
         "placement_test": "Placement test",
         "appointment": "Appointment"
+      },
+      "kindService": {
+        "trial": "Trial class"
       },
       "strip": {
         "label": "Customer requests",
@@ -1685,6 +1705,7 @@
       "origin": "Customer source",
       "sales": "Salesperson",
       "page": "Page / channel",
+      "presetToday": "Today",
       "preset7": "7 days",
       "preset30": "30 days",
       "thisMonth": "This month",
@@ -1860,7 +1881,6 @@
       "noPermission": "You do not have permission to view statistics for this business.",
       "recordsNote": "Customer records are counted separately per business, not as unique people across the account.",
       "scopeOwn": "Only customers you own and customers nobody owns.",
-      "shopPending": "Shop statistics are not available yet.",
       "retry": "Retry",
       "allBusiness": "All businesses"
     },
@@ -1993,7 +2013,9 @@
       "dialogTitle": "Delete business {{name}}?",
       "dialogBody": "The business is hidden at once and deleted for good after {{days}} days. Until then you can restore it from My businesses.",
       "confirmLabel": "Type the business name to confirm",
-      "confirmHint": "Type exactly: {{name}}",
+      "confirmHint": "Type exactly:",
+      "copyName": "Copy the name {{name}}",
+      "nameCopied": "Business name copied",
       "cancel": "Cancel",
       "submit": "Delete business",
       "done": "{{name}} was deleted. You can restore it for {{days}} days.",
@@ -2019,6 +2041,8 @@
       "includes": "Included",
       "unlimited": "Unlimited",
       "aiPerPeriod": "{{amount}} messages / {{days}} days",
+      "aiUsed": "{{used}} of {{limit}} used, until {{date}}",
+      "account": "Account {{account}} · viewing {{business}}",
       "periodEnds": "Current period ends {{date}}",
       "trialEnds": "Trial ends {{date}}",
       "loadError": "Could not load your plan.",
@@ -2187,5 +2211,24 @@
     "completedBody_one": "The {{count}} Page you connected was disconnected and your Facebook access tokens were deleted. Rapiz no longer keeps your Facebook login data.",
     "completedBody_other": "The {{count}} Pages you connected were disconnected and your Facebook access tokens were deleted. Rapiz no longer keeps your Facebook login data.",
     "scope": "This does not delete the businesses, orders or conversations a business keeps on Rapiz. If you messaged a business and want your data deleted, contact that business."
+  },
+  "trace": {
+    "show": "Show steps",
+    "hide": "Hide steps",
+    "meta": "{{model}} · {{tokens}} tokens · {{seconds}} s",
+    "metaTime": "{{seconds}} s",
+    "noSteps": "This turn used no tools.",
+    "loading": "Loading steps…",
+    "failed": "failed",
+    "requested": "requested:",
+    "args": "args",
+    "result": "result · {{chars}} chars",
+    "model": "model",
+    "tier": "tier",
+    "prompt": "prompt",
+    "tokens": "tokens",
+    "run": "run",
+    "guardrail": "guardrail",
+    "runId": "run id"
   }
 }

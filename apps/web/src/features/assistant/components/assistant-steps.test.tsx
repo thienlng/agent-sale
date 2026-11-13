@@ -79,8 +79,8 @@ describe('assistant steps and threads', () => {
     expect(await screen.findByText('session_search ✕ TIMEOUT')).toBeInTheDocument();
     expect(screen.getByText('openai/gpt-5')).toBeInTheDocument();
     expect(screen.getByText('owner-assistant@4')).toBeInTheDocument();
-    expect(screen.getByText('2,000 in (800 cached, 1,200 new) · 45 out')).toBeInTheDocument();
-    expect(screen.getByText('2,000(800c)→45')).toBeInTheDocument();
+    expect(screen.getByText('2.000 in (800 cached, 1.200 new) · 45 out')).toBeInTheDocument();
+    expect(screen.getByText('2.000(800c)→45')).toBeInTheDocument();
     expect(screen.getByText('900ms')).toBeInTheDocument();
     expect(screen.getByText('{"query":"khoá học"}')).toBeInTheDocument();
     expect(screen.getByText('{"ok":false}')).toBeInTheDocument();
@@ -120,7 +120,9 @@ describe('assistant steps and threads', () => {
     await waitFor(() => expect(calls).toHaveLength(1), { timeout: FIRST_RUN_POLL_MS * 2 });
     expect(calls[0]?.key).toBe(`GET /assistant/runs/${ASSISTANT_IDS.turn}`);
     expect(Date.now() - startedAt).toBeGreaterThanOrEqual(FIRST_RUN_POLL_MS - 20);
-    expect(await screen.findByText('tool_search')).toBeInTheDocument();
+    // The owner sees what the turn is doing in plain words, not the step trace (AS-9).
+    expect(await screen.findByText('Đang tìm nguồn dữ liệu phù hợp…')).toBeInTheDocument();
+    expect(screen.queryByText('tool_search')).toBeNull();
   });
 
   it('lists threads pinned first and searches with q after typing stops', async () => {

@@ -533,3 +533,14 @@ class ModelListTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BridgeConcurrencyTest(unittest.TestCase):
+    def test_defaults_to_single_flight_and_clamps(self):
+        from bridge import bridge_concurrency
+        self.assertEqual(bridge_concurrency(None), 1)
+        self.assertEqual(bridge_concurrency(""), 1)
+        self.assertEqual(bridge_concurrency("x"), 1)
+        self.assertEqual(bridge_concurrency("0"), 1)
+        self.assertEqual(bridge_concurrency("3"), 3)
+        self.assertEqual(bridge_concurrency("9"), 4)

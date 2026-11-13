@@ -39,23 +39,31 @@ export function FindAvailabilityBar({
       ? { adults: initial.party.adults, childAges: initial.party.childAges ?? [] }
       : EMPTY_PARTY,
   );
-  const [invalid, setInvalid] = useState(false);
+  // Which field blocks the search: the dates, or a child's age still empty (VL-A2).
+  const [error, setError] = useState<'dates' | 'ages' | null>(null);
+  const invalid = error === 'dates';
+  // The age message goes away as soon as every age is filled in.
+  const shown = error === 'ages' && toParty(party) ? null : error;
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const p = toParty(party);
-    if (!isStayRange(checkIn, checkOut) || !p) {
-      setInvalid(true);
+    if (!isStayRange(checkIn, checkOut)) {
+      setError('dates');
       return;
     }
-    setInvalid(false);
+    if (!p) {
+      setError('ages');
+      return;
+    }
+    setError(null);
     onSearch({ checkIn, checkOut, party: p });
   };
   const clear = () => {
     setCheckIn('');
     setCheckOut('');
     setParty(EMPTY_PARTY);
-    setInvalid(false);
+    setError(null);
     onClear();
   };
 
@@ -95,18 +103,22 @@ export function FindAvailabilityBar({
           />
         </div>
         <PartyInput value={party} onChange={setParty} compact />
-        <Button type="submit" size="sm">
+        <Button type="submit">
           <Search aria-hidden />
           {t('find.search')}
         </Button>
         {active && (
-          <Button type="button" variant="ghost" size="sm" onClick={clear}>
+          <Button type="button" variant="ghost" onClick={clear}>
             <X aria-hidden />
             {t('find.clear')}
           </Button>
         )}
       </div>
-      {invalid && <p className="text-xs text-destructive">{t('find.invalid')}</p>}
+      {shown && (
+        <p role="alert" className="text-xs text-destructive">
+          {t(shown === 'dates' ? 'find.invalid' : 'party.agesRequired')}
+        </p>
+      )}
       {status && (
         <p role="status" className="text-xs text-muted-foreground">
           {status}

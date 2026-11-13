@@ -17,7 +17,7 @@ Besides the basic fields (`displayName`, `address`, `hotline`, `hours`), a spa b
 - `promotion`: current offers (first visit, packages, birthday month);
 - `servicePrices`: the price of each service, or a line saying the prices are per service in the catalog;
 - `booking`: how to book an appointment and how staff confirm it;
-- `reschedule`: changing or cancelling an appointment, and late arrival;
+- `reschedule`: the business's own rules for changing or cancelling an appointment, and late arrival (notice, fees); never privacy, personal-data or dispute terms, which are not about appointments — leave it empty when the source has no such rules;
 - `branches`: one branch per line with its address and hours.
 Each one comes from the owner, pasted text or Rapiz data; never from this guide.
 
@@ -51,7 +51,7 @@ Samples cover several services and the general topics (booking, rescheduling, br
 - doilich: đổi hoặc huỷ lịch, from `reschedule`.
 - coso: danh sách cơ sở, from `branches`.
 - uudai: ưu đãi hiện có, from `promotion`.
-A shortcut whose source field is empty is left out.
+A shortcut whose source field is empty is left out; a shortcut's text is about its own topic only (the `doilich` text is never a privacy or data policy).
 
 ## Never
 

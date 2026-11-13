@@ -1,0 +1,140 @@
+# Owner assistant evals from the release-staging wave 1 test (findings AS-2, AS-3, AS-4, AS-10,
+# AS-12). Same runner as schedules.yaml; `routes` gives the JSON a route answers (any other route
+# answers 404). Fake mode checks the plumbing (what the model is shown, the checks themselves);
+# `--live` is the meaningful run for the answer checks.
+cases:
+  # AS-2: the bot's total is right; the assistant reads both prices before judging.
+  - id: bot-doctor-correct-total-not-blamed
+    industry: retail
+    message: 'bot trả lời sai giá, xem giúp. khách hỏi 1 thú gỗ xếp thăng bằng với 1 xương rồng gỗ xếp thăng bằng tổng bao nhiêu, bot báo 800k'
+    routes:
+      'GET /products':
+        data:
+          - id: 01a16d77-0000-7000-8000-000000000101
+            code: TG01
+            name: Thú gỗ xếp thăng bằng
+            status: active
+            variants: [{ sku: TG01, name: '', price: 340000, stock: 12 }]
+          - id: 01a16d77-0000-7000-8000-000000000102
+            code: XR01
+            name: Xương rồng gỗ xếp thăng bằng
+            status: active
+            variants: [{ sku: XR01, name: '', price: 460000, stock: 8 }]
+        total: 2
+    expect:
+      answer:
+        contains: ['800.000', 'đúng']
+        not_contains: ['cho em biết giá', 'lấy nhầm']
+    fake_turns:
+      - tool_calls:
+          - name: tool_call
+            input: { key: GET /products, query: { q: 'thú gỗ xếp thăng bằng' } }
+      - tool_calls:
+          - name: tool_call
+            input: { key: GET /products, query: { q: 'xương rồng gỗ' } }
+      - text: 'Dạ em đã kiểm tra: bot trả lời đúng. Thú gỗ xếp thăng bằng 340.000 đ + Xương rồng gỗ xếp thăng bằng 460.000 đ = 800.000 đ, khớp giá trong kho. Anh/chị muốn đổi giá sản phẩm nào không ạ?'
+
+  # AS-3: a hold expiry is shown on the owner's clock, never as the UTC hour.
+  - id: hotel-hold-expiry-local-time
+    industry: hotel
+    message: 'BK-0012 giữ chỗ tới khi nào'
+    routes:
+      'GET /lodging/bookings':
+        data:
+          - id: 01a16d77-0000-7000-8000-000000000201
+            code: BK-0012
+            kind: stay
+            status: hold
+            propertyName: Villa Rừng Thông
+            checkIn: '2027-01-15'
+            checkOut: '2027-01-18'
+            nights: 3
+            holdExpiresAt: '2026-11-12T20:05:39.000Z'
+            totalSell: 15000000
+        total: 1
+    expect:
+      tool_results:
+        contains: ['2026-11-13T03:05:39+07:00']
+        not_contains: ['20:05:39']
+      answer:
+        contains: ['03:05']
+        not_contains: ['20:05']
+    fake_turns:
+      - tool_calls:
+          - name: tool_call
+            input: { key: GET /lodging/bookings, query: { view: holds, q: BK-0012 } }
+      - text: 'Dạ BK-0012 được giữ chỗ đến 03:05 ngày 13/11/2026 ạ.'
+
+  # AS-4: "tuần sau" is a date range; a booking months away is not in it.
+  - id: hotel-next-week-no-bookings
+    industry: hotel
+    message: 'tuần sau có booking nào không'
+    routes:
+      'GET /lodging/bookings':
+        data:
+          - id: 01a16d77-0000-7000-8000-000000000202
+            code: BK-0009
+            kind: stay
+            status: confirmed
+            propertyName: Villa Rừng Thông
+            checkIn: '2027-06-19'
+            checkOut: '2027-06-20'
+            nights: 1
+            holdExpiresAt: null
+            totalSell: 14000000
+        total: 1
+    expect:
+      answer:
+        not_contains: ['BK-0009']
+    fake_turns:
+      - tool_calls:
+          - name: tool_call
+            input: { key: GET /lodging/bookings, query: { view: upcoming } }
+      - text: 'Dạ tuần sau chưa có booking nào ạ.'
+
+  # AS-10: a data question is answered in place, without opening another page.
+  - id: data-question-no-navigate
+    industry: retail
+    message: 'tuần này có bao nhiêu đơn mới, liệt kê mã đơn giúp anh'
+    routes:
+      'GET /orders':
+        data:
+          - {
+              id: 01a16d77-0000-7000-8000-000000000301,
+              code: DH000003,
+              status: pending,
+              total: 350000,
+            }
+        total: 1
+    expect:
+      no_ui_action: navigate
+    fake_turns:
+      - tool_calls:
+          - name: tool_call
+            input: { key: GET /orders, query: { pageSize: 50 } }
+      - text: 'Dạ tuần này có 1 đơn mới: DH000003. Anh/chị xem chi tiết ở [Đơn hàng](/app/orders) nhé.'
+
+  # AS-12: a create with stock is proposed without promising a later action.
+  # DEC-8 (PO): the duplicate search answers an empty catalog page, as the real route does.
+  - id: create-product-with-stock-no-promise
+    industry: retail
+    message: "tạo thêm sp 'QA Lật đật gấu', giá 89k, tồn 5 cái"
+    routes:
+      'GET /products': { data: [], total: 0, page: 1, pageSize: 20 }
+    expect:
+      proposal:
+        routeKey: POST /products
+        draft: {}
+      answer:
+        not_contains: ['em sẽ đề xuất']
+    fake_turns:
+      - tool_calls:
+          - name: tool_call
+            input:
+              key: POST /products
+              summary: 'Tạo sản phẩm QA Lật đật gấu, giá 89.000 đ'
+              body:
+                code: QA-LATDAT
+                name: QA Lật đật gấu
+                variants: [{ sku: QA-LATDAT, price: 89000 }]
+      - text: 'Dạ em đã soạn đề xuất tạo QA Lật đật gấu giá 89.000 đ, anh/chị duyệt giúp em. Sau khi sản phẩm được tạo, anh/chị nhắn em để nhập tồn 5 cái nhé.'

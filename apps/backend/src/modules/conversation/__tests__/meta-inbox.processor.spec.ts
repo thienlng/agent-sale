@@ -89,6 +89,7 @@ function setup(
     deadLetterExhaustedEvents: vi.fn(async () => [] as string[]),
     presence: vi.fn(async () => undefined),
     requeueEvent: vi.fn(async () => undefined),
+    deferEvent: vi.fn(async () => undefined),
     hasNewerCustomerEvent: vi.fn(async () => false),
     unbindBot: vi.fn(async () => 0),
   } as unknown as ChannelFacade & { claimEvents: ReturnType<typeof vi.fn> };
@@ -568,6 +569,23 @@ describe('MetaInboxProcessor', () => {
     expect(contents[0]).toContain('giày này còn không?');
     expect(contents[0]).toContain('Khách đã gửi kèm 1 ảnh');
   });
+  it('links the conversation to the customer a recorded request found or created (MS-11)', async () => {
+    const { channels, ai, inbox, processor } = setup();
+    const contactId = '018d0000-0000-7000-8000-0000000000c9';
+    vi.mocked(ai.reply).mockResolvedValueOnce({
+      reply: 'Dạ em đã ghi nhận lịch hẹn ạ',
+      outcome: 'answered',
+      requestContact: { contactId, phoneE164: '+84987654321' },
+    } as never);
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('q1', 'message', 'đặt lịch 9h thứ 3, Thư 0987654321', Date.now()),
+    ]);
+    await processor.tick();
+    const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
+    const { conversation } = await inbox.get(ws, c!.id);
+    expect(conversation.contactId).toBe(contactId);
+    expect(conversation.lead).toMatchObject({ contactId, phone: '+84987654321' });
+  });
   it('hands the conversation to staff when the final retry fails', async () => {
     const { channels, ai, inbox, processor } = setup();
     vi.mocked(ai.reply).mockRejectedValue(new Error('busy'));
@@ -583,7 +601,14 @@ describe('MetaInboxProcessor', () => {
     ]);
     await processor.tick();
     expect((await inbox.get(ws, c!.id)).conversation.mode).toBe('human');
+    // The customer waits for staff: listed as waiting, so Today shows it as unanswered (MS2-11).
+    expect((await inbox.get(ws, c!.id)).conversation.awaitingSince).not.toBeNull();
     expect(channels.completeEvent).toHaveBeenCalled();
+    // The customer is told staff will answer instead of getting nothing (MS-9, LM-1).
+    expect(channels.deliver).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(vi.mocked(channels.deliver).mock.calls[0])).toContain(
+      'Staff will help you',
+    );
   });
   it('dead-letters an event that cannot even be stored after the final attempt', async () => {
     const { channels, processor } = setup();
@@ -626,6 +651,69 @@ describe('MetaInboxProcessor', () => {
     expect((await inbox.get(ws, c!.id)).messages.map((m) => m.text)).toEqual(['hello?']);
     expect(ai.reply).not.toHaveBeenCalled();
     expect(channels.completeEvent).toHaveBeenCalled();
+  });
+  it('holds a message sent during a takeover and answers it when the bot resumes (LM2-2)', async () => {
+    const { channels, ai, inbox, processor } = setup();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date('2026-11-13T01:00:00Z'));
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job('h1', 'message', 'hi', Date.now()),
+      ]);
+      await processor.tick();
+      const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
+      await inbox.handOff(ws, c!.id, 'system');
+      vi.mocked(ai.reply).mockClear();
+      vi.mocked(channels.deliver).mockClear();
+      // The customer writes while the bot is paused: held until the takeover ends, not answered.
+      vi.setSystemTime(new Date('2026-11-13T01:01:00Z'));
+      const held = job('h2', 'message', 'học online được không', Date.now());
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([held]);
+      await processor.tick();
+      expect(ai.reply).not.toHaveBeenCalled();
+      expect(channels.deferEvent).toHaveBeenCalledWith(held.id, 't', expect.any(Date));
+      const until = vi.mocked(channels.deferEvent).mock.calls[0]![2];
+      expect(until.getTime()).toBeGreaterThan(Date.parse('2026-11-13T01:05:00Z'));
+      // Nobody answered: once the takeover ends the bot resumes and answers the held message.
+      vi.setSystemTime(new Date(until.getTime() + 1_000));
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([{ ...held, attempt: 1 }]);
+      await processor.tick();
+      expect(ai.reply).toHaveBeenCalledTimes(1);
+      expect(channels.deliver).toHaveBeenCalledTimes(1);
+      expect((await inbox.get(ws, c!.id)).conversation.mode).toBe('bot');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it('does not answer a held message that staff answered meanwhile (LM2-2)', async () => {
+    const { channels, ai, inbox, processor } = setup();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date('2026-11-13T01:00:00Z'));
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job('s1', 'message', 'hi', Date.now()),
+      ]);
+      await processor.tick();
+      const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
+      await inbox.handOff(ws, c!.id, 'system');
+      vi.setSystemTime(new Date('2026-11-13T01:01:00Z'));
+      const held = job('s2', 'message', 'còn lớp tối không', Date.now());
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([held]);
+      await processor.tick();
+      // Staff answer from the page itself (an echo).
+      vi.setSystemTime(new Date('2026-11-13T01:02:00Z'));
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job('s3', 'echo', 'Dạ còn lớp 19h ạ', Date.now()),
+      ]);
+      await processor.tick();
+      vi.mocked(ai.reply).mockClear();
+      vi.setSystemTime(new Date('2026-11-13T02:00:00Z'));
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([{ ...held, attempt: 1 }]);
+      await processor.tick();
+      expect(ai.reply).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
   it('leaves messages outside the reply hours to staff', async () => {
     const { bot, channels, ai, processor } = setup();

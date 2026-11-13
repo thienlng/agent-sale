@@ -34,9 +34,10 @@ import {
 } from '../hooks/inbox-order-draft';
 
 import { useCreateOrder, useWarehouses } from '../api/commerce';
+import { invalidFields, revealField, validityMessage } from '../hooks/form-validity';
 import { missingFieldsOf, orderErrorMessage } from '../hooks/order-errors';
 import { useOrderStatuses, useRequiredOrderFields } from '../hooks/use-order-statuses';
-import { Field, nowLocal, Panel } from './order-form-parts';
+import { Field, FieldErrorsContext, nowLocal, Panel } from './order-form-parts';
 import { type Line, OrderLines, ProductPicker } from './order-lines';
 import { PaymentPanel, type PaymentState } from './order-payment';
 import { OrderPeoplePanels, type PeopleState } from './order-people';
@@ -108,6 +109,24 @@ export function OrderForm({
   // Fields the server said are missing; cleared as soon as the details change.
   const [missing, setMissing] = useState<ReadonlySet<OrderPolicyField>>(new Set());
   useEffect(() => setMissing(new Set()), [people]);
+  // Fields the form itself found invalid on submit (TM-8), shown inline; cleared on any edit.
+  const [fieldErrors, setFieldErrors] = useState<ReadonlyMap<string, string>>(new Map());
+  useEffect(() => setFieldErrors(new Map()), [people]);
+  useEffect(() => {
+    const marked = [...fieldErrors.keys()]
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => el !== null && !el.hasAttribute('aria-invalid'));
+    for (const el of marked) {
+      el.setAttribute('aria-invalid', 'true');
+      el.setAttribute('aria-describedby', `${el.id}-error`);
+    }
+    return () => {
+      for (const el of marked) {
+        el.removeAttribute('aria-invalid');
+        el.removeAttribute('aria-describedby');
+      }
+    };
+  }, [fieldErrors]);
   const [noteInternal, setNoteInternal] = useState(saved?.noteInternal ?? '');
   const [notePrint, setNotePrint] = useState(saved?.notePrint ?? '');
   const completed = useRef(false);
@@ -154,7 +173,19 @@ export function OrderForm({
       toast.error(t('orderForm.needItems'));
       return;
     }
-    if (!formRef.current?.reportValidity()) return;
+    const form = formRef.current;
+    if (!form) return;
+    // Our own check instead of the browser's bubble, which floats over the sticky total bar
+    // and is in the browser's language: Vietnamese errors under the fields, first one in view.
+    const invalid = invalidFields(form);
+    const [first] = invalid;
+    if (first) {
+      setFieldErrors(
+        new Map(invalid.filter((el) => el.id).map((el) => [el.id, validityMessage(t, el)])),
+      );
+      revealField(first);
+      return;
+    }
     const p = people;
     const to = p.sameAsCustomer
       ? { ...p.recipient, name: p.customer.name, phone: p.customer.phone }
@@ -264,106 +295,111 @@ export function OrderForm({
   }
 
   return (
-    <form
-      ref={formRef}
-      onSubmit={submit}
-      className={cn(
-        'flex min-w-0 flex-col gap-5 pb-24',
-        compact && 'gap-3 pb-0 [&_section]:p-3 [&_h2]:mb-3 [&_.grid]:grid-cols-1',
-      )}
-    >
-      {!context ? (
-        <h1 className="text-2xl font-semibold tracking-tight">{t('orderForm.title')}</h1>
-      ) : (
-        <p className="text-xs text-muted-foreground">
-          {t(
-            saved && context?.contact
-              ? 'channelInbox.sales.existingOrderDraftHint'
-              : 'channelInbox.sales.orderDraftHint',
-          )}
-        </p>
-      )}
-      <div className={cn('grid gap-5', !compact && 'xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]')}>
-        <div className="flex min-w-0 flex-col gap-5">
-          <Panel title={t('orderForm.products')}>
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1.5 sm:max-w-xs">
-                <Label htmlFor="of-warehouse">{t('orderForm.warehouse')}</Label>
-                <Select value={warehouseId} onValueChange={setWarehouseId}>
-                  <SelectTrigger id="of-warehouse" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(warehouses.data ?? []).map((w) => (
-                      <SelectItem key={w.id} value={w.id}>
-                        {w.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {warehouseId ? (
-                <ProductPicker compact={compact} warehouseId={warehouseId} onPick={addLine} />
-              ) : null}
-              <OrderLines lines={lines} onChange={setLines} />
-            </div>
-          </Panel>
-
-          <PaymentPanel value={payment} onChange={setPayment} amounts={amounts} />
-
-          <Panel title={t('orderForm.notes')}>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field id="of-note-internal" label={t('orderForm.noteInternal')}>
-                <Textarea
-                  id="of-note-internal"
-                  rows={3}
-                  maxLength={2000}
-                  value={noteInternal}
-                  onChange={(e) => setNoteInternal(e.target.value)}
-                />
-              </Field>
-              <Field id="of-note-print" label={t('orderForm.notePrint')}>
-                <Textarea
-                  id="of-note-print"
-                  rows={3}
-                  maxLength={2000}
-                  value={notePrint}
-                  onChange={(e) => setNotePrint(e.target.value)}
-                />
-              </Field>
-            </div>
-          </Panel>
-        </div>
-
-        <div className="flex min-w-0 flex-col gap-5">
-          <OrderPeoplePanels
-            value={people}
-            onChange={setPeople}
-            statuses={statuses}
-            required={required}
-            missing={missing}
-          />
-        </div>
-      </div>
-
-      <div
-        data-assistant-avoid
+    <FieldErrorsContext.Provider value={fieldErrors}>
+      <form
+        ref={formRef}
+        noValidate
+        onSubmit={submit}
         className={cn(
-          'sticky z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-background px-4 py-3 shadow-lg',
-          context ? 'bottom-0' : 'bottom-4',
+          'flex min-w-0 flex-col gap-5 pb-24',
+          compact && 'gap-3 pb-0 [&_section]:p-3 [&_h2]:mb-3 [&_.grid]:grid-cols-1',
         )}
       >
-        <div className="text-sm">
-          <span className="text-muted-foreground">{t('orderForm.total')}: </span>
-          <span className="text-lg font-semibold tabular-nums">{formatVnd(amounts.total)}</span>
-          <span className="ml-3 text-muted-foreground">
-            {t('orderForm.cod')}: <span className="tabular-nums">{formatVnd(amounts.cod)}</span>
-          </span>
+        {!context ? (
+          <h1 className="text-2xl font-semibold tracking-tight">{t('orderForm.title')}</h1>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {t(
+              saved && context?.contact
+                ? 'channelInbox.sales.existingOrderDraftHint'
+                : 'channelInbox.sales.orderDraftHint',
+            )}
+          </p>
+        )}
+        <div
+          className={cn('grid gap-5', !compact && 'xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]')}
+        >
+          <div className="flex min-w-0 flex-col gap-5">
+            <Panel title={t('orderForm.products')}>
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1.5 sm:max-w-xs">
+                  <Label htmlFor="of-warehouse">{t('orderForm.warehouse')}</Label>
+                  <Select value={warehouseId} onValueChange={setWarehouseId}>
+                    <SelectTrigger id="of-warehouse" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(warehouses.data ?? []).map((w) => (
+                        <SelectItem key={w.id} value={w.id}>
+                          {w.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {warehouseId ? (
+                  <ProductPicker compact={compact} warehouseId={warehouseId} onPick={addLine} />
+                ) : null}
+                <OrderLines lines={lines} onChange={setLines} />
+              </div>
+            </Panel>
+
+            <PaymentPanel value={payment} onChange={setPayment} amounts={amounts} />
+
+            <Panel title={t('orderForm.notes')}>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field id="of-note-internal" label={t('orderForm.noteInternal')}>
+                  <Textarea
+                    id="of-note-internal"
+                    rows={3}
+                    maxLength={2000}
+                    value={noteInternal}
+                    onChange={(e) => setNoteInternal(e.target.value)}
+                  />
+                </Field>
+                <Field id="of-note-print" label={t('orderForm.notePrint')}>
+                  <Textarea
+                    id="of-note-print"
+                    rows={3}
+                    maxLength={2000}
+                    value={notePrint}
+                    onChange={(e) => setNotePrint(e.target.value)}
+                  />
+                </Field>
+              </div>
+            </Panel>
+          </div>
+
+          <div className="flex min-w-0 flex-col gap-5">
+            <OrderPeoplePanels
+              value={people}
+              onChange={setPeople}
+              statuses={statuses}
+              required={required}
+              missing={missing}
+            />
+          </div>
         </div>
-        <Button type="submit" size="lg" disabled={create.isPending}>
-          {create.isPending ? t('orderForm.submitting') : t('orderForm.submit')}
-        </Button>
-      </div>
-    </form>
+
+        <div
+          data-assistant-avoid
+          className={cn(
+            'sticky z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-background px-4 py-3 shadow-lg',
+            context ? 'bottom-0' : 'bottom-4',
+          )}
+        >
+          <div className="text-sm">
+            <span className="text-muted-foreground">{t('orderForm.total')}: </span>
+            <span className="text-lg font-semibold tabular-nums">{formatVnd(amounts.total)}</span>
+            <span className="ml-3 text-muted-foreground">
+              {t('orderForm.cod')}: <span className="tabular-nums">{formatVnd(amounts.cod)}</span>
+            </span>
+          </div>
+          <Button type="submit" size="lg" disabled={create.isPending}>
+            {create.isPending ? t('orderForm.submitting') : t('orderForm.submit')}
+          </Button>
+        </div>
+      </form>
+    </FieldErrorsContext.Provider>
   );
 }

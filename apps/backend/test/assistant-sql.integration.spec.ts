@@ -271,7 +271,8 @@ describe('assistant SQL lane on Postgres', () => {
         chart: {
           kind: 'bar',
           title: 'Doanh thu theo cửa hàng',
-          x: { key: 'name', label: 'name' },
+          // No model label for `name`: the default label spaces and capitalizes it (NEW-4).
+          x: { key: 'name', label: 'Name' },
           series: [{ key: 'sum', label: 'Doanh thu' }],
           unit: 'vnd',
           rows: totals.map((t) => ({ name: t.name, sum: t.total })),

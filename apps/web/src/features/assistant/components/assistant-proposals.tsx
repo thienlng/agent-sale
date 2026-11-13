@@ -218,7 +218,13 @@ function PendingProposal({ proposal }: { proposal: AssistantProposalDto }) {
       <div className="flex gap-2">
         <Button
           size="sm"
+          // On the red card the soft destructive button would blend in: a solid red one stands out.
           variant={action.destructive ? 'destructive' : 'default'}
+          className={
+            action.destructive
+              ? 'bg-destructive text-white hover:bg-[color-mix(in_oklch,var(--destructive),black_12%)]'
+              : undefined
+          }
           disabled={busy}
           onClick={() => run('approve')}
         >

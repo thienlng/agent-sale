@@ -13,8 +13,15 @@ import {
   historyDetails,
   isPastDate,
   mergeRequestDetails,
+  dayFromWords,
+  requestDueAt,
   requestNote,
+  requestNoteHead,
+  requestTaskTitle,
+  slotChanged,
+  slotTime,
   UPDATE_WINDOW_MS,
+  withoutDay,
   withCatalogItem,
 } from './customer-request.js';
 
@@ -125,6 +132,114 @@ describe('historyDetails', () => {
         preferredDate: '2026-11-07',
       }),
     ).toEqual({ name: 'Chị Hoa', course: 'IELTS', preferredDate: '2026-11-07' });
+  });
+});
+
+describe('request task due time (LM2-8)', () => {
+  const now = new Date('2026-11-13T03:00:00Z'); // 10:00 in Vietnam
+
+  it('reads the hour of a Vietnamese or English time wish', () => {
+    expect(slotTime('9h')).toEqual({ hour: 9, minute: 0 });
+    expect(slotTime('9h30 sáng')).toEqual({ hour: 9, minute: 30 });
+    expect(slotTime('4h chiều')).toEqual({ hour: 16, minute: 0 });
+    expect(slotTime('tối 7 giờ')).toEqual({ hour: 19, minute: 0 });
+    expect(slotTime('14:00')).toEqual({ hour: 14, minute: 0 });
+    expect(slotTime('around 3pm')).toEqual({ hour: 15, minute: 0 });
+    expect(slotTime('buổi sáng')).toBeNull();
+    expect(slotTime('2 gói')).toBeNull();
+  });
+
+  it('falls due at the slot, 08:00 for a day alone, end of today otherwise or when past', () => {
+    expect(
+      requestDueAt({ preferredDate: '2026-11-17', preferredTime: '4h chiều' }, now).toISOString(),
+    ).toBe('2026-11-17T09:00:00.000Z');
+    expect(requestDueAt({ preferredDate: '2026-11-17' }, now).toISOString()).toBe(
+      '2026-11-17T01:00:00.000Z',
+    );
+    expect(requestDueAt({ preferredTime: 'chiều nay' }, now).toISOString()).toBe(
+      '2026-11-13T16:59:59.000Z',
+    );
+    expect(
+      requestDueAt({ preferredDate: '2026-11-13', preferredTime: '8h' }, now).toISOString(),
+    ).toBe('2026-11-13T16:59:59.000Z');
+  });
+
+  it('takes the day from the time words when no date was given (S3 sign-off)', () => {
+    // Friday 13/11/2026, 10:00 in Vietnam: "thứ 3" is Tuesday 17/11.
+    expect(dayFromWords('sau 9h tối thứ 3', now)).toBe('2026-11-17');
+    expect(requestDueAt({ preferredTime: 'sau 9h tối thứ 3' }, now).toISOString()).toBe(
+      '2026-11-17T14:00:00.000Z',
+    );
+    expect(dayFromWords('chủ nhật', now)).toBe('2026-11-15');
+    expect(dayFromWords('thứ sáu 4h chiều', now)).toBe('2026-11-13');
+    expect(dayFromWords('9h sáng mai', now)).toBe('2026-11-14');
+    expect(dayFromWords('lúc 3h 20/11', now)).toBe('2026-11-20');
+    expect(dayFromWords('cuối tuần', now)).toBeNull();
+  });
+
+  it('names a note by its request, update or not', () => {
+    expect(requestNoteHead('Cập nhật: Đặt lịch (bot ghi nhận)\nTên: A')).toBe(
+      'Đặt lịch (bot ghi nhận)',
+    );
+    expect(requestNoteHead('Đặt lịch (bot ghi nhận)')).toBe('Đặt lịch (bot ghi nhận)');
+  });
+});
+
+describe('reschedules (MS-10)', () => {
+  const spa = REQUEST_PROFILES.spa;
+  const move = spa.status.appointment!;
+  const at = { current: 4, target: 2 };
+
+  it('sends a confirmed slot back only when the update moved it', () => {
+    expect(decideStatusMove(move, 'booked', at)).toBe(false);
+    expect(decideStatusMove(move, 'booked', at, true)).toBe(true);
+    // forward_only (saas) never moves back, rescheduled or not.
+    expect(decideStatusMove(REQUEST_PROFILES.saas.status.demo!, 'won', at, true)).toBe(false);
+  });
+
+  it('compares day, time, branch and service, not the name or the note', () => {
+    const earlier = { details: { name: 'Thư', service: 'Phun mày', preferredDate: '2026-11-17' } };
+    expect(
+      slotChanged(earlier, {
+        name: 'Thư',
+        service: 'Phun mày',
+        preferredDate: '2026-11-17',
+        note: 'x',
+      }),
+    ).toBe(false);
+    expect(
+      slotChanged(earlier, { name: 'Thư', service: 'Phun mày', preferredDate: '2026-11-18' }),
+    ).toBe(true);
+    expect(
+      slotChanged(earlier, { name: 'Thư', service: 'Phun môi', preferredDate: '2026-11-17' }),
+    ).toBe(true);
+  });
+
+  it('names the day once, from the date, even when the time words repeat it (LM3-10)', () => {
+    expect(
+      requestTaskTitle(
+        spa,
+        'appointment',
+        { name: 'Chị Hân', preferredTime: '9h sáng Chủ nhật' },
+        'Chủ Nhật 15/11/2026',
+        false,
+      ),
+    ).toBe('Xác nhận – Đặt lịch: Chị Hân – Chủ Nhật 15/11/2026 9h sáng');
+    expect(withoutDay('chiều thứ 7 15/11 lúc 4h')).toBe('chiều lúc 4h');
+    expect(withoutDay('around 3pm')).toBe('around 3pm');
+    expect(withoutDay('9h thứ tư')).toBe('9h');
+    expect(withoutDay('Chủ nhật')).toBe('');
+  });
+
+  it('titles the staff task by kind, name and slot', () => {
+    const details = { name: 'Chị Thư', preferredTime: '9h' };
+    expect(requestTaskTitle(spa, 'appointment', details, 'Thứ Ba 17/11/2026', false)).toBe(
+      'Xác nhận – Đặt lịch: Chị Thư – Thứ Ba 17/11/2026 9h',
+    );
+    expect(requestTaskTitle(spa, 'appointment', details, null, true)).toBe(
+      'Khách đổi lịch – Đặt lịch: Chị Thư – 9h',
+    );
+    expect(requestTaskTitle(spa, 'consultation', {}, null, false)).toBe('Xác nhận – Xin tư vấn');
   });
 });
 

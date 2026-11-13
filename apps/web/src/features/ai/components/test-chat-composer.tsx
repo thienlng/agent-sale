@@ -1,5 +1,11 @@
 import { ImagePlus, SendHorizontal } from 'lucide-react';
-import { type ClipboardEvent, type DragEvent, type FormEvent, useRef } from 'react';
+import {
+  type ClipboardEvent,
+  type DragEvent,
+  type FormEvent,
+  useLayoutEffect,
+  useRef,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -14,6 +20,11 @@ import {
 } from '../hooks/use-image-attachments';
 import { AttachmentThumbs } from './test-chat-images';
 
+/**
+ * The "Chat thử" message box, built like the assistant's: one box with the attach button, the text
+ * and the send button, all 44px tall so one line of text sits on their centre. Enter sends,
+ * Shift+Enter or Alt+Enter breaks the line; images can be attached while the bot answers.
+ */
 export function TestChatComposer({
   draft,
   onDraft,
@@ -41,6 +52,14 @@ export function TestChatComposer({
   const enterToSend = useEnterToSend(textarea, () => {
     if (canSend) onSend();
   });
+
+  // A paste taller than the box: keep the caret in view when it sits at the end.
+  useLayoutEffect(() => {
+    const el = textarea.current;
+    if (el && document.activeElement === el && el.selectionEnd === el.value.length) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [draft]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -77,7 +96,7 @@ export function TestChatComposer({
           <AttachmentThumbs items={attachments} onRemove={onRemoveFile} />
         </div>
       ) : null}
-      <div className="flex items-end gap-2 rounded-xl border border-input bg-background p-1.5 pl-1.5 focus-within:border-ring">
+      <div className="flex items-end gap-1 rounded-2xl border bg-background p-1.5 shadow-xs transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/30">
         <input
           ref={fileInput}
           type="file"
@@ -93,10 +112,9 @@ export function TestChatComposer({
         <Button
           type="button"
           variant="ghost"
-          size="icon-lg"
-          className="rounded-xl"
+          size="icon"
+          className="text-muted-foreground"
           onClick={() => fileInput.current?.click()}
-          disabled={busy}
           aria-label={t('playground.attachImage')}
           title={t('playground.attachImage')}
         >
@@ -112,12 +130,12 @@ export function TestChatComposer({
           maxLength={2000}
           placeholder={training('space.chat.placeholder')}
           aria-label={training('space.chat.placeholder')}
-          className="max-h-32 min-h-9 resize-none border-0 bg-transparent px-0 py-2 text-base shadow-none focus-visible:ring-0 dark:bg-transparent"
+          className="max-h-40 min-h-11 resize-none border-0 bg-transparent px-2 py-3 shadow-none focus-visible:ring-0 dark:bg-transparent"
         />
         <Button
           type="submit"
-          size="icon-lg"
-          className="rounded-xl"
+          size="icon"
+          className="rounded-xl disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
           disabled={!canSend}
           aria-label={t('playground.send')}
         >

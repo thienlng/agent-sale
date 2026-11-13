@@ -347,9 +347,9 @@ export function OrderDetail({
             </>
           )}
 
-          <OrderPeoplePanel key={order.id} order={order} />
+          <OrderPeoplePanel key={`people-${order.id}`} order={order} />
 
-          <EditablePanel key={order.id} order={order} />
+          <EditablePanel key={`editable-${order.id}`} order={order} />
         </div>
 
         <div className="flex min-w-0 flex-col gap-5">

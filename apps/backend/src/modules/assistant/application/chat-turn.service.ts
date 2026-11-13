@@ -2,6 +2,7 @@ import {
   maskOwnerSecrets,
   runAgentLoop,
   SECRET_REMOVED,
+  stepDetail,
   type AgentLoopResult,
   type AgentStep,
   type ChatMessage,
@@ -33,6 +34,7 @@ import {
   type MessageRecord,
   type NewMessage,
   type RunRecord,
+  RUN_STALE_MS,
   type StepRecord,
   type ThreadRecord,
 } from '../domain/ports/assistant.repository.js';
@@ -45,9 +47,10 @@ import { ASSISTANT_SQL_RUNNER, type SqlRunner } from '../domain/ports/sql-runner
 import { CompactionService, threadCacheKey } from './compaction.service.js';
 import { CORE_TOOL_DEFINITIONS, coreTools, type ToolContext } from './core-tools.js';
 import { DELEGATION_MARGIN_SECONDS, delegatedAuthorization } from './delegated-authorization.js';
+import { withLocalTimes } from './local-time-tools.js';
 import { buildImportBlock } from './import-block.js';
 import { IMPORT_TOOL_DEFINITIONS, importTools } from './import-tools.js';
-import { isVisibleMessage } from './mappers.js';
+import { isVisibleMessage, RETRYABLE_GUARDRAILS } from './mappers.js';
 import { currentIndustry, industryOfBusiness } from './owner-access.js';
 import {
   historyIsTainted,
@@ -63,9 +66,8 @@ import { SCHEDULE_TOOL_DEFINITION, scheduleTool } from './schedule-tools.js';
 import { SchedulesService } from './schedules.service.js';
 import { SKILL_TOOL_DEFINITIONS, skillTools } from './skill-tools.js';
 import { SkillsService } from './skills.service.js';
-import { MAX_CHARTS_PER_TURN } from './sql/chart.js';
+import { MAX_CHARTS_PER_TURN, withoutChartPlaceholders } from './sql/chart.js';
 import { type NativeToolEntry, SQL_TOOLSET, sqlTools } from './sql/sql-tools.js';
-import { stepDetail } from './step-detail.js';
 import { disabledTools, enabledDefinitions, toolsetCacheSuffix } from './toolsets.js';
 import { withTurnOutputBudget } from './turn-budget.js';
 
@@ -74,10 +76,24 @@ export const TURN_TIER = 'pro' as const;
 export const TURN_MAX_ROUNDS = 25;
 export const TURN_BUDGET_MS = 90_000;
 export const TURN_CALL_TIMEOUT_MS = 60_000;
+/**
+ * The longest one model call of a turn waits between retries (AS-1): a busy model (429) gets one
+ * or two quick retries, then the owner hears it is busy instead of waiting most of a minute.
+ */
+export const TURN_RETRY_WAIT_MS = 10_000;
 /** An untitled thread takes this many characters of its first message as its title. */
 export const TITLE_CHARS = 60;
 /** Said when the turn ends without a usable answer, or the model failed. */
 export const FALLBACK_REPLY = 'Dạ em chưa trả lời được lúc này, anh/chị thử lại giúp em nhé.';
+/**
+ * The answer when the model itself failed (busy, rate-limited or down, AS-1): it says why, and
+ * the app offers "Thử lại" under it (`retryable` on the message).
+ */
+/** The answer stored for a turn that was cut off mid-way (AS2-3); retryable like BUSY_REPLY. */
+export const INTERRUPTED_REPLY =
+  'Dạ lượt trả lời này bị gián đoạn nên em chưa trả lời xong. Anh/chị bấm “Thử lại” giúp em nhé.';
+export const BUSY_REPLY =
+  'Dạ hệ thống AI đang bận nên em chưa trả lời được câu này. Anh/chị bấm “Thử lại” sau ít giây giúp em nhé.';
 /** The fallback when the turn drafted a proposal before the model failed (QA TinyMind N5). */
 export const PROPOSAL_FALLBACK_REPLY =
   'Dạ em đã soạn đề xuất bên dưới, anh/chị xem và duyệt giúp em nhé.';
@@ -234,8 +250,8 @@ export function finalUiActions(actions: AssistantUiAction[]): AssistantUiAction[
 const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof e);
 
 /** A turn with no answer: point at the proposal card it drafted, else apologise. */
-const fallback = (proposalIds: readonly string[]): string =>
-  proposalIds.length > 0 ? PROPOSAL_FALLBACK_REPLY : FALLBACK_REPLY;
+const fallback = (proposalIds: readonly string[], text = FALLBACK_REPLY): string =>
+  proposalIds.length > 0 ? PROPOSAL_FALLBACK_REPLY : text;
 
 /**
  * One chat turn of the owner assistant: start the run (one at a time per owner, idempotent by
@@ -321,6 +337,8 @@ export class ChatTurnService {
   ): Promise<TurnResult> {
     const threadId = thread.id;
     const importBlock = await this.#importBlock(scope, threadId, req.importBatchId);
+    // A turn whose process died would hold the owner's lock for minutes (AS2-3).
+    await this.reapStaleRuns(scope);
     const started = await this.repo.startRun(scope, {
       id: req.turnId,
       threadId,
@@ -396,6 +414,7 @@ export class ChatTurnService {
     // The import block is stored with the owner's text, so later turns replay it unchanged;
     // the web never sees it (`toMessageDtos`).
     const content = importBlock ? `${importBlock}\n${text}` : text;
+    await this.#dropFailedAttempt(scope, thread.id, content);
     const [user] = await this.repo.appendMessages(scope, thread.id, [
       row({ role: 'user', content, pageContext: req.pageContext ?? null, runId }),
     ]);
@@ -465,14 +484,21 @@ export class ChatTurnService {
           promptCacheKey:
             threadCacheKey(scope, thread) + toolsetCacheSuffix(settings.disabledToolsets),
           timeoutMs: TURN_CALL_TIMEOUT_MS,
+          maxRetryWaitMs: TURN_RETRY_WAIT_MS,
         },
         // One output budget for the whole turn, shared by every tool and its validation errors.
         tools: withTurnOutputBudget(
           // Once a tool returned data this turn, memory writes wait for the owner's approval.
           taintOnToolOutput(
-            [
+            // Instants in every tool result read on the owner's clock (AS-3).
+            withLocalTimes([
               ...coreTools(ctx),
-              memoryTool({ scope, repo: this.repo, tainted: () => turnTaint.tainted }),
+              memoryTool({
+                scope,
+                repo: this.repo,
+                tainted: () => turnTaint.tainted,
+                ownerText: text,
+              }),
               // skill_manage as the chat actor; patches need a load_skill in this same turn.
               ...skillTools({
                 scope,
@@ -480,6 +506,8 @@ export class ChatTurnService {
                 actor: 'assistant',
                 runId,
                 loadedSkills: new Set<string>(),
+                // The SQL lane is off (not configured or turned off): its skill says so (AS-5).
+                unavailableToolsets: new Set(native.length > 0 ? [] : [SQL_TOOLSET]),
               }),
               ...routeTools({
                 scope,
@@ -517,7 +545,7 @@ export class ChatTurnService {
                     }),
                   ]
                 : []),
-            ].filter((tool) => !off.has(tool.name)),
+            ]).filter((tool) => !off.has(tool.name)),
             turnTaint,
           ),
         ),
@@ -574,7 +602,7 @@ export class ChatTurnService {
         });
       const [answer] = await this.repo.appendMessages(scope, thread.id, [
         // No answer, so no UI action: the owner sees the apology, or the drafted card.
-        row({ role: 'assistant', content: fallback(proposalIds), runId }),
+        row({ role: 'assistant', content: fallback(proposalIds, BUSY_REPLY), runId }),
       ]);
       await this.repo.finishRun(scope, runId, {
         status: 'failed',
@@ -584,7 +612,11 @@ export class ChatTurnService {
       return this.#result(scope, runId, [user, ...(answer ? [answer] : [])], secretsRemoved);
     }
 
-    const replyText = result.res?.text.trim() ?? '';
+    const rawReply = result.res?.text.trim() ?? '';
+    // A chart is drawn under the answer: a "[Biểu đồ …]" line in the text would show raw (NEW-4).
+    const replyText = ctx.uiActions.some((a) => a.type === 'chart')
+      ? withoutChartPlaceholders(rawReply)
+      : rawReply;
     const answered = result.outcome === 'done' && replyText.length > 0;
     const added = await this.repo.appendMessages(scope, thread.id, [
       ...result.followUps.map((m) => toRow(m, runId)),
@@ -646,6 +678,57 @@ export class ChatTurnService {
       if (plan.delayMs === 0) await this.repo.resetReviewCounters(scope, thread.id);
     } catch (error) {
       this.#log.warn(`assistant thread ${thread.id}: review not scheduled (${errorClass(error)})`);
+    }
+  }
+
+  /**
+   * A retry is not a second question (AS-1): when the thread ends with the same owner text whose
+   * turn failed on the model (`guardrail = model_error`), that attempt's messages are removed
+   * before the retry stores the text again, so the thread and the model's history hold it once.
+   * The failed run and its steps stay. Any error here keeps the old messages.
+   */
+  async #dropFailedAttempt(scope: OwnerScope, threadId: string, content: string): Promise<void> {
+    try {
+      const last = (await this.repo.listMessages(scope, threadId, { activeOnly: true })).slice(-2);
+      const [question, answer] = last;
+      if (
+        !question?.runId ||
+        question.role !== 'user' ||
+        question.content !== content ||
+        answer?.role !== 'assistant' ||
+        answer.runId !== question.runId
+      ) {
+        return;
+      }
+      const [run] = await this.repo.listRuns(scope, [question.runId]);
+      if (run?.status !== 'failed' || !RETRYABLE_GUARDRAILS.has(run.guardrail ?? '')) return;
+      await this.repo.deleteRunMessages(scope, threadId, question.runId);
+    } catch (error) {
+      this.#log.warn(`assistant thread ${threadId}: failed attempt kept (${errorClass(error)})`);
+    }
+  }
+
+  /**
+   * Fails the owner's orphaned runs (`RUN_STALE_MS` without a step: the process restarted or
+   * died mid-turn, AS2-3), which frees the turn lock, and gives each chat run's question the
+   * retryable `INTERRUPTED_REPLY`. Called before a turn starts and when a thread is read. Any
+   * error is logged and ignored.
+   */
+  async reapStaleRuns(scope: OwnerScope): Promise<void> {
+    try {
+      for (const run of await this.repo.failStaleRuns(scope, RUN_STALE_MS)) {
+        if (run.kind !== 'chat' || !run.threadId) continue;
+        const asked = (await this.repo.listMessages(scope, run.threadId)).some(
+          (m) => m.runId === run.id && m.role === 'user',
+        );
+        if (!asked) continue;
+        await this.repo.appendMessages(scope, run.threadId, [
+          row({ role: 'assistant', content: INTERRUPTED_REPLY, runId: run.id }),
+        ]);
+        this.#log.warn(`assistant run ${run.id}: interrupted, marked failed`);
+      }
+    } catch (error) {
+      this.#log.warn(`assistant stale runs not reaped (${errorClass(error)})`);
     }
   }
 

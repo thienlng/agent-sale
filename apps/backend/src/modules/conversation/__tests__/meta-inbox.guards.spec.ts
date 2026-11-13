@@ -170,8 +170,8 @@ describe('MetaInboxProcessor guards (security audit 2026-11-12)', () => {
     channels.claimEvents.mockResolvedValueOnce([late]);
     await processor.tick();
     expect(ai.reply).toHaveBeenCalledTimes(2);
-    expect(channels.deferEvent).toHaveBeenCalledWith(late.id, 't', expect.any(Number));
-    expect(channels.deferEvent.mock.calls[0]![2]).toBeGreaterThan(0);
+    expect(channels.deferEvent).toHaveBeenCalledWith(late.id, 't', expect.any(Date));
+    expect((channels.deferEvent.mock.calls[0]![2] as Date).getTime()).toBeGreaterThan(Date.now());
     expect(channels.completeEvent).not.toHaveBeenCalledWith(late.id, 't');
   });
 

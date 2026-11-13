@@ -25,10 +25,11 @@ function setup(opts: { bookings?: boolean; hotel?: boolean } = {}) {
             own.has(id) ? ({ id, code: 'A17', sellMode: 'whole' } as PropertyRecord) : null,
           );
         },
-        propertyHasBookings: () => Promise.resolve(opts.bookings ?? false),
-        deleteProperty: (id: string) => {
+        propertyBookings: () =>
+          Promise.resolve(opts.bookings ? { total: 3, upcoming: 1 } : { total: 0, upcoming: 0 }),
+        deleteProperty: (id: string, o?: { withBookings?: boolean }) => {
           own.delete(id);
-          calls.push('delete');
+          calls.push(o?.withBookings ? 'delete+bookings' : 'delete');
           return Promise.resolve();
         },
         audit,
@@ -60,13 +61,30 @@ describe('PropertyRemovalService.remove', () => {
     );
   });
 
-  it('refuses a property with bookings with 409 property_has_bookings', async () => {
+  it('refuses a property with bookings with 409 property_has_bookings and the counts', async () => {
     const { service, properties, audit } = setup({ bookings: true });
     const err = await service.remove(ws, villaId, 'actor-1').catch((e: unknown) => e);
     expect(err).toBeInstanceOf(LodgingError);
-    expect(err).toMatchObject({ code: 'CONFLICT', details: { reason: 'property_has_bookings' } });
+    expect(err).toMatchObject({
+      code: 'CONFLICT',
+      details: { reason: 'property_has_bookings', bookings: 3, upcoming: 1 },
+    });
     expect(properties.get(ws)?.has(villaId)).toBe(true);
     expect(audit).not.toHaveBeenCalled();
+  });
+
+  it('deletes a property with its bookings once the owner confirmed it, and audits the counts', async () => {
+    const { service, properties, calls, audit } = setup({ bookings: true });
+    await service.remove(ws, villaId, 'actor-1', { withBookings: true });
+    expect(properties.get(ws)?.has(villaId)).toBe(false);
+    expect(calls).toEqual(['property:true', 'delete+bookings']);
+    expect(audit).toHaveBeenCalledWith(
+      'actor-1',
+      'lodging_property',
+      villaId,
+      'lodging.property.deleted',
+      { code: 'A17', sellMode: 'whole', deletedBookings: 3, deletedUpcoming: 1 },
+    );
   });
 
   it("answers NOT_FOUND for another workspace's property", async () => {

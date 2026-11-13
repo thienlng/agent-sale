@@ -228,11 +228,16 @@ export function toBotProduct(
     MAX_IMAGE_URLS,
   );
   const { checkInTime, checkOutTime, deposit, cancellation, houseRules, other } = p.policies;
+  const wholeBedrooms =
+    Math.max(0, ...(wholePackages ?? []).map((pk) => pk.bedrooms)) ||
+    (p.sellMode === 'rooms' ? rooms.length : 0);
 
   const accommodation: AccommodationDetails = {
     rentalType: p.sellMode === 'rooms' ? 'rooms' : 'entire_property',
     code: p.code,
-    bedrooms: Math.max(1, roomLayout.length),
+    // Only an explicit count: the whole place's largest bedroom package, or a rooms property's
+    // rooms. Layout rows are descriptive ("Tầng hầm", "Phòng ngủ 1-4"), never a count (VL-A5).
+    ...(wholeBedrooms ? { bedrooms: wholeBedrooms } : {}),
     standardAdults: p.standardAdults,
     standardChildren: p.standardChildren,
     childAgeBelow: Math.max(1, p.childFreeBelow || p.childAdultFrom),

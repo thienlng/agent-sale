@@ -91,6 +91,13 @@ export interface BotAvailabilityInput {
   adults: number;
   childAges: number[];
   propertyId?: string;
+  /**
+   * VL3-1: the conversation and the codes of the bot's earlier holds in it (as for
+   * `prepareBotHold`): the guest's own live holds do not make their property look taken.
+   */
+  conversationId?: string;
+  channel?: string;
+  earlierHolds?: string[];
 }
 
 /** One free option, in sell prices only (never a cost, the internal note or night notes). */
@@ -173,6 +180,30 @@ export interface PrepareBotHoldInput {
    * whole property. Targets left out get the package the quote picks.
    */
   packages?: { unitId: string | null; name: string }[];
+  /**
+   * Codes of the holds the bot placed earlier in this conversation (read from its own messages,
+   * VL2-4). The one for the same property and guest phone is replaced: its nights do not block
+   * the new stay and it is cancelled when the new hold is placed.
+   */
+  earlierHolds?: string[];
+  /** VL4-1: the language of the summary (default Vietnamese). */
+  language?: 'vi' | 'en';
+}
+
+/** One hold the bot placed in this conversation, as the bot may restate it (VL2-5). */
+export interface BotConversationHold {
+  code: string;
+  propertyCode: string;
+  propertyName: string;
+  checkIn: string;
+  checkOut: string;
+  adults: number;
+  childAges: number[];
+  totalSell: number | null;
+  /** `hold` (waiting for staff), `confirmed`, `cancelled`, `expired`, …. */
+  status: string;
+  /** ISO; null once it is no longer a hold. */
+  holdExpiresAt: string | null;
 }
 
 export type HoldProblem =
@@ -194,7 +225,13 @@ export type HoldProblem =
   | 'package_unavailable';
 
 export type PrepareBotHoldResult =
-  | { status: 'ready'; summary: string; holdMinutes: number }
+  | {
+      status: 'ready';
+      summary: string;
+      holdMinutes: number;
+      /** The earlier hold of this conversation the new one replaces (VL2-4). */
+      replaces?: string;
+    }
   | {
       status: 'problems';
       problems: HoldProblem[];
@@ -204,7 +241,13 @@ export type PrepareBotHoldResult =
     };
 
 export type ConfirmBotHoldResult =
-  | { status: 'held'; code: string; holdExpiresAt: string }
+  | {
+      status: 'held';
+      code: string;
+      holdExpiresAt: string;
+      /** The earlier hold this one replaced, cancelled in the same transaction (VL2-4). */
+      replaced?: string;
+    }
   | {
       status: 'expired' | 'no_draft' | 'price_changed' | 'not_available';
       alternatives: BotAvailabilityOption[];
@@ -225,7 +268,19 @@ export interface LodgingBotFacade {
    * Turns the draft into a hold (source `bot`) when it is unexpired and its quote unchanged. A
    * retry of a confirmed draft answers the same hold (until the draft's 30 minutes are swept).
    */
-  confirmBotHold(ws: WorkspaceId, input: { conversationId: string }): Promise<ConfirmBotHoldResult>;
+  confirmBotHold(
+    ws: WorkspaceId,
+    input: { conversationId: string; earlierHolds?: string[] },
+  ): Promise<ConfirmBotHoldResult>;
+  /**
+   * The holds the bot placed in this conversation among `codes` (its own messages name them):
+   * source `bot`, linked to the conversation (a customer channel) or tagged `Chat thử` (the test
+   * chat). Never a cost, note or tag.
+   */
+  botConversationHolds(
+    ws: WorkspaceId,
+    input: { conversationId: string; channel: string; codes: string[] },
+  ): Promise<BotConversationHold[]>;
   cancelBotHoldDraft(ws: WorkspaceId, input: { conversationId: string }): Promise<void>;
   hasBotHoldDraft(
     ws: WorkspaceId,

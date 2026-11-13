@@ -12,7 +12,11 @@ const clampInt = (raw: string, min: number, max: number) => {
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : min;
 };
 
-/** Adults, number of children and one age box per child (ages drive child surcharges). */
+/**
+ * Adults, number of children and one age box per child (ages drive child surcharges). The
+ * `compact` variant (one-row find bar) leaves the missing-age message to its parent, so the
+ * row does not wrap and push the inputs out of line.
+ */
 export function PartyInput({
   value,
   onChange,
@@ -84,7 +88,9 @@ export function PartyInput({
           />
         </div>
       ))}
-      {missing && <p className="w-full text-xs text-destructive">{t('party.agesRequired')}</p>}
+      {missing && !compact && (
+        <p className="w-full text-xs text-destructive">{t('party.agesRequired')}</p>
+      )}
     </div>
   );
 }

@@ -126,8 +126,8 @@ export interface ChannelStore {
   releaseEvent(id: string, claimToken: string, retryInMs: number): Promise<void>;
   /** Gives the event back untouched (no attempt consumed) so the next claim can merge it with newer ones. */
   requeueEvent(id: string, claimToken: string): Promise<void>;
-  /** Gives the event back without spending an attempt, claimable again after `delayMs`. */
-  deferEvent(id: string, claimToken: string, delayMs: number): Promise<void>;
+  /** Holds the event until `until` without spending an attempt (a paused conversation, LM2-2). */
+  deferEvent(id: string, claimToken: string, until: Date): Promise<void>;
   /** True when the same customer sent another unprocessed message after the event `afterEventId`. */
   hasNewerCustomerEvent(
     connectionId: string,

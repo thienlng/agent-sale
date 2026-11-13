@@ -1,9 +1,9 @@
 import { AuthResponse, BootstrapResponse } from '@agent-sales/contracts';
 import { createDb, ensureLoginRoles, migrate, schema, withCredentials, eq } from '@agent-sales/db';
-import { userId, workspaceId } from '@agent-sales/shared';
+import { newId, userId, workspaceId } from '@agent-sales/shared';
 import { startTestPostgres, type TestPostgres } from '@agent-sales/testing';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
@@ -139,6 +139,7 @@ describe('saas requests (ported from saas.integration.spec.ts)', () => {
     expect(first).toEqual({
       outcome: 'recorded',
       contactId: expect.any(String),
+      phoneE164: '+84983456721',
       created: true,
       missing: [],
       dateLabel: null,
@@ -273,22 +274,26 @@ describe('education requests', () => {
       'contact.request_updated',
       'contact.request_recorded',
     ]);
+    // The update rewrites the bot's own note of this request instead of adding one (LM-4); the
+    // history keeps both versions.
     const list = await notes(a.headers, id);
-    expect(list).toHaveLength(2);
+    expect(list).toHaveLength(1);
     expect(list[0]?.body.startsWith('Cập nhật: Đăng ký kiểm tra trình độ (bot ghi nhận)')).toBe(
       true,
     );
 
+    // One card per request: the update is folded into it, with its first time (LM-4).
     const requests = (await call(a.headers, 'GET', `/contacts/${id}/requests`)).json().data;
-    expect(requests).toHaveLength(2);
+    expect(requests).toHaveLength(1);
     expect(requests[0]).toMatchObject({
       contactId: id,
       kind: 'placement_test',
       update: true,
+      updates: 1,
+      firstRecordedAt: expect.any(String),
       details: { name: 'Chị Hoa', course: 'IELTS', studentAge: '15', branch: 'online' },
     });
     expect(requests[0].details).not.toHaveProperty('phone');
-    expect(requests[1]).toMatchObject({ update: false, dateLabel: null });
 
     // An enrolled student stays enrolled; a lost one comes back to test_requested.
     const enrolled = await contact(a.headers, '0983456702');
@@ -480,6 +485,168 @@ describe('spa requests', () => {
       outcome: 'invalid',
       problems: ['kind_not_offered'],
     });
+  });
+});
+
+describe('request tasks and reschedules (MS-10, MS-21)', () => {
+  const tasks = async (h: Headers, contactId: string) =>
+    (await call(h, 'GET', `/tasks?scope=all&status=open&contactId=${contactId}`)).json()
+      .data as Array<{
+      id: string;
+      title: string;
+      note: string | null;
+      source: string;
+      dueAt: string | null;
+      conversationId: string | null;
+    }>;
+
+  it('opens one confirmation task per request, due at the slot, linked to the conversation (LM2-8)', async () => {
+    const a = await owner('spa');
+    const base = { name: 'Chị Thư', phone: '0987654321', service: 'Phun mày' };
+    const conversationId = newId();
+    const res = await crm.recordBotRequest(a.ws, {
+      kind: 'appointment',
+      details: { ...base, preferredDate: vnDate(4), preferredTime: '9h' },
+      preview: false,
+      conversationId,
+    });
+    const id = contactIdOf(res);
+    const [task, ...more] = await tasks(a.headers, id);
+    expect(more).toEqual([]);
+    expect(task).toMatchObject({ source: 'bot', conversationId });
+    expect(task?.title).toMatch(/^Xác nhận – Đặt lịch: Chị Thư – (Thứ|Chủ).* 9h$/);
+    // Due at the slot (09:00 in Vietnam), never overdue at creation.
+    expect(task?.dueAt).toBe(new Date(`${vnDate(4)}T02:00:00.000Z`).toISOString());
+    // An update of a request not confirmed yet: same task, new slot, the earlier one kept.
+    await record(a.ws, 'appointment', {
+      ...base,
+      preferredDate: vnDate(4),
+      preferredTime: '4h chiều',
+    });
+    const after = await tasks(a.headers, id);
+    expect(after).toHaveLength(1);
+    expect(after[0]?.title).toMatch(/4h chiều$/);
+    expect(after[0]?.dueAt).toBe(new Date(`${vnDate(4)}T09:00:00.000Z`).toISOString());
+    expect(after[0]?.note).toMatch(/\nTrước: Chị Thư – .* 9h$/);
+    expect(await statusKey(a.headers, id)).toBe('booking_requested');
+  });
+
+  it('moves the task due time when an update names a new day in words (sign-off S3)', async () => {
+    const a = await owner('spa');
+    const base = { name: 'Chị Hân', phone: '0987654324', service: 'Phun mày' };
+    // A fixed Friday, 10:00 in Vietnam, for the writes: the coming Sunday is 15/11 whatever day
+    // CI runs. The HTTP read runs on the real clock (the session token is checked against it).
+    vi.useFakeTimers({ toFake: ['Date'] });
+    let contactId: string;
+    try {
+      vi.setSystemTime(new Date('2026-11-13T03:00:00Z'));
+      contactId = contactIdOf(
+        await record(a.ws, 'appointment', { ...base, preferredTime: 'chiều nay' }),
+      );
+      await record(a.ws, 'appointment', { ...base, preferredTime: 'sau 9h tối chủ nhật' });
+    } finally {
+      vi.useRealTimers();
+    }
+    const [task] = await tasks(a.headers, contactId);
+    expect(task?.dueAt).toBe('2026-11-15T14:00:00.000Z');
+  });
+
+  it('is due at the end of today without a day', async () => {
+    const a = await owner('spa');
+    const res = await record(a.ws, 'appointment', {
+      name: 'Chị Lan',
+      phone: '0987654323',
+      service: 'Phun mày',
+      preferredTime: 'chiều nay',
+    });
+    const [task] = await tasks(a.headers, contactIdOf(res));
+    const due = Date.parse(task?.dueAt ?? '');
+    expect(due).toBeGreaterThan(Date.now());
+    expect(due - Date.now()).toBeLessThanOrEqual(24 * 3_600_000);
+  });
+
+  it('sends a confirmed appointment back to "requested" with a "Khách đổi lịch" task when the slot moves', async () => {
+    const a = await owner('spa');
+    const base = { name: 'Chị Thư', phone: '0987654322', service: 'Phun mày' };
+    const first = await record(a.ws, 'appointment', { ...base, preferredDate: vnDate(4) });
+    const id = contactIdOf(first);
+    // Confirming the slot completes the "Xác nhận" task (MS2-8).
+    expect(await tasks(a.headers, id)).toHaveLength(1);
+    expect(await crm.requestStatus(a.ws, id)).toMatchObject({ confirmed: false });
+    await setStatus(a.headers, id, 'booked');
+    expect(await tasks(a.headers, id)).toEqual([]);
+    // The bot is told the appointment is confirmed (MS2-7).
+    expect(await crm.requestStatus(a.ws, id)).toMatchObject({
+      kind: 'appointment',
+      kindLabel: 'Đặt lịch',
+      confirmed: true,
+      statusName: 'Đã xác nhận lịch',
+    });
+    // Same request, same slot (a retried call): stays confirmed, no task.
+    await record(a.ws, 'appointment', { ...base, preferredDate: vnDate(4) });
+    expect(await statusKey(a.headers, id)).toBe('booked');
+    // The customer moves the day: back to requested, a reschedule task, flagged in the history.
+    const moved = await record(a.ws, 'appointment', { ...base, preferredDate: vnDate(5) });
+    expect(moved).toMatchObject({ outcome: 'updated' });
+    expect(await statusKey(a.headers, id)).toBe('booking_requested');
+    const open = await tasks(a.headers, id);
+    expect(open).toHaveLength(1);
+    expect(open[0]?.title).toMatch(/^Khách đổi lịch – Đặt lịch: Chị Thư – /);
+  });
+});
+
+describe('request source (MS-11)', () => {
+  it('gives a customer created by a website request the Website source and returns its phone', async () => {
+    const a = await owner('spa');
+    const res = await crm.recordBotRequest(a.ws, {
+      kind: 'appointment',
+      details: {
+        name: 'Chị Thư',
+        phone: '0987654321',
+        service: 'Phun mày',
+        preferredDate: vnDate(3),
+      },
+      preview: false,
+      channel: 'website',
+    });
+    expect(res).toMatchObject({ outcome: 'recorded', created: true, phoneE164: '+84987654321' });
+    const { sourceId } = (await call(a.headers, 'GET', `/contacts/${contactIdOf(res)}`)).json();
+    const sources = (await call(a.headers, 'GET', '/crm/sources')).json().data as Array<{
+      id: string;
+      key: string | null;
+    }>;
+    expect(sources.find((o) => o.id === sourceId)?.key).toBe('website');
+  });
+});
+
+describe('request phones (LM2-7)', () => {
+  it('records a request left with a Vietnamese landline', async () => {
+    const a = await owner('education');
+    const res = await record(a.ws, 'consultation', { name: 'Anh Tùng', phone: '0243 999 8888' });
+    expect(res).toMatchObject({ outcome: 'recorded', phoneE164: '+842439998888' });
+  });
+
+  it('records a request left with an international number, and a contact keeps it (VL3-3b)', async () => {
+    const a = await owner('spa');
+    const res = await record(a.ws, 'consultation', {
+      name: 'Emily Carter',
+      phone: '+61 412 345 678',
+    });
+    expect(res).toMatchObject({ outcome: 'recorded', phoneE164: '+61412345678' });
+    const contact = (await call(a.headers, 'GET', `/contacts/${contactIdOf(res)}`)).json();
+    expect(contact.phoneNormalized).toBe('+61412345678');
+    // The same number written with the 00 prefix finds the same customer.
+    const again = await record(a.ws, 'consultation', {
+      name: 'Emily Carter',
+      phone: '0061 412 345 678',
+      note: 'gọi sau 5h chiều',
+    });
+    expect(again).toMatchObject({ contactId: contactIdOf(res) });
+    const created = await call(a.headers, 'POST', '/contacts', {
+      name: 'John Smith',
+      phone: '+44 20 7946 0958',
+    });
+    expect(created.json().phoneNormalized).toBe('+442079460958');
   });
 });
 

@@ -141,6 +141,8 @@ VisionDraft = { name: string ≤ 200, description: string ≤ 1500, category: st
 
 Every text field goes through `scanUntrustedText` (1b safety scanner). A field with `injection`, `role_override`, `url`, `phone`, `email` or `secret` is dropped, and the draft gets the warning `unsafe_text:<field>`. Without that check, text read from a photo could reach the shop bot's catalog and become an injection path. When a call fails or AI is not configured, the result is `visionError` (`vision_failed` / `ai_unavailable`). The draft then has an empty name, so the row has the error `missing_name` until the owner gives one.
 
+Sheet cells get the same treatment (AS-6): every preview scans the final name, description, category and variant names (after the model's overrides) and clears a field with `injection`, `role_override`, `invisible_unicode` or `secret` (`unsafe_text:<field>`). Phones, links and e-mail addresses in the owner's own sheet are kept. The `import_preview` result then carries `unsafeText` (the rows and a guidance line) so the assistant tells the owner before proposing.
+
 Draft fields: name, description (the vision description, plus the attribute lines of C4-R8), category, `imageUrls` (the group's uploaded paths, ≤ 5), one variant with no price, and `visibleToBot = false`.
 
 ### 5.3 Applying it (`buildDrafts(source, spec | null, overrides, existing) → ImportDraft[]`)

@@ -104,12 +104,15 @@ export class Workspace extends AggregateRoot {
   }
 
   /**
-   * The owner deletes the business (ADR-033). `confirmName` must equal the name (both trimmed,
-   * case-sensitive): the typed name is the guard against deleting the wrong business.
+   * The owner deletes the business (ADR-033). `confirmName` must equal the name (case-sensitive,
+   * compared in Unicode NFC with runs of spaces collapsed and ends trimmed, since Vietnamese input
+   * methods compose the same letters differently): the typed name is the guard against deleting
+   * the wrong business.
    */
   requestDeletion(input: { confirmName: string; actorUserId: UserId; now: Date }): void {
     if (this.props.status !== 'active') throw new BusinessNotActiveError(this.props.status);
-    if (input.confirmName.trim() !== this.props.name.trim()) throw new BusinessNameMismatchError();
+    if (comparableName(input.confirmName) !== comparableName(this.props.name))
+      throw new BusinessNameMismatchError();
     const purgeAfter = new Date(input.now.getTime() + RESTORE_WINDOW_DAYS * DAY_MS);
     this.props = { ...this.props, status: 'pending_deletion', deletedAt: input.now, purgeAfter };
     this.raise({
@@ -145,4 +148,9 @@ export class Workspace extends AggregateRoot {
   snapshot(): Readonly<WorkspaceProps> {
     return { ...this.props };
   }
+}
+
+/** A business name as the deletion confirmation compares it: NFC, single spaces, trimmed. */
+function comparableName(name: string): string {
+  return name.normalize('NFC').replace(/\s+/g, ' ').trim();
 }

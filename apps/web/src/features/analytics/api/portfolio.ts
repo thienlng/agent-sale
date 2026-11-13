@@ -37,15 +37,11 @@ async function readBusiness(
       signal,
     });
   try {
-    const people = await read({
-      ...base,
-      metrics: [...PEOPLE_METRICS],
-      origins: ['channel', 'manual', 'import'],
-    });
-    const conversations = await read({
-      ...base,
-      metrics: ['conversations.opened', 'messages.inbound'],
-    });
+    // Both reads of a business at once, not one after the other (AS-20).
+    const [people, conversations] = await Promise.all([
+      read({ ...base, metrics: [...PEOPLE_METRICS], origins: ['channel', 'manual', 'import'] }),
+      read({ ...base, metrics: ['conversations.opened', 'messages.inbound'] }),
+    ]);
     return { business, state: 'ready', people, conversations };
   } catch {
     signal.throwIfAborted();
@@ -53,7 +49,10 @@ async function readBusiness(
   }
 }
 
-/** Limit tenant fan-out; each read keeps its explicit tenant header without changing the selection. */
+/**
+ * Limit tenant fan-out (4 businesses, 2 reads each, at a time); each read keeps its explicit
+ * tenant header without changing the selection.
+ */
 export async function readPortfolio(
   memberships: MembershipDto[],
   filters: Filters,
@@ -69,7 +68,7 @@ export async function readPortfolio(
       if (business) rows[index] = await readBusiness(business, filters, signal);
     }
   }
-  await Promise.all(Array.from({ length: Math.min(3, memberships.length) }, () => worker()));
+  await Promise.all(Array.from({ length: Math.min(4, memberships.length) }, () => worker()));
   return rows;
 }
 

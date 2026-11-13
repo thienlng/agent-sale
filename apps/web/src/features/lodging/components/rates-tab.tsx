@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import { MoneyInput } from '@/components/money-input';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 import { usePutRates, useUpdateProperty } from '../api/properties';
 import { useSaveError } from '../hooks/use-save-error';
@@ -224,22 +225,31 @@ function PriceInputs({
     <fieldset className="grid gap-1.5">
       <legend className="mb-1.5 text-sm font-medium">{label}</legend>
       <div className="grid grid-cols-2 gap-2">
-        <MoneyInput
-          id={`${id}-sell`}
-          aria-label={`${label} · ${t('rates.sell')}`}
-          placeholder={t('rates.sell')}
-          disabled={disabled}
-          value={value.sell}
-          onValueChange={(sell) => onChange({ ...value, sell })}
-        />
-        <MoneyInput
-          id={`${id}-cost`}
-          aria-label={`${label} · ${t('rates.cost')}`}
-          placeholder={t('rates.cost')}
-          disabled={disabled}
-          value={value.cost}
-          onValueChange={(cost) => onChange({ ...value, cost })}
-        />
+        {/* Visible sell/cost captions: a placeholder vanishes once a price is typed (VL-A6). */}
+        <div className="grid gap-1">
+          <Label htmlFor={`${id}-sell`} className="text-xs text-muted-foreground">
+            {t('rates.sell')}
+          </Label>
+          <MoneyInput
+            id={`${id}-sell`}
+            aria-label={`${label} · ${t('rates.sell')}`}
+            disabled={disabled}
+            value={value.sell}
+            onValueChange={(sell) => onChange({ ...value, sell })}
+          />
+        </div>
+        <div className="grid gap-1">
+          <Label htmlFor={`${id}-cost`} className="text-xs text-muted-foreground">
+            {t('rates.cost')}
+          </Label>
+          <MoneyInput
+            id={`${id}-cost`}
+            aria-label={`${label} · ${t('rates.cost')}`}
+            disabled={disabled}
+            value={value.cost}
+            onValueChange={(cost) => onChange({ ...value, cost })}
+          />
+        </div>
       </div>
     </fieldset>
   );

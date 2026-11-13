@@ -1,0 +1,40 @@
+id: tinymind-stale-mission-still-orders
+group: orders
+tags: [critical]
+bot:
+  mission: 'Tư vấn đồ chơi gỗ, xin thông tin cần thiết và chuyển cho chủ shop xác nhận.'
+  industry: retail
+  name: TinyMind
+  orderTaking: true
+  orderShippingFeeVnd: 30000
+  profile:
+    fields: { displayName: TinyMind }
+    notes: 'Shop bán đồ chơi gỗ Montessori cho bé.'
+products:
+  - name: 'Thú gỗ xếp thăng bằng'
+    code: TM-001
+    description: 'Bộ thú gỗ xếp thăng bằng, phù hợp bé từ 1 tuổi trở lên.'
+    variants:
+      - { name: 'Mặc định', sku: TM-001-STD, price: 340000, stock: 12 }
+# TM-15: a mission written before the order tools ("chuyển cho chủ shop xác nhận") does not turn
+# a complete order into a handoff: the bot prepares it.
+conversation:
+  - customer: 'Thú gỗ xếp thăng bằng còn không shop'
+  - bot: 'Dạ Thú gỗ xếp thăng bằng còn hàng, giá 340.000đ ạ.'
+  - customer: 'chị đặt luôn 2 bộ nhé. Tên Nguyễn Thu Hà, sđt 0912 345 001, địa chỉ số 12 ngõ 45 Trần Duy Hưng, Cầu Giấy, Hà Nội'
+expect:
+  guardrail: none
+  steps_succeeded: ['prepare_order']
+  steps_exclude: ['handoff', 'confirm_order']
+fake_turns:
+  - tool_calls:
+      - name: prepare_order
+        input:
+          items: [{ sku: TM-001-STD, qty: 2 }]
+          recipient:
+            {
+              name: 'Nguyễn Thu Hà',
+              phone: '0912 345 001',
+              address: 'số 12 ngõ 45 Trần Duy Hưng, Cầu Giấy, Hà Nội',
+            }
+  - text: ''

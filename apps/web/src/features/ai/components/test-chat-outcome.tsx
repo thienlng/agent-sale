@@ -56,14 +56,6 @@ export function Outcome({ result }: { result: PlaygroundResponse }) {
           </span>
         </span>
       ))}
-      <span className="text-xs text-muted-foreground">
-        {t('playground.meta', {
-          model: result.model,
-          tokens:
-            result.usage.inputTokens + result.usage.cachedInputTokens + result.usage.outputTokens,
-          seconds: (result.latencyMs / 1000).toFixed(1),
-        })}
-      </span>
     </div>
   );
 }

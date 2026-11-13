@@ -1,6 +1,7 @@
 import { and, eq, isNull, lt, schema, sql, type TenantTx } from '@agent-sales/db';
 import type { WorkspaceId } from '@agent-sales/shared';
 
+import { TEST_HOLD_TAG } from '../../application/bot-hold-support.js';
 import type { BotHoldDraftRecord, LodgingTx } from '../../application/ports/lodging-store.js';
 
 const D = schema.lodgingBotHoldDrafts;
@@ -40,7 +41,10 @@ function toDraft(r: typeof D.$inferSelect): BotHoldDraftRecord {
   };
 }
 
-/** Bot hold drafts (forced RLS) and the review count of bot holds, in one tenant transaction. */
+/**
+ * Bot hold drafts (forced RLS) and the review count of bot holds (test-chat holds excluded), in
+ * one tenant transaction.
+ */
 export function botHoldPort(tx: TenantTx, ws: WorkspaceId): BotHoldPort {
   return {
     async countBotHoldsToReview() {
@@ -53,6 +57,8 @@ export function botHoldPort(tx: TenantTx, ws: WorkspaceId): BotHoldPort {
             eq(B.source, 'bot'),
             eq(B.status, 'hold'),
             isNull(B.reviewedAt),
+            // A test-chat hold lapses on its own: nobody has to handle it (VL2-9).
+            sql`not (${B.tags} @> array[${TEST_HOLD_TAG}]::text[])`,
           ),
         );
       return row?.n ?? 0;

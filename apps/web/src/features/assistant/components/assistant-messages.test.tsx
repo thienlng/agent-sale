@@ -81,3 +81,63 @@ describe('AssistantMessages empty conversation', () => {
     for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled();
   });
 });
+
+describe('AssistantMessages busy reply (AS-1)', () => {
+  const RUN = '01a1d0f5-0000-7000-8000-000000000001';
+  const question = messageFixture({
+    id: '01a1d0f5-0000-7000-8000-000000000011',
+    role: 'user',
+    content: 'doanh thu tuần này',
+    runId: RUN,
+  });
+  const busy = messageFixture({
+    id: '01a1d0f5-0000-7000-8000-000000000012',
+    content: 'Dạ hệ thống AI đang bận nên em chưa trả lời được câu này.',
+    runId: RUN,
+    retryable: true,
+  });
+
+  it('offers "Thử lại" under the last busy reply and sends the question again', async () => {
+    const onRetry = vi.fn();
+    renderWithProviders(
+      <AssistantMessages
+        messages={[question, busy]}
+        loading={false}
+        pendingTurn={null}
+        unavailable={false}
+        onRetry={onRetry}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+    expect(onRetry).toHaveBeenCalledWith('doanh thu tuần này');
+  });
+
+  it('offers no retry once the conversation moved on, or while a turn runs', () => {
+    const later = messageFixture({
+      id: '01a1d0f5-0000-7000-8000-000000000013',
+      role: 'user',
+      content: 'Câu khác',
+    });
+    const { unmount } = renderWithProviders(
+      <AssistantMessages
+        messages={[question, busy, later]}
+        loading={false}
+        pendingTurn={null}
+        unavailable={false}
+        onRetry={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Thử lại' })).toBeNull();
+    unmount();
+    renderWithProviders(
+      <AssistantMessages
+        messages={[question, busy]}
+        loading={false}
+        pendingTurn="turn-1"
+        unavailable={false}
+        onRetry={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Thử lại' })).toBeNull();
+  });
+});

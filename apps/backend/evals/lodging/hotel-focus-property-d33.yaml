@@ -1,0 +1,91 @@
+id: hotel-focus-property-d33
+group: lodging
+tags: []
+bot:
+  industry: hotel
+  name: Tam Dao Villas
+  orderTaking: true
+  mission: 'Tư vấn villa. Lịch trống, cọc/hủy, giá lễ, phụ thu và xác nhận booking do nhân viên/chủ căn kiểm tra.'
+  profile:
+    fields: { displayName: 'Tam Dao Villas Central' }
+    notes: ''
+products:
+  - name: 'A17 – Sky Villa A17'
+    code: A17
+    description: 'Villa nguyên căn 8 phòng ngủ ở sân golf Tam Đảo.'
+    variants: [{ name: 'Nguyên căn', price: 12000000, stock: 0 }]
+    accommodation:
+      rentalType: entire_property
+      code: A17
+      bedrooms: 8
+      standardAdults: 24
+      standardChildren: 8
+      childAgeBelow: 6
+      maxGuests: 40
+      roomLayout:
+        - { name: 'Phòng 1', beds: '2 giường đôi' }
+        - { name: 'Phòng 2', beds: '2 giường đôi' }
+        - { name: 'Phòng 3', beds: '2 giường đôi' }
+        - { name: 'Phòng 4', beds: '2 giường đôi' }
+        - { name: 'Phòng 5', beds: '2 giường đôi' }
+        - { name: 'Phòng 6', beds: '2 giường đôi' }
+        - { name: 'Phòng 7', beds: '2 giường đôi' }
+        - { name: 'Phòng 8', beds: '2 giường đôi' }
+      amenities: ['Hồ bơi', 'Karaoke (đến 23:00)', 'Bida']
+      rateBasis: night
+      rates:
+        - { days: [1, 2, 3, 4], amount: 12000000 }
+        - { days: [5, 7], amount: 13000000 }
+        - { days: [6], amount: 14000000 }
+      checkInOut: 'Nhận căn 13:00, trả căn 12:00'
+      depositPolicy: ''
+      gallery: []
+      surcharges: { extraAdult: 300000, extraChild: 150000, childFreeBelow: 6, childAdultFrom: 12 }
+  - name: 'D33 – Villa D33'
+    code: D33
+    description: 'Villa nguyên căn 6 phòng ngủ ở sân golf Tam Đảo.'
+    variants: [{ name: 'Nguyên căn', price: 9000000, stock: 0 }]
+    accommodation:
+      rentalType: entire_property
+      code: D33
+      bedrooms: 6
+      standardAdults: 18
+      standardChildren: 6
+      childAgeBelow: 6
+      maxGuests: 25
+      roomLayout:
+        - { name: 'Phòng 1', beds: '2 giường đôi' }
+        - { name: 'Phòng 2', beds: '2 giường đôi' }
+        - { name: 'Phòng 3', beds: '2 giường đôi' }
+        - { name: 'Phòng 4', beds: '2 giường đôi' }
+        - { name: 'Phòng 5', beds: '2 giường đôi' }
+        - { name: 'Phòng 6', beds: '2 giường đôi' }
+      amenities: ['Hồ bơi', 'Karaoke (đến 22:00)', 'BBQ']
+      rateBasis: night
+      rates:
+        - { days: [1, 2, 3, 4], amount: 9000000 }
+        - { days: [5, 7], amount: 10000000 }
+        - { days: [6], amount: 11000000 }
+      checkInOut: 'Nhận căn 14:00, trả căn 12:00'
+      depositPolicy: ''
+      gallery: []
+      surcharges: { extraAdult: 250000, extraChild: 150000, childFreeBelow: 6, childAdultFrom: 12 }
+# VL2-6: the guest is on D33; a question that names no property is about D33, not A17 (which a
+# broad search lists first and older training talks about).
+situations:
+  - title: 'Tư vấn một căn nguyên căn'
+    trigger: 'Khách hỏi A17, số phòng hoặc số căn'
+    content: 'Nói rõ hiện có đúng một căn A17 cho thuê nguyên căn, gồm 8 phòng ngủ.'
+conversation:
+  - customer: 'D33 tối thứ 2 6/12/2027 đến thứ 4 8/12/2027 cho 17 người lớn còn không ad'
+  - bot: 'Dạ D33 còn trống từ Thứ Hai 6/12 đến Thứ Tư 8/12/2027 cho 17 người lớn, tổng 18.000.000đ ạ.'
+  - customer: 'co karaoke ko a, hat den may h'
+expect:
+  outcome: answered
+  guardrail: none
+  steps_exclude: ['handoff']
+  contains_all: ['22']
+  not_contains: ['A17', '23:00', '23h']
+fake_turns:
+  - tool_calls: [{ name: search_products, input: { query: 'D33 karaoke' } }]
+  - text: 'Dạ D33 có karaoke, hát được đến 22:00 ạ.'

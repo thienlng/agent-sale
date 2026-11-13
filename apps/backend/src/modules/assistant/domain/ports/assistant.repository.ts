@@ -662,6 +662,12 @@ export const SCHEDULE_RUN_LIST_LIMIT = 50;
 export const THREAD_LIST_LIMIT = 50;
 /** A running run older than this no longer blocks a new one (crashed process). */
 export const RUN_BUSY_WINDOW_MS = 3 * 60_000;
+/**
+ * A `running` run with no step for this long is orphaned (AS2-3: its process restarted or died
+ * mid-turn): the longest quiet gap of a live turn is a compaction (30 s) plus one model call
+ * (60 s).
+ */
+export const RUN_STALE_MS = 2 * 60_000;
 
 /**
  * Account-scoped storage of one owner's assistant data (ADR-024). Every method is limited to
@@ -707,6 +713,11 @@ export interface AssistantRepository {
   ): Promise<MessageRecord[]>;
   /** Assigns seq = max+1…, bumps last_message_at. */
   appendMessages(s: OwnerScope, threadId: string, msgs: NewMessage[]): Promise<MessageRecord[]>;
+  /**
+   * Deletes the thread's messages of one run (a failed turn the owner retries, AS-1); the run
+   * and its steps stay. Returns how many rows went.
+   */
+  deleteRunMessages(s: OwnerScope, threadId: string, runId: string): Promise<number>;
   /** Accent-insensitive full text (fallback: substring) over user/assistant rows; schedule and review threads last. */
   searchMessages(s: OwnerScope, query: string, limit: number): Promise<SearchHit[]>;
   /**
@@ -725,8 +736,16 @@ export interface AssistantRepository {
     },
   ): Promise<'started' | 'busy' | 'duplicate'>;
   addStep(s: OwnerScope, step: StepRecord): Promise<void>;
+  /**
+   * The owner's `running` runs whose last activity (start or latest step) is older than
+   * `staleMs` become `failed` with guardrail `interrupted` (AS2-3); returns them, so the caller
+   * can answer their messages. Frees the owner's turn lock.
+   */
+  failStaleRuns(s: OwnerScope, staleMs: number): Promise<RunRecord[]>;
   finishRun(s: OwnerScope, runId: string, patch: Partial<RunRecord>): Promise<void>;
   getRun(s: OwnerScope, runId: string): Promise<(RunRecord & { steps: StepRecord[] }) | null>;
+  /** The owner's runs among `runIds` (without steps), in no particular order. */
+  listRuns(s: OwnerScope, runIds: readonly string[]): Promise<RunRecord[]>;
   /** The thread's newest finished (`done`) chat run, for the compaction trigger; null if none. */
   getLastChatRun(s: OwnerScope, threadId: string): Promise<RunRecord | null>;
   /** Inserts a finished run (`finished_at` = now); the thread must be the owner's. */

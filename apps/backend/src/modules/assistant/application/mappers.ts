@@ -42,7 +42,14 @@ export function isVisibleMessage(msg: MessageRecord): boolean {
 }
 
 /** Visible messages only (see `isVisibleMessage`). */
-export function toMessageDtos(messages: MessageRecord[]): AssistantMessageDto[] {
+/**
+ * The visible messages; with `runs`, an assistant answer also carries its run's model, total
+ * tokens and time (`runMeta`).
+ */
+export function toMessageDtos(
+  messages: MessageRecord[],
+  runs?: ReadonlyMap<string, RunRecord>,
+): AssistantMessageDto[] {
   return messages.filter(isVisibleMessage).map((msg) => ({
     id: msg.id,
     seq: msg.seq,
@@ -54,9 +61,31 @@ export function toMessageDtos(messages: MessageRecord[]): AssistantMessageDto[] 
       return parsed.success ? [parsed.data] : [];
     }),
     runId: msg.runId,
+    ...(runs && msg.role === 'assistant' && msg.runId
+      ? { runMeta: runMeta(runs.get(msg.runId)) }
+      : {}),
     feedback: msg.feedback,
+    ...(runs && msg.role === 'assistant' && msg.runId && failedOnModel(runs.get(msg.runId))
+      ? { retryable: true }
+      : {}),
     createdAt: msg.createdAt.toISOString(),
   }));
+}
+
+/** Failed runs whose question the owner can send again: no model (AS-1) or cut off (AS2-3). */
+export const RETRYABLE_GUARDRAILS: ReadonlySet<string> = new Set(['model_error', 'interrupted']);
+
+/** The run could not reach the model or was cut off: its answer is a retryable reply. */
+const failedOnModel = (run: RunRecord | undefined): boolean =>
+  run?.status === 'failed' && RETRYABLE_GUARDRAILS.has(run.guardrail ?? '');
+
+function runMeta(run: RunRecord | undefined): AssistantMessageDto['runMeta'] {
+  if (!run) return null;
+  return {
+    model: run.model,
+    tokens: run.inputTokens + run.cachedTokens + run.outputTokens,
+    latencyMs: run.latencyMs,
+  };
 }
 
 export function toRunDto(run: RunRecord & { steps: StepRecord[] }): AssistantRunDto {

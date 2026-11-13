@@ -30,12 +30,12 @@ import { useContact, useContacts } from '@/features/crm/api/crm';
 import { ContactSheet } from '@/features/crm/components/contact-sheet';
 import { CustomerRequestsCard } from '@/features/crm/components/customer-requests-card';
 import { useCrmLookups } from '@/features/crm/hooks/use-crm-lookups';
-import { formatVnd } from '@/lib/format';
+import { formatPhone, formatVnd } from '@/lib/format';
 import { useCan } from '@/lib/permissions';
 import { ContactConversations } from './contact-conversations';
 import { InboxContactControls } from './inbox-contact-controls';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
-import { industryGroup } from '@/features/workspace/utils/industry-group';
+import { industryGroup } from '@/lib/industry-group';
 import { ConversationBookings } from '@/features/lodging/components/conversation-bookings';
 import { SubscriptionCard } from '@/features/saas/components/subscription-card';
 
@@ -136,15 +136,16 @@ export function InboxSalesPanel({
                 <div className="min-w-0">
                   <p className="text-xs text-muted-foreground">{tr('selectedContact')}</p>
                   <p className="break-words font-semibold">
-                    {contact.name ?? contact.phone ?? contact.email}
+                    {contact.name ?? (contact.phone ? formatPhone(contact.phone) : contact.email)}
                   </p>
                 </div>
                 <Check className="size-4 shrink-0 text-success" />
               </div>
-              {contact.phone && contact.phone !== c.customerPhone ? (
+              {contact.phone &&
+              formatPhone(contact.phone) !== formatPhone(c.customerPhone ?? '') ? (
                 <div className="flex items-center justify-between gap-2 text-sm">
                   <a href={`tel:${contact.phone}`} className="hover:underline">
-                    {contact.phone}
+                    {formatPhone(contact.phone)}
                   </a>
                   <Button
                     size="icon-sm"

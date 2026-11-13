@@ -5,7 +5,7 @@ import {
   PromptRegistry,
 } from '@agent-sales/ai-core';
 import type { PlaygroundRequest, ProductDto, WebsitePageContext } from '@agent-sales/contracts';
-import { escapeTags } from '@agent-sales/shared';
+import { escapeTags, normalizeVnPhone } from '@agent-sales/shared';
 
 import type { BotActionView, PendingAction } from '../../action/api/index.js';
 import type { BotView } from '../../bot/api/index.js';
@@ -22,6 +22,11 @@ export const PHONE_KNOWN_LINE =
   'The customer already left their phone number; do not ask for it again.';
 export const EMAIL_KNOWN_LINE =
   'The customer already left their email address; do not ask for it again.';
+
+/** Added to the last user message when older turns holding the customer's phone were folded away. */
+export const earlierPhonesLine = (phones: readonly string[]): string =>
+  `The customer's phone numbers in this conversation: ${phones.join(', ')}. Use them for an order or a call-back without asking again; do not read them back again.`;
+const MAX_EARLIER_PHONES = 3;
 
 export const SHOP_TIME_ZONE = 'Asia/Ho_Chi_Minh';
 /** Products of an interrupted run's tool results whose pictures stay sendable in the re-run. */
@@ -145,6 +150,8 @@ export interface TurnContext {
   pending: string;
   images: string;
   phoneKnown: boolean;
+  /** Phones the customer wrote in turns no longer in the history (`earlierPhones`). */
+  earlierPhones?: readonly string[];
   /** A website visitor left an email (no line when absent). */
   emailKnown?: boolean;
   now: Date;
@@ -174,6 +181,145 @@ export function historyTurns(
   return { turns, times: aligned ? times.slice(firstCustomer) : null };
 }
 
+/** The Vietnamese mobile numbers in `text` as written ("0987 654 321"), digit-run splits included. */
+const DIGIT_WORDS: Record<string, string> = {
+  không: '0',
+  khong: '0',
+  o: '0',
+  một: '1',
+  mot: '1',
+  mốt: '1',
+  hai: '2',
+  ba: '3',
+  bốn: '4',
+  bon: '4',
+  tư: '4',
+  tu: '4',
+  năm: '5',
+  nam: '5',
+  lăm: '5',
+  lam: '5',
+  sáu: '6',
+  sau: '6',
+  bảy: '7',
+  bay: '7',
+  bẩy: '7',
+  tám: '8',
+  tam: '8',
+  chín: '9',
+  chin: '9',
+};
+const DIGIT_WORD = `(?:${Object.keys(DIGIT_WORDS).join('|')})`;
+const SPOKEN_RUN = new RegExp(
+  `(?<!\\p{L})${DIGIT_WORD}(?:[\\s,.-]+${DIGIT_WORD}){8,10}(?!\\p{L})`,
+  'giu',
+);
+
+/**
+ * TM3-2: a phone dictated in words (voice-to-text: "không chín bảy bốn năm năm năm sáu sáu sáu")
+ * as digits; runs of 9-11 digit words only, so ordinary words stay.
+ */
+export function spokenDigits(text: string): string {
+  return text.replace(SPOKEN_RUN, (run) =>
+    run
+      .toLowerCase()
+      .split(/[\s,.-]+/)
+      .map((w) => DIGIT_WORDS[w] ?? '')
+      .join(''),
+  );
+}
+
+export function phonesIn(written: string): string[] {
+  const text = spokenDigits(written);
+  const out: string[] = [];
+  for (const candidate of text.match(/\+?\d(?:[\s.\-()]?\d)+/g) ?? []) {
+    if (normalizeVnPhone(candidate)) {
+      out.push(candidate.trim());
+      continue;
+    }
+    // "18 người, 0987 654 321" is split by the comma; "mua 2 0912345678" glues a quantity on.
+    // Digit groups at even indexes, the separators as written between them.
+    const parts = candidate.split(/([\s.\-()]+)/);
+    const groups = Math.ceil(parts.length / 2);
+    search: for (let from = 0; from < groups; from++)
+      for (let to = groups; to > from; to--) {
+        const joined = parts.slice(2 * from, 2 * to - 1).join('');
+        if ((from > 0 || to < groups) && normalizeVnPhone(joined)) {
+          out.push(joined);
+          break search;
+        }
+      }
+  }
+  return out;
+}
+
+/**
+ * EV-2: the phone numbers the customer wrote in turns that are no longer sent as they are (folded
+ * into the summary, or cut by the summarizer fallback). A summary may drop a number; the customer
+ * then asks "what number did I give you?" and the bot must still read it back. At most 3, the
+ * first spelling of each number, oldest first; numbers still visible in `kept` are left out.
+ */
+export function earlierPhones(all: readonly ChatMessage[], kept: readonly ChatMessage[]): string[] {
+  const keptSet = new Set(kept);
+  const visible = new Set(
+    kept.flatMap((t) => (t.role === 'user' ? phonesIn(t.content) : [])).map(normalizeVnPhone),
+  );
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const turn of all) {
+    if (turn.role !== 'user' || keptSet.has(turn)) continue;
+    for (const phone of phonesIn(turn.content)) {
+      const key = normalizeVnPhone(phone);
+      if (!key || visible.has(key) || seen.has(key)) continue;
+      seen.add(key);
+      out.push(phone);
+    }
+  }
+  return out.slice(-MAX_EARLIER_PHONES);
+}
+
+const SELF = '(anh|chị|chi|em|e|cô|chú|bác)';
+const VERBS =
+  '(hỏi|hoi|muốn|muon|cần|can|lấy|lay|đặt|dat|mua|xem|định|dinh|thấy|thay|ở|đang|dang|có|co|đi|di|tên|ten|chốt|chot|gửi|gui|nhận|nhan|ship|đổi|doi|thích|thich|chọn|chon|là|la|chào|chao|cảm ơn|cam on)';
+const SELF_PATTERNS = [
+  // "Anh hỏi bộ…", "chị lấy 2 cái" (a vocative "chị ơi" is the customer calling the shop).
+  new RegExp(`(?:^|[.!?,\\n]\\s*)${SELF}\\s+${VERBS}(?![\\p{L}])`, 'giu'),
+  // "cho chị xem", "giúp em với"
+  new RegExp(
+    `(?<![\\p{L}])(?:cho|giúp|giup|giùm|gium)\\s+${SELF}(?![\\p{L}])(?!\\s+(ơi|oi))`,
+    'giu',
+  ),
+];
+
+/**
+ * EV-4 / TM2 pronouns: how the customer refers to themselves, from their latest message that says
+ * it ("Anh hỏi…" → "anh"); null when no message does. Read from the turns the model receives.
+ */
+export function customerSelfPronoun(customerTexts: readonly string[]): string | null {
+  for (let i = customerTexts.length - 1; i >= 0; i -= 1) {
+    const text = customerTexts[i] ?? '';
+    for (const pattern of SELF_PATTERNS)
+      for (const m of text.matchAll(pattern)) {
+        const word = (m[1] ?? '').toLowerCase();
+        return word === 'chi' ? 'chị' : word === 'e' ? 'em' : word;
+      }
+  }
+  return null;
+}
+
+/** The per-turn line that names the customer's pronoun (null pronoun: no line). */
+export function customerPronounLine(pronoun: string | null): string {
+  if (!pronoun) return '';
+  if (pronoun === 'em')
+    return 'The customer calls themselves "em": never call them "anh" or "chị"; write without a second-person pronoun.';
+  return `The customer calls themselves "${pronoun}": address them as "${pronoun}" at least once in this reply.`;
+}
+
+const customerBlock = (content: string): string | null => {
+  const m = /<customer>\n([\s\S]*?)\n<\/customer>/.exec(content);
+  return m ? (m[1] ?? '') : null;
+};
+
 /**
  * Appends the per-turn blocks (profile, knowledge, situations, focus products, pending action,
  * pictures, phone and email lines, current time) to the last user message, so the system prompt and the
@@ -188,6 +334,15 @@ export function withTurnContext(turns: readonly ChatMessage[], ctx: TurnContext)
       prev.content = `${prev.content}\n\n${turn.content}`;
     else merged.push({ ...turn });
   }
+  const said = turns.flatMap((t) => (t.role === 'user' ? [customerBlock(t.content) ?? ''] : []));
+  const pronoun = customerSelfPronoun(said);
+  // TM3-3: every phone the customer gave (kept turns and folded ones), so an order or a
+  // call-back reuses it instead of asking again.
+  const phones = [...(ctx.earlierPhones ?? [])];
+  for (const phone of said.flatMap(phonesIn)) {
+    const key = normalizeVnPhone(phone);
+    if (phones.every((p) => normalizeVnPhone(p) !== key)) phones.push(phone);
+  }
   const blocks = [
     ctx.profile,
     knowledgeBlock(ctx.sources),
@@ -196,6 +351,8 @@ export function withTurnContext(turns: readonly ChatMessage[], ctx: TurnContext)
     ctx.pending,
     ctx.images,
     ctx.phoneKnown ? PHONE_KNOWN_LINE : '',
+    customerPronounLine(pronoun),
+    phones.length ? earlierPhonesLine(phones) : '',
     ctx.emailKnown ? EMAIL_KNOWN_LINE : '',
     currentTimeBlock(ctx.now),
   ].filter(Boolean);

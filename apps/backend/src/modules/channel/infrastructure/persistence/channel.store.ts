@@ -388,14 +388,11 @@ export class DrizzleChannelStore implements ChannelStore {
         .where(and(eq(e.id, id), eq(e.claimToken, claimToken), sql`${e.processedAt} is null`));
     });
   }
-  async deferEvent(id: string, claimToken: string, delayMs: number) {
+  async deferEvent(id: string, claimToken: string, until: Date) {
     await withSystem(this.system, async (tx) => {
       await tx
         .update(e)
-        .set({
-          leaseUntil: new Date(Date.now() + Math.max(0, delayMs)),
-          attempts: sql`greatest(${e.attempts} - 1, 0)`,
-        })
+        .set({ leaseUntil: until, attempts: sql`greatest(${e.attempts} - 1, 0)` })
         .where(and(eq(e.id, id), eq(e.claimToken, claimToken), sql`${e.processedAt} is null`));
     });
   }

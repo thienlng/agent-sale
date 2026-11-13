@@ -1,0 +1,54 @@
+id: spa-product-no-delivery-address
+group: requests
+tags: []
+bot:
+  industry: spa
+  name: Lotus Spa
+  profile:
+    fields:
+      displayName: Lotus Spa
+      address: '45 Lê Thánh Tôn, Quận 1, TP.HCM'
+      hotline: '028 3822 6666'
+      hours: '9h00 - 21h00 mỗi ngày'
+      payment: 'Tiền mặt, chuyển khoản, thẻ.'
+      servicePrices: 'Giá từng dịch vụ xem trong danh sách dịch vụ.'
+      booking: 'Khách đặt lịch trước, nhân viên gọi xác nhận lịch.'
+      reschedule: 'Đổi hoặc huỷ lịch trước 2 tiếng; đến trễ quá 15 phút lịch có thể bị lùi.'
+      branches: "Cơ sở Quận 1: 45 Lê Thánh Tôn, Quận 1, TP.HCM, 9h-21h\nCơ sở Quận 3: 210 Võ Văn Tần, Quận 3, TP.HCM, 9h-21h"
+      promotion: ''
+    notes: ''
+products:
+  - name: 'Serum phục hồi da'
+    code: SERUM
+    description: 'Serum phục hồi da sau liệu trình.'
+    variants:
+      - { name: '30ml', sku: SERUM-30, price: 0 }
+  - name: 'Gội đầu dưỡng sinh'
+    code: GOI
+    description: 'Gội đầu thảo dược kết hợp massage cổ vai gáy.'
+    variants:
+      - { name: 'Tiêu chuẩn', sku: GOI-STD, price: 180000 }
+    offering: { kind: service, durationMinutes: 60 }
+  - name: 'Massage body đá nóng'
+    code: MSG
+    description: 'Massage toàn thân với đá nóng giúp thư giãn.'
+    variants:
+      - { name: '90 phút', sku: MSG-90, price: 450000 }
+    offering: { kind: service, durationMinutes: 90 }
+  - name: 'Liệu trình trị mụn chuyên sâu'
+    code: MUN
+    description: 'Liệu trình làm sạch và chăm sóc da mụn, chuyên viên soi da trước khi làm.'
+    variants:
+      - { name: 'Liệu trình 10 buổi', sku: MUN-10, price: 0 }
+    offering: { kind: service, durationMinutes: 75, sessions: 10, priceNote: 'liên hệ' }
+# MS-14: a spa bot has no order tools: a customer who wants to buy a product is advised (a
+# consultation request), never asked for a delivery address.
+conversation:
+  - customer: 'em muốn mua serum phục hồi da, ship về nhà được không ạ'
+expect:
+  outcome_not: handoff
+  not_contains: ['địa chỉ giao', 'địa chỉ nhận', 'địa chỉ nhà']
+fake_turns:
+  - tool_calls:
+      - { name: search_products, input: { query: 'serum phục hồi' } }
+  - text: 'Dạ serum phục hồi da bên em cần chuyên viên tư vấn trước ạ. Cho em xin tên và số điện thoại để chuyên viên liên hệ nhé.'

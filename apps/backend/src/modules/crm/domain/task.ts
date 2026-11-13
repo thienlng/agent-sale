@@ -3,7 +3,7 @@ import { StaleVersionError, TaskClosedError } from './crm.errors.js';
 /** Task rules (CRM-04, spec 2026-11-11 §4). Pure: no clock, no I/O. */
 
 export type TaskStatus = 'open' | 'done' | 'cancelled';
-export type TaskSource = 'manual' | 'today' | 'assistant';
+export type TaskSource = 'manual' | 'today' | 'assistant' | 'bot';
 
 /** One `tasks` row (the reminder bookkeeping column stays in the store). */
 export interface Task {

@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { summaryMessage } from '../application/context-compression.js';
-import { historyTurns, withTurnContext } from '../application/reply-context.js';
+import {
+  customerPronounLine,
+  customerSelfPronoun,
+  historyTurns,
+  withTurnContext,
+} from '../application/reply-context.js';
 import { knowledgeBlock } from '../domain/grounding.js';
 
 /** Attack strings: customer or ingested text that tries to close its block and open a trusted one. */
@@ -72,5 +77,31 @@ describe('prompt blocks cannot be closed by customer or ingested text', () => {
     ]);
     expect(block.match(/<\/knowledge>/g)).toHaveLength(1);
     expect(block).not.toContain('<shop_situations>');
+  });
+});
+
+describe('customer pronoun line (EV-4, examiner: tinymind-pronoun-keeps-anh)', () => {
+  it('reads how the customer calls themselves, not a vocative', () => {
+    expect(
+      customerSelfPronoun(['Anh hỏi bộ Thú gỗ xếp thăng bằng giá sao', 'Còn hàng không']),
+    ).toBe('anh');
+    expect(customerSelfPronoun(['Chị muốn mua bộ Thú gỗ cho con'])).toBe('chị');
+    expect(customerSelfPronoun(['cho em hỏi giá gội đầu'])).toBe('em');
+    expect(customerSelfPronoun(['chị ơi bộ này giá bao nhiêu'])).toBeNull();
+    expect(customerSelfPronoun(['shop ơi còn hàng không'])).toBeNull();
+    expect(customerPronounLine('anh')).toContain('address them as "anh"');
+    expect(customerPronounLine(null)).toBe('');
+  });
+
+  it('adds the line to the turn context', () => {
+    const turns = historyTurns({
+      messages: [
+        { role: 'customer', content: 'Anh hỏi bộ Thú gỗ giá sao' },
+        { role: 'bot', content: 'Dạ 340.000đ anh ạ.' },
+        { role: 'customer', content: 'Còn hàng không' },
+      ],
+    }).turns;
+    const last = withTurnContext(turns, ctx).at(-1)?.content ?? '';
+    expect(last).toContain('The customer calls themselves "anh"');
   });
 });

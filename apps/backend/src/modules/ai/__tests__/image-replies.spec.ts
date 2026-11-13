@@ -150,7 +150,7 @@ function build(
         tier: 'smart',
         provider: 'p',
         model: 'm',
-        promptVersion: 'sales-agent@15',
+        promptVersion: 'sales-agent@27',
         inputTokens: 0,
         outputTokens: 0,
         cachedTokens: 0,

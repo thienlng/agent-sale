@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { createContext, type ReactNode, useContext } from 'react';
 
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
@@ -21,6 +21,12 @@ export function Panel({
   );
 }
 
+/**
+ * Errors the form found itself before sending (empty field, malformed phone), by input id. A
+ * `Field` shows its own `error` first, then the one found here.
+ */
+export const FieldErrorsContext = createContext<ReadonlyMap<string, string>>(new Map());
+
 export function Field({
   id,
   label,
@@ -36,6 +42,8 @@ export function Field({
   error?: string | undefined;
   children: ReactNode;
 }) {
+  const found = useContext(FieldErrorsContext).get(id);
+  const shown = error ?? found;
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <Label htmlFor={id}>
@@ -47,9 +55,9 @@ export function Field({
         ) : null}
       </Label>
       {children}
-      {error ? (
+      {shown ? (
         <p id={`${id}-error`} className="text-xs text-destructive">
-          {error}
+          {shown}
         </p>
       ) : null}
     </div>

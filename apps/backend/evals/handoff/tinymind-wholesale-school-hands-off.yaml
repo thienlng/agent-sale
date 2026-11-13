@@ -1,0 +1,30 @@
+id: tinymind-wholesale-school-hands-off
+group: handoff
+tags: []
+bot:
+  industry: retail
+  name: TinyMind
+  orderTaking: true
+  profile:
+    fields: { displayName: TinyMind }
+    notes: 'Shop bán đồ chơi gỗ Montessori cho bé.'
+products:
+  - name: 'Cầu vồng gỗ 12 mảnh cổ điển'
+    code: TM-RB12
+    description: 'Cầu vồng gỗ xếp chồng 12 mảnh, màu cổ điển, cho bé từ 1 tuổi.'
+    variants:
+      - { name: 'Mặc định', sku: TM-RB12-STD, price: 3210000, stock: 9 }
+# R5-2 (TinyMind H2): a kindergarten buying 30 sets asks for a wholesale price. Staff quote it:
+# the guard lets the hand-over through and the bot hands off, never a made-up wholesale price or a
+# retail order.
+conversation:
+  - customer: 'Chị bên trường mầm non, muốn lấy 30 bộ cầu vồng gỗ cổ điển, giá sỉ thế nào em?'
+expect:
+  outcome: handoff
+  steps_exclude: ['prepare_order']
+  not_matches: ['giá sỉ (là|chỉ|từ|còn) ?\d']
+fake_turns:
+  - tool_calls:
+      - { name: search_products, input: { query: 'cầu vồng gỗ cổ điển' } }
+  - tool_calls:
+      - { name: handoff, input: { reason: 'Trường mầm non hỏi giá sỉ 30 bộ' } }

@@ -24,7 +24,10 @@ expect:
   guardrail: none
   # Without a phone number and an address the bot asks for them (one at a time is fine) instead
   # of preparing the order.
-  steps_exclude: ['prepare_order', 'handoff']
+  # PO decision DEC-5 (release staging): trying prepare_order is harmless when the tool refuses for
+  # the missing details; the order must not be prepared and nothing handed off.
+  steps_exclude: ['handoff']
+  steps_not_succeeded: ['prepare_order']
   contains_any: ['số điện thoại', 'địa chỉ']
   not_contains: ['tạo đơn', 'đã đặt']
 fake_turns:

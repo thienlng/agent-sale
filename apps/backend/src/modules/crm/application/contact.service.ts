@@ -12,7 +12,9 @@ import {
   CreateContactRequest,
   isRequestIndustry,
   memberRoleOf,
+  requestProfileFor,
   roleCan,
+  TASK_NOTE_MAX,
   UpdateContactNoteRequest,
   UpdateContactRequest,
 } from '@agent-sales/contracts';
@@ -47,6 +49,12 @@ import {
   mergeRequestDetails,
   sameRequest,
   requestNote,
+  requestDueAt,
+  requestNoteHead,
+  requestTaskTitle,
+  REQUEST_TASK_SUBJECT,
+  RESCHEDULED_PREFIX,
+  slotChanged,
   UPDATE_WINDOW_MS,
 } from '../domain/customer-request.js';
 import { toContactDto, toHistoryDto, toNoteDto } from './crm.mappers.js';
@@ -62,7 +70,18 @@ import {
   startOfLocalDay,
   type Viewer,
 } from './crm-rules.js';
-import { CRM_STORE, type ContactRecord, type CrmStore, type CrmTx } from './ports/crm-store.js';
+import {
+  CRM_STORE,
+  type ContactRecord,
+  type CrmStore,
+  type CrmTx,
+  type NoteRecord,
+} from './ports/crm-store.js';
+
+/** Prefix of an earlier slot kept in a request task's note (MS2-8). */
+const PREVIOUS_SLOT = 'Trước:';
+/** "Xác nhận – Đặt lịch: Chị Thư – Thứ Ba 17/11 9h" → "Chị Thư – Thứ Ba 17/11 9h". */
+const slotOf = (title: string): string => title.slice(title.indexOf(': ') + 2) || title;
 
 /** What a channel lead capture knows besides its phone or email. */
 interface LeadInput {
@@ -420,6 +439,7 @@ export class ContactService {
       }
       if (status['statusId']) {
         await this.#record(tx, ws, next, 'contact.status_changed', status, actor, actorName, now);
+        await this.#closeRequestTask(tx, ws, next, actor, now);
         await tx.outbox(ws, {
           type: 'crm.contact.status_changed.v1',
           aggregateId: id,
@@ -531,6 +551,8 @@ export class ContactService {
       kind: CustomerRequestKind;
       details: Readonly<Record<string, unknown>>;
       dateLabel: string | null;
+      /** The conversation the bot recorded it in: the staff task opens it (LM2-8). */
+      conversationId?: string | null;
     },
   ): Promise<{
     updated: boolean;
@@ -560,7 +582,12 @@ export class ContactService {
       if (earlier && sameRequest(earlier.data, details, label)) return out;
       const [latestNote] = await tx.notes.list(contactId);
       const move = input.profile.status[input.kind];
-      const moved = move ? await this.#moveStatus(tx, ws, contact, move, defaults, now) : null;
+      // The customer moved the slot of this request: a confirmed one must be confirmed again.
+      const slotMoved = earlier !== null && slotChanged(earlier.data, details);
+      const moved = move
+        ? await this.#moveStatus(tx, ws, contact, move, defaults, now, slotMoved)
+        : null;
+      const rescheduled = slotMoved && moved !== null;
       await this.#record(
         tx,
         ws,
@@ -570,10 +597,28 @@ export class ContactService {
         null,
         BOT_AUTHOR,
         now,
-        { kind: input.kind, details, dateLabel: label },
+        { kind: input.kind, details, dateLabel: label, ...(rescheduled ? { rescheduled } : {}) },
       );
-      if (latestNote?.body !== body)
-        await this.#systemNote(tx, ws, contactId, body, BOT_AUTHOR, now);
+      if (latestNote?.body !== body) {
+        // Consecutive bot updates of one request share one note: the latest details replace the
+        // bot's own previous note, the request history keeps every version (LM-4).
+        const fold =
+          updated &&
+          latestNote !== undefined &&
+          latestNote.authorUserId === null &&
+          latestNote.authorName === BOT_AUTHOR &&
+          requestNoteHead(latestNote.body) === requestNoteHead(body);
+        if (fold) await this.#foldBotNote(tx, ws, contactId, latestNote, body, now);
+        else await this.#systemNote(tx, ws, contactId, body, BOT_AUTHOR, now);
+      }
+      await this.#requestTask(tx, ws, moved ?? contact, {
+        title: requestTaskTitle(input.profile, input.kind, merged, label, rescheduled),
+        note: body,
+        rescheduled,
+        dueAt: requestDueAt(merged, now),
+        conversationId: input.conversationId ?? null,
+        now,
+      });
       return out;
     });
   }
@@ -733,6 +778,7 @@ export class ContactService {
     move: RequestStatusMove,
     defaults: ReadonlyArray<{ key: string; name: string; color: string }>,
     now: Date,
+    rescheduled = false,
   ): Promise<ContactRecord | null> {
     await tx.options.ensureDefaults(ws, 'status', defaults);
     const statuses = await tx.options.list('status');
@@ -740,10 +786,12 @@ export class ContactService {
     if (!target || target.id === before.statusId) return null;
     const current = statuses.find((s) => s.id === before.statusId) ?? null;
     if (
-      !decideStatusMove(move, current?.key ?? null, {
-        current: current?.position ?? null,
-        target: target.position,
-      })
+      !decideStatusMove(
+        move,
+        current?.key ?? null,
+        { current: current?.position ?? null, target: target.position },
+        rescheduled,
+      )
     )
       return null;
     const next = { ...before, statusId: target.id, version: before.version + 1, updatedAt: now };
@@ -769,6 +817,139 @@ export class ContactService {
       }),
     });
     return next;
+  }
+
+  /**
+   * The open task that asks staff to confirm the customer's request (MS-21): one per customer
+   * (`subject_type = 'customer_request'`, subject = the customer), due now so it shows on Today until
+   * someone completes it; assigned to the customer's sales person. A later update rewrites its title
+   * and note; a moved confirmed slot (MS-10) titles it "Khách đổi lịch" and makes it due again.
+   */
+  async #requestTask(
+    tx: CrmTx,
+    ws: WorkspaceId,
+    contact: ContactRecord,
+    input: {
+      title: string;
+      note: string;
+      rescheduled: boolean;
+      dueAt: Date;
+      conversationId: string | null;
+      now: Date;
+    },
+  ): Promise<void> {
+    const { now } = input;
+    const open = await tx.tasks.list(
+      { assigneeScope: null, status: 'open', contactId: contact.id, now },
+      { offset: 0, limit: 50 },
+    );
+    const task = open.find(
+      (t) => t.subjectType === REQUEST_TASK_SUBJECT && t.subjectId === contact.id,
+    );
+    if (task) {
+      // An earlier reschedule keeps its title prefix until staff close the task.
+      const title =
+        !input.rescheduled && task.title.startsWith(RESCHEDULED_PREFIX)
+          ? `${RESCHEDULED_PREFIX}${input.title.slice(input.title.indexOf(' – '))}`.slice(0, 200)
+          : input.title;
+      // The earlier slots stay readable under the new details ("Trước: …", MS2-8).
+      const earlier = [
+        ...(task.title !== title ? [`${PREVIOUS_SLOT} ${slotOf(task.title)}`] : []),
+        ...(task.note ?? '').split('\n').filter((l) => l.startsWith(PREVIOUS_SLOT)),
+      ];
+      const next = {
+        ...task,
+        title,
+        note: [input.note, ...new Set(earlier)].join('\n').slice(0, TASK_NOTE_MAX),
+        dueAt: input.dueAt,
+        conversationId: task.conversationId ?? input.conversationId,
+        updatedAt: now,
+        version: task.version + 1,
+      };
+      if (!(await tx.tasks.update(next, task.version)))
+        throw new StaleVersionError('task', next.version);
+      return;
+    }
+    await tx.tasks.insert(ws, {
+      id: newId(),
+      title: input.title,
+      note: input.note.slice(0, TASK_NOTE_MAX),
+      dueAt: input.dueAt,
+      assigneeUserId: contact.salesUserId ?? null,
+      status: 'open',
+      doneAt: null,
+      doneBy: null,
+      contactId: contact.id,
+      conversationId: input.conversationId,
+      subjectType: REQUEST_TASK_SUBJECT,
+      subjectId: contact.id,
+      source: 'bot',
+      createdBy: null,
+      createdAt: now,
+      updatedAt: now,
+      version: 1,
+    });
+  }
+
+  /** The bot's own latest note of this request gets the new details (an edit, kept in history). */
+  async #foldBotNote(
+    tx: CrmTx,
+    ws: WorkspaceId,
+    contactId: string,
+    note: NoteRecord,
+    body: string,
+    now: Date,
+  ): Promise<void> {
+    await tx.notes.update({ ...note, body, version: note.version + 1, editedAt: now });
+    await this.#record(
+      tx,
+      ws,
+      { id: contactId },
+      'note.edited',
+      { body: { from: note.body, to: body } },
+      null,
+      BOT_AUTHOR,
+      now,
+      { noteId: note.id },
+    );
+  }
+
+  /**
+   * Staff moved the customer to a confirmed status of a request kind (spa `booked`, education
+   * `test_scheduled` or later): the open "Xác nhận – …" task is done (MS2-8).
+   */
+  async #closeRequestTask(
+    tx: CrmTx,
+    ws: WorkspaceId,
+    contact: ContactRecord,
+    actor: string,
+    now: Date,
+  ): Promise<void> {
+    const profile = requestProfileFor((await this.workspaces.getById(ws)).industry);
+    if (!profile) return;
+    const confirmed = new Set(
+      Object.values(profile.status).flatMap((move) =>
+        move?.move === 'unless' && move.reopen ? move.keep : [],
+      ),
+    );
+    const key = (await tx.options.list('status')).find((s) => s.id === contact.statusId)?.key;
+    if (!key || !confirmed.has(key)) return;
+    const open = await tx.tasks.list(
+      { assigneeScope: null, status: 'open', contactId: contact.id, now },
+      { offset: 0, limit: 50 },
+    );
+    for (const task of open.filter((t) => t.subjectType === REQUEST_TASK_SUBJECT)) {
+      const done = {
+        ...task,
+        status: 'done' as const,
+        doneAt: now,
+        doneBy: isUuid(actor) ? actor : null,
+        updatedAt: now,
+        version: task.version + 1,
+      };
+      if (!(await tx.tasks.update(done, task.version)))
+        throw new StaleVersionError('task', done.version);
+    }
   }
 
   async #systemNote(

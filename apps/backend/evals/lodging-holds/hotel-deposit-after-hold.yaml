@@ -1,0 +1,82 @@
+id: hotel-deposit-after-hold
+group: lodging-holds
+tags: [critical]
+bot:
+  industry: hotel
+  name: Tam Dao Villas
+  orderTaking: true
+  mission: 'Tư vấn villa. Lịch trống, cọc/hủy, giá lễ, phụ thu và xác nhận booking do nhân viên/chủ căn kiểm tra.'
+  profile:
+    fields: { displayName: 'Tam Dao Villas Central' }
+    notes: ''
+products:
+  - name: 'E64 – Villa E64'
+    code: E64
+    description: 'Villa nguyên căn 7 phòng ngủ ở sân golf Tam Đảo.'
+    variants: [{ name: 'Nguyên căn', price: 12000000, stock: 0 }]
+    accommodation:
+      rentalType: entire_property
+      code: E64
+      bedrooms: 7
+      standardAdults: 24
+      standardChildren: 8
+      childAgeBelow: 6
+      maxGuests: 40
+      roomLayout:
+        - { name: 'Phòng 1', beds: '2 giường đôi' }
+        - { name: 'Phòng 2', beds: '2 giường đôi' }
+        - { name: 'Phòng 3', beds: '2 giường đôi' }
+        - { name: 'Phòng 4', beds: '2 giường đôi' }
+        - { name: 'Phòng 5', beds: '2 giường đôi' }
+        - { name: 'Phòng 6', beds: '2 giường đôi' }
+        - { name: 'Phòng 7', beds: '2 giường đôi' }
+      amenities: ['Hồ bơi', 'BBQ']
+      rateBasis: night
+      rates:
+        - { days: [1, 2, 3, 4], amount: 12000000 }
+        - { days: [5, 7], amount: 13000000 }
+        - { days: [6], amount: 14000000 }
+      checkInOut: 'Nhận căn 14:00, trả căn 12:00'
+      depositPolicy: 'Đặt cọc 50% tổng tiền khi giữ căn. Hủy trước 7 ngày hoàn cọc, sau đó mất cọc.'
+      gallery: []
+      surcharges: { extraAdult: 300000, extraChild: 150000, childFreeBelow: 6, childAdultFrom: 12 }
+situations:
+  - title: 'Yêu cầu đặt căn và xác nhận'
+    trigger: 'Khách đồng ý thuê, để lại liên hệ hoặc yêu cầu chốt booking'
+    content: 'Tóm tắt những thông tin đã biết, xin liên hệ nếu chưa có. Khi khách gửi số điện thoại thì handoff cho nhân viên.'
+  - title: 'Kiểm tra tiêu chuẩn đoàn và tuổi trẻ'
+    trigger: 'Khách hỏi đoàn đông, thêm người, trẻ em hoặc tuổi trẻ'
+    content: 'Không tự hứa miễn phí hay phụ thu. Đoàn vượt hoặc thiếu tuổi cần chủ căn duyệt.'
+lodging:
+  holds_before:
+    - {
+        hold: BK-0015,
+        code: E64,
+        checkIn: '2027-11-26',
+        checkOut: '2027-11-28',
+        adults: 16,
+        childAges: [3],
+        guestPhone: '0912345678',
+        totalSell: 27000000,
+      }
+# VL2-1 / VL-B2: the property states its deposit and cancellation rule: answer it, no handoff.
+conversation:
+  - customer: 'E64 26/11/2027 đến 28/11/2027, 16 người lớn với 1 bé 3 tuổi, giữ cho chị nhé, Nguyễn Thu Hà 0912345678'
+  - bot: 'Dạ em đã giữ chỗ BK-0015 đến 16:30 ngày 13/11 ạ. Nhân viên sẽ gọi xác nhận sớm ạ.'
+  - customer: 'chị phải cọc bao nhiêu, nếu hủy thì có mất cọc không em'
+expect:
+  outcome: answered
+  guardrail: none
+  outcome_not: handoff
+  contains_all: ['50%', '7 ngày']
+  not_contains: ['đã chuyển']
+fake_turns:
+  - tool_calls:
+      [
+        {
+          name: handoff,
+          input: { reason: 'Khách hỏi mức cọc và chính sách hủy; cần nhân viên xác nhận.' },
+        },
+      ]
+  - tool_calls: [{ name: search_products, input: { query: 'E64' } }]
+  - text: "Dạ E64 đặt cọc 50% tổng tiền khi giữ căn ạ.\nNếu hủy trước 7 ngày thì được hoàn cọc, sau đó sẽ mất cọc chị ạ."

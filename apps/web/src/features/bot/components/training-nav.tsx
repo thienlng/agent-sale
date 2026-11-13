@@ -17,7 +17,9 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { industryGroup } from '@/lib/industry-group';
 import { useCan } from '@/lib/permissions';
+import { useSession } from '@/lib/session';
 import { cn } from '@/lib/utils';
 
 import { BotActiveSwitch } from './bot-active-switch';
@@ -80,9 +82,13 @@ function NavLink({
     >
       {Icon ? <Icon aria-hidden className="size-4 shrink-0" /> : null}
       {t(
-        item.key === 'products' && industry === 'hotel'
-          ? 'space.nav.properties'
-          : `space.nav.${item.key}`,
+        item.key !== 'products'
+          ? `space.nav.${item.key}`
+          : industry === 'hotel'
+            ? 'space.nav.properties'
+            : industryGroup(industry) === 'service'
+              ? 'space.nav.services'
+              : 'space.nav.products',
       )}
     </Link>
   );
@@ -132,6 +138,8 @@ export function TrainingNav({ bot }: { bot: BotDto }) {
   // API actions carry third-party secrets: only `bots.manage` may open them (the API refuses others).
   const canManage = useCan('bots.manage');
   const main = canManage ? MAIN : MAIN.filter((i) => i.to !== '/app/bots/$botId/actions');
+  // The development tools (the Facebook ads JSON) are for the platform team, not owners (MS-30).
+  const development = useSession()?.user.isPlatformAdmin === true ? DEVELOPMENT : [];
 
   return (
     <div className="flex shrink-0 flex-col border-b bg-background lg:w-56 lg:border-r lg:border-b-0">
@@ -156,14 +164,18 @@ export function TrainingNav({ bot }: { bot: BotDto }) {
           <NavLink key={item.to} botId={bot.id} item={item} industry={bot.industry} />
         ))}
         <SettingsGroup botId={bot.id} />
-        <GroupLabel>{t('space.nav.development')}</GroupLabel>
-        {DEVELOPMENT.map((item) => (
-          <NavLink key={item.to} botId={bot.id} item={item} />
-        ))}
+        {development.length ? (
+          <>
+            <GroupLabel>{t('space.nav.development')}</GroupLabel>
+            {development.map((item) => (
+              <NavLink key={item.to} botId={bot.id} item={item} />
+            ))}
+          </>
+        ) : null}
       </nav>
 
       <nav aria-label={t('menu')} className="flex overflow-x-auto lg:hidden">
-        {[...main, ...SETTINGS, ...DEVELOPMENT].map((item) => (
+        {[...main, ...SETTINGS, ...development].map((item) => (
           <NavLink
             key={item.to}
             botId={bot.id}

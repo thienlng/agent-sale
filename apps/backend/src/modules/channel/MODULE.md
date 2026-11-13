@@ -34,7 +34,7 @@
 - A send never retries automatically: provider timeouts/5xx are `unknown`, explicit rejections are `failed`; `auth_expired` marks the connection `reauth_required`.
 
 - **Fair claim (security audit #3):** `claimEvents(limit, {perWorkspace})` picks in SQL, over the whole due backlog (window functions, not a scan window of the oldest rows), at most `perWorkspace` conversations (connection + sender) per workspace, oldest first, then locks the picked rows with `FOR UPDATE SKIP LOCKED`. Events are taken round-robin across the admitted conversations, each conversation's oldest events first, so per-conversation order holds. However large one workspace's backlog, another workspace's due event is claimed in the next tick.
-- **`deferEvent(id, claimToken, delayMs)`** puts a claimed event back for later without spending an attempt (the TenantFairness bucket said "not now").
+- **`deferEvent(id, claimToken, until)`** puts a claimed event back until `until` without spending an attempt (the TenantFairness bucket said "not now", or staff hold the conversation, LM2-2).
 
 **Do not:** read other modules' tables; put HTTP/Drizzle types in `domain/`; call LLMs outside `ai-core`.
 

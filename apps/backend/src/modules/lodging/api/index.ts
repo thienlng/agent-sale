@@ -5,6 +5,7 @@ export {
   type BotAvailabilityInput,
   type BotAvailabilityOption,
   type BotAvailabilityResult,
+  type BotConversationHold,
   type ConfirmBotHoldResult,
   type HoldProblem,
   type LodgingBotFacade,

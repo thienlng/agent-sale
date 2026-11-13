@@ -37,15 +37,22 @@ export function useCopyEmbed(siteKey: string) {
 export function WebsiteEmbedCode({ siteKey }: { siteKey: string }) {
   const { t } = useTranslation();
   const { copied, copy } = useCopyEmbed(siteKey);
+  // A dev build without VITE_WIDGET_URL embeds the local widget server: say so (LM-6).
+  const local = ['localhost', '127.0.0.1'].includes(new URL(widgetUrl()).hostname);
   return (
     <div className="space-y-2">
       <p className="text-sm font-medium">{t('channelInbox.integrations.website.embedLabel')}</p>
       <pre
         aria-label={t('channelInbox.integrations.website.embedLabel')}
-        className="overflow-x-auto rounded-lg border bg-muted/60 p-3 text-xs"
+        className="rounded-lg border bg-muted/60 p-3 text-xs break-all whitespace-pre-wrap"
       >
         <code>{embedCode(siteKey, widgetUrl())}</code>
       </pre>
+      {local ? (
+        <p role="note" className="text-xs text-muted-foreground">
+          {t('channelInbox.integrations.website.localOnly')}
+        </p>
+      ) : null}
       <Button variant="outline" size="sm" onClick={() => void copy()}>
         {copied ? <Check /> : <Copy />}
         {copied

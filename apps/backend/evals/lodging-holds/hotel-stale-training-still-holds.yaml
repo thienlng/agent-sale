@@ -1,0 +1,97 @@
+id: hotel-stale-training-still-holds
+group: lodging-holds
+tags: [critical]
+bot:
+  mission: 'Tư vấn villa; lịch trống, cọc/hủy và xác nhận booking do nhân viên kiểm tra.'
+  industry: hotel
+  name: Villa Lan
+  orderTaking: true
+  profile:
+    fields: { displayName: 'Villas Vũng Tàu' }
+    notes: ''
+products:
+  - name: 'A17 – Sky Villa A17'
+    code: A17
+    description: 'Villa nguyên căn 8 phòng ngủ, hồ bơi riêng. Tiêu chuẩn 24 người lớn, tối đa 40 khách.'
+    variants: [{ name: 'Nguyên căn', price: 12000000, stock: 0 }]
+    accommodation:
+      rentalType: entire_property
+      code: A17
+      bedrooms: 8
+      standardAdults: 24
+      standardChildren: 8
+      childAgeBelow: 6
+      maxGuests: 40
+      roomLayout:
+        - { name: 'Phòng 1', beds: '2 giường đôi' }
+        - { name: 'Phòng 2', beds: '2 giường đôi' }
+        - { name: 'Phòng 3', beds: '2 giường đôi' }
+        - { name: 'Phòng 4', beds: '2 giường đôi' }
+        - { name: 'Phòng 5', beds: '2 giường đôi' }
+        - { name: 'Phòng 6', beds: '2 giường đôi' }
+        - { name: 'Phòng 7', beds: '2 giường đôi' }
+        - { name: 'Phòng 8', beds: '2 giường đôi' }
+      amenities: ['Hồ bơi', 'BBQ']
+      rateBasis: night
+      rates:
+        - { days: [1, 2, 3, 4], amount: 12000000 }
+        - { days: [5, 7], amount: 13000000 }
+        - { days: [6], amount: 14000000 }
+      gallery: []
+      surcharges: { extraAdult: 300000, extraChild: null, childFreeBelow: 6, childAdultFrom: 12 }
+  - name: 'B05 – Garden Villa B05'
+    code: B05
+    description: 'Villa nguyên căn 6 phòng ngủ, sân vườn. Tiêu chuẩn 20 người lớn.'
+    variants: [{ name: 'Nguyên căn', price: 9000000, stock: 0 }]
+    accommodation:
+      rentalType: entire_property
+      code: B05
+      bedrooms: 6
+      standardAdults: 20
+      standardChildren: 6
+      childAgeBelow: 6
+      maxGuests: 30
+      roomLayout:
+        - { name: 'Phòng 1', beds: '2 giường đôi' }
+        - { name: 'Phòng 2', beds: '2 giường đôi' }
+        - { name: 'Phòng 3', beds: '2 giường đôi' }
+        - { name: 'Phòng 4', beds: '2 giường đôi' }
+        - { name: 'Phòng 5', beds: '2 giường đôi' }
+        - { name: 'Phòng 6', beds: '2 giường đôi' }
+      amenities: ['Sân vườn', 'BBQ']
+      rateBasis: night
+      rates:
+        - { days: [1, 2, 3, 4], amount: 9000000 }
+        - { days: [5, 7], amount: 10000000 }
+        - { days: [6], amount: 11000000 }
+      gallery: []
+      surcharges: { extraAdult: 250000, extraChild: null, childFreeBelow: 6, childAdultFrom: 12 }
+# VL-B1: the owner's older training says staff check availability and a phone means a handoff;
+# the bot takes holds now (prepare_hold offered), so it prepares the hold itself.
+situations:
+  - title: 'Yêu cầu đặt căn và xác nhận'
+    trigger: 'Khách muốn đặt căn'
+    content: 'Xin số điện thoại. Khi khách gửi số điện thoại thì handoff cho nhân viên.'
+  - title: 'Hỏi còn phòng/căn'
+    trigger: 'Khách hỏi còn phòng/căn ngày nào'
+    content: 'Xin số điện thoại để nhân viên kiểm tra lịch trống. Không tự khẳng định còn phòng/căn.'
+conversation:
+  - customer: 'A17 ngày 8/1/2027 đến 10/1/2027, 20 người lớn còn trống không?'
+  - bot: 'Dạ A17 từ Thứ Sáu 08/01 đến Chủ Nhật 10/01 còn trống ạ. Tổng 2 đêm 27.000.000đ ạ.'
+  - customer: 'Ok giữ cho chị nhé. Tên Nguyễn Thu Hà, sđt 0912 345 678'
+expect:
+  guardrail: none
+  steps_succeeded: ['prepare_hold']
+  steps_exclude: ['handoff', 'confirm_hold']
+  not_contains: ['đã chuyển', 'đã đặt', 'đã xác nhận']
+fake_turns:
+  - tool_calls:
+      - name: prepare_hold
+        input:
+          propertyCode: A17
+          checkIn: '2027-01-08'
+          checkOut: '2027-01-10'
+          adults: 20
+          guestName: 'Nguyễn Thu Hà'
+          guestPhone: '0912 345 678'
+  - text: ''

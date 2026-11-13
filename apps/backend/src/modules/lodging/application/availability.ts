@@ -78,6 +78,8 @@ export async function freeOptions(
   props: PropertyRecord[],
   stay: StayAsk,
   loaded?: { units: UnitRecord[]; ratesOf: Map<string, RateRule[]>; packages: PackageRecord[] },
+  /** Bookings whose nights do not count as taken (the guest's own holds being replaced, VL3-1). */
+  ignoreBookingIds: readonly string[] = [],
 ): Promise<FreeOption[]> {
   const pids = props.map((p) => p.id);
   if (pids.length === 0) return [];
@@ -91,7 +93,9 @@ export async function freeOptions(
         stay.checkIn,
         stay.checkOut,
       )
-    ).map((t) => t.unitId),
+    )
+      .filter((t) => !ignoreBookingIds.includes(t.bookingId))
+      .map((t) => t.unitId),
   );
   const persons = stay.adults + stay.childAges.length;
   const options: FreeOption[] = [];

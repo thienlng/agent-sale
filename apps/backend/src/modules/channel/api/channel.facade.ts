@@ -129,10 +129,10 @@ export interface ChannelFacade {
    */
   requeueEvent(id: string, claimToken: string): Promise<void>;
   /**
-   * Hands the event back without spending an attempt, claimable again after `delayMs` (the
-   * workspace's inbox budget is spent for now; nothing failed).
+   * Holds the event until `until` without spending an attempt: a customer message that arrived
+   * while staff held the conversation is answered once the bot resumes (LM2-2).
    */
-  deferEvent(id: string, claimToken: string, delayMs: number): Promise<void>;
+  deferEvent(id: string, claimToken: string, until: Date): Promise<void>;
   /** Whether the same customer wrote again after this event (its answer would already be stale). */
   hasNewerCustomerEvent(
     connectionId: string,

@@ -1,3 +1,4 @@
+import { PLAYGROUND_CHANNEL } from '@agent-sales/contracts';
 import { normalizeVnPhone } from '@agent-sales/shared';
 
 /** Rules of orders the bot prepares in chat and staff review afterwards (spec §4, ADR-016). */
@@ -65,6 +66,24 @@ export function mergeItems(items: ReadonlyArray<{ sku: string; qty: number }>): 
     else merged.set(key, { sku, qty });
   }
   return [...merged.values()];
+}
+
+/** Prefix of the customer's own words in a bot order's internal note (TM-19). */
+export const CUSTOMER_NOTE_PREFIX = 'Khách ghi: ';
+/** First line of the internal note of an order placed from the dashboard test chat (VL-A11). */
+export const TEST_ORDER_NOTE = '[Chat thử] Đơn tạo khi thử bot, không phải khách thật.';
+
+/**
+ * The internal (staff-only) note of a bot order: the customer's note is quoted as theirs, never
+ * stored as if staff wrote it, so "đã thanh toán" from a customer is not read as a fact (TM-19); a
+ * test-chat order says so first (VL-A11).
+ */
+export function botOrderInternalNote(channel: string, note: string | null | undefined): string {
+  const lines: string[] = [];
+  if (channel === PLAYGROUND_CHANNEL) lines.push(TEST_ORDER_NOTE);
+  const said = note?.trim();
+  if (said) lines.push(`${CUSTOMER_NOTE_PREFIX}"${said}"`);
+  return lines.join('\n');
 }
 
 export function orderSourceOf(channel: string): string {
