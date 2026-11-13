@@ -3,7 +3,7 @@ import { createDb, ensureLoginRoles, migrate, schema, withCredentials, eq } from
 import { newId, userId, workspaceId } from '@agent-sales/shared';
 import { startTestPostgres, type TestPostgres } from '@agent-sales/testing';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
@@ -534,14 +534,21 @@ describe('request tasks and reschedules (MS-10, MS-21)', () => {
   it('moves the task due time when an update names a new day in words (sign-off S3)', async () => {
     const a = await owner('spa');
     const base = { name: 'Chị Hân', phone: '0987654324', service: 'Phun mày' };
-    const res = await record(a.ws, 'appointment', { ...base, preferredTime: 'chiều nay' });
-    await record(a.ws, 'appointment', { ...base, preferredTime: 'sau 9h tối chủ nhật' });
-    const [task] = await tasks(a.headers, contactIdOf(res));
-    // The coming Sunday (today included) at 21:00 in Vietnam.
-    const today = vnDate(0);
-    const dow = new Date(`${today}T00:00:00Z`).getUTCDay();
-    const sunday = vnDate((7 - dow) % 7);
-    expect(task?.dueAt).toBe(new Date(`${sunday}T14:00:00.000Z`).toISOString());
+    // A fixed Friday, 10:00 in Vietnam, for the writes: the coming Sunday is 15/11 whatever day
+    // CI runs. The HTTP read runs on the real clock (the session token is checked against it).
+    vi.useFakeTimers({ toFake: ['Date'] });
+    let contactId: string;
+    try {
+      vi.setSystemTime(new Date('2026-11-13T03:00:00Z'));
+      contactId = contactIdOf(
+        await record(a.ws, 'appointment', { ...base, preferredTime: 'chiều nay' }),
+      );
+      await record(a.ws, 'appointment', { ...base, preferredTime: 'sau 9h tối chủ nhật' });
+    } finally {
+      vi.useRealTimers();
+    }
+    const [task] = await tasks(a.headers, contactId);
+    expect(task?.dueAt).toBe('2026-11-15T14:00:00.000Z');
   });
 
   it('is due at the end of today without a day', async () => {
