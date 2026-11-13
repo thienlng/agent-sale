@@ -75,7 +75,9 @@ function BotSpace() {
     <div data-content-padding="false" className="flex min-h-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col lg:flex-row">
         <TrainingNav bot={bot.data} />
-        <div className="min-w-0 flex-1 p-4 md:p-6">
+        {/* Below xl the Chat thử tab sits on the right edge: a right gutter keeps prices and
+            actions out from under it and under the tucked assistant launcher (TM3-11). */}
+        <div data-assistant-tuck className="min-w-0 flex-1 p-4 pr-14 md:p-6 md:pr-14 xl:pr-6">
           <Outlet />
         </div>
       </div>

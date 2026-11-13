@@ -9,7 +9,8 @@ export const TUCKED_VISIBLE = 14;
  * full size it would cover a value, a status or a note there. At the end of the page the spacer
  * (`data-assistant-spacer`, 80 px) keeps the room free, and a page that does not scroll ends
  * above the spacer, so in both cases the launcher shows in full. Full-bleed pages (no visible
- * spacer) mark their bottom-right controls instead and never tuck.
+ * spacer) mark their bottom-right controls instead and never tuck, unless they leave a right
+ * gutter for it and say so with `data-assistant-tuck` (the bot space).
  */
 export function shouldTuck(page: {
   scrollY: number;
@@ -33,6 +34,11 @@ export function useLauncherTucked(active: boolean): boolean {
     const measure = () => {
       frame = 0;
       const spacer = document.querySelector<HTMLElement>('[data-assistant-spacer]');
+      // A full-bleed page with a right gutter for it asks to keep the launcher tucked (TM3-11).
+      if (document.querySelector('[data-assistant-tuck]')) {
+        setTucked(true);
+        return;
+      }
       setTucked(
         shouldTuck({
           scrollY: window.scrollY,

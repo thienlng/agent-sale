@@ -83,11 +83,11 @@ function ProductRow({
           />
         </TableCell>
       ) : null}
-      <TableCell className="text-center text-xs text-muted-foreground tabular-nums">
+      <TableCell className="hidden text-center text-xs text-muted-foreground tabular-nums @md:table-cell">
         {index}
       </TableCell>
       <TableCell className="whitespace-normal">
-        <div className="flex min-w-44 items-center gap-3">
+        <div className="flex min-w-36 items-center gap-3">
           {product.imageUrls[0] && !imageFailed ? (
             <img
               src={product.imageUrls[0]}
@@ -240,13 +240,15 @@ export function BotProductsTable({
           description and update time only show when the table has space for them. */}
       <div className="@container overflow-hidden rounded-xl border">
         <div className="overflow-x-auto">
-          <Table className="min-w-[26rem]">
+          <Table>
             <TableHeader>
               <TableRow className="bg-muted hover:bg-muted [&>th]:font-medium [&>th]:text-brand-text">
                 {selecting ? (
                   <TableHead className="w-14 text-center">{t(k('colSelect'))}</TableHead>
                 ) : null}
-                <TableHead className="w-14 text-center">{t(k('colIndex'))}</TableHead>
+                <TableHead className="hidden w-14 text-center @md:table-cell">
+                  {t(k('colIndex'))}
+                </TableHead>
                 <TableHead>{t(k('colProduct'))}</TableHead>
                 <TableHead className="w-36">{t(k('colPrice'))}</TableHead>
                 <TableHead className="hidden @3xl:table-cell">{t(k('colDescription'))}</TableHead>
