@@ -727,6 +727,8 @@ export interface AssistantRepository {
   addStep(s: OwnerScope, step: StepRecord): Promise<void>;
   finishRun(s: OwnerScope, runId: string, patch: Partial<RunRecord>): Promise<void>;
   getRun(s: OwnerScope, runId: string): Promise<(RunRecord & { steps: StepRecord[] }) | null>;
+  /** The owner's runs among `runIds` (without steps), in no particular order. */
+  listRuns(s: OwnerScope, runIds: readonly string[]): Promise<RunRecord[]>;
   /** The thread's newest finished (`done`) chat run, for the compaction trigger; null if none. */
   getLastChatRun(s: OwnerScope, threadId: string): Promise<RunRecord | null>;
   /** Inserts a finished run (`finished_at` = now); the thread must be the owner's. */

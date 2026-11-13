@@ -313,7 +313,6 @@
     "fallback": "Chưa có thông tin, đã gửi tin nhắn dự phòng",
     "handoff": "Đã chuyển cho nhân viên",
     "guardrail": "Đã chặn câu trả lời có con số không có trong dữ liệu",
-    "meta": "{{model}} · {{tokens}} token · {{seconds}} giây",
     "hide": "Ẩn chat thử",
     "show": "Mở chat thử",
     "error": "Bot chưa trả lời được: {{message}}",
@@ -330,12 +329,6 @@
     "imageOnly": "(Ảnh)",
     "imageRead": "Không đọc được ảnh, vui lòng thử lại.",
     "unavailable": "Chưa cấu hình mô hình AI cho gói này. Liên hệ quản trị hệ thống.",
-    "steps": {
-      "title": "Các bước bot đã làm",
-      "ok": "xong",
-      "failed": "lỗi",
-      "ms": "{{ms}} ms"
-    },
     "interrupted": "Khách vừa nhắn thêm nên bot dừng lượt này giữa chừng",
     "quickReplies": {
       "label": "Trả lời nhanh"
@@ -1984,7 +1977,9 @@
       "dialogTitle": "Xoá business {{name}}?",
       "dialogBody": "Business sẽ bị ẩn ngay và xoá vĩnh viễn sau {{days}} ngày. Trong thời gian đó bạn khôi phục được ở mục Business của tôi.",
       "confirmLabel": "Nhập tên business để xác nhận",
-      "confirmHint": "Nhập chính xác: {{name}}",
+      "confirmHint": "Nhập chính xác:",
+      "copyName": "Chép tên {{name}}",
+      "nameCopied": "Đã chép tên business",
       "cancel": "Huỷ",
       "submit": "Xoá business",
       "done": "Đã xoá {{name}}. Bạn có thể khôi phục trong {{days}} ngày.",
@@ -2177,5 +2172,23 @@
     "pendingBody": "Rapiz sẽ ngắt kết nối các Trang bạn đã kết nối và xoá mã truy cập (token) của bạn trong vài phút.",
     "completedBody_other": "Đã ngắt kết nối {{count}} Trang bạn đã kết nối và xoá mã truy cập (token) Facebook của bạn. Rapiz không còn lưu dữ liệu đăng nhập Facebook của bạn.",
     "scope": "Việc này không xoá doanh nghiệp, đơn hàng hay hội thoại mà chủ doanh nghiệp lưu trên Rapiz. Khách nhắn tin cho một doanh nghiệp muốn xoá dữ liệu của mình, hãy liên hệ doanh nghiệp đó."
+  },
+  "trace": {
+    "show": "Xem các bước",
+    "hide": "Ẩn các bước",
+    "meta": "{{model}} · {{tokens}} token · {{seconds}} giây",
+    "noSteps": "Lượt này không dùng công cụ nào.",
+    "loading": "Đang tải các bước…",
+    "failed": "failed",
+    "requested": "requested:",
+    "args": "args",
+    "result": "result · {{chars}} chars",
+    "model": "model",
+    "tier": "tier",
+    "prompt": "prompt",
+    "tokens": "tokens",
+    "run": "run",
+    "guardrail": "guardrail",
+    "runId": "run id"
   }
 }

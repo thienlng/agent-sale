@@ -329,9 +329,8 @@
       "blocked": "Khoá lịch",
       "partial": "Còn một số phòng"
     },
-    "noActiveRooms": "Chưa có phòng nào đang bán.",
-    "missingRates": "Chưa đủ giá cả tuần.",
-    "botHidden": "Bot chưa thấy căn hộ này cho tới khi đủ giá.",
+    "noActiveRooms": "Bot chưa chào bán: căn hộ bán theo phòng nhưng chưa có phòng nào. Thêm phòng ở tab Đơn vị cho thuê, hoặc đổi sang bán nguyên căn.",
+    "missingRates": "Bot chưa chào bán: còn đêm chưa có giá trong 7 ngày tới. Điền giá ở tab Giá.",
     "createTitle": "Thêm căn hộ",
     "createDescription": "Nhập thông tin cơ bản; giá, phòng và ảnh thêm ở trang chi tiết.",
     "code": "Mã căn hộ",
@@ -757,7 +756,7 @@
   },
   "delete": {
     "title": "Xoá căn hộ",
-    "hint": "Chỉ xoá được căn hộ chưa từng có booking. Căn hộ đã có booking thì hãy tạm dừng.",
+    "hint": "Xoá căn hộ cùng phòng, bảng giá và ảnh. Căn hộ đã có booking thì các booking cũng bị xoá theo; muốn giữ lịch sử đặt phòng, hãy tạm dừng căn hộ.",
     "action": "Xoá căn hộ",
     "confirmTitle": "Xoá căn hộ {{name}}?",
     "confirmBody": "Căn hộ, các phòng, bảng giá, ghi chú đêm và danh sách ảnh sẽ bị xoá vĩnh viễn, bot cũng ngừng giới thiệu căn hộ này. Không thể hoàn tác.",
@@ -765,8 +764,14 @@
     "deleting": "Đang xoá…",
     "cancel": "Huỷ",
     "deleted": "Đã xoá căn hộ {{name}}.",
-    "hasBookings": "Căn hộ này đã có booking nên không xoá được (để giữ lịch sử đặt phòng). Hãy tạm dừng: bot sẽ ngừng chào bán, booking cũ vẫn còn.",
-    "hasBookingsPaused": "Căn hộ này đã có booking nên không xoá được (để giữ lịch sử đặt phòng). Căn hộ đang tạm dừng, bot không chào bán nữa.",
+    "hasBookings_other": "Căn hộ này có {{count}} booking. Xoá căn hộ sẽ xoá luôn các booking này và lịch sử đặt phòng của nó.",
+    "upcoming_other": "Trong đó {{count}} booking còn hiệu lực (sắp tới hoặc khách đang ở): hãy báo khách trước khi xoá.",
+    "keepHistory": "Muốn giữ lịch sử đặt phòng thì tạm dừng căn hộ thay vì xoá: bot ngừng chào bán, booking vẫn còn.",
+    "confirmCodeLabel": "Nhập mã căn hộ để xác nhận",
+    "confirmCodeHint": "Nhập chính xác:",
+    "copyCode": "Chép mã {{code}}",
+    "codeCopied": "Đã chép mã căn hộ",
+    "confirmWithBookings_other": "Xoá căn hộ và {{count}} booking",
     "pauseInstead": "Tạm dừng căn hộ",
     "paused": "Đã tạm dừng căn hộ {{name}}."
   }

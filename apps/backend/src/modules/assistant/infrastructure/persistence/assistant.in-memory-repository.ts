@@ -420,6 +420,15 @@ export class InMemoryAssistantRepository implements AssistantRepository {
     Object.assign(run, allowed);
   }
 
+  async listRuns(s: OwnerScope, runIds: readonly string[]): Promise<RunRecord[]> {
+    return runIds.flatMap((id) => {
+      const run = this.runs.get(id);
+      if (!run || !mine(s, run)) return [];
+      const { accountId: _a, ownerUserId: _o, ...rest } = run;
+      return [structuredClone(rest)];
+    });
+  }
+
   async getRun(
     s: OwnerScope,
     runId: string,

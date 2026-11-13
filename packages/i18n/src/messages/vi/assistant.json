@@ -15,10 +15,7 @@
   "placeholder": "Hỏi Rapiz Agent…",
   "send": "Gửi",
   "thinking": "Đang tra cứu…",
-  "showSteps": "Xem các bước",
-  "hideSteps": "Ẩn các bước",
   "stepsLoading": "Đang tải các bước…",
-  "noSteps": "Lượt này không dùng công cụ nào.",
   "stepFailed": "lỗi",
   "stepKinds": {
     "model_call": "Suy nghĩ",
@@ -590,19 +587,6 @@
     "returning": "Đang hoàn",
     "returned": "Đã hoàn",
     "cancelled": "Đã huỷ"
-  },
-  "debug": {
-    "failed": "failed",
-    "requested": "requested:",
-    "args": "args",
-    "result": "result · {{chars}} chars",
-    "model": "model",
-    "tier": "tier",
-    "prompt": "prompt",
-    "tokens": "tokens",
-    "run": "run",
-    "guardrail": "guardrail",
-    "runId": "run id"
   },
   "expand": "Mở rộng toàn màn hình",
   "collapse": "Thu gọn về bảng bên phải",

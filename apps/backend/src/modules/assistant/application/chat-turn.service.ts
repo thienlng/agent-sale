@@ -2,6 +2,7 @@ import {
   maskOwnerSecrets,
   runAgentLoop,
   SECRET_REMOVED,
+  stepDetail,
   type AgentLoopResult,
   type AgentStep,
   type ChatMessage,
@@ -63,7 +64,6 @@ import { SKILL_TOOL_DEFINITIONS, skillTools } from './skill-tools.js';
 import { SkillsService } from './skills.service.js';
 import { MAX_CHARTS_PER_TURN } from './sql/chart.js';
 import { type NativeToolEntry, SQL_TOOLSET, sqlTools } from './sql/sql-tools.js';
-import { stepDetail } from './step-detail.js';
 import { disabledTools, enabledDefinitions, toolsetCacheSuffix } from './toolsets.js';
 import { withTurnOutputBudget } from './turn-budget.js';
 

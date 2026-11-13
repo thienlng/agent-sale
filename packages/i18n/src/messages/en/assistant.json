@@ -15,10 +15,7 @@
   "placeholder": "Ask Rapiz Agent…",
   "send": "Send",
   "thinking": "Looking it up…",
-  "showSteps": "Show steps",
-  "hideSteps": "Hide steps",
   "stepsLoading": "Loading steps…",
-  "noSteps": "This turn used no tools.",
   "stepFailed": "failed",
   "stepKinds": {
     "model_call": "Thinking",
@@ -595,19 +592,6 @@
     "returning": "Returning",
     "returned": "Returned",
     "cancelled": "Cancelled"
-  },
-  "debug": {
-    "failed": "failed",
-    "requested": "requested:",
-    "args": "args",
-    "result": "result · {{chars}} chars",
-    "model": "model",
-    "tier": "tier",
-    "prompt": "prompt",
-    "tokens": "tokens",
-    "run": "run",
-    "guardrail": "guardrail",
-    "runId": "run id"
   },
   "expand": "Expand to full page",
   "collapse": "Collapse to the side panel",

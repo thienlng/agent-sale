@@ -1,52 +1,58 @@
 import type { PlaygroundResponse } from '@agent-sales/contracts';
-import { ChevronRight } from 'lucide-react';
-import { useId, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useState } from 'react';
 
-import { cn } from '@/lib/utils';
+import {
+  RunTrace,
+  RunTraceBox,
+  RunTraceToggle,
+  type TraceStep,
+  type TraceSummary,
+} from '@/components/run-trace';
 
-type Step = NonNullable<PlaygroundResponse['steps']>[number];
-
-/** A quiet, collapsed list of what the bot did during a turn (kinds and names only). */
-export function TestChatSteps({ steps }: { steps: readonly Step[] }) {
-  const { t } = useTranslation();
+/**
+ * Under a bot answer, like the owner assistant's: "Xem các bước" with the model, total tokens and
+ * time, opening the run summary and each step (tokens per model call, arguments and result head
+ * per tool) in the shared trace format.
+ */
+export function TestChatSteps({ result }: { result: PlaygroundResponse }) {
   const [open, setOpen] = useState(false);
-  const listId = useId();
-  if (!steps.length) return null;
+  const u = result.usage;
+  const steps: TraceStep[] = (result.steps ?? []).map((s, idx) => ({
+    idx,
+    kind: s.kind,
+    name: s.name ?? null,
+    ok: s.ok ?? null,
+    errorCode: s.errorCode ?? null,
+    ms: s.ms ?? null,
+    detail: (s.detail as Record<string, unknown> | null | undefined) ?? null,
+  }));
+  const summary: TraceSummary = {
+    provider: result.provider,
+    model: result.model,
+    tier: result.tier ?? null,
+    tokens: { input: u.inputTokens, cached: u.cachedInputTokens, output: u.outputTokens },
+    status: result.outcome,
+    rounds: result.rounds ?? null,
+    latencyMs: result.latencyMs,
+    guardrail: result.guardrail,
+    runId: result.runId,
+  };
   return (
-    <div className="text-xs text-muted-foreground">
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={listId}
-        onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1 rounded-sm hover:text-foreground focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
-      >
-        <ChevronRight
-          className={cn('size-3.5 shrink-0 transition-transform', open && 'rotate-90')}
-          aria-hidden
-        />
-        {t('playground.steps.title')}
-        <span aria-hidden>({steps.length})</span>
-      </button>
-      <ol id={listId} hidden={!open} className="mt-1 flex flex-col gap-0.5 border-l pl-3">
-        {steps.map((step, i) => (
-          <li key={i} className="flex flex-wrap items-baseline gap-x-1.5">
-            <span>{step.kind}</span>
-            {step.name ? <span className="font-mono text-foreground/80">{step.name}</span> : null}
-            {step.ok === undefined ? null : (
-              <span className={step.ok ? 'text-success' : 'text-destructive'}>
-                {t(step.ok ? 'playground.steps.ok' : 'playground.steps.failed')}
-              </span>
-            )}
-            {step.ms === undefined ? null : (
-              <span className="tabular-nums">
-                {t('playground.steps.ms', { ms: Math.round(step.ms) })}
-              </span>
-            )}
-          </li>
-        ))}
-      </ol>
+    <div className="flex w-full min-w-0 flex-col items-start gap-1">
+      <RunTraceToggle
+        open={open}
+        onToggle={() => setOpen((v) => !v)}
+        meta={{
+          model: result.model,
+          tokens: u.inputTokens + u.cachedInputTokens + u.outputTokens,
+          latencyMs: result.latencyMs,
+        }}
+      />
+      {open ? (
+        <RunTraceBox>
+          <RunTrace summary={summary} steps={steps} />
+        </RunTraceBox>
+      ) : null}
     </div>
   );
 }

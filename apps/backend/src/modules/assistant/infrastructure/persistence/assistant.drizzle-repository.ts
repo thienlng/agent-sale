@@ -820,6 +820,17 @@ export class DrizzleAssistantRepository implements AssistantRepository {
     });
   }
 
+  listRuns(s: OwnerScope, runIds: readonly string[]): Promise<RunRecord[]> {
+    if (runIds.length === 0) return Promise.resolve([]);
+    return this.#in(s, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(r)
+        .where(and(inArray(r.id, [...runIds]), ownsRun(s)));
+      return rows.map(toRun);
+    });
+  }
+
   getLastChatRun(s: OwnerScope, threadId: string): Promise<RunRecord | null> {
     return this.#in(s, async (tx) => {
       await this.#ownThread(tx, s, threadId);

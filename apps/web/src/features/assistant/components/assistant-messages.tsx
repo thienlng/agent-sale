@@ -1,18 +1,10 @@
 import type { AssistantMessageDto, AssistantProposalDto } from '@agent-sales/contracts';
-import {
-  BarChart3,
-  Bot,
-  Check,
-  ChevronDown,
-  Compass,
-  Loader2,
-  ThumbsDown,
-  ThumbsUp,
-} from 'lucide-react';
+import { BarChart3, Bot, Check, Compass, Loader2, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
+import { RunTraceBox, RunTraceToggle } from '@/components/run-trace';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
@@ -73,7 +65,6 @@ function AnswerFeedback({ message }: { message: AssistantMessageDto }) {
 }
 
 function AssistantAnswer({ message }: { message: AssistantMessageDto }) {
-  const { t } = useTranslation('assistant');
   const [showSteps, setShowSteps] = useState(false);
   const charts = message.uiActions.flatMap((a) => (a.type === 'chart' ? [a.chart] : []));
   return (
@@ -86,27 +77,22 @@ function AssistantAnswer({ message }: { message: AssistantMessageDto }) {
           <AssistantChart chart={chart} />
         </Suspense>
       ))}
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center justify-between gap-2">
         {message.runId ? (
-          <button
-            type="button"
-            aria-expanded={showSteps}
-            onClick={() => setShowSteps((v) => !v)}
-            className="inline-flex w-fit items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
-          >
-            {showSteps ? t('hideSteps') : t('showSteps')}
-            <ChevronDown
-              className={cn('size-3 transition-transform', showSteps && 'rotate-180')}
-              aria-hidden
-            />
-          </button>
-        ) : null}
+          <RunTraceToggle
+            open={showSteps}
+            onToggle={() => setShowSteps((v) => !v)}
+            meta={message.runMeta}
+          />
+        ) : (
+          <span />
+        )}
         <AnswerFeedback message={message} />
       </div>
       {message.runId && showSteps ? (
-        <div className="rounded-lg border px-3 py-2">
+        <RunTraceBox>
           <AssistantSteps runId={message.runId} />
-        </div>
+        </RunTraceBox>
       ) : null}
     </li>
   );
@@ -155,6 +141,9 @@ function LiveTurn({ turnId }: { turnId: string }) {
   );
 }
 
+/** How close to the bottom (px) still counts as following the conversation. */
+const FOLLOW_SLACK_PX = 48;
+
 export function AssistantMessages({
   messages,
   proposals = NO_PROPOSALS,
@@ -176,10 +165,33 @@ export function AssistantMessages({
   roomy?: boolean;
 }) {
   const { t } = useTranslation('assistant');
+  const empty = messages.length === 0 && proposals.length === 0 && !pendingTurn;
   const end = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null);
+  // Following the bottom: true until the owner scrolls up, true again once back at the bottom.
+  const following = useRef(true);
   useEffect(() => {
+    following.current = true;
     end.current?.scrollIntoView({ block: 'end' });
   }, [messages.length, proposals.length, pendingTurn, unavailable]);
+  // The running turn's step trace, a proposal card or an image grows the conversation without a
+  // new message: keep the bottom in view while the owner is following it.
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const onScroll = () => {
+      following.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_SLACK_PX;
+    };
+    const grow = new ResizeObserver(() => {
+      if (following.current) el.scrollTop = el.scrollHeight;
+    });
+    for (const child of el.children) grow.observe(child);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      grow.disconnect();
+      el.removeEventListener('scroll', onScroll);
+    };
+  }, [loading, empty]);
 
   const placed = placeProposals(messages, proposals);
 
@@ -192,8 +204,8 @@ export function AssistantMessages({
     );
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-      {messages.length === 0 && proposals.length === 0 && !pendingTurn ? (
+    <div ref={box} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      {empty ? (
         <div
           data-measure
           className={cn('flex flex-col px-4', roomy ? 'min-h-full justify-center py-10' : 'py-6')}

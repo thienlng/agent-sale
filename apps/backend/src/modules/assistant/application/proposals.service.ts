@@ -237,22 +237,30 @@ export class ProposalService {
       });
     }
 
-    let status: number;
-    let body: unknown;
-    try {
-      ({ status, body } = await this.invoker.invoke({
-        method: methodOf(proposal.routeKey),
-        path: proposal.path,
-        ...(proposal.query ? { query: proposal.query as Record<string, unknown> } : {}),
-        ...(proposal.body !== null ? { body: proposal.body } : {}),
-        businessId: proposal.businessId,
-        authorization,
-        idempotencyKey: `asst:${id}`,
-      }));
-    } catch (e) {
-      this.#log.warn(`assistant proposal ${id}: execution failed (${errorClass(e)})`);
-      status = 0;
-      body = null;
+    const invoke = async (draft: unknown, idempotencyKey: string) => {
+      try {
+        return await this.invoker.invoke({
+          method: methodOf(proposal.routeKey),
+          path: proposal.path,
+          ...(proposal.query ? { query: proposal.query as Record<string, unknown> } : {}),
+          ...(draft !== null ? { body: draft } : {}),
+          businessId: proposal.businessId,
+          authorization,
+          idempotencyKey,
+        });
+      } catch (e) {
+        this.#log.warn(`assistant proposal ${id}: execution failed (${errorClass(e)})`);
+        return { status: 0, body: null };
+      }
+    };
+    let { status, body } = await invoke(proposal.body, `asst:${id}`);
+    // Two drafts of one record (its info, then its prices) carry the version both were read at:
+    // applying the first bumps it, so the second would always lose. When a proposal of this
+    // thread applied to the same record since this one was drafted explains the conflict, retry
+    // once at the record's current version (what this one changes was checked above).
+    if (status === 409) {
+      const rebased = await this.#rebasedBody(scope, proposal, authorization);
+      if (rebased) ({ status, body } = await invoke(rebased, `asst:${id}:rebased`));
     }
 
     const ok = status >= 200 && status < 300;
@@ -268,6 +276,52 @@ export class ProposalService {
             reason: routeErrorLine(summariseRouteError(body)),
           },
     );
+  }
+
+  /**
+   * The stored body at the record's current `version`, when the body carries an optimistic
+   * `version` and another proposal of the same thread was applied to the same record (same path,
+   * or one inside the other) after this one was drafted; null otherwise. The version is read from
+   * the shorter of the two paths, the record itself (e.g. the property of its `/rates`).
+   */
+  async #rebasedBody(
+    scope: OwnerScope,
+    proposal: ProposalRecord,
+    authorization: string,
+  ): Promise<Record<string, unknown> | null> {
+    const draft = proposal.body;
+    if (!draft || typeof draft !== 'object' || Array.isArray(draft)) return null;
+    const version = (draft as Record<string, unknown>)['version'];
+    if (typeof version !== 'number') return null;
+    const within = (a: string, b: string) => a === b || a.startsWith(`${b}/`);
+    const sibling = (await this.repo.listProposals(scope, proposal.threadId)).find(
+      (p) =>
+        p.id !== proposal.id &&
+        p.status === 'done' &&
+        p.businessId === proposal.businessId &&
+        p.decidedAt !== null &&
+        p.decidedAt.getTime() >= proposal.createdAt.getTime() &&
+        (within(p.path, proposal.path) || within(proposal.path, p.path)),
+    );
+    if (!sibling) return null;
+    const record = sibling.path.length < proposal.path.length ? sibling.path : proposal.path;
+    try {
+      const res = await this.invoker.invoke({
+        method: 'get',
+        path: record,
+        businessId: proposal.businessId,
+        authorization,
+      });
+      const current =
+        res.status === 200 && res.body && typeof res.body === 'object'
+          ? (res.body as Record<string, unknown>)['version']
+          : undefined;
+      if (typeof current !== 'number' || current === version) return null;
+      return { ...(draft as Record<string, unknown>), version: current };
+    } catch (e) {
+      this.#log.warn(`assistant proposal ${proposal.id}: version not re-read (${errorClass(e)})`);
+      return null;
+    }
   }
 
   /**

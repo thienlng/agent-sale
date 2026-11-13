@@ -310,22 +310,43 @@ describe('TestChat', () => {
         ).toBeTruthy();
     });
 
-    it('keeps the steps collapsed until the owner opens them', async () => {
-      await send(twoMessages);
-      const toggle = await screen.findByRole('button', { name: /Các bước bot đã làm/ });
+    it('keeps the steps collapsed under the model, tokens and time until opened', async () => {
+      await send({
+        ...twoMessages,
+        steps: [
+          {
+            kind: 'model_call',
+            ms: 812,
+            detail: {
+              tokens: { input: 30, cached: 10, output: 12 },
+              requested: ['search_products'],
+            },
+          },
+          {
+            kind: 'tool',
+            name: 'search_products',
+            ok: true,
+            ms: 34,
+            detail: { args: '{"q":"áo"}', resultChars: 120, result: '[{"code":"AO-1"}]' },
+          },
+          { kind: 'tool', name: 'send_message', ok: false, errorCode: 'blocked', ms: 5 },
+        ],
+      });
+      const toggle = await screen.findByRole('button', { name: /Xem các bước/ });
+      expect(toggle).toHaveAccessibleName(/Xem các bước\s*· grounded-echo · 52 token · 0.4 giây/);
       expect(toggle).toHaveAttribute('aria-expanded', 'false');
-      expect(screen.getByText('search_products')).not.toBeVisible();
+      expect(screen.queryByText('search_products')).toBeNull();
 
       await userEvent.click(toggle);
       expect(toggle).toHaveAttribute('aria-expanded', 'true');
-      expect(screen.getByText('search_products')).toBeVisible();
-      expect(toggle).toHaveAttribute('aria-controls', screen.getByRole('list').id);
-      expect(screen.getByText('send_message')).toBeInTheDocument();
-      expect(screen.getByText('812 ms')).toBeInTheDocument();
-      expect(screen.getByText('lỗi')).toBeInTheDocument();
+      expect(screen.getAllByText('search_products').length).toBeGreaterThan(0);
+      expect(screen.getByText(/send_message ✕ blocked/)).toBeInTheDocument();
+      expect(screen.getByText('812ms')).toBeInTheDocument();
+      expect(screen.getByText('40(10c)→12')).toBeInTheDocument();
+      expect(screen.getByText('{"q":"áo"}')).toBeInTheDocument();
 
       await userEvent.click(toggle);
-      expect(screen.getByText('search_products')).not.toBeVisible();
+      expect(screen.queryByText('search_products')).toBeNull();
     });
 
     it('notes a turn that a newer customer message cut short', async () => {
@@ -338,7 +359,7 @@ describe('TestChat', () => {
     it('falls back to the reply when messages is empty and keeps the steps', async () => {
       await send({ ...reply, reply: 'Dạ có ạ.', messages: [], steps: twoMessages.steps });
       expect(await screen.findByText('Dạ có ạ.')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Các bước bot đã làm/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Xem các bước/ })).toBeInTheDocument();
     });
 
     it('shows an image-only message as its album without an empty bubble', async () => {

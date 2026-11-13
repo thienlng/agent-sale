@@ -315,7 +315,6 @@
     "fallback": "No information yet, fallback message sent",
     "handoff": "Handed over to staff",
     "guardrail": "Blocked an answer with a figure that isn't in your data",
-    "meta": "{{model}} · {{tokens}} tokens · {{seconds}} s",
     "hide": "Hide test chat",
     "show": "Show test chat",
     "error": "The bot couldn't reply: {{message}}",
@@ -332,12 +331,6 @@
     "imageOnly": "(Image)",
     "imageRead": "Couldn't read the image, please try again.",
     "unavailable": "No AI model is configured for this plan. Contact the platform admin.",
-    "steps": {
-      "title": "What the bot did",
-      "ok": "ok",
-      "failed": "failed",
-      "ms": "{{ms}} ms"
-    },
     "interrupted": "A newer customer message cut this turn short",
     "quickReplies": {
       "label": "Quick replies"
@@ -1993,7 +1986,9 @@
       "dialogTitle": "Delete business {{name}}?",
       "dialogBody": "The business is hidden at once and deleted for good after {{days}} days. Until then you can restore it from My businesses.",
       "confirmLabel": "Type the business name to confirm",
-      "confirmHint": "Type exactly: {{name}}",
+      "confirmHint": "Type exactly:",
+      "copyName": "Copy the name {{name}}",
+      "nameCopied": "Business name copied",
       "cancel": "Cancel",
       "submit": "Delete business",
       "done": "{{name}} was deleted. You can restore it for {{days}} days.",
@@ -2187,5 +2182,23 @@
     "completedBody_one": "The {{count}} Page you connected was disconnected and your Facebook access tokens were deleted. Rapiz no longer keeps your Facebook login data.",
     "completedBody_other": "The {{count}} Pages you connected were disconnected and your Facebook access tokens were deleted. Rapiz no longer keeps your Facebook login data.",
     "scope": "This does not delete the businesses, orders or conversations a business keeps on Rapiz. If you messaged a business and want your data deleted, contact that business."
+  },
+  "trace": {
+    "show": "Show steps",
+    "hide": "Hide steps",
+    "meta": "{{model}} · {{tokens}} tokens · {{seconds}} s",
+    "noSteps": "This turn used no tools.",
+    "loading": "Loading steps…",
+    "failed": "failed",
+    "requested": "requested:",
+    "args": "args",
+    "result": "result · {{chars}} chars",
+    "model": "model",
+    "tier": "tier",
+    "prompt": "prompt",
+    "tokens": "tokens",
+    "run": "run",
+    "guardrail": "guardrail",
+    "runId": "run id"
   }
 }
