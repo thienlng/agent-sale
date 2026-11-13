@@ -384,7 +384,7 @@ describe('ProductForm of a spa or education business', () => {
     expect(screen.getByRole('link', { name: 'Dịch vụ' })).toBeVisible();
     expect(screen.getByLabelText(/^Mã dịch vụ/)).toBeVisible();
     expect(screen.getByLabelText('Tên dịch vụ')).toBeVisible();
-    expect(screen.getByLabelText('Tên gói (buổi lẻ, lớp, liệu trình…)')).toBeVisible();
+    expect(screen.getByLabelText('Tên gói (buổi lẻ, gói 10 buổi, liệu trình…)')).toBeVisible();
     expect(screen.queryByLabelText(/^Cân nặng/)).toBeNull();
     expect(screen.getByRole('button', { name: 'Lưu dịch vụ' })).toBeVisible();
     await userEvent.click(screen.getByRole('switch', { name: 'Đây là sản phẩm bán lẻ' }));
