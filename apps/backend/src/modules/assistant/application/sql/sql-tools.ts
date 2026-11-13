@@ -5,7 +5,7 @@ import { z, type ZodType } from 'zod';
 
 import type { OwnerScope } from '../../domain/owner-scope.js';
 import { SqlRunError, type SqlRunner } from '../../domain/ports/sql-runner.port.js';
-import { checkSql, MAX_SQL_CHARS } from '../../domain/sql-guard.js';
+import { checkSql, MAX_SQL_CHARS, sqlRejectionHint } from '../../domain/sql-guard.js';
 import { buildChart, ChartRequest, MAX_CHARTS_PER_TURN } from './chart.js';
 import { renderSqlOverview, renderSqlView, SQL_VIEW_NAMES } from './sql-views.js';
 
@@ -223,7 +223,7 @@ export function sqlTools(ctx: SqlToolContext): NativeToolEntry[] {
       const guard = checkSql(input.sql, { views: SQL_VIEW_NAMES });
       if (!guard.ok) {
         logFailure('sql_rejected', null, input.sql);
-        return fail('sql_rejected', { reason: guard.reason });
+        return fail('sql_rejected', { reason: guard.reason, hint: sqlRejectionHint(guard.reason) });
       }
       const businessIds = input.businessIds
         ? [...new Set(input.businessIds.map((id) => id.toLowerCase()))]

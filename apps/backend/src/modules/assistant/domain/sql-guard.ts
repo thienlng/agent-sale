@@ -74,6 +74,24 @@ const ALLOWED_FUNCTIONS = new Set(
     .split(' '),
 );
 
+/**
+ * What the model is told when the guard rejects a query (AS3-1): the functions and operators it
+ * may use, and what to write instead of a string-building one.
+ */
+export function sqlRejectionHint(reason: string): string {
+  const allowed = `allowed functions: ${[...ALLOWED_FUNCTIONS].join(', ')}; operators: ${[...ALLOWED_OPERATORS].join(' ')}`;
+  if (
+    reason === 'operator:||' ||
+    /^function_not_allowed:(concat|string_agg|array_agg|format|replace|repeat|lpad|rpad)/.test(
+      reason,
+    )
+  ) {
+    return `Building strings or arrays is not allowed: return the parts as separate columns, or one row per item with group by. ${allowed}`;
+  }
+  if (reason.startsWith('function_not_allowed') || reason.startsWith('operator:')) return allowed;
+  return 'one SELECT (WITH is fine) over the views of sql_schema';
+}
+
 /** Set-returning functions that may stand where a relation goes (`from generate_series(…) d`). */
 const RELATION_FUNCTIONS = new Set(['generate_series']);
 

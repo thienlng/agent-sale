@@ -78,7 +78,19 @@ describe('sql_query', () => {
     const t = setup();
     const out = await t.query({ sql: 'delete from orders' });
     expect(out.ok).toBe(false);
-    expect(out.json).toEqual({ ok: false, errorCode: 'sql_rejected', reason: 'not_select' });
+    expect(out.json).toEqual({
+      ok: false,
+      errorCode: 'sql_rejected',
+      reason: 'not_select',
+      hint: 'one SELECT (WITH is fine) over the views of sql_schema',
+    });
+    // A string-building query is told what to write instead, and what it may use (AS3-1).
+    const concat = await t.query({ sql: "select code || ' ' || status from orders" });
+    expect(concat.json).toMatchObject({ errorCode: 'sql_rejected', reason: 'operator:||' });
+    expect(concat.json.hint).toMatch(/^Building strings or arrays is not allowed/);
+    expect(concat.json.hint).toContain('allowed functions: count, sum');
+    const agg = await t.query({ sql: 'select array_agg(code) from orders' });
+    expect(agg.json.hint).toMatch(/separate columns/);
     const hidden = await t.query({ sql: 'select * from users' });
     expect(hidden.json).toMatchObject({ errorCode: 'sql_rejected', reason: 'unknown_view:users' });
     expect(t.runner.calls).toHaveLength(0);
