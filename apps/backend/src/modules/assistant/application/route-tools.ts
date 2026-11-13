@@ -13,6 +13,7 @@ import type { OwnerScope } from '../domain/owner-scope.js';
 import type { AssistantRepository } from '../domain/ports/assistant.repository.js';
 import type { RouteInvoker } from '../domain/ports/route-invoker.port.js';
 import { readCurrentState } from './current-state.js';
+import { BUDGET_EXHAUSTED_GUIDANCE } from './turn-budget.js';
 import {
   InitialStock,
   PRODUCT_CREATE_KEY,
@@ -233,6 +234,37 @@ export function compactProductList(body: unknown): unknown {
   };
 }
 
+const AVAILABILITY_KEY = 'POST /lodging/availability';
+type PropertyLabel = { name: string; code?: string };
+
+/**
+ * An availability result as the model reads it (AS3-3): each option carries its property's name
+ * (and code) first, and the result says how many options there are, so the model never reads
+ * the villas one by one to name them.
+ */
+export function withPropertyNames(
+  body: unknown,
+  names: ReadonlyMap<string, PropertyLabel>,
+): unknown {
+  const options = (body as { options?: unknown } | null)?.options;
+  if (!Array.isArray(options)) return body;
+  return {
+    count: options.length,
+    ...(body as object),
+    options: options.map((o: unknown) => {
+      const id = (o as { propertyId?: unknown } | null)?.propertyId;
+      const label = typeof id === 'string' ? names.get(id) : undefined;
+      return label
+        ? {
+            propertyName: label.name,
+            ...(label.code ? { propertyCode: label.code } : {}),
+            ...(o as object),
+          }
+        : o;
+    }),
+  };
+}
+
 /** tool_search, tool_describe and tool_call for one turn (spec §6). */
 export function routeTools(ctx: RouteToolContext): RunnableTool[] {
   const now = ctx.now ?? (() => new Date());
@@ -242,7 +274,8 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
   /** Cuts a read result to what is left of the turn's read budget and counts it. */
   function spend(out: { content: string; ok?: boolean }) {
     const room = Math.min(MAX_ROUTE_RESULT_CHARS, TURN_READ_BUDGET_CHARS - readChars);
-    if (room <= TRUNCATED.length) return fail('turn_budget_exhausted');
+    if (room <= TRUNCATED.length)
+      return fail('turn_budget_exhausted', { guidance: BUDGET_EXHAUSTED_GUIDANCE });
     const content = cut(out.content, room);
     readChars += content.length;
     return { ...out, content };
@@ -251,7 +284,7 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
   /** A native entry: `body` is its input; businessId, params and query are ignored. */
   async function callNative(entry: NativeToolEntry, body: unknown) {
     if (Math.min(MAX_ROUTE_RESULT_CHARS, TURN_READ_BUDGET_CHARS - readChars) <= TRUNCATED.length) {
-      return fail('turn_budget_exhausted');
+      return fail('turn_budget_exhausted', { guidance: BUDGET_EXHAUSTED_GUIDANCE });
     }
     const parsed = entry.input.safeParse((entry.normalize ?? ((b: unknown) => b))(body ?? {}));
     if (!parsed.success) {
@@ -326,7 +359,8 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
 
   async function read(p: Extract<Prepared, { ok: true }>) {
     const room = Math.min(MAX_ROUTE_RESULT_CHARS, TURN_READ_BUDGET_CHARS - readChars);
-    if (room <= TRUNCATED.length) return fail('turn_budget_exhausted');
+    if (room <= TRUNCATED.length)
+      return fail('turn_budget_exhausted', { guidance: BUDGET_EXHAUSTED_GUIDANCE });
     const res = await ctx.invoker.invoke({
       method: p.entry.method,
       path: p.path,
@@ -346,10 +380,39 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
       return out;
     }
     const shown = BUSINESS_OWNED_READS.has(p.entry.key) ? res.body : redactPii(res.body);
-    const body = p.entry.key === PRODUCT_LIST_KEY ? compactProductList(shown) : shown;
+    const body =
+      p.entry.key === PRODUCT_LIST_KEY
+        ? compactProductList(shown)
+        : p.entry.key === AVAILABILITY_KEY
+          ? withPropertyNames(shown, await propertyNames(p.businessId))
+          : shown;
     const content = cut(json({ status: res.status, body }), room);
     readChars += content.length;
     return { content };
+  }
+
+  /** id → `{name, code}` of the business's properties; empty when they cannot be read. */
+  async function propertyNames(businessId: string): Promise<Map<string, PropertyLabel>> {
+    try {
+      const res = await ctx.invoker.invoke({
+        method: 'get',
+        path: '/lodging/properties',
+        businessId,
+        authorization: ctx.authorization,
+      });
+      const data = (res.body as { data?: unknown } | null)?.data;
+      if (res.status >= 300 || !Array.isArray(data)) return new Map();
+      return new Map(
+        data.flatMap((x: unknown) => {
+          const r = x as { id?: unknown; name?: unknown; code?: unknown };
+          return typeof r.id === 'string' && typeof r.name === 'string'
+            ? [[r.id, { name: r.name, ...(typeof r.code === 'string' ? { code: r.code } : {}) }]]
+            : [];
+        }),
+      );
+    } catch {
+      return new Map();
+    }
   }
 
   async function propose(p: Extract<Prepared, { ok: true }>, summary: string) {

@@ -218,6 +218,9 @@ describe('assistant@6 rules (staging wave 2)', () => {
     // AS-12, AS2-7, AS2-2.
     expect(template).toContain("A new product's stock goes on the same card");
     expect(template).toContain('A verdict follows what you read, never the owner');
+    // AS3-3: a cut result is reported as incomplete; AS3-7: the shop bot never reads memory.
+    expect(template).toContain('em mới xem được 5/7 căn');
+    expect(template).toContain('the shop bot never reads it');
   });
 });
 

@@ -6,6 +6,7 @@ import {
   TURN_BUDGET_EXHAUSTED_CONTENT,
   TURN_TOOL_OUTPUT_CHARS,
   withTurnOutputBudget,
+  BUDGET_EXHAUSTED_GUIDANCE,
 } from '../application/turn-budget.js';
 
 const tool = (name: string, size: number, readOnly = true): RunnableTool => ({
@@ -47,6 +48,7 @@ describe('withTurnOutputBudget', () => {
     expect(JSON.parse(TURN_BUDGET_EXHAUSTED_CONTENT)).toEqual({
       ok: false,
       errorCode: 'turn_budget_exhausted',
+      guidance: BUDGET_EXHAUSTED_GUIDANCE,
     });
   });
 

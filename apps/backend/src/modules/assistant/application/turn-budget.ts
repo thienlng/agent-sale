@@ -5,10 +5,18 @@ import { UI_FILL_FORM_TOOL, UI_NAVIGATE_TOOL, UI_SPOTLIGHT_TOOL } from './core-t
 
 /** All tool output the model sees in one turn, together, is never longer than this. */
 export const TURN_TOOL_OUTPUT_CHARS = 40_000;
+/**
+ * Told with every `turn_budget_exhausted` (AS3-3): what was not read must not be presented as the
+ * whole answer.
+ */
+export const BUDGET_EXHAUSTED_GUIDANCE =
+  'The reading budget of this turn is used up. Answer now with what you read, and say plainly what you could not read and how much you did read (for example "em mới xem được 5/7 căn"); never present a partial list as complete.';
+
 /** What every tool call returns once the turn's output budget is used up. */
 export const TURN_BUDGET_EXHAUSTED_CONTENT = JSON.stringify({
   ok: false,
   errorCode: 'turn_budget_exhausted',
+  guidance: BUDGET_EXHAUSTED_GUIDANCE,
 });
 const TRUNCATED = '…[truncated]';
 

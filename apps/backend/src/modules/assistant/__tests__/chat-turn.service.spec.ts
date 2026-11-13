@@ -3,6 +3,7 @@ import type { AssistantUiAction } from '@agent-sales/contracts';
 import { DomainError, newId, userId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it, vi } from 'vitest';
 
+import { BUDGET_EXHAUSTED_GUIDANCE } from '../application/turn-budget.js';
 import {
   BUSY_REPLY,
   ChatTurnService,
@@ -879,8 +880,8 @@ describe('ChatTurnService', () => {
       40_000,
     );
     expect(tools.slice(5).map((m) => JSON.parse(m.content) as unknown)).toEqual([
-      { ok: false, errorCode: 'turn_budget_exhausted' },
-      { ok: false, errorCode: 'turn_budget_exhausted' },
+      { ok: false, errorCode: 'turn_budget_exhausted', guidance: BUDGET_EXHAUSTED_GUIDANCE },
+      { ok: false, errorCode: 'turn_budget_exhausted', guidance: BUDGET_EXHAUSTED_GUIDANCE },
     ]);
   });
   it('fills the form after reading a big catalog: UI tools are never charged or refused (QA N1)', async () => {

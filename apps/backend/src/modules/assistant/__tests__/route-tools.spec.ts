@@ -1,5 +1,6 @@
 import { newId, userId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it, vi } from 'vitest';
+import { BUDGET_EXHAUSTED_GUIDANCE } from '../application/turn-budget.js';
 import { z } from 'zod';
 
 import {
@@ -411,6 +412,7 @@ describe('tool_call', () => {
     expect((await t.call({ key: 'GET /products' })).json).toEqual({
       ok: false,
       errorCode: 'turn_budget_exhausted',
+      guidance: BUDGET_EXHAUSTED_GUIDANCE,
     });
     expect(t.invoke).toHaveBeenCalledTimes(calls);
   });
@@ -467,6 +469,23 @@ describe('tool_call', () => {
       params: { productId: product.id },
     });
     expect((one.json.body as { description: string }).description).toBe(long);
+  });
+
+  it('names the property of every availability option (AS3-3)', async () => {
+    const villa = newId();
+    const t = await setup((i) =>
+      i.path === '/lodging/properties'
+        ? { status: 200, body: { data: [{ id: villa, name: 'Villa D33', code: 'D33' }] } }
+        : { status: 200, body: { options: [{ propertyId: villa, fits: true }] } },
+    );
+    const out = await t.call({
+      key: 'POST /lodging/availability',
+      body: { checkIn: '2026-11-14', checkOut: '2026-11-15', party: { adults: 2, childAges: [] } },
+    });
+    expect(out.json.body).toEqual({
+      count: 1,
+      options: [{ propertyName: 'Villa D33', propertyCode: 'D33', propertyId: villa, fits: true }],
+    });
   });
 
   it('accepts a concrete path for a templated key (AS-14)', async () => {
@@ -815,7 +834,11 @@ describe('native entries (sql_schema, sql_query)', () => {
     }
     expect(used).toBe(TURN_READ_BUDGET_CHARS);
     const after = await t.call({ key: 'sql_query', body: { sql: 'select 1 from orders' } });
-    expect(after.json).toEqual({ ok: false, errorCode: 'turn_budget_exhausted' });
+    expect(after.json).toEqual({
+      ok: false,
+      errorCode: 'turn_budget_exhausted',
+      guidance: BUDGET_EXHAUSTED_GUIDANCE,
+    });
   });
 
   it('do not exist without native entries', async () => {
