@@ -4,6 +4,7 @@ import type { WorkspaceId } from '@agent-sales/shared';
 import { z } from 'zod';
 
 import type { BotRequestResult, CrmFacade } from '../../crm/api/index.js';
+import { asksForRequest } from '../domain/request-intent.js';
 import { weekdayMismatch } from '../domain/weekday-date.js';
 import { spokenDigits } from './reply-context.js';
 import { type ActionCall, safeJson } from './action-tools.js';
@@ -115,6 +116,12 @@ export function requestTools(ctx: RequestToolContext): {
     schema: definition.input,
     run: async (input) => {
       const { kind, ...rest } = input as { kind: CustomerRequestKind } & Record<string, unknown>;
+      if (!asksForRequest(ctx.customerTexts))
+        return done(false, {
+          ok: false,
+          error: 'no_request_asked',
+          hint: 'The customer has not asked to register, book, try or be called: answer them; record only once they ask.',
+        });
       if (!contactVouched(rest, ctx.customerTexts))
         return done(false, { ok: false, error: 'contact_not_from_customer' });
       const date = typeof rest['preferredDate'] === 'string' ? rest['preferredDate'] : '';

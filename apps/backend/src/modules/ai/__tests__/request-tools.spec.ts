@@ -6,6 +6,7 @@ import {
 } from '@agent-sales/ai-core';
 import { REQUEST_PROFILES, requestDetailsSchema } from '@agent-sales/contracts';
 import { newId, workspaceId } from '@agent-sales/shared';
+import { asksForRequest } from '../domain/request-intent.js';
 import { weekdayMismatch } from '../domain/weekday-date.js';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -391,5 +392,25 @@ describe('weekdayMismatch (LM-17, LM2-6)', () => {
     expect(weekdayMismatch('2027-11-15', ['ngày 15/11/2027'])).toBeNull();
     // The customer's answer ends it: only the newest message counts.
     expect(weekdayMismatch('2026-11-14', ['thứ 7 tuần này 15/11', 'thứ 7 nhé em'])).toBeNull();
+  });
+});
+
+describe('asksForRequest (LM3-2)', () => {
+  it('needs a message that asks to register, book, try, be advised or be called', () => {
+    for (const asked of [
+      'Chị muốn cho bé nhà chị học thử lớp Kids',
+      'cho mình đăng ký kiểm tra trình độ đầu vào cho con với',
+      'đặt giúp mình lịch massage body đá nóng tối Chủ Nhật',
+      'Mình là Quân, công ty 20 người, muốn xem demo phần mềm',
+      'gọi lại cho chị sau 9h tối thứ 3 nha',
+      'dat lich goi dau thu 7',
+    ])
+      expect(asksForRequest([asked]), asked).toBe(true);
+    for (const not of [
+      'có học thử ko em',
+      'Chị là Hương, 0912 888 777, con chị đang A2 mà học mãi không tiến bộ, trung tâm làm ăn kiểu gì vậy',
+      'học phí khoá IELTS bao nhiêu',
+    ])
+      expect(asksForRequest([not]), not).toBe(false);
   });
 });
