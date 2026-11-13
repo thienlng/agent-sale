@@ -1,4 +1,4 @@
-import type { ArgumentsHost } from '@nestjs/common';
+import { type ArgumentsHost, HttpException } from '@nestjs/common';
 import { DomainError } from '@agent-sales/shared';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -45,6 +45,21 @@ describe('HttpExceptionFilter', () => {
       message: 'Nights are taken',
       details: { codes: ['BK-0001'], reason: 'NIGHTS_TAKEN' },
     });
+  });
+
+  it('keeps the status of a framework 4xx (a Fastify error Nest mapped) as VALIDATION_FAILED', () => {
+    const { status, body, logger } = run(new HttpException('Unsupported Media Type', 415));
+    expect(status).toBe(415);
+    expect(body?.error).toMatchObject({ code: 'VALIDATION_FAILED', traceId: 'trace-1' });
+    expect(logger.error).not.toHaveBeenCalled();
+    expect(run(new HttpException('Bad body', 400)).status).toBe(400);
+    expect(run(new HttpException('Slow down', 429)).body?.error.code).toBe('RATE_LIMITED');
+  });
+
+  it('still maps a framework 5xx to 500 INTERNAL', () => {
+    const { status, body } = run(new HttpException('Handler timed out', 503));
+    expect(status).toBe(500);
+    expect(body?.error.code).toBe('INTERNAL');
   });
 
   it('still maps unknown errors to 500 INTERNAL', () => {
