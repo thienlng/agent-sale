@@ -10,7 +10,7 @@ const FROM = /^(giá\s+)?từ$/iu;
  * The price cell of a product row. A course or service never shows "0 ₫" (an education or spa
  * business may list one before its price is set): its range skips the 0-priced variants and says
  * when some packages are priced on request ("· có gói liên hệ"); with no price at all it shows
- * its price note, or "Liên hệ" (one casing, whatever the note's). A "từ" note reads as a prefix
+ * its price note (capitalised), or "Liên hệ" (one casing, whatever the note's). A "từ" note reads as a prefix
  * ("Từ 150.000 ₫", MS-28); any other note sits after the price.
  */
 export function priceLabel(
@@ -30,8 +30,13 @@ export function priceLabel(
   if (p.offering || offeringBusiness) {
     const all = p.variants?.length ? p.variants.map((v) => v.price) : [min, max];
     const prices = all.filter((price) => price > 0);
-    if (!prices.length)
-      return !note || ON_REQUEST.test(note) ? t('commerce.offering.priceOnRequest') : note;
+    if (!prices.length) {
+      // A note shown alone starts upper case (LM3-10). A 0 price is not "Miễn phí": the seeded
+      // catalogs use 0 for "not priced yet" as well, so only a note can say a thing is free.
+      if (note && !ON_REQUEST.test(note))
+        return note.charAt(0).toLocaleUpperCase('vi') + note.slice(1);
+      return t('commerce.offering.priceOnRequest');
+    }
     min = Math.min(...prices);
     max = Math.max(...prices);
     onRequest = Boolean(p.variants?.length) && prices.length < all.length;

@@ -1371,6 +1371,9 @@
         "placement_test": "Đăng ký kiểm tra trình độ",
         "appointment": "Đặt lịch"
       },
+      "kindService": {
+        "trial": "Đăng ký học thử"
+      },
       "strip": {
         "label": "Yêu cầu của khách hàng",
         "recorded7d": "Yêu cầu 7 ngày qua",

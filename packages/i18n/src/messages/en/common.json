@@ -1377,6 +1377,9 @@
         "placement_test": "Placement test",
         "appointment": "Appointment"
       },
+      "kindService": {
+        "trial": "Trial class"
+      },
       "strip": {
         "label": "Customer requests",
         "recorded7d": "Requests, last 7 days",

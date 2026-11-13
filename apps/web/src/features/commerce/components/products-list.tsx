@@ -79,6 +79,12 @@ function offeringLength(o: OfferingDetails, t: TFunction): string {
   return parts.length ? parts.join(' · ') : '—';
 }
 
+/** The length alone ("60 phút", or the period): sessions have their own column (LM3-10). */
+function offeringDuration(o: OfferingDetails, t: TFunction): string {
+  if (o.durationMinutes) return t('commerce.offering.minutesCount', { count: o.durationMinutes });
+  return o.period || '—';
+}
+
 /** Not connected: a dismissible card that points to the PMS integrations hub. */
 function PmsHint({ onDismiss }: { onDismiss: () => void }) {
   const { t } = useTranslation();
@@ -163,8 +169,17 @@ export function ProductsList({
           count: p.variants.length,
         });
   const showPackages = !offeringKind || (data?.data.some((p) => p.variants.length > 1) ?? false);
+  // An education or spa catalog shows sessions in their own column, when a listed one has them.
+  const sessionsColumn =
+    Boolean(offeringKind) && (data?.data.some((p) => p.offering?.sessions) ?? false);
   const stockCell = (p: ProductDto) =>
-    p.offering || offeringKind ? (p.offering ? offeringLength(p.offering, t) : '—') : null;
+    p.offering || offeringKind
+      ? p.offering
+        ? offeringKind
+          ? offeringDuration(p.offering, t)
+          : offeringLength(p.offering, t)
+        : '—'
+      : null;
   const openProduct = (id: string) =>
     void navigate({ to: '/app/products/$productId', params: { productId: id } });
 
@@ -247,7 +262,8 @@ export function ProductsList({
                 </li>
               ))
             : data?.data.map((p) => {
-                const stock = stockCell(p);
+                // One line on a phone: length and sessions together ("60 phút · 10 buổi").
+                const stock = p.offering ? offeringLength(p.offering, t) : stockCell(p);
                 return (
                   <li key={p.id}>
                     <Link
@@ -304,6 +320,9 @@ export function ProductsList({
                     <TableHead>{word('colVariants', 'products.col.variants')}</TableHead>
                   ) : null}
                   <TableHead className="text-right">{t('products.col.price')}</TableHead>
+                  {sessionsColumn ? (
+                    <TableHead className="text-right">{t('commerce.offering.sessions')}</TableHead>
+                  ) : null}
                   <TableHead className="text-right">{stockHeader}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -346,6 +365,13 @@ export function ProductsList({
                         <TableCell className="text-right tabular-nums">
                           {priceLabel(p, Boolean(offeringKind), t)}
                         </TableCell>
+                        {sessionsColumn ? (
+                          <TableCell className="text-right text-muted-foreground tabular-nums">
+                            {p.offering?.sessions
+                              ? t('commerce.offering.sessionsCount', { count: p.offering.sessions })
+                              : '—'}
+                          </TableCell>
+                        ) : null}
                         {stockCell(p) !== null ? (
                           <TableCell className="text-right text-muted-foreground tabular-nums">
                             {stockCell(p)}

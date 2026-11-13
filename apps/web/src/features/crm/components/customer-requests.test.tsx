@@ -12,7 +12,12 @@ const mocks = vi.hoisted(() => ({
   requests: { data: [] as unknown[] } as unknown,
   pending: false,
 }));
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+// A key list (service-group wording first) reads as its shared fallback key.
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string | string[]) => (Array.isArray(key) ? key[key.length - 1] : key),
+  }),
+}));
 vi.mock('@/lib/permissions', () => ({ useCan: (cap: string) => mocks.can[cap] ?? false }));
 
 const CONTACT = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d04';

@@ -38,7 +38,7 @@ describe('priceLabel', () => {
   it('writes "Liên hệ" with one casing whatever the note says', () => {
     expect(label('liên hệ', [0])).toBe('Liên hệ');
     expect(label('', [0])).toBe('Liên hệ');
-    expect(label('theo lộ trình', [0])).toBe('theo lộ trình');
+    expect(label('theo lộ trình', [0])).toBe('Theo lộ trình');
   });
 
   it('says when some packages are priced on request', () => {
