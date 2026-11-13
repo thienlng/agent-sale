@@ -26,7 +26,7 @@ import { useLinkedIdentities, useUnlinkIdentity } from '../api/identities';
  * they do not recognise. Removing needs a recent step-up (the API client prompts for it).
  */
 export function LinkedSignIns() {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['security', 'common']);
   const list = useLinkedIdentities();
   const unlink = useUnlinkIdentity();
   const [removing, setRemoving] = useState<LinkedIdentityDto | null>(null);

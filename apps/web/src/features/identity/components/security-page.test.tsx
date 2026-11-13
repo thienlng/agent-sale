@@ -1,11 +1,14 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { StepUpHost } from '@/components/step-up-dialog';
+import { loadNamespace } from '@/lib/i18n';
 import { renderWithRouter, stepUpStatus, stubFetchSequence } from '@/testing/render';
 
 import { SecurityPage } from './security-page';
+
+beforeAll(() => loadNamespace('security'));
 
 afterEach(() => vi.unstubAllGlobals());
 

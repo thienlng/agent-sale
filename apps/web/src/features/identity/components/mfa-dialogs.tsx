@@ -36,7 +36,7 @@ function reasonMessage(t: ReturnType<typeof useTranslation>['t'], e: unknown): s
  * step-up (emailed code or Google) instead, which the API client prompts for.
  */
 export function EnableMfaDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['security', 'common']);
   const m = useMfaMutations();
   const stepUp = useStepUpStatus(open);
   const noPassword = stepUp.data?.hasPassword === false;
@@ -165,7 +165,7 @@ export function ReauthMfaDialog({
   mode: 'disable' | 'regenerate' | null;
   onClose: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['security', 'common']);
   const m = useMfaMutations();
   // Without a password (Google sign-in only) the code alone goes, after a step-up if needed.
   const noPassword = useStepUpStatus(mode !== null).data?.hasPassword === false;

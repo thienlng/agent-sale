@@ -11,7 +11,7 @@ import { EnableMfaDialog, ReauthMfaDialog } from './mfa-dialogs';
 
 /** Account security (ADM-04): two-step verification with an authenticator app, linked sign-ins. */
 export function SecurityPage() {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['security', 'common']);
   const status = useMfaStatus();
   const [enabling, setEnabling] = useState(false);
   const [reauth, setReauth] = useState<'disable' | 'regenerate' | null>(null);

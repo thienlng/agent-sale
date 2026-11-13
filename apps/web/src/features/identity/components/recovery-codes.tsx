@@ -5,7 +5,7 @@ import { DialogFooter } from '@/components/ui/dialog';
 
 /** The one moment the recovery codes are visible: copy, download, then confirm they are saved. */
 export function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['security', 'common']);
   const text = codes.join('\n');
 
   function download() {
