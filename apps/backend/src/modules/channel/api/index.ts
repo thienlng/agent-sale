@@ -4,6 +4,7 @@ export {
   EVENT_QUIET_MS,
   MAX_EVENT_ATTEMPTS,
   type ChannelFacade,
+  type ClaimOptions,
   type OutboundInboxMessage,
   type PendingMetaEvent,
   type WebsiteSite,

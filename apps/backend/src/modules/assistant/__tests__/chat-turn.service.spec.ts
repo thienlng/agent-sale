@@ -3,8 +3,14 @@ import type { AssistantUiAction } from '@agent-sales/contracts';
 import { DomainError, newId, userId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it, vi } from 'vitest';
 
+import { InMemoryLimiter } from '../../../common/limits/limiter.js';
+import { LlmBudgetExceededError, OwnerLlmBudget } from '../../../common/limits/llm-budget.js';
+
+import { BUDGET_EXHAUSTED_GUIDANCE } from '../application/turn-budget.js';
 import {
+  BUSY_REPLY,
   ChatTurnService,
+  INTERRUPTED_REPLY,
   FALLBACK_REPLY,
   capHistory,
   PROPOSAL_FALLBACK_REPLY,
@@ -25,6 +31,7 @@ import {
   AssistantRunIdTakenError,
 } from '../domain/assistant.errors.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
+import { RUN_STALE_MS } from '../domain/ports/assistant.repository.js';
 import type { AccessDelegation } from '../domain/ports/access-delegation.port.js';
 import type { RouteInvocation, RouteInvocationResult } from '../domain/ports/route-invoker.port.js';
 import type { SqlRunner } from '../domain/ports/sql-runner.port.js';
@@ -71,6 +78,7 @@ async function setup(
   sqlRunner: SqlRunner | null = null,
   catalog = new SkillCatalog([]),
   delegation: AccessDelegation | null = null,
+  budget: OwnerLlmBudget | null = null,
 ) {
   const repo = new InMemoryAssistantRepository();
   const scope: OwnerScope = {
@@ -103,6 +111,7 @@ async function setup(
     {} as SchedulesService,
     sqlRunner,
     delegation,
+    budget,
   );
   const thread = await repo.createThread(scope, {
     id: newId(),
@@ -189,7 +198,7 @@ describe('ChatTurnService', () => {
     const last = first.messages.at(-1)!;
     expect(last.role).toBe('user');
     expect(last.content).toMatch(
-      /^<page_context>\{"route":"\/app\/overview","targets":\["overview\.add"\]\}<\/page_context>\n<current_business>[0-9a-f-]{36}<\/current_business>\n<current_time>\d{2}:\d{2}<\/current_time>\nMở trang sản phẩm giúp em$/,
+      /^<page_context>\{"route":"\/app\/overview","targets":\["overview\.add"\]\}<\/page_context>\n<current_business>[0-9a-f-]{36}<\/current_business>\n<current_time>\d{4}-\d{2}-\d{2} \d{2}:\d{2} [^<]+<\/current_time>\nMở trang sản phẩm giúp em$/,
     );
 
     // The tool exchange is stored but never shown; the thread is titled from the first text.
@@ -238,7 +247,7 @@ describe('ChatTurnService', () => {
       '[event] Đơn #12 đã giao (POST /products → id 01a1a0df-6f8a-7000-8000-000000000001)',
     );
     expect(messages[6]?.content).toMatch(
-      /^<current_business>[0-9a-f-]{36}<\/current_business>\n<current_time>\d{2}:\d{2}<\/current_time>\nCâu hai$/,
+      /^<current_business>[0-9a-f-]{36}<\/current_business>\n<current_time>\d{4}-\d{2}-\d{2} \d{2}:\d{2} [^<]+<\/current_time>\nCâu hai$/,
     );
     // The title stays the first message's.
     expect((await repo.getThread(scope, thread.id))?.title).toBe('Câu một');
@@ -257,6 +266,63 @@ describe('ChatTurnService', () => {
     ).rejects.toBeInstanceOf(AssistantBusyError);
     release(ANSWER);
     expect((await first).run.status).toBe('done');
+  });
+
+  it('bounds the runs one owner has in flight across threads and charges the account tokens (audit #15)', async () => {
+    const limiter = new InMemoryLimiter();
+    const budget = new OwnerLlmBudget(
+      { accountTokensDay: 1_000_000, playgroundRunsUserMinute: 0, assistantRunsPerUser: 1 },
+      limiter,
+    );
+    let unblock: () => void = () => undefined;
+    const gate = new Promise<void>((r) => (unblock = r));
+    const { service, scope, thread, repo, generate } = await setup(
+      [ANSWER],
+      null,
+      undefined,
+      null,
+      budget,
+    );
+    generate.mockImplementationOnce(async () => {
+      await gate;
+      return ANSWER;
+    });
+    const other = await repo.createThread(scope, {
+      id: newId(),
+      title: '',
+      systemPrompt: 'SYSTEM PROMPT',
+      promptVersion: 'assistant@1',
+    });
+    const first = service.send(scope, thread.id, { turnId: newId(), text: 'hi' }, AUTH);
+    await vi.waitFor(() => expect(generate).toHaveBeenCalled());
+    await expect(
+      service.send(scope, other.id, { turnId: newId(), text: 'hello' }, AUTH),
+    ).rejects.toBeInstanceOf(LlmBudgetExceededError);
+    unblock();
+    await first;
+    expect(await limiter.peek(`llm:acct:${scope.accountId}:tokens:d`)).toBe(110);
+    // The slot was released: the next run goes through.
+    await service.send(scope, other.id, { turnId: newId(), text: 'hello' }, AUTH);
+  });
+
+  it('refuses a run once the account has spent its tokens of the day, before calling the model', async () => {
+    const budget = new OwnerLlmBudget(
+      { accountTokensDay: 50, playgroundRunsUserMinute: 0, assistantRunsPerUser: 2 },
+      new InMemoryLimiter(),
+    );
+    const { service, scope, thread, generate } = await setup(
+      [ANSWER],
+      null,
+      undefined,
+      null,
+      budget,
+    );
+    await service.send(scope, thread.id, { turnId: newId(), text: 'hi' }, AUTH);
+    const calls = generate.mock.calls.length;
+    await expect(
+      service.send(scope, thread.id, { turnId: newId(), text: 'again' }, AUTH),
+    ).rejects.toBeInstanceOf(LlmBudgetExceededError);
+    expect(generate.mock.calls.length).toBe(calls);
   });
 
   it('answers a retried turn id with the first result, without calling the model again', async () => {
@@ -314,13 +380,15 @@ describe('ChatTurnService', () => {
     ]);
   });
 
-  it('answers with an apology and fails the run when the model throws', async () => {
-    const { service, scope, thread } = await setup([new Error('provider down')]);
+  it('answers that the AI is busy and fails the run when the model throws', async () => {
+    const { service, scope, thread, generate } = await setup([new Error('provider down')]);
     const out = await service.send(scope, thread.id, { turnId: newId(), text: 'Chào em' }, AUTH);
     expect(out.messages.map((m) => [m.role, m.content])).toEqual([
       ['user', 'Chào em'],
-      ['assistant', FALLBACK_REPLY],
+      ['assistant', BUSY_REPLY],
     ]);
+    // A busy model is retried only briefly (AS-1).
+    expect(generate.mock.calls[0]?.[0]).toMatchObject({ maxRetryWaitMs: 10_000 });
     expect(out.run).toMatchObject({ status: 'failed', guardrail: 'model_error' });
     expect(out.run.finishedAt).toBeInstanceOf(Date);
     expect(out.run.steps.map((st) => [st.kind, st.ok, st.errorCode])).toEqual([
@@ -330,6 +398,101 @@ describe('ChatTurnService', () => {
     expect(
       (await service.send(scope, thread.id, { turnId: newId(), text: 'Lại' }, AUTH)).run.status,
     ).toBe('done');
+  });
+
+  it('keeps one copy of a question the owner retries after a model failure (AS-1)', async () => {
+    const down = new AiProviderFailedError('rate_limit');
+    const { service, scope, thread, repo } = await setup([down, down, ANSWER]);
+    const ask = (text: string) => service.send(scope, thread.id, { turnId: newId(), text }, AUTH);
+    const first = await ask('doanh thu tuần này');
+    const dtos = toMessageDtos(
+      await repo.listMessages(scope, thread.id),
+      new Map([[first.run.id, first.run]]),
+    );
+    expect(dtos.at(-1)).toMatchObject({ content: BUSY_REPLY, retryable: true });
+    await ask('doanh thu tuần này');
+    const done = await ask('doanh thu tuần này');
+    expect(done.run.status).toBe('done');
+    const all = await repo.listMessages(scope, thread.id);
+    expect(all.filter((m) => m.role === 'user').map((m) => m.content)).toEqual([
+      'doanh thu tuần này',
+    ]);
+    expect(all.some((m) => m.content === BUSY_REPLY)).toBe(false);
+    // The failed runs keep their trace.
+    expect((await repo.getRun(scope, first.run.id))?.status).toBe('failed');
+  });
+
+  it('frees the owner from a turn cut off mid-way and offers Thử lại (AS2-3)', async () => {
+    const { service, scope, thread, repo } = await setup([ANSWER, ANSWER]);
+    // A turn whose process died: its run stays `running` with the question stored.
+    const orphan = newId();
+    await repo.startRun(scope, {
+      id: orphan,
+      threadId: thread.id,
+      tier: 'pro',
+      promptVersion: 'p',
+    });
+    await repo.appendMessages(scope, thread.id, [
+      {
+        id: newId(),
+        role: 'user',
+        content: 'doanh thu tuần này',
+        toolCalls: null,
+        toolCallId: null,
+        toolName: null,
+        pageContext: null,
+        uiActions: [],
+        runId: orphan,
+      },
+    ]);
+    await expect(
+      service.send(scope, thread.id, { turnId: newId(), text: 'doanh thu tuần này' }, AUTH),
+    ).rejects.toBeInstanceOf(AssistantBusyError);
+    // Two minutes without a step later it is stale.
+    repo.runs.get(orphan)!.createdAt = new Date(Date.now() - RUN_STALE_MS - 1_000);
+    await service.reapStaleRuns(scope);
+    const run = await repo.getRun(scope, orphan);
+    expect(run).toMatchObject({ status: 'failed', guardrail: 'interrupted' });
+    const dtos = toMessageDtos(
+      await repo.listMessages(scope, thread.id),
+      new Map([[orphan, run!]]),
+    );
+    expect(dtos.at(-1)).toMatchObject({ content: INTERRUPTED_REPLY, retryable: true });
+    // The retry runs, and the thread keeps the question once.
+    const done = await service.send(
+      scope,
+      thread.id,
+      { turnId: newId(), text: 'doanh thu tuần này' },
+      AUTH,
+    );
+    expect(done.run.status).toBe('done');
+    const users = (await repo.listMessages(scope, thread.id)).filter((m) => m.role === 'user');
+    expect(users).toHaveLength(1);
+  });
+
+  it('keeps a running turn that still writes steps', async () => {
+    const { scope, thread, repo } = await setup();
+    const live = newId();
+    await repo.startRun(scope, { id: live, threadId: thread.id, tier: 'pro', promptVersion: 'p' });
+    repo.runs.get(live)!.createdAt = new Date(Date.now() - RUN_STALE_MS - 1_000);
+    await repo.addStep(scope, {
+      runId: live,
+      idx: 0,
+      kind: 'model_call',
+      toolName: null,
+      ok: true,
+      ms: 1,
+      errorCode: null,
+    });
+    expect(await repo.failStaleRuns(scope, RUN_STALE_MS)).toEqual([]);
+  });
+
+  it('keeps the failed question when the owner asks something else', async () => {
+    const { service, scope, thread, repo } = await setup([new Error('down'), ANSWER]);
+    await service.send(scope, thread.id, { turnId: newId(), text: 'Câu một' }, AUTH);
+    await service.send(scope, thread.id, { turnId: newId(), text: 'Câu hai' }, AUTH);
+    const users = (await repo.listMessages(scope, thread.id)).filter((m) => m.role === 'user');
+    expect(users.map((m) => m.content)).toEqual(['Câu một', 'Câu hai']);
   });
 
   it('apologises when the loop ends without a usable answer', async () => {
@@ -502,7 +665,7 @@ describe('ChatTurnService', () => {
       AUTH,
     );
     expect(a.run).toMatchObject({ status: 'failed', guardrail: 'model_error' });
-    expect(a.messages.at(-1)).toMatchObject({ content: FALLBACK_REPLY, uiActions: [] });
+    expect(a.messages.at(-1)).toMatchObject({ content: BUSY_REPLY, uiActions: [] });
 
     // The loop hit the round limit.
     const loop = await setup(Array.from({ length: 30 }, () => NAVIGATE));
@@ -732,7 +895,7 @@ describe('ChatTurnService', () => {
     });
     expect(await repo.listProposals(scope, thread.id)).toHaveLength(1);
 
-    // Without a proposal the apology stays.
+    // Without a proposal the owner hears that the AI is busy (AS-1).
     const plain = await setup([new Error('bridge 502')]);
     const failed = await plain.service.send(
       plain.scope,
@@ -740,7 +903,7 @@ describe('ChatTurnService', () => {
       { turnId: newId(), text: 'Chào' },
       AUTH,
     );
-    expect(failed.messages.at(-1)?.content).toBe(FALLBACK_REPLY);
+    expect(failed.messages.at(-1)?.content).toBe(BUSY_REPLY);
   });
 
   it('shares one 40 000-char tool output budget across route reads and every other tool', async () => {
@@ -779,8 +942,8 @@ describe('ChatTurnService', () => {
       40_000,
     );
     expect(tools.slice(5).map((m) => JSON.parse(m.content) as unknown)).toEqual([
-      { ok: false, errorCode: 'turn_budget_exhausted' },
-      { ok: false, errorCode: 'turn_budget_exhausted' },
+      { ok: false, errorCode: 'turn_budget_exhausted', guidance: BUDGET_EXHAUSTED_GUIDANCE },
+      { ok: false, errorCode: 'turn_budget_exhausted', guidance: BUDGET_EXHAUSTED_GUIDANCE },
     ]);
   });
   it('fills the form after reading a big catalog: UI tools are never charged or refused (QA N1)', async () => {
@@ -985,8 +1148,8 @@ describe('ChatTurnService with the SQL lane', () => {
         chart: {
           kind: 'bar',
           title: 'Đơn',
-          x: { key: 'n', label: 'n' },
-          series: [{ key: 'n2', label: 'n2' }],
+          x: { key: 'n', label: 'Số lượng' },
+          series: [{ key: 'n2', label: 'N2' }],
           unit: 'number',
           rows: [{ n: 'a', n2: 1 }],
         },
@@ -1003,7 +1166,7 @@ describe('ChatTurnService with the SQL lane', () => {
       { turnId: newId(), text: 'Vẽ' },
       AUTH,
     );
-    expect(bad.messages.at(-1)).toMatchObject({ content: FALLBACK_REPLY, uiActions: [] });
+    expect(bad.messages.at(-1)).toMatchObject({ content: BUSY_REPLY, uiActions: [] });
   });
 
   it('loads the answer-data-questions platform skill in a turn', async () => {
@@ -1020,6 +1183,35 @@ describe('ChatTurnService with the SQL lane', () => {
     });
     expect(catalog.get('answer-data-questions')?.toolsets).toEqual(['sql']);
     expect(catalog.get('read-revenue')).toMatchObject({ version: 3, toolsets: ['sql', 'routes'] });
+  });
+
+  it('says the data skill is unavailable when the SQL lane is off (AS-5)', async () => {
+    const catalog = await SkillCatalog.load();
+    const t = await setup(
+      [call('c1', 'load_skill', { name: 'answer-data-questions' }), ANSWER],
+      null,
+      catalog,
+    );
+    await t.service.send(t.scope, t.thread.id, { turnId: newId(), text: 'Bán chạy?' }, AUTH);
+    expect(toolResult(t.generate)).toMatchObject({
+      ok: false,
+      errorCode: 'toolset_unavailable',
+      toolsets: ['sql'],
+      guidance: expect.stringContaining('Do not search for them') as unknown,
+    });
+    // A skill that also has other tools still loads.
+    const revenue = await setup(
+      [call('c1', 'load_skill', { name: 'read-revenue' }), ANSWER],
+      null,
+      catalog,
+    );
+    await revenue.service.send(
+      revenue.scope,
+      revenue.thread.id,
+      { turnId: newId(), text: 'Doanh thu?' },
+      AUTH,
+    );
+    expect(toolResult(revenue.generate)).toMatchObject({ ok: true, name: 'read-revenue' });
   });
 
   it('has no SQL tools without a runner', async () => {

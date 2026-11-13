@@ -750,7 +750,9 @@ describe('commerce on Postgres', () => {
       OrderListResponse.parse((await call(h, 'GET', `/orders?${query}`)).json());
     const both = await ids('status=confirmed,cancelled');
     expect(both.data.map((o) => o.id).sort()).toEqual([a.id, b.id].sort());
-    expect(both.totals).toMatchObject({ gross: 335_000 + 170_000, total: 315_000 + 170_000 });
+    // The cancelled order is listed and counted, but adds no money to the footer totals (TM-5).
+    expect(both.total).toBe(2);
+    expect(both.totals).toMatchObject({ itemQty: 2, gross: 335_000, total: 315_000 });
     expect(both.counts).toMatchObject({ all: 3, new: 1, confirmed: 1, cancelled: 1 });
 
     const notCancelled = await ids('status=cancelled&statusMode=exclude');

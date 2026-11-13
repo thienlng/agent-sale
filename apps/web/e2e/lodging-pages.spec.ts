@@ -186,7 +186,10 @@ for (const width of VIEWPORTS) {
     await page.goto('/app/bookings');
     await expect(page.getByRole('heading', { name: 'Booking' })).toBeVisible();
     await page.getByRole('tab', { name: 'Giữ chỗ' }).click();
-    await expect(page.getByRole('table')).toBeVisible();
+    // A phone lists bookings as cards, wider screens as a table (VL-A10).
+    await expect(
+      width < 768 ? page.getByRole('list').filter({ hasText: 'BK-' }) : page.getByRole('table'),
+    ).toBeVisible();
     await expectNoOverflow(page, width);
 
     await page.goto('/app/properties');

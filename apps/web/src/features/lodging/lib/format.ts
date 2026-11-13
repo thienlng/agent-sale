@@ -4,6 +4,8 @@
  */
 import type { TFunction } from 'i18next';
 
+import { formatShortDate } from '@/lib/format';
+
 export { formatVnd } from '@/lib/format';
 
 const isEn = () => document.documentElement.lang === 'en';
@@ -44,9 +46,14 @@ export function isoWeekday(night: string): number {
   return d === 0 ? 7 : d;
 }
 
-/** "06/11". */
+/** "06/11" (inside a calendar whose year is already shown). */
 export function dayMonth(night: string): string {
   return `${night.slice(8, 10)}/${night.slice(5, 7)}`;
+}
+
+/** A stay date in lists and dialogs: "06/11", or "06/01/2027" outside this year (VL-A8). */
+export function stayDate(night: string, today: string = todayNight()): string {
+  return formatShortDate(night, today);
 }
 
 export function weekdayShort(t: TFunction, night: string): string {
@@ -72,13 +79,9 @@ export function clockTime(iso: string): string {
   }).format(new Date(iso));
 }
 
-/** "06/11" of an instant in the business time zone. */
-export function localDayMonth(iso: string): string {
-  return new Intl.DateTimeFormat('vi-VN', {
-    timeZone: 'Asia/Ho_Chi_Minh',
-    day: '2-digit',
-    month: '2-digit',
-  }).format(new Date(iso));
+/** "06/11" of an instant in the business time zone (with the year outside this year). */
+export function localDayMonth(iso: string, now: Date = new Date()): string {
+  return stayDate(todayNight(new Date(iso)), todayNight(now));
 }
 
 /** Longest stay the API accepts. */

@@ -11,9 +11,14 @@ export const TASK_STATUSES = ['open', 'done', 'cancelled'] as const;
 export const TaskStatus = z.enum(TASK_STATUSES);
 export type TaskStatus = z.infer<typeof TaskStatus>;
 
-/** Where a task was made: the task form, an item of the Today screen, or the owner assistant. */
-export const TaskSource = z.enum(['manual', 'today', 'assistant']);
+/**
+ * Where a task was made: the task form, an item of the Today screen, the owner assistant, or the
+ * bot (a customer request staff must confirm, MS-10 / MS-21; never sent by a client).
+ */
+export const TaskSource = z.enum(['manual', 'today', 'assistant', 'bot']);
 export type TaskSource = z.infer<typeof TaskSource>;
+/** The sources a client may create a task with. */
+const CreatableTaskSource = z.enum(['manual', 'today', 'assistant']);
 
 export const TASK_TITLE_MAX = 200;
 export const TASK_NOTE_MAX = 2000;
@@ -57,7 +62,7 @@ export const CreateTaskRequest = z
     /** The kind of record the task is about (`order`, `booking`…), with its id. */
     subjectType: z.string().trim().min(1).max(40).optional(),
     subjectId: z.uuid().optional(),
-    source: TaskSource.default('manual'),
+    source: CreatableTaskSource.default('manual'),
   })
   .refine((t) => (t.subjectType === undefined) === (t.subjectId === undefined), {
     message: 'give subjectType and subjectId together',

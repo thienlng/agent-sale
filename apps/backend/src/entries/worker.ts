@@ -38,6 +38,8 @@ import { NOTIFICATION_RUNNER, type NotificationRunner } from '../modules/notific
 import { NotificationModule } from '../modules/notification/notification.module.js';
 import { SAAS_RUNNER, type SaasRunner } from '../modules/saas/api/index.js';
 import { SaasModule } from '../modules/saas/saas.module.js';
+import { WEBCHAT_RUNNER, type WebchatRunner } from '../modules/webchat/api/index.js';
+import { WebchatModule } from '../modules/webchat/webchat.module.js';
 import {
   WORKSPACE_PURGE_RUNNER,
   type WorkspacePurgeRunner,
@@ -64,6 +66,7 @@ import { WorkspaceModule } from '../modules/workspace/workspace.module.js';
     CrmModule,
     BrainModule,
     CareModule,
+    WebchatModule,
     WorkspaceModule,
     ChannelModule,
   ],
@@ -250,6 +253,20 @@ const careTimer = setInterval(() => {
       careBusy = false;
     });
 }, 15_000);
+// Website-chat uploads no message referenced within a day (security audit #17); the runner
+// throttles itself to one pass per hour.
+const webchat = ctx.get<WebchatRunner>(WEBCHAT_RUNNER);
+let purgingUploads = false;
+const uploadPurgeTimer = setInterval(() => {
+  if (purgingUploads) return;
+  purgingUploads = true;
+  void webchat
+    .tick()
+    .catch(() => logger.error('Website-chat upload purge tick failed'))
+    .finally(() => {
+      purgingUploads = false;
+    });
+}, 60_000);
 // Meta data deletion requests (docs/07): remove the pages of the person who asked; every minute.
 const dataDeletion = ctx.get<ChannelDataDeletionRunner>(CHANNEL_DATA_DELETION_RUNNER);
 let deletingData = false;
@@ -292,10 +309,11 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const)
     clearInterval(taskTimer);
     clearInterval(brainTimer);
     clearInterval(careTimer);
+    clearInterval(uploadPurgeTimer);
     clearInterval(purgeTimer);
     clearInterval(dataDeletionTimer);
   });
 logger.info(
   { queues },
-  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks, notifications, assistant jobs, assistant schedules, task reminders, brain signals, care agent, business purge, Meta data deletion; no queue processors registered yet)',
+  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks, notifications, assistant jobs, assistant schedules, task reminders, brain signals, care agent, website-chat upload purge, business purge, Meta data deletion; no queue processors registered yet)',
 );

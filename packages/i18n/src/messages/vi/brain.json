@@ -1,7 +1,6 @@
 {
   "today": {
     "section": "Việc hôm nay",
-    "noneLine": "Không có: {{list}}",
     "allClear": "Hôm nay chưa có việc nào cần làm",
     "refresh": "Làm mới (còn {{count}} lượt)",
     "refreshUnlimited": "Làm mới",
@@ -43,7 +42,7 @@
       "empty": "Không có tin chăm sóc nào chờ duyệt."
     },
     "tasks": {
-      "title": "Việc của tôi",
+      "title": "Việc cần làm",
       "empty": "Không có việc nào đến hạn hôm nay."
     }
   },
@@ -99,7 +98,7 @@
   },
   "task": {
     "dialogTitle": "Thêm việc",
-    "dialogDescription": "Việc sẽ hiện trong “Việc của tôi” của người làm khi đến hạn.",
+    "dialogDescription": "Việc sẽ hiện trong “Việc cần làm” của người làm khi đến hạn.",
     "title": "Việc cần làm",
     "defaultTitle": "Liên hệ lại {{name}}",
     "due": "Hạn",
@@ -124,11 +123,12 @@
     "followUp": "Chăm lại {{time}}",
     "evaluatedAt": "Đánh giá {{time}}",
     "tasks": "Việc",
-    "noTasks": "Chưa có việc nào cho hội thoại này."
+    "noTasks": "Chưa có việc nào cho hội thoại này.",
+    "contactTasks": "Việc cần làm"
   },
   "settings": {
     "title": "Đánh giá hội thoại bằng AI",
-    "description": "AI đọc hội thoại khi khách ngừng nhắn để xếp khách vào màn hình Hôm nay.",
+    "description": "AI đọc hội thoại khi khách ngừng nhắn để xếp khách vào “Việc hôm nay” trong Thống kê.",
     "usage": "Đã dùng {{used}}/{{limit}} lượt đánh giá hôm nay",
     "usageUnlimited": "Đã dùng {{used}} lượt đánh giá hôm nay (không giới hạn)",
     "mode": "Khi nào đánh giá",
@@ -255,8 +255,8 @@
     },
     "default": "(mặc định)",
     "hints": {
-      "suggest": "AI soạn tin, bạn duyệt ở “Chờ duyệt” trên màn hình Hôm nay rồi mới gửi.",
-      "act_and_report": "AI tự gửi đúng giờ, rồi liệt kê ở “AI đã làm” trên màn hình Hôm nay.",
+      "suggest": "AI soạn tin, bạn duyệt ở “Chờ duyệt” của “Việc hôm nay” (Thống kê) rồi mới gửi.",
+      "act_and_report": "AI tự gửi đúng giờ, rồi liệt kê ở “AI đã làm” của “Việc hôm nay” (Thống kê).",
       "auto": "AI tự gửi; chỉ tóm tắt buổi sáng và báo cáo nhắc đến."
     }
   },
@@ -265,7 +265,7 @@
     "description": "AI nhắn lại khách đang im lặng hoặc sắp chốt, trong khung giờ Messenger cho phép.",
     "usage": "Hôm nay AI đã soạn {{used}}/{{limit}} tin chăm sóc",
     "usageUnlimited": "Hôm nay AI đã soạn {{used}} tin chăm sóc (không giới hạn)",
-    "metaRule": "Messenger và Instagram chỉ cho shop nhắn khách trong 24 giờ kể từ tin cuối của khách. AI chỉ chăm sóc trong khoảng đó; quá 24 giờ, khách ở lại màn hình Hôm nay để nhân viên quyết định.",
+    "metaRule": "Messenger và Instagram chỉ cho shop nhắn khách trong 24 giờ kể từ tin cuối của khách. AI chỉ chăm sóc trong khoảng đó; quá 24 giờ, khách ở lại “Việc hôm nay” để nhân viên quyết định.",
     "loadError": "Không tải được cài đặt chăm sóc.",
     "nothingChanged": "Không có gì thay đổi",
     "templates": "Mẫu chăm sóc",

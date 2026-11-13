@@ -1,0 +1,27 @@
+id: tinymind-no-invented-order-total
+group: orders
+tags: [critical]
+bot:
+  industry: retail
+  name: TinyMind
+  orderTaking: true
+  orderShippingFeeVnd: 30000
+  profile:
+    fields: { displayName: TinyMind }
+    notes: 'Shop bán đồ chơi gỗ Montessori cho bé.'
+products:
+  - name: 'Thú gỗ xếp thăng bằng'
+    code: TM-001
+    description: 'Bộ thú gỗ xếp thăng bằng, phù hợp bé từ 1 tuổi trở lên.'
+    variants:
+      - { name: 'Mặc định', sku: TM-001-STD, price: 340000, stock: 12 }
+# TM2-3: the bot never states the total of orders it has no tool result for, and never claims to
+# have noted something no tool stored.
+conversation:
+  - customer: 'hôm qua chị đặt 1 đơn rồi, giờ đặt thêm thì tổng hai đơn là bao nhiêu em, nhớ gói cẩn thận giúp chị nhé'
+expect:
+  guardrail: none
+  not_matches:
+    ['tổng[^.!?\n]{0,30}hai đơn[^.!?\n]{0,20}\d', 'đã ghi nhận', 'em ghi lại', 'sẽ gói cẩn thận']
+fake_turns:
+  - text: 'Dạ em chưa xem được đơn hôm qua của chị nên chưa tính được tổng hai đơn ạ. Chị muốn đặt thêm sản phẩm nào ạ?'

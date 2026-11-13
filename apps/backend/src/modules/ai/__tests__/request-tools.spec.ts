@@ -6,11 +6,13 @@ import {
 } from '@agent-sales/ai-core';
 import { REQUEST_PROFILES, requestDetailsSchema } from '@agent-sales/contracts';
 import { newId, workspaceId } from '@agent-sales/shared';
+import { asksForRequest } from '../domain/request-intent.js';
+import { weekdayMismatch, weekdayMismatchInText } from '../domain/weekday-date.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { BotFacade, BotView } from '../../bot/api/index.js';
 import type { KnowledgeFacade } from '../../knowledge/api/index.js';
-import type { BotRequestResult, CrmFacade } from '../../crm/api/index.js';
+import type { BotRequestResult, BotRequestStatus, CrmFacade } from '../../crm/api/index.js';
 import type { WorkspaceFacade } from '../../workspace/api/index.js';
 import type { LlmRuntime } from '../application/llm-runtime.js';
 import { PlaygroundService } from '../application/playground.service.js';
@@ -53,6 +55,7 @@ const SAAS_REQUEST_NAME = 'Record a demo, free trial or consultation request';
 const recorded: BotRequestResult = {
   outcome: 'recorded',
   contactId: newId(),
+  phoneE164: '+84983123456',
   created: true,
   missing: [],
   dateLabel: null,
@@ -71,6 +74,7 @@ function pipeline(script: Script, industry = 'saas') {
     recordBotRequest: vi.fn(
       async (_ws: unknown, _input: unknown): Promise<BotRequestResult> => recorded,
     ),
+    requestStatus: vi.fn(async (): Promise<BotRequestStatus | null> => null),
   };
   const svc = new PlaygroundService(
     { getBot: async () => botOf(industry) } as BotFacade,
@@ -121,11 +125,53 @@ describe('record_request in the reply pipeline: saas (ADR-020)', () => {
       details: { name: 'Lan', phone: '0983456721' },
       preview: false,
       catalogNames: [],
+      conversationId: expect.any(String),
     });
     expect(lastToolResult(requests[1])).toContain('\\"recorded\\":true');
     expect(requests[0]?.tools?.find((t) => t.name === REQUEST_TOOL)?.description).toBe(
       REQUEST_PROFILES.saas.description,
     );
+  });
+
+  it('passes the website channel as the source and returns the customer to link (MS-11)', async () => {
+    const { svc, crm } = pipeline((_req, round) =>
+      round === 0 ? call(args) : { text: 'Dạ em đã ghi nhận ạ.' },
+    );
+    const res = await svc.reply(ws, botId, ask(said), { ...live(), channel: 'website' });
+    expect(crm.recordBotRequest.mock.calls[0]?.[1]).toMatchObject({ channel: 'website' });
+    expect(res.requestContact).toEqual({
+      contactId: recorded.outcome === 'recorded' ? recorded.contactId : '',
+      phoneE164: '+84983123456',
+    });
+  });
+
+  it("tells the bot the customer's appointment is already confirmed (MS2-7)", async () => {
+    const { svc, crm, requests } = pipeline(() => ({ text: 'Dạ lịch đã được xác nhận ạ.' }), 'spa');
+    crm.requestStatus.mockResolvedValueOnce({
+      kind: 'appointment',
+      kindLabel: 'Đặt lịch',
+      dateLabel: 'Thứ Năm 19/11/2026',
+      preferredTime: '9h sáng',
+      confirmed: true,
+      statusName: 'Đã xác nhận lịch',
+    });
+    const contactId = newId();
+    await svc.reply(ws, botId, ask('lịch của em ổn chưa ạ'), { ...live(), contactId });
+    expect(crm.requestStatus).toHaveBeenCalledWith(ws, contactId);
+    const turn = JSON.stringify(requests[0]?.messages.at(-1));
+    expect(turn).toContain('Đặt lịch (Thứ Năm 19/11/2026 9h sáng)');
+    expect(turn).toContain('CONFIRMED by staff');
+  });
+
+  it('passes the conversation, so the staff task opens it (LM2-8)', async () => {
+    const { svc, crm } = pipeline((_req, round) =>
+      round === 0 ? call(args) : { text: 'Dạ em đã ghi nhận ạ.' },
+    );
+    const options = live();
+    await svc.reply(ws, botId, ask(said), options);
+    expect(crm.recordBotRequest.mock.calls[0]?.[1]).toMatchObject({
+      conversationId: options.conversationId,
+    });
   });
 
   it('the playground previews without writing', async () => {
@@ -179,7 +225,7 @@ describe('record_request for education and spa', () => {
     preferredTime: 'chiều',
   };
 
-  it('a spa bot records an appointment with the spa profile and passes updated, missing and dateLabel through', async () => {
+  it('a spa bot records an appointment with the spa profile; an update passes no missing details again (LM-13)', async () => {
     const { svc, crm, requests } = pipeline(
       (_req, round) => (round === 0 ? call(spaArgs) : { text: 'Dạ em đã ghi nhận ạ.' }),
       'spa',
@@ -187,6 +233,7 @@ describe('record_request for education and spa', () => {
     crm.recordBotRequest.mockResolvedValueOnce({
       outcome: 'updated',
       contactId: newId(),
+      phoneE164: '+84983123456',
       created: false,
       missing: ['branch'],
       dateLabel: 'Thứ Bảy 13/11/2027',
@@ -208,10 +255,12 @@ describe('record_request for education and spa', () => {
       },
       preview: false,
       catalogNames: [],
+      conversationId: expect.any(String),
     });
     const result = lastToolResult(requests[1]);
     expect(result).toContain('\\"updated\\":true');
-    expect(result).toContain('\\"missing\\":[\\"branch\\"]');
+    // LM-13: they were asked for when the request was first recorded.
+    expect(result).toContain('\\"missing\\":[]');
     expect(result).toContain('Thứ Bảy 13/11/2027');
   });
 
@@ -327,5 +376,57 @@ describe('contactVouched', () => {
     seen.push('Gói Pro');
     await runnable[0]!.run(args);
     expect(recordBotRequest.mock.calls[0]?.[1]).toMatchObject({ catalogNames: ['Gói Pro'] });
+  });
+});
+
+describe('weekdayMismatch (LM-17, LM2-6)', () => {
+  it('flags a weekday and a date that disagree in the newest message, whichever was resolved', () => {
+    const texts = ['chiều thứ 7 ngày 15/11/2027 lúc 4h'];
+    expect(weekdayMismatch('2027-11-15', texts)).toBe('15/11 là Thứ Hai');
+    // LM2-6: the model resolved the weekday (Saturday 14/11) instead of the date.
+    expect(weekdayMismatch('2026-11-14', ['Chiều thứ 7 tuần này 15/11 lúc 4h chiều nhé'])).toBe(
+      '15/11 là Chủ Nhật',
+    );
+    expect(weekdayMismatch('2027-11-13', ['thứ 7 13/11/2027'])).toBeNull();
+    expect(weekdayMismatch('2026-11-15', ['chủ nhật 15/11'])).toBeNull();
+    expect(weekdayMismatch('2027-11-15', ['ngày 15/11/2027'])).toBeNull();
+    // The customer's answer ends it: only the newest message counts.
+    expect(weekdayMismatch('2026-11-14', ['thứ 7 tuần này 15/11', 'thứ 7 nhé em'])).toBeNull();
+  });
+});
+
+describe('asksForRequest (LM3-2)', () => {
+  it('needs a message that asks to register, book, try, be advised or be called', () => {
+    for (const asked of [
+      'Chị muốn cho bé nhà chị học thử lớp Kids',
+      'cho mình đăng ký kiểm tra trình độ đầu vào cho con với',
+      'đặt giúp mình lịch massage body đá nóng tối Chủ Nhật',
+      'Mình là Quân, công ty 20 người, muốn xem demo phần mềm',
+      'gọi lại cho chị sau 9h tối thứ 3 nha',
+      'dat lich goi dau thu 7',
+    ])
+      expect(asksForRequest([asked]), asked).toBe(true);
+    for (const not of [
+      'có học thử ko em',
+      'Chị là Hương, 0912 888 777, con chị đang A2 mà học mãi không tiến bộ, trung tâm làm ăn kiểu gì vậy',
+      'học phí khoá IELTS bao nhiêu',
+      // Review 2026-11-13: "book" / "trial" are whole words only.
+      'mình thấy bên em trên facebook, khoá A2 học mấy buổi',
+      'industrial English có không',
+    ])
+      expect(asksForRequest([not]), not).toBe(false);
+    expect(asksForRequest(['I want to book a trial class'])).toBe(true);
+  });
+});
+
+describe('weekdayMismatchInText (LM2-6, no preferredDate)', () => {
+  it('flags a weekday/date pair that disagrees in the newest message', () => {
+    const now = new Date('2026-11-13T03:00:00Z');
+    expect(weekdayMismatchInText(['chiều thứ 7 ngày 15/11/2027 lúc 4h'], now)).toBe(
+      '15/11 là Thứ Hai',
+    );
+    expect(weekdayMismatchInText(['thứ 7 tuần này 15/11'], now)).toBe('15/11 là Chủ Nhật');
+    expect(weekdayMismatchInText(['thứ 7 14/11 nhé'], now)).toBeNull();
+    expect(weekdayMismatchInText(['chiều mai nhé'], now)).toBeNull();
   });
 });

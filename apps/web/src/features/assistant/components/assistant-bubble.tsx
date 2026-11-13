@@ -1,5 +1,5 @@
 import { useRouterState } from '@tanstack/react-router';
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { type CSSProperties, lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { toast } from 'sonner';
@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { openReportThread } from '../api/report-thread';
 import { LAUNCHER_INSET, useLauncherBottom } from '../hooks/use-launcher-bottom';
 import { useLauncherDrag } from '../hooks/use-launcher-drag';
+import { TUCKED_VISIBLE, useLauncherTucked } from '../hooks/use-launcher-tucked';
 import { useAssistantUi } from '../stores/assistant-ui.store';
 
 // The panel (Sheet, chat, steps, spotlight) and its strings load on first open (docs/16 §1).
@@ -98,7 +99,10 @@ export function AssistantBubble() {
   const drag = useLauncherDrag(openPanel);
   // At its default place it steps over a bottom-right control marked `data-assistant-avoid`.
   const bottom = useLauncherBottom(isOwner && !open && !onPage && drag.position === null);
-  const place = drag.position ?? { right: LAUNCHER_INSET, bottom };
+  // Mid-page it tucks against the right edge so it covers no value or status (TM-13); hover,
+  // focus or a tap brings it out. A launcher the owner moved stays where it was put.
+  const tucked = useLauncherTucked(isOwner && !open && !onPage && drag.position === null);
+  const place = drag.position ?? { right: tucked ? 0 : LAUNCHER_INSET, bottom };
   if (!isOwner) return null;
   return (
     <>
@@ -118,10 +122,14 @@ export function AssistantBubble() {
           title={t('app.assistantLauncherHint')}
           aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight"
           {...drag.handlers}
-          style={place}
+          style={{ ...place, '--tuck': `${56 - TUCKED_VISIBLE}px` } as CSSProperties}
           className={cn(
             'fixed z-40 grid size-14 touch-none place-items-center rounded-full border border-sidebar-border bg-sidebar shadow-lg select-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none',
             drag.dragging ? 'cursor-grabbing shadow-xl' : 'transition',
+            // Hidden while the bot's Chat thử is open: it has its own chat box there.
+            '[body:has([data-assistant-hide=always])_&]:hidden xl:[body:has([data-assistant-hide=xl])_&]:hidden',
+            tucked &&
+              'translate-x-(--tuck) hover:translate-x-0 focus-visible:translate-x-0 motion-reduce:transition-none',
           )}
         >
           <BrandMark className="h-6" />

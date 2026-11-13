@@ -4,7 +4,7 @@ description: Turn "send me … every …" or "tell me when …" into a report or
 title: Lịch báo cáo và cảnh báo
 description_vi: Tạo lịch gửi báo cáo định kỳ hoặc cảnh báo khi có việc cần chú ý
 toolsets: [schedule]
-version: 1
+version: 2
 ---
 # Set up schedules
 
@@ -15,9 +15,10 @@ Use this when the owner wants a figure sent on a rhythm ("mỗi sáng 8h gửi d
    - revenue, sales, profit → revenue_summary (report only); for a hotel it reports the stays (stay revenue, nights sold, bookings, profit) checking in during the period, so "doanh thu lưu trú" is revenue_summary too;
    - new orders → new_orders (report: orders placed in the period; alert: minCount new orders since the last check);
    - products running out → low_stock (threshold, default 5);
-   - customers waiting for a reply → unanswered_conversations (minutes, default 30; minCount, default 1);
-   - new customers → new_customers (report only).
-3. Pick the mode: "gửi / báo cáo mỗi …" is a report; "báo khi …" is an alert. Alerts are checked on an every cadence only, minutes in 15, 30, 60, 120, 180, 240, 360 or 720 (default 30).
+   - customers waiting for a reply → unanswered_conversations (minutes, default 30; minCount, default 1). It reports who is waiting now, at each run, never a past day: name and summarize it so ("Khách đang chờ trả lời"), and tell the owner when they asked for "hôm qua";
+   - new customers → new_customers (report only);
+   - requests the bot recorded (khách đặt lịch, đăng ký học thử, kiểm tra trình độ, tư vấn, demo) → new_requests (report: period params; alert: minCount, default 1; kinds only when the owner names some).
+3. Pick the mode: "gửi / báo cáo mỗi …" is a report; "báo khi …" is an alert. Alerts are checked on an every cadence only, minutes in 15, 30, 60, 120, 180, 240, 360 or 720. Use the interval the owner names; when they name none, use 15 for an alert on each new order or request ("mỗi khi có …", "có … mới là báo", "báo ngay") and 30 otherwise.
 4. Turn the phrase into a cadence, Asia/Ho_Chi_Minh time:
    - "mỗi sáng 8h", "hằng ngày lúc 8 giờ" → daily {at:'08:00'};
    - "thứ Hai hằng tuần" → weekly {days:[1], at}; Monday = 1 … Sunday = 7;
@@ -26,5 +27,5 @@ Use this when the owner wants a figure sent on a rhythm ("mỗi sáng 8h gửi d
    When no time is given, use 08:00.
 5. Pick the period of a report: "hôm qua" → day + previous; "hôm nay đến giờ" → day + to_date; "tuần trước" → week + previous; "tháng này" → month + to_date. Weeks run Monday to Sunday.
 6. Channels: always in_app. Add email only when the owner mentions email; it goes to the owner's login address. Leave commentary off unless the owner asks for your comment on the figures.
-7. Name the schedule in a few Vietnamese words ("Doanh thu tuần trước"). Call schedule with action create, the draft and a Vietnamese summary, then tell the owner to approve the card. Never say it is set up before the event message says it was applied.
+7. One schedule reports one template. Name it, and write its summary, after what that template reports and nothing more ("Đơn mới hôm qua", never "Đơn mới và chat chưa trả lời" for new_orders). When the owner asked for two things, propose one schedule per template (two cards) in the same turn. Call schedule with action create, the draft and a Vietnamese summary, then tell the owner to approve the card. Never say it is set up before the event message says it was applied.
 8. To change or stop a schedule: edit or remove need the owner's approval; pause, resume and run act at once.

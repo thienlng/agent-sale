@@ -44,7 +44,7 @@ export async function importProductImages(
   const download =
     options.download ??
     ((u: string) =>
-      downloadImage(u, fetch, { allowPrivateHosts: options.allowPrivateHosts === true }));
+      downloadImage(u, undefined, { allowPrivateHosts: options.allowPrivateHosts === true }));
   const rows = await db
     .select({
       id: schema.products.id,

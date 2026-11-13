@@ -28,6 +28,18 @@ export const CUSTOMER_CHANNELS: ReadonlySet<string> = new Set([
   'website',
   'zalo',
 ]);
+/**
+ * A hold placed from the dashboard test chat ("Chat thử", channel `playground`): tagged so staff
+ * see it is a test, and kept at most this long so it does not block real guests (VL-A11).
+ */
+export const TEST_HOLD_TAG = 'Chat thử';
+export const TEST_HOLD_MINUTES = 15;
+
+/** The business's hold lifetime in minutes. */
+export async function holdMinutesOf(tx: LodgingTx): Promise<number> {
+  return (await tx.settings()).holdMinutes;
+}
+
 /** RFC 4122 namespace of bot hold request ids (uuid v5 of the draft id). */
 const HOLD_NAMESPACE = '6f1c2a54-8a0e-4c39-9b8e-3d4f5a6b7c8d';
 

@@ -22,8 +22,8 @@ const hasBookings = {
   body: {
     error: {
       code: 'CONFLICT',
-      message: 'A property with bookings cannot be deleted',
-      details: { reason: 'property_has_bookings' },
+      message: 'The property has bookings; confirm deleting them too',
+      details: { reason: 'property_has_bookings', bookings: 3, upcoming: 1 },
     },
   },
 };
@@ -51,7 +51,38 @@ describe('DeletePropertySection', () => {
     expect(toast.success).toHaveBeenCalledWith('Đã xoá căn hộ A17 · Villa A17 Vinpearl.');
   });
 
-  it('keeps a property with bookings and pauses it in one click instead', async () => {
+  it('deletes a property with bookings once the owner types (or copies) its code', async () => {
+    const routes: Record<string, { status: number; body?: unknown }> = {
+      [`DELETE ${path}`]: hasBookings,
+    };
+    const { fetchStub, calls } = stubLodgingApi(routes);
+    vi.stubGlobal('fetch', fetchStub);
+    const onDeleted = vi.fn();
+    renderWithRouter(() => (
+      <DeletePropertySection property={propertyFixture()} onDeleted={onDeleted} />
+    ));
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Xoá căn hộ' }));
+    const dialog = await screen.findByRole('alertdialog', {
+      name: 'Xoá căn hộ A17 · Villa A17 Vinpearl?',
+    });
+    await user.click(within(dialog).getByRole('button', { name: 'Xoá vĩnh viễn' }));
+
+    expect(await within(dialog).findByText(/Căn hộ này có 3 booking/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/1 booking còn hiệu lực/)).toBeInTheDocument();
+    const submit = within(dialog).getByRole('button', { name: 'Xoá căn hộ và 3 booking' });
+    expect(submit).toBeDisabled();
+    await user.click(within(dialog).getByRole('button', { name: 'Chép mã A17' }));
+    expect(await navigator.clipboard.readText()).toBe('A17');
+    await user.click(within(dialog).getByLabelText('Nhập mã căn hộ để xác nhận'));
+    await user.paste('A17');
+    routes[`DELETE ${path}`] = { status: 204 };
+    await user.click(submit);
+    await waitFor(() => expect(onDeleted).toHaveBeenCalledOnce());
+    expect(calls.map((c) => c.url)).toEqual([path, `${path}?withBookings=true`]);
+  });
+
+  it('offers to pause a property with bookings instead of deleting it', async () => {
     const { fetchStub, calls } = stubLodgingApi({
       [`DELETE ${path}`]: hasBookings,
       [`PATCH ${path}`]: { status: 200, body: propertyFixture({ status: 'paused', version: 2 }) },
@@ -63,10 +94,7 @@ describe('DeletePropertySection', () => {
     ));
     const dialog = await openDialog();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Xoá vĩnh viễn' }));
-
-    expect(await within(dialog).findByText(/đã có booking nên không xoá được/)).toBeInTheDocument();
-    expect(within(dialog).queryByRole('button', { name: 'Xoá vĩnh viễn' })).toBeNull();
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Tạm dừng căn hộ' }));
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Tạm dừng căn hộ' }));
     await waitFor(() =>
       expect(calls.find((c) => c.key === `PATCH ${path}`)?.body).toEqual({
         version: 1,
@@ -85,7 +113,7 @@ describe('DeletePropertySection', () => {
     ));
     const dialog = await openDialog();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Xoá vĩnh viễn' }));
-    expect(await within(dialog).findByText(/Căn hộ đang tạm dừng/)).toBeInTheDocument();
+    expect(await within(dialog).findByText(/Căn hộ này có 3 booking/)).toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: 'Tạm dừng căn hộ' })).toBeNull();
   });
 });

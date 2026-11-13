@@ -17,6 +17,10 @@ import { TrainingNav } from './training-nav';
 vi.mock('./bot-active-switch', () => ({ BotActiveSwitch: () => null }));
 const can = vi.hoisted(() => ({ manage: true }));
 vi.mock('@/lib/permissions', () => ({ useCan: () => can.manage }));
+const admin = vi.hoisted(() => ({ value: false }));
+vi.mock('@/lib/session', () => ({
+  useSession: () => ({ user: { isPlatformAdmin: admin.value } }),
+}));
 
 const BOT = { id: 'b1', name: 'Shop bot' } as BotDto;
 
@@ -74,5 +78,31 @@ describe('TrainingNav', () => {
   it('has no test chat button: the chat reopens from its own collapsed rail', async () => {
     await renderNav();
     expect(screen.queryByRole('button', { name: /Chat thử/ })).toBeNull();
+  });
+
+  it('names the catalog "Dịch vụ" for an education or spa bot (MS-24, LM-3)', async () => {
+    for (const nav of await renderNav({ bot: { ...BOT, industry: 'spa' } as BotDto })) {
+      expect(within(nav).getByRole('link', { name: 'Dịch vụ' })).toHaveAttribute(
+        'href',
+        '/app/bots/b1/products',
+      );
+    }
+  });
+
+  it('shows the development tools to the platform team only (MS-30)', async () => {
+    for (const nav of await renderNav()) {
+      expect(within(nav).queryByRole('link', { name: 'Tool Ads Facebook' })).toBeNull();
+    }
+  });
+
+  it('keeps the development tools for a platform admin', async () => {
+    admin.value = true;
+    try {
+      for (const nav of await renderNav()) {
+        expect(within(nav).getByRole('link', { name: 'Tool Ads Facebook' })).toBeVisible();
+      }
+    } finally {
+      admin.value = false;
+    }
   });
 });

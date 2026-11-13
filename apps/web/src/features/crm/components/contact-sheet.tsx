@@ -11,7 +11,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, formatPhone } from '@/lib/format';
 
 import { useContact } from '../api/crm';
 import { contactLabel } from '../hooks/crm-errors';
@@ -48,7 +48,7 @@ export function ContactSheet({
 
   return (
     <Sheet open={Boolean(contactId)} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full gap-0 overflow-y-auto sm:max-w-2xl">
+      <SheetContent className="w-full gap-0 overflow-y-auto data-[side=right]:w-full sm:max-w-2xl">
         <SheetHeader className="border-b">
           <SheetTitle className="pr-8 text-xl">{c ? contactLabel(c, t) : '…'}</SheetTitle>
           <SheetDescription asChild>
@@ -56,12 +56,13 @@ export function ContactSheet({
               {c ? (
                 <>
                   <KiotVietBadge contact={c} />
-                  {c.phone ? <span className="tabular-nums">{c.phone}</span> : null}
+                  {c.phone ? <span className="tabular-nums">{formatPhone(c.phone)}</span> : null}
                   <OptionBadge option={lookups.status(c.statusId)} />
                   <span className="text-muted-foreground">
                     {t('crm.detail.createdBy', { at: formatDateTime(c.createdAt) })}
                   </span>
-                  <TagChips assignments={c.tags} lookups={lookups} />
+                  {/* No tags: nothing, not a dangling "—" after the date (MS-30). */}
+                  {c.tags.length ? <TagChips assignments={c.tags} lookups={lookups} /> : null}
                 </>
               ) : null}
             </div>
@@ -74,7 +75,8 @@ export function ContactSheet({
           </div>
         ) : (
           <Tabs defaultValue="overview" className="p-4">
-            <TabsList className="w-full">
+            {/* Five tabs fit a 390 px phone with tighter padding ("Files" was cut, MS-30). */}
+            <TabsList className="w-full [&>button]:px-1.5 sm:[&>button]:px-2">
               {(renderConversations
                 ? (['overview', 'details', 'conversations', 'history', 'files'] as const)
                 : (['overview', 'details', 'history', 'files'] as const)

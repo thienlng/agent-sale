@@ -50,6 +50,10 @@
     "./brain": {
       "types": "./dist/brain.d.ts",
       "import": "./dist/brain.js"
+    },
+    "./action": {
+      "types": "./dist/action.d.ts",
+      "import": "./dist/action.js"
     }
   },
   "files": [

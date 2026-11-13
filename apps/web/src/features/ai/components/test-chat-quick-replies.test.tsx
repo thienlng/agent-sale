@@ -2,9 +2,12 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { loadNamespace } from '@/lib/i18n';
 import { renderWithProviders } from '@/testing/render';
 
 import { TestChat } from './test-chat';
+
+beforeAll(() => loadNamespace('action'));
 
 const botId = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d21';
 const base = {
@@ -89,12 +92,16 @@ describe('TestChat quick replies', () => {
     expect(await screen.findByText('Dạ em đã ghi nhận đơn ạ.')).toBeInTheDocument();
     expect(pill('✅ Đặt hàng')).not.toBeInTheDocument();
     expect(pill('✏️ Sửa thông tin')).not.toBeInTheDocument();
+    // Each test chat has its own session id, the same on every turn of that chat (c848e01e).
+    const sessionId = (sent[0] as { sessionId?: unknown }).sessionId;
+    expect(sessionId).toEqual(expect.any(String));
     expect(sent[1]).toEqual({
       messages: [
         { role: 'customer', content: 'chot don' },
         { role: 'bot', content: summary.reply },
         { role: 'customer', content: '✅ Đặt hàng' },
       ],
+      sessionId,
     });
   });
 
@@ -145,12 +152,16 @@ describe('TestChat quick replies', () => {
     await userEvent.click(screen.getByRole('button', { name: '✅ Đặt hàng' }));
     expect(await screen.findByText('Dạ em đã ghi nhận đơn ạ.')).toBeInTheDocument();
 
+    // Each test chat has its own session id, the same on every turn of that chat (c848e01e).
+    const sessionId = (sent[0] as { sessionId?: unknown }).sessionId;
+    expect(sessionId).toEqual(expect.any(String));
     expect(sent[1]).toEqual({
       messages: [
         { role: 'customer', content: 'chot don' },
         { role: 'bot', content: summary.reply },
         { role: 'customer', content: '✅ Đặt hàng' },
       ],
+      sessionId,
     });
     expect(box).toHaveValue('ghi chu giao gio hanh chinh');
     expect(screen.getByRole('button', { name: 'Bỏ ảnh này' })).toBeInTheDocument();

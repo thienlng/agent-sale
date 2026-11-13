@@ -41,7 +41,7 @@ export const webchatRoutes = defineRoutes([
     method: 'post',
     path: '/webchat/v1/sites/{key}/uploads',
     summary:
-      'Upload one image (multipart field "file", at most 5 MB). Without a visitor token it starts the visitor and answers `visitorToken`; the optional query parameters firstUrl, referrer, pageUrl and pageTitle then fill the visitor row',
+      'Upload one image (multipart field "file", at most 5 MB). Without a visitor token it starts the visitor and answers `visitorToken`; the optional query parameters firstUrl, referrer, pageUrl and pageTitle then fill the visitor row, and turnstileToken answers the challenge when the config named a Turnstile site key. The image is stored temporarily and deleted after a day unless a message references it',
     responses: { 200: WidgetUploadResponse },
   },
   {

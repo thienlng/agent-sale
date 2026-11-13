@@ -2,6 +2,7 @@ import {
   BotPropertiesDto,
   CreateOverrideRequest,
   DeleteOverrideQuery,
+  DeletePropertyQuery,
   LodgingSettings,
   PropertyInput,
   PutRatesRequest,
@@ -87,7 +88,10 @@ export class PropertiesController {
     return this.properties.update(ws, id, body, actor.userId);
   }
 
-  /** Only a property without any booking; otherwise 409 `property_has_bookings` (pause it). */
+  /**
+   * A property with bookings answers 409 `property_has_bookings` with the counts, unless
+   * `withBookings=true`: the owner confirmed deleting its bookings too.
+   */
   @Delete('properties/:id')
   @HttpCode(204)
   @RequireCapability('catalog.manage')
@@ -95,8 +99,9 @@ export class PropertiesController {
     @CurrentWorkspace() ws: WorkspaceId,
     @CurrentUser() actor: AuthState,
     @Param('id', Id) id: string,
+    @Query(new ZodValidationPipe(DeletePropertyQuery)) q: z.output<typeof DeletePropertyQuery>,
   ): Promise<void> {
-    return this.removal.remove(ws, id, actor.userId);
+    return this.removal.remove(ws, id, actor.userId, { withBookings: q.withBookings });
   }
 
   @Put('properties/:id/units')

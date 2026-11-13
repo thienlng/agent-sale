@@ -19,6 +19,16 @@ export const MAX_EVENT_ATTEMPTS = 3;
 /** A customer's messages are answered together once they pause this long (or after the max wait). */
 export const EVENT_QUIET_MS = 700;
 export const EVENT_MAX_WAIT_MS = 4000;
+/** Options of one inbox claim. */
+export interface ClaimOptions {
+  /**
+   * At most this many distinct conversations (connection + customer) per workspace in one claim,
+   * oldest first, picked per workspace over the whole backlog (not a window of the oldest rows),
+   * so one flooded shop cannot fill the claim (security audit 2026-11-12 #3). Events are taken
+   * round-robin across the admitted conversations; each one keeps its oldest events, in order.
+   */
+  perWorkspace?: number;
+}
 type OutboundAttachment = { type: 'image' | 'video' | 'audio' | 'file'; url: string };
 /** Either text or attachments (one, or several delivered as one album), as Meta accepts per message. */
 export interface OutboundInboxMessage {
@@ -103,7 +113,7 @@ export interface ChannelFacade {
     connectionId: string,
     senderExternalId: string,
   ): Promise<number>;
-  claimEvents(limit: number): Promise<PendingMetaEvent[]>;
+  claimEvents(limit: number, options?: ClaimOptions): Promise<PendingMetaEvent[]>;
   renewEvent(id: string, claimToken: string): Promise<boolean>;
   completeEvent(id: string, claimToken: string): Promise<void>;
   /** Terminal failure: keeps the payload for replay and stops further claims. */
@@ -118,6 +128,11 @@ export interface ChannelFacade {
    * before the newer message's own quiet window has passed.
    */
   requeueEvent(id: string, claimToken: string): Promise<void>;
+  /**
+   * Holds the event until `until` without spending an attempt: a customer message that arrived
+   * while staff held the conversation is answered once the bot resumes (LM2-2).
+   */
+  deferEvent(id: string, claimToken: string, until: Date): Promise<void>;
   /** Whether the same customer wrote again after this event (its answer would already be stale). */
   hasNewerCustomerEvent(
     connectionId: string,

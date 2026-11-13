@@ -1,7 +1,7 @@
 # Prompt evals
 
 Cases that drive real customer questions through the production reply pipeline
-(`PlaygroundService.playground()`: prompts `sales-agent@15` (retail) / `@21` (lodging) / `@19`
+(`PlaygroundService.playground()`: prompts `sales-agent@27` (retail) / `@25` (lodging) / `@26`
 (saas, education, spa), business
 profile block, FAQs, situations, history compression, the agent loop with catalog, `calculate`,
 `send_message`, `handoff`, order and action tools, reply post-processing) and check what the
@@ -18,7 +18,7 @@ pnpm --filter @agent-sales/backend eval --live --id saas-demo-recorded-no-handof
 ```
 
 `--prompt-version n` forces `sales-agent@n` for every case. Without it each case runs on its
-industry's prompt (`PROMPT_BY_INDUSTRY`: hotel `@21`; saas, education and spa `@19`; others `@15`).
+industry's prompt (`PROMPT_BY_INDUSTRY`: hotel `@25`; saas, education and spa `@26`; others `@27`).
 
 - **Fake mode** (default): the scripted model replays the case's `fake_turns`, one per model call
   of the agent loop. A turn with `tool_calls` makes the loop run those tools (catalog lookups,
@@ -47,7 +47,7 @@ industry's prompt (`PROMPT_BY_INDUSTRY`: hotel `@21`; saas, education and spa `@
   properties (whole rental only): weekday `rates`, extra-adult surcharges above `standardAdults`,
   `maxGuests`, nights booked by `lodging.taken`, a summary in the layout of the real one, holds
   numbered `BK-0001`… `lodging.hold_draft` seeds a summary sent before the turn and
-  `lodging.taken_before_confirm` makes another booking take its nights before the confirm. Dates and
+  `lodging.taken_before_confirm` makes another booking take its nights before the confirm. `lodging.holds_before` lists holds the bot placed earlier in the conversation (`hold` code, property `code`, dates, party, `guestPhone`, `totalSell`): they take their nights, the bot reads them when an earlier bot message names their code, and a new hold of the same property and phone replaces one (VL2-4: `replaces` in the summary, cancelled on confirm, codes continue after the highest). Dates and
   review rules are not checked by the fake (the lodging module has its own tests). Whole-property
   bedroom packages (T-193, `accommodation.packages`) are simulated like `quoteStay`: the fewest
   bedrooms that hold the party and are sold every night, else the biggest; the other packages as
@@ -163,7 +163,8 @@ Checks are deterministic and optional (an absent key is not checked). Text compa
 and Unicode normalization, not diacritics. `numbers_only_from_sources` reuses the pipeline's
 `ungroundedFigures` (`domain/grounding.ts`): every figure in the reply must be in the case's
 profile, notes, FAQs, situations or products; the customer's words vouch only for non-money
-figures. Since agent harness v2 the reply path no longer replaces an ungrounded reply (ADR-015), so
+figures. A d/m date (optionally with a year) of the turn's day or the next 14 days counts as
+grounded: the model derives it from the `<current_time>` block ("cuối tuần này" → 14/11). Since agent harness v2 the reply path no longer replaces an ungrounded reply (ADR-015), so
 this check is the only place an invented figure shows up: put it on every case that quotes a price
 or a policy figure. Profile notes are trusted data: an injected number in notes is "grounded", so
 the injection case uses `not_contains`.
@@ -171,7 +172,7 @@ the injection case uses `not_contains`.
 ## Add a case
 
 1. Pick the group folder (`profile-facts`, `unknown`, `safety`, `handoff`, `catalog`, `multi-turn`,
-   `calculator`, `orders`, `requests`, or a new one).
+   `calculator`, `orders`, `requests`, `language`, or a new one).
 2. Copy a similar file, change `id`, the fixtures, the conversation and `expect`. Use synthetic data only.
 3. Write realistic `fake_turns` (the tool calls a good model would make, then its answer); run `pnpm --filter @agent-sales/backend test -- evals` (fake mode must pass).
 4. Tag it `critical` when a failure would be a trust problem: invented facts for an empty profile

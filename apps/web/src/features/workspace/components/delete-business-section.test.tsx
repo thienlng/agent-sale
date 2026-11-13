@@ -53,7 +53,7 @@ function setup(answer: { status: number; body?: unknown }) {
     'GET /workspaces/deleted': { status: 200, body: { data: [] } },
   });
   vi.stubGlobal('fetch', stub.fetchStub);
-  renderWithRouter(() => <DeleteBusinessSection exportAnchor="data-export-title" />);
+  renderWithRouter(() => <DeleteBusinessSection />);
   return stub.calls;
 }
 
@@ -71,7 +71,7 @@ describe('DeleteBusinessSection', () => {
     expect(screen.getByText(/Trang Facebook, Instagram và chat website/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Xuất dữ liệu' })).toHaveAttribute(
       'href',
-      '#data-export-title',
+      '/app/settings/data',
     );
     const user = await openDialog();
     expect(screen.getByRole('heading', { name: 'Xoá business Tiệm Hoa Mai?' })).toBeInTheDocument();
@@ -119,6 +119,16 @@ describe('DeleteBusinessSection', () => {
       'Tên chưa khớp. Nhập đúng tên business.',
     );
     expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('copies the exact name and accepts it typed with decomposed accents', async () => {
+    setup({ status: 200, body: DELETED });
+    const user = await openDialog();
+    await user.click(screen.getByRole('button', { name: 'Chép tên Tiệm Hoa Mai' }));
+    expect(await navigator.clipboard.readText()).toBe('Tiệm Hoa Mai');
+    await user.click(screen.getByLabelText('Nhập tên business để xác nhận'));
+    await user.paste('Tiệm Hoa Mai'.normalize('NFD'));
+    expect(screen.getByRole('button', { name: 'Xoá business' })).toBeEnabled();
   });
 
   it('tells a member who is not the owner that only the owner can delete', async () => {

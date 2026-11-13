@@ -48,7 +48,7 @@ Every `send_message` text and the final reply pass the pre-send guard (docs/06 Â
 
 Tokens of all rounds are summed into one `ai_runs` row (one billed AI message). `PlaygroundResponse.actions` lists `{name, ok, statusCode}` for the test-chat chips.
 
-## Executor safety (`domain/safe-http.ts`, `ip-guard.ts`)
+## Executor safety (`common/security/safe-http.ts`, `ip-guard.ts`)
 
 - The DNS lookup, and every connection attempt, share the one 8 s timeout. DNS is resolved first; every address must be public (no loopback, RFC1918, CGNAT, link-local incl. 169.254.169.254, multicast, ULA, mapped/embedded IPv4). The socket connects to a validated IP (IPv4 first; the next validated address is tried only after a connect-level failure, before any byte is sent), so DNS rebinding cannot swap it. Redirects are never followed. Userinfo in the URL is rejected.
 - 256 KB response cap, JSON only.

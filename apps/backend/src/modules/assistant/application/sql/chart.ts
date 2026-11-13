@@ -27,6 +27,56 @@ export const MAX_CHART_ROWS = 60;
 export const MAX_CHART_CELL_CHARS = 80;
 const MAX_LABEL_CHARS = 60;
 
+/**
+ * Vietnamese axis and series labels for the column names the SQL views and the model's queries
+ * use, when the model gives no `labels` (staging NEW-4: the owner saw "day" and "orders").
+ */
+const COLUMN_LABELS: Record<string, string> = {
+  day: 'Ngày',
+  date: 'Ngày',
+  ngay: 'Ngày',
+  week: 'Tuần',
+  month: 'Tháng',
+  hour: 'Giờ',
+  orders: 'Số đơn',
+  order_count: 'Số đơn',
+  orders_count: 'Số đơn',
+  revenue: 'Doanh thu',
+  total_revenue: 'Doanh thu',
+  sales: 'Doanh số',
+  profit: 'Lợi nhuận',
+  units: 'Số lượng',
+  units_sold: 'Số lượng bán',
+  qty: 'Số lượng',
+  quantity: 'Số lượng',
+  product: 'Sản phẩm',
+  product_name: 'Sản phẩm',
+  customers: 'Số khách',
+  customer_count: 'Số khách',
+  new_customers: 'Khách mới',
+  conversations: 'Hội thoại',
+  messages: 'Tin nhắn',
+  nights: 'Số đêm',
+  bookings: 'Số booking',
+  property_name: 'Căn',
+  source: 'Nguồn',
+  channel: 'Kênh',
+  status: 'Trạng thái',
+  status_name: 'Trạng thái',
+  category: 'Danh mục',
+  count: 'Số lượng',
+  n: 'Số lượng',
+  total: 'Tổng',
+};
+
+/** The label of a column without a model label: the known Vietnamese one, else the name spaced. */
+export function defaultColumnLabel(key: string): string {
+  const known = COLUMN_LABELS[key.toLowerCase()];
+  if (known) return known;
+  const spaced = key.replace(/_+/g, ' ').trim();
+  return spaced ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : key;
+}
+
 export type BuildChartResult =
   { ok: true; chart: AssistantChart } | { ok: false; errorCode: string };
 
@@ -83,15 +133,17 @@ export function buildChart(req: ChartRequest, result: SqlRunResult): BuildChartR
   const xi = at(req.x);
   const rows = result.rows.map((row) => {
     const xCell = row[xi] ?? null;
-    const out: Record<string, string | number | null> = {
+    const out: ChartRow = {
       [req.x]: xCell === null ? null : cut(String(xCell), MAX_CHART_CELL_CHARS),
     };
     for (const y of req.y) out[y] = (row[at(y)] ?? null) as number | null;
     return out;
   });
+  const series = req.kind === 'pie' ? rows : dateSeries(rows, req.x, req.y);
+  if (series.length > maxRows) return fail('chart_too_many_points');
   const label = (key: string) => ({
     key,
-    label: cut(req.labels?.[key] ?? key, MAX_LABEL_CHARS),
+    label: cut(req.labels?.[key] ?? defaultColumnLabel(key), MAX_LABEL_CHARS),
   });
   return {
     ok: true,
@@ -101,7 +153,74 @@ export function buildChart(req: ChartRequest, result: SqlRunResult): BuildChartR
       x: label(req.x),
       series: req.y.map(label),
       unit: req.unit ?? 'number',
-      rows,
+      rows: series,
     },
   };
+}
+
+type ChartRow = Record<string, string | number | null>;
+
+const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[ T]00:00(?::00)?(?:[+-]\d{2}(?::?\d{2})?|Z)?)?$/;
+const DAY_MS = 86_400_000;
+
+/**
+ * A date series as the owner reads it (AS2-5, AS2-10): when every x is a calendar date, the
+ * missing days between the first and the last are added with 0 (a day without orders is a
+ * point, not a gap), and a series of first days of months becomes `Tháng 10/2026` per month,
+ * with the missing months added too. Anything else is returned as is. Rows stay in date order.
+ */
+export function dateSeries(rows: ChartRow[], x: string, ys: readonly string[]): ChartRow[] {
+  const parts: { at: number; first: boolean }[] = [];
+  for (const r of rows) {
+    const d = DAY_RE.exec(String(r[x] ?? ''));
+    if (!d) return rows;
+    parts.push({
+      at: Date.UTC(Number(d[1]), Number(d[2]) - 1, Number(d[3])),
+      first: d[3] === '01',
+    });
+  }
+  if (rows.length < 2) return rows;
+  const byKey = new Map<number, ChartRow>();
+  rows.forEach((r, i) => byKey.set(parts[i]?.at ?? 0, r));
+  const point = (key: number, xValue: string): ChartRow => {
+    const found = byKey.get(key);
+    const out: ChartRow = { [x]: xValue };
+    for (const y of ys) out[y] = found ? (found[y] ?? null) : 0;
+    return out;
+  };
+  const times = parts.map((p) => p.at);
+  const first = Math.min(...times);
+  const last = Math.max(...times);
+  const out: ChartRow[] = [];
+  if (parts.every((p) => p.first)) {
+    const start = new Date(first);
+    for (let m = 0; out.length <= MAX_CHART_ROWS; m++) {
+      const key = Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + m, 1);
+      if (key > last) break;
+      const d = new Date(key);
+      out.push(point(key, `Tháng ${d.getUTCMonth() + 1}/${d.getUTCFullYear()}`));
+    }
+    return out;
+  }
+  for (let key = first; key <= last && out.length <= MAX_CHART_ROWS; key += DAY_MS) {
+    out.push(point(key, new Date(key).toISOString().slice(0, 10)));
+  }
+  return out;
+}
+
+/** A line that only stands in for a chart: `[Biểu đồ …]`, `[Chart: …]`, `*(biểu đồ bên dưới)*`. */
+const CHART_PLACEHOLDER_LINE =
+  /^\s*[*_]*[[(](?:biểu đồ|bieu do|chart)(?=[\s:\])])[^\])]*[\])][*_]*\s*$/iu;
+
+/**
+ * The answer without the placeholder lines a model writes where its chart goes (NEW-4): the app
+ * draws the chart under the answer, so such a line only shows as raw text. Pure.
+ */
+export function withoutChartPlaceholders(text: string): string {
+  return text
+    .split('\n')
+    .filter((line) => !CHART_PLACEHOLDER_LINE.test(line))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }

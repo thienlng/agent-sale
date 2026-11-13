@@ -517,4 +517,13 @@ describe('playgroundConversationId', () => {
     expect(playgroundConversationId(botId)).toBe(id);
     expect(playgroundConversationId(newId())).not.toBe(id);
   });
+
+  it('gives every test chat session its own id, so drafts never cross chats (TM-18)', () => {
+    const a = newId();
+    const one = playgroundConversationId(botId, a);
+    expect(one).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(playgroundConversationId(botId, a)).toBe(one);
+    expect(playgroundConversationId(botId, newId())).not.toBe(one);
+    expect(one).not.toBe(playgroundConversationId(botId));
+  });
 });

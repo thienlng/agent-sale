@@ -1,6 +1,6 @@
 import type { PropertyDto } from '@agent-sales/contracts';
-import { CircleAlert, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { Check, CircleAlert, Copy, Trash2 } from 'lucide-react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -15,17 +15,31 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { ApiClientError } from '@/lib/api-client';
 import { errorMessage } from '@/lib/errors';
 
 import { useDeleteProperty, useUpdateProperty } from '../api/properties';
 
-const hasBookings = (e: unknown) =>
-  e instanceof ApiClientError && e.details?.['reason'] === 'property_has_bookings';
+interface Bookings {
+  total: number;
+  upcoming: number;
+}
+
+/** The counts of a 409 `property_has_bookings`, or null for any other error. */
+function bookingsOf(e: unknown): Bookings | null {
+  if (!(e instanceof ApiClientError) || e.details?.['reason'] !== 'property_has_bookings') {
+    return null;
+  }
+  const n = (v: unknown) => (typeof v === 'number' ? v : 0);
+  return { total: Math.max(1, n(e.details['bookings'])), upcoming: n(e.details['upcoming']) };
+}
 
 /**
- * "Xoá căn hộ" danger zone of the property editor. Only a property that has never had a booking
- * can be deleted; for one with bookings the dialog says so and offers to pause it instead.
+ * "Xoá căn hộ" danger zone of the property editor. A property without bookings is deleted after a
+ * plain confirm. For one with bookings the server answers with the counts; the dialog then says
+ * the bookings go too, asks for the property code typed (or copied) and offers pausing instead.
  */
 export function DeletePropertySection({
   property: p,
@@ -40,26 +54,49 @@ export function DeletePropertySection({
   const remove = useDeleteProperty();
   const pause = useUpdateProperty();
   const [open, setOpen] = useState(false);
-  const [blocked, setBlocked] = useState(false);
+  const [bookings, setBookings] = useState<Bookings | null>(null);
+  const [typed, setTyped] = useState('');
+  const [copied, setCopied] = useState(false);
+  const inputId = useId();
+  const hintId = useId();
   const label = `${p.code} · ${p.name}`;
+  const codeMatches = typed.trim() === p.code.trim();
 
   function close(next: boolean) {
     setOpen(next);
-    if (!next) setBlocked(false);
+    if (!next) {
+      setBookings(null);
+      setTyped('');
+      setCopied(false);
+    }
   }
 
   function confirm() {
-    remove.mutate(p.id, {
-      onSuccess: () => {
-        toast.success(t('delete.deleted', { name: label }));
-        close(false);
-        onDeleted();
+    remove.mutate(
+      { id: p.id, withBookings: bookings !== null },
+      {
+        onSuccess: () => {
+          toast.success(t('delete.deleted', { name: label }));
+          close(false);
+          onDeleted();
+        },
+        onError: (err) => {
+          const found = bookingsOf(err);
+          if (found) setBookings(found);
+          else toast.error(errorMessage(tc, err));
+        },
       },
-      onError: (err) => {
-        if (hasBookings(err)) setBlocked(true);
-        else toast.error(errorMessage(tc, err));
-      },
-    });
+    );
+  }
+
+  function copyCode() {
+    void navigator.clipboard
+      .writeText(p.code)
+      .then(() => {
+        setCopied(true);
+        toast.success(t('delete.codeCopied'));
+      })
+      .catch(() => undefined);
   }
 
   function pauseInstead() {
@@ -96,32 +133,72 @@ export function DeletePropertySection({
             <AlertDialogTitle>{t('delete.confirmTitle', { name: label })}</AlertDialogTitle>
             <AlertDialogDescription>{t('delete.confirmBody')}</AlertDialogDescription>
           </AlertDialogHeader>
-          {blocked ? (
-            <Alert variant="destructive">
-              <CircleAlert aria-hidden />
-              <AlertDescription>
-                {p.status === 'paused' ? t('delete.hasBookingsPaused') : t('delete.hasBookings')}
-              </AlertDescription>
-            </Alert>
+          {bookings ? (
+            <>
+              <Alert variant="destructive">
+                <CircleAlert aria-hidden />
+                <AlertDescription className="flex flex-col gap-1">
+                  <p>{t('delete.hasBookings', { count: bookings.total })}</p>
+                  {bookings.upcoming > 0 ? (
+                    <p className="font-medium">
+                      {t('delete.upcoming', { count: bookings.upcoming })}
+                    </p>
+                  ) : null}
+                  {p.status === 'active' ? <p>{t('delete.keepHistory')}</p> : null}
+                </AlertDescription>
+              </Alert>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor={inputId}>{t('delete.confirmCodeLabel')}</Label>
+                <Input
+                  id={inputId}
+                  value={typed}
+                  autoComplete="off"
+                  aria-describedby={hintId}
+                  onChange={(e) => setTyped(e.target.value)}
+                />
+                <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                  <span id={hintId}>
+                    {t('delete.confirmCodeHint')}{' '}
+                    <span className="font-medium text-foreground select-all">{p.code}</span>
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={t('delete.copyCode', { code: p.code })}
+                    title={t('delete.copyCode', { code: p.code })}
+                    onClick={copyCode}
+                  >
+                    {copied ? <Check className="text-success" /> : <Copy />}
+                  </Button>
+                </div>
+              </div>
+            </>
           ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel type="button">{t('delete.cancel')}</AlertDialogCancel>
-            {blocked ? (
-              p.status === 'active' ? (
-                <Button type="button" disabled={pause.isPending} onClick={pauseInstead}>
-                  {t('delete.pauseInstead')}
-                </Button>
-              ) : null
-            ) : (
+            {bookings && p.status === 'active' ? (
               <Button
                 type="button"
-                variant="destructive"
-                disabled={remove.isPending}
-                onClick={confirm}
+                variant="outline"
+                disabled={pause.isPending || remove.isPending}
+                onClick={pauseInstead}
               >
-                {remove.isPending ? t('delete.deleting') : t('delete.confirm')}
+                {t('delete.pauseInstead')}
               </Button>
-            )}
+            ) : null}
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={remove.isPending || (bookings !== null && !codeMatches)}
+              onClick={confirm}
+            >
+              {remove.isPending
+                ? t('delete.deleting')
+                : bookings
+                  ? t('delete.confirmWithBookings', { count: bookings.total })
+                  : t('delete.confirm')}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

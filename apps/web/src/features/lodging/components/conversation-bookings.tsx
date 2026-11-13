@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useCan } from '@/lib/permissions';
 
 import { useBookings } from '../api/bookings';
-import { dayMonth, formatVnd } from '../lib/format';
+import { formatVnd, stayDate } from '../lib/format';
 import { BookingSheet } from './booking-sheet';
 import { BookingStatusBadge } from './booking-status-badge';
 
@@ -67,7 +67,7 @@ export function ConversationBookings({
                 </span>
                 <span className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground tabular-nums">
                   <span>
-                    {b.propertyCode} · {dayMonth(b.checkIn)} → {dayMonth(b.checkOut)}
+                    {b.propertyCode} · {stayDate(b.checkIn)} → {stayDate(b.checkOut)}
                   </span>
                   {b.totalSell !== null && <span>{formatVnd(b.totalSell)}</span>}
                 </span>

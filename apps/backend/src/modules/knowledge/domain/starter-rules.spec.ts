@@ -127,6 +127,10 @@ describe('starter rules', () => {
         .map((r) => `${r.title} ${r.trigger} ${r.content}`)
         .join('\n');
 
+    it('never speaks of courses or classes in the spa pack (MS-25)', () => {
+      expect(fullText('spa')).not.toMatch(/\bhọc\b/iu);
+    });
+
     it('gives each its own pack, not the shared one', () => {
       for (const industry of industries) {
         expect(starterRulesFor(industry).map((r) => r.title)).toEqual(PACKS[industry]);

@@ -1,0 +1,77 @@
+id: hotel-no-handoff-after-children
+group: lodging-holds
+tags: [critical]
+bot:
+  industry: hotel
+  name: Tam Dao Villas
+  orderTaking: true
+  mission: 'Tư vấn villa. Lịch trống, cọc/hủy, giá lễ, phụ thu và xác nhận booking do nhân viên/chủ căn kiểm tra.'
+  profile:
+    fields: { displayName: 'Tam Dao Villas Central' }
+    notes: ''
+products:
+  - name: 'E27 – Villa E27'
+    code: E27
+    description: 'Villa nguyên căn 6 phòng ngủ ở sân golf Tam Đảo.'
+    variants: [{ name: 'Nguyên căn', price: 10000000, stock: 0 }]
+    accommodation:
+      rentalType: entire_property
+      code: E27
+      bedrooms: 6
+      standardAdults: 20
+      standardChildren: 5
+      childAgeBelow: 6
+      maxGuests: 30
+      roomLayout:
+        - { name: 'Phòng 1', beds: '2 giường đôi' }
+        - { name: 'Phòng 2', beds: '2 giường đôi' }
+        - { name: 'Phòng 3', beds: '2 giường đôi' }
+        - { name: 'Phòng 4', beds: '2 giường đôi' }
+        - { name: 'Phòng 5', beds: '2 giường đôi' }
+        - { name: 'Phòng 6', beds: '2 giường đôi' }
+      amenities: ['Hồ bơi', 'BBQ']
+      rateBasis: night
+      rates:
+        - { days: [1, 2, 3, 4], amount: 10000000 }
+        - { days: [5, 7], amount: 12000000 }
+        - { days: [6], amount: 18000000 }
+      checkInOut: 'Nhận căn 14:00, trả căn 12:00'
+      depositPolicy: 'Đặt cọc 50% khi giữ căn.'
+      gallery: []
+      surcharges: { extraAdult: 300000, extraChild: 150000, childFreeBelow: 6, childAdultFrom: 12 }
+situations:
+  - title: 'Yêu cầu đặt căn và xác nhận'
+    trigger: 'Khách đồng ý thuê, để lại liên hệ hoặc yêu cầu chốt booking'
+    content: 'Tóm tắt những thông tin đã biết, xin liên hệ nếu chưa có. Khi khách gửi số điện thoại thì handoff cho nhân viên.'
+  - title: 'Kiểm tra tiêu chuẩn đoàn và tuổi trẻ'
+    trigger: 'Khách hỏi đoàn đông, thêm người, trẻ em hoặc tuổi trẻ'
+    content: 'Không tự hứa miễn phí hay phụ thu. Đoàn vượt hoặc thiếu tuổi cần chủ căn duyệt.'
+# VL2-1: the stale training says staff approve children; the calendar quotes them. An earlier
+# hand-over in the history is no reason, and a handoff the tools serve is refused once.
+conversation:
+  - customer: 'nhom a 11 nguoi lon, di toi t6 17/12/2027 den cn 19/12/2027, villa E27 nhe'
+  - bot: 'Dạ E27 còn trống từ Thứ Sáu 17/12 đến Chủ Nhật 19/12/2027 cho 11 người lớn, tổng 30.000.000đ ạ.'
+  - customer: 'co them tre con 3 tuoi voi 1 dua 8 tuoi nua'
+  - bot: 'Dạ, em đã chuyển cho nhân viên, anh/chị đợi một chút ạ.'
+  - customer: 'co phu thu cho dua 8 tuoi ko'
+expect:
+  outcome: answered
+  guardrail: none
+  outcome_not: handoff
+  steps_succeeded: ['check_availability']
+  steps_not_succeeded: ['handoff']
+  not_contains: ['đã chuyển', 'nhân viên xác nhận phụ thu']
+fake_turns:
+  - tool_calls:
+      [{ name: handoff, input: { reason: 'Khách hỏi phụ thu trẻ 8 tuổi; cần chủ căn xác nhận.' } }]
+  - tool_calls:
+      - name: check_availability
+        input:
+          {
+            checkIn: '2027-12-17',
+            checkOut: '2027-12-19',
+            adults: 11,
+            childAges: [3, 8],
+            propertyCode: E27,
+          }
+  - text: 'Dạ bé 8 tuổi nằm trong tiêu chuẩn trẻ em của E27 nên không mất phụ thu ạ. Tổng 2 đêm vẫn là 30.000.000đ anh ạ.'

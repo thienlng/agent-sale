@@ -213,7 +213,8 @@ describe('course and service products (offering)', () => {
     expect(c).not.toHaveProperty('fromVnd');
     expect(c).not.toHaveProperty('toVnd');
     const d = productDetails(service);
-    expect(d.variants).toEqual([{ sku: 'TM1-A', name: 'Mặc định', priceVnd: 0 }]);
+    // EV-6: no priceVnd 0 for the model to read as "no price"; the priceNote stands in.
+    expect(d.variants).toEqual([{ sku: 'TM1-A', name: 'Mặc định' }]);
     expect(d.offering).toEqual({});
     expect(d.priceNote).toBe('liên hệ');
   });
@@ -274,5 +275,22 @@ describe('withDefaultOffering (request businesses)', () => {
     const offered = { ...untracked, offering: OfferingDetails.parse({ kind: 'service' }) };
     expect(withDefaultOffering(offered, 'course')).toBe(offered);
     expect(compactProduct(withDefaultOffering(untracked, null))).toMatchObject({ inStock: false });
+  });
+});
+
+describe('a 0đ retail product (LM2-11)', () => {
+  it('shows no stock: it is not sold alone', () => {
+    const gift = {
+      ...base,
+      variants: [{ ...base.variants[0]!, price: 0 }],
+      priceMin: 0,
+      priceMax: 0,
+    };
+    const c = compactProduct(gift);
+    expect(c).toMatchObject({ notSoldAlone: true });
+    expect(c).not.toHaveProperty('inStock');
+    expect(JSON.parse(JSON.stringify(productDetails(gift))).variants[0]).not.toHaveProperty(
+      'available',
+    );
   });
 });

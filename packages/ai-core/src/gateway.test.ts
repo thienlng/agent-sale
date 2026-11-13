@@ -110,6 +110,25 @@ describe('LlmGateway', () => {
       expect(delays).toEqual([5_000, 5_000, 5_000]);
     });
 
+    it('stops retrying once the next sleep would pass maxRetryWaitMs', async () => {
+      const delays: number[] = [];
+      const primary = new FakeLlmProvider(
+        'primary',
+        () => new LlmCallError('rate_limit', 'x', 8_000),
+      );
+      const gw = new LlmGateway(
+        [primary],
+        tiers('primary'),
+        {},
+        { sleep: async (ms) => void delays.push(ms) },
+      );
+      await expect(gw.generate({ ...req, maxRetryWaitMs: 10_000 })).rejects.toBeInstanceOf(
+        LlmCallError,
+      );
+      expect(delays).toEqual([8_000]);
+      expect(primary.calls).toHaveLength(2);
+    });
+
     it.each(['auth', 'invalid_request', 'content_filter', 'context_too_long', 'aborted'] as const)(
       'never retries %s',
       async (kind) => {

@@ -372,6 +372,13 @@ describe('MessageComposer', () => {
     expect(mocks.send).not.toHaveBeenCalled();
   });
 
+  it('allows nothing on a conversation whose Page was removed (TM-10)', () => {
+    render(<MessageComposer id="removed" botId="bot" windowClosed={false} disabled />);
+    expect(screen.getByRole('textbox')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'channelInbox.meta.composer.like' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'channelInbox.meta.composer.emoji' })).toBeDisabled();
+  });
+
   it('inserts an emoji at the caret without sending', async () => {
     const user = userEvent.setup();
     render(<MessageComposer id="emoji" botId="bot" windowClosed={false} />);

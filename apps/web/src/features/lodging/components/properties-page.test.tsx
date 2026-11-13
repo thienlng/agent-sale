@@ -67,10 +67,8 @@ describe('PropertiesPage', () => {
     expect(within(a17Card).getByText('Đang có khách')).toBeInTheDocument();
     const h1Card = screen.getByRole('article', { name: /H1/ });
     expect(within(h1Card).getByText('Theo phòng')).toBeInTheDocument();
-    expect(
-      within(h1Card).getByText(/Bot chưa thấy căn hộ này cho tới khi đủ giá/),
-    ).toBeInTheDocument();
-    expect(within(a17Card).queryByText(/Bot chưa thấy căn hộ này/)).toBeNull();
+    expect(within(h1Card).getByText(/Bot chưa chào bán/)).toBeInTheDocument();
+    expect(within(a17Card).queryByText(/Bot chưa chào bán/)).toBeNull();
     expect(document.body).not.toHaveTextContent(/sản phẩm/i);
   });
 
@@ -165,10 +163,10 @@ describe('PropertiesPage list view', () => {
     expect(within(a17Row).getByText('15,4tr')).toBeInTheDocument();
     expect(within(a17Row).getByText('17,6tr')).toBeInTheDocument();
     expect(within(a17Row).getByText('Đang có khách')).toBeInTheDocument();
-    expect(within(a17Row).queryByText(/Bot chưa thấy/)).toBeNull();
+    expect(within(a17Row).queryByText(/Bot chưa chào bán/)).toBeNull();
     const h1Row = within(table).getByRole('row', { name: /H1/ });
     expect(within(h1Row).getAllByText('Chưa có giá').length).toBeGreaterThan(0);
-    expect(within(h1Row).getByText(/Bot chưa thấy căn hộ này/)).toBeInTheDocument();
+    expect(within(h1Row).getByText(/Bot chưa chào bán/)).toBeInTheDocument();
 
     first.unmount();
     renderWithRouter(() => <PropertiesPage />);

@@ -69,6 +69,13 @@ export interface GenerateRequest {
    * of retrying (e.g. the agent already sent its messages through a tool this turn).
    */
   allowEmpty?: boolean;
+  /**
+   * The longest the gateway sleeps between retries of this call, all together. A retry whose
+   * delay would pass it is not made: the call fails at once with the last error (a chat the
+   * owner waits on says "busy" instead of retrying a 429 for most of a minute). Default: no cap
+   * beyond `timeoutMs`.
+   */
+  maxRetryWaitMs?: number;
 }
 
 export { LlmCallError, type LlmErrorKind } from './llm-errors.js';
@@ -186,6 +193,7 @@ export class LlmGateway {
     request: GenerateRequest,
     deadline: number | undefined,
   ): Promise<GenerateResponse> {
+    let waited = 0;
     for (let attempt = 0; ; attempt++) {
       let failure: unknown;
       let empty: GenerateResponse | undefined;
@@ -208,6 +216,11 @@ export class LlmGateway {
         backoffDelayMs(attempt, this.#random, retryAfter, request.timeoutMs),
         deadline === undefined ? MAX_RETRY_AFTER_SLEEP_MS : remaining,
       );
+      if (request.maxRetryWaitMs !== undefined && waited + delay > request.maxRetryWaitMs) {
+        if (empty) return empty;
+        throw failure;
+      }
+      waited += delay;
       await this.#sleep(delay, request.signal);
       if (deadline !== undefined && deadline - Date.now() <= 0) {
         if (empty) return empty;

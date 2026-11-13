@@ -88,6 +88,8 @@ export function quoteBody(d: {
   packageIds?: readonly string[];
   /** A booking edit without chosen packages: the booking's packages, kept while they fit. */
   keepPackageIds?: readonly string[];
+  /** A booking edit: the booking itself is not a conflict of its own new dates. */
+  excludeBookingId?: string;
 }): z.input<typeof QuoteRequest> | null {
   const party = toParty(d.party);
   if (!d.propertyId || !party || !isStayRange(d.checkIn, d.checkOut)) return null;
@@ -103,6 +105,7 @@ export function quoteBody(d: {
     ...(!d.packageIds?.length && d.keepPackageIds?.length
       ? { keepPackageIds: [...d.keepPackageIds] }
       : {}),
+    ...(d.excludeBookingId ? { excludeBookingId: d.excludeBookingId } : {}),
   };
 }
 

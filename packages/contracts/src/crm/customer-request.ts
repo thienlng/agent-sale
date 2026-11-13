@@ -70,8 +70,12 @@ export type RequestFieldRule = RequestFieldKey | readonly RequestFieldKey[];
 export type RequestStatusMove =
   /** ADR-020 behaviour (saas): never moves a customer backwards. */
   | { key: string; move: 'forward_only' }
-  /** Moves unless the current key is in `keep` (a confirmed status) or already the target. */
-  | { key: string; move: 'unless'; keep: readonly string[] };
+  /**
+   * Moves unless the current key is in `keep` (a confirmed status) or already the target. An update
+   * that changes the slot (day, time, branch, service or course) of a customer at a `reopen` status
+   * (a confirmed appointment) moves back to `key`: staff must confirm the new slot (MS-10).
+   */
+  | { key: string; move: 'unless'; keep: readonly string[]; reopen?: readonly string[] };
 
 export interface RequestFieldDef {
   key: RequestFieldKey;
@@ -192,7 +196,7 @@ const EDUCATION_PROFILE: RequestProfile = {
   toolName: 'record_request',
   actionName: 'Record a placement test, trial class or consultation request',
   description:
-    "Records that the customer wants a placement test, a trial class or a consultation on a learning path, so staff contact them. Call it when the customer clearly asks to register for a test or a trial class, or to be advised. First collect the course or goal, the student's age or level, the preferred branch or online, and a preferred time, then the name and a phone number; call it once the name and phone are known. Call it again when the customer adds or corrects details. Returns recorded true when the request is saved on the customer; `missing` lists details still worth asking for once. Staff confirm: never promise a slot, a teacher or a result.",
+    "Records that the customer wants a placement test, a trial class or a consultation on a learning path, so staff contact them. Call it when the customer clearly asks to register for a test or a trial class, or to be advised. Ask in one message for what is still missing: the name and a phone number (needed to record it), plus the course or goal, the student's age or level, the preferred branch or online, and a preferred time; call it once the name and phone are known. Call it again when the customer adds or corrects details. Returns recorded true when the request is saved on the customer; `missing` lists details still worth asking for once. Staff confirm: never promise a slot, a teacher or a result.",
   kinds: ['placement_test', 'trial', 'consultation'],
   kindLabels: {
     placement_test: 'Đăng ký kiểm tra trình độ',
@@ -275,8 +279,18 @@ const EDUCATION_PROFILE: RequestProfile = {
     consultation: ['goal'],
   },
   status: {
-    placement_test: { key: 'test_requested', move: 'unless', keep: EDUCATION_TESTED },
-    trial: { key: 'test_requested', move: 'unless', keep: EDUCATION_TESTED },
+    placement_test: {
+      key: 'test_requested',
+      move: 'unless',
+      keep: EDUCATION_TESTED,
+      reopen: ['test_scheduled'],
+    },
+    trial: {
+      key: 'test_requested',
+      move: 'unless',
+      keep: EDUCATION_TESTED,
+      reopen: ['test_scheduled'],
+    },
     consultation: {
       key: 'consulting',
       move: 'unless',
@@ -300,7 +314,7 @@ const SPA_PROFILE: RequestProfile = {
       max: 200,
       label: 'Dịch vụ',
       describe:
-        'The service or treatment the customer wants: its name exactly as in the catalog (the product name)',
+        'Every service or treatment of the appointment, names exactly as in the catalog (the product names), comma separated; when the customer adds one, send the earlier ones too',
     },
     {
       key: 'branch',
@@ -332,7 +346,12 @@ const SPA_PROFILE: RequestProfile = {
     appointment: ['branch', 'preferredTime'],
   },
   status: {
-    appointment: { key: 'booking_requested', move: 'unless', keep: ['booked'] },
+    appointment: {
+      key: 'booking_requested',
+      move: 'unless',
+      keep: ['booked'],
+      reopen: ['booked'],
+    },
     consultation: {
       key: 'consulting',
       move: 'unless',
@@ -425,6 +444,13 @@ export const CustomerRequestDto = z.object({
   /** "Thứ Bảy 08/11/2026" when `preferredDate` was given. */
   dateLabel: z.string().nullable(),
   recordedAt: z.iso.datetime(),
+  /**
+   * `GET /contacts/{id}/requests` only: the bot updates folded into this request (its latest
+   * state, LM-4) and when the request was first recorded (absent when the first entry is older
+   * than the entries read).
+   */
+  updates: z.number().int().min(0).optional(),
+  firstRecordedAt: z.iso.datetime().optional(),
 });
 export type CustomerRequestDto = z.infer<typeof CustomerRequestDto>;
 

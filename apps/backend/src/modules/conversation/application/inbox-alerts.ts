@@ -5,6 +5,7 @@ import { Logger } from '@nestjs/common';
 
 import type { NotificationFacade } from '../../notification/api/index.js';
 import type { WorkspaceFacade } from '../../workspace/api/index.js';
+import type { AnonymousCap } from './inbox-guards.js';
 
 /** One alert per conversation and recipient per window: a burst of messages pushes once. */
 export const INBOX_ALERT_WINDOW_MS = 5 * 60_000;
@@ -90,6 +91,47 @@ export class InboxAlerts {
       this.#log.warn(
         `inbox alert for conversation ${c.id} not raised (${e instanceof Error ? e.name : 'unknown'})`,
       );
+    }
+  }
+
+  /**
+   * The AI stopped answering anonymous website visitors because a site or workspace cap was
+   * reached (audit #2). Owners only, in-app and push, once per cap window (dedup per user).
+   */
+  async aiCapped(ws: WorkspaceId, cap: AnonymousCap): Promise<void> {
+    if (!this.notifications || !this.workspaces) return;
+    try {
+      const [accountId, members, workspace] = await Promise.all([
+        this.workspaces.accountOf(ws),
+        this.workspaces.listMembers(ws),
+        this.workspaces.getById(ws),
+      ]);
+      if (!accountId) return;
+      const owners = members
+        .filter((m) => m.status === 'active' && m.role === 'owner')
+        .slice(0, MAX_RECIPIENTS);
+      for (const m of owners) {
+        const locale = await this.notifications.recipientLocale(m.userId as UserId);
+        const s = notificationStrings(locale);
+        const vars = {
+          business: workspace.name,
+          window: s[`inbox.ai_capped.${cap.window}`] ?? cap.window,
+        };
+        await this.notifications.notify({
+          accountId,
+          userId: m.userId,
+          workspaceId: ws,
+          type: 'inbox.ai_capped',
+          params: { scope: cap.scope, window: cap.window },
+          title: fill(s['inbox.ai_capped.title'] ?? '', vars).slice(0, 160),
+          body: fill(s[`inbox.ai_capped.body_${cap.scope}`] ?? '', vars).slice(0, 4000),
+          target: { kind: 'path', path: '/app/inbox' },
+          channels: ['in_app', 'push'],
+          dedupKey: `inbox-capped:${ws}:${cap.scope}:${cap.window}:${cap.windowStart}`,
+        });
+      }
+    } catch (e) {
+      this.#log.warn(`AI cap alert not raised (${e instanceof Error ? e.name : 'unknown'})`);
     }
   }
 }

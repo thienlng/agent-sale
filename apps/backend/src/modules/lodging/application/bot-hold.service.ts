@@ -1,3 +1,4 @@
+import { PLAYGROUND_CHANNEL } from '@agent-sales/contracts';
 import { isUuid, newId, normalizeVnPhone, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
@@ -6,6 +7,7 @@ import type {
   BotAvailabilityInput,
   BotAvailabilityOption,
   BotAvailabilityResult,
+  BotConversationHold,
   ConfirmBotHoldResult,
   HoldProblem,
   LodgingBotFacade,
@@ -13,17 +15,19 @@ import type {
   PrepareBotHoldResult,
 } from '../api/lodging.facade.js';
 import { botStayProblems, rankForBot } from '../domain/availability-ranking.js';
+import { nextStatus } from '../domain/booking-status.js';
 import { buildHoldSummary, weekdayLabel } from '../domain/hold-summary.js';
 import { LodgingError, LodgingUnavailableError } from '../domain/lodging.errors.js';
 import { localToday } from '../domain/nights.js';
 import { quoteStay, resolveUnits, type Quote } from '../domain/quote.js';
 import { freeOptions, type StayAsk } from './availability.js';
 import { BookingService } from './booking.service.js';
-import { expireHolds } from './booking-support.js';
+import { expireHolds, publishStatus } from './booking-support.js';
 import {
   BOT_HOLD_DRAFT_TTL_MS,
   CUSTOMER_CHANNELS,
   held,
+  holdMinutesOf,
   holdRequestId,
   HoldNotConfirmable,
   MAX_NAME,
@@ -31,6 +35,8 @@ import {
   NightsTakenOnConfirm,
   quoteHash,
   stayOf,
+  TEST_HOLD_MINUTES,
+  TEST_HOLD_TAG,
   tidy,
   toBotOption,
   validParty,
@@ -94,7 +100,21 @@ export class LodgingBotHolds implements LodgingBotFacade {
       const ctx = await this.#sold(tx, bot.id, now);
       const sold =
         input.propertyId === undefined || ctx.sold.some((p) => p.id === input.propertyId);
-      const options = await this.#options(tx, ctx, input);
+      // VL3-1: the guest's own live holds of this conversation stay free for them (a change of
+      // package or party replaces them).
+      const own =
+        input.conversationId && input.channel && input.earlierHolds?.length
+          ? (
+              await this.#conversationHolds(tx, {
+                conversationId: input.conversationId,
+                channel: input.channel,
+                codes: input.earlierHolds,
+              })
+            )
+              .filter((b) => b.status === 'hold')
+              .map((b) => b.id)
+          : [];
+      const options = await this.#options(tx, ctx, input, own);
       if (!sold) return { ...result, options: rankForBot(options).options, problems: ['not_sold'] };
       return { ...result, ...rankForBot(options, input.propertyId) };
     });
@@ -107,7 +127,7 @@ export class LodgingBotHolds implements LodgingBotFacade {
     const problems: HoldProblem[] = [];
     const guestName = tidy(input.guestName, MAX_NAME);
     const rawPhone = (input.guestPhone ?? '').trim();
-    const e164 = rawPhone ? normalizeVnPhone(rawPhone) : null;
+    const e164 = rawPhone ? (normalizeVnPhone(rawPhone) ?? internationalPhone(rawPhone)) : null;
     if (!guestName) problems.push('missing_name');
     if (!rawPhone) problems.push('missing_phone');
     else if (!e164) problems.push('invalid_phone');
@@ -129,6 +149,15 @@ export class LodgingBotHolds implements LodgingBotFacade {
       const unitIds = whole ? [] : [...new Set(input.unitIds ?? [])];
       let quote: Quote | null = null;
       let resolved: string[] = [];
+      // VL2-4: the earlier hold of this conversation for the same property and guest is replaced.
+      const replaced =
+        property && e164 && input.earlierHolds?.length
+          ? replacedHold(
+              await this.#conversationHolds(tx, { ...input, codes: input.earlierHolds }),
+              property.id,
+              storedPhone(e164),
+            )
+          : undefined;
       let validPackages: string[] | undefined;
       const names = new Map(ctx.units.map((u) => [u.id, u.name]));
       if (!property) {
@@ -163,7 +192,9 @@ export class LodgingBotHolds implements LodgingBotFacade {
           problems.push('not_available');
         }
         if (quote) {
-          const taken = await tx.takenNights(resolved, input.checkIn, input.checkOut);
+          const taken = (await tx.takenNights(resolved, input.checkIn, input.checkOut)).filter(
+            (night) => night.bookingId !== replaced?.id,
+          );
           if (taken.length) problems.push('not_available');
           else if (quote.warnings.includes('min_nights')) problems.push('min_nights');
           if (quote.warnings.includes('over_max')) problems.push('over_max');
@@ -192,7 +223,7 @@ export class LodgingBotHolds implements LodgingBotFacade {
         };
       }
 
-      const guestPhone = `0${e164.slice(3)}`;
+      const guestPhone = storedPhone(e164);
       const note = tidy(input.note, MAX_NOTE);
       const draft: BotHoldDraftRecord = {
         id: newId(),
@@ -218,10 +249,14 @@ export class LodgingBotHolds implements LodgingBotFacade {
       };
       draft.quoteHash = quoteHash(draft, resolved, quote);
       await tx.saveBotHoldDraft(draft);
-      const { holdMinutes } = await tx.settings();
+      // A test-chat hold lasts at most TEST_HOLD_MINUTES: its summary says so (VL-A11).
+      const business = await holdMinutesOf(tx);
+      const holdMinutes =
+        input.channel === PLAYGROUND_CHANNEL ? Math.min(TEST_HOLD_MINUTES, business) : business;
       return {
         status: 'ready',
         holdMinutes,
+        ...(replaced ? { replaces: replaced.code } : {}),
         summary: buildHoldSummary({
           propertyName: property.name,
           whole,
@@ -239,6 +274,8 @@ export class LodgingBotHolds implements LodgingBotFacade {
             unitName: pk.target === null ? null : (names.get(pk.target) ?? ''),
             name: pk.name,
           })),
+          replaces: replaced?.code ?? null,
+          ...(input.language ? { language: input.language } : {}),
         }),
       };
     });
@@ -246,12 +283,14 @@ export class LodgingBotHolds implements LodgingBotFacade {
 
   async confirmBotHold(
     ws: WorkspaceId,
-    input: { conversationId: string },
+    input: { conversationId: string; earlierHolds?: string[] },
   ): Promise<ConfirmBotHoldResult> {
     if (!isUuid(input.conversationId)) return { status: 'no_draft', alternatives: [] };
     let failed: { code: FailCode; draft: BotHoldDraftRecord };
     try {
-      return await this.store.run(ws, (tx) => this.#confirm(tx, input.conversationId));
+      return await this.store.run(ws, (tx) =>
+        this.#confirm(tx, input.conversationId, input.earlierHolds ?? []),
+      );
     } catch (error) {
       if (error instanceof HoldNotConfirmable) failed = error;
       else if (error instanceof NightsTakenOnConfirm)
@@ -282,7 +321,11 @@ export class LodgingBotHolds implements LodgingBotFacade {
    * booking code and the unit rows (`createIn`). Every failure throws so the transaction rolls
    * back.
    */
-  async #confirm(tx: LodgingTx, conversationId: string): Promise<ConfirmBotHoldResult> {
+  async #confirm(
+    tx: LodgingTx,
+    conversationId: string,
+    earlierHolds: string[],
+  ): Promise<ConfirmBotHoldResult> {
     const now = new Date();
     await expireHolds(tx, now);
     // Locked: a second confirmation of this draft waits, then replays the hold.
@@ -336,6 +379,21 @@ export class LodgingBotHolds implements LodgingBotFacade {
       throw new HoldNotConfirmable('price_changed', draft);
     }
     let booking: BookingRecord;
+    const test = draft.channel === PLAYGROUND_CHANNEL;
+    // VL2-4: the hold this one replaces (same property and guest) is cancelled first, in this
+    // transaction, so its nights are free for the new stay; a failure below rolls both back.
+    const replaced = earlierHolds.length
+      ? replacedHold(
+          await this.#conversationHolds(
+            tx,
+            { conversationId, channel: draft.channel, codes: earlierHolds },
+            true,
+          ),
+          draft.propertyId,
+          draft.guestPhone,
+        )
+      : undefined;
+    if (replaced) await this.#release(tx, replaced, draft, now);
     try {
       booking = await this.bookings.createIn(
         tx,
@@ -359,11 +417,15 @@ export class LodgingBotHolds implements LodgingBotFacade {
           adjustment: 0,
           adjustmentReason: '',
           manualTotalSell: null,
-          note: draft.note,
-          tags: [],
+          note: replaced
+            ? `Thay cho ${replaced.code}.${draft.note ? ` ${draft.note}` : ''}`.slice(0, MAX_NOTE)
+            : draft.note,
+          // A test-chat hold is labelled and lapses soon: it must not block real guests (VL-A11).
+          tags: test ? [TEST_HOLD_TAG] : [],
         },
         { id: null, name: draft.botName || null },
         now,
+        test ? { holdMinutes: Math.min(TEST_HOLD_MINUTES, await holdMinutesOf(tx)) } : {},
       );
     } catch (error) {
       if (error instanceof LodgingError && error.code === 'NIGHTS_TAKEN') {
@@ -371,7 +433,87 @@ export class LodgingBotHolds implements LodgingBotFacade {
       }
       throw error;
     }
-    return held(booking);
+    return { ...held(booking), ...(replaced ? { replaced: replaced.code } : {}) };
+  }
+
+  async botConversationHolds(
+    ws: WorkspaceId,
+    input: { conversationId: string; channel: string; codes: string[] },
+  ): Promise<BotConversationHold[]> {
+    if (!input.codes.length) return [];
+    try {
+      return await this.store.run(ws, async (tx) => {
+        await expireHolds(tx, new Date());
+        const holds = await this.#conversationHolds(tx, input);
+        if (!holds.length) return [];
+        const props = await tx.properties({ ids: [...new Set(holds.map((b) => b.propertyId))] });
+        const byId = new Map(props.map((p) => [p.id, p]));
+        return holds.map((b) => ({
+          code: b.code,
+          propertyCode: byId.get(b.propertyId)?.code ?? '',
+          propertyName: byId.get(b.propertyId)?.name ?? '',
+          checkIn: b.checkIn,
+          checkOut: b.checkOut,
+          adults: b.adults,
+          childAges: b.childAges,
+          totalSell: b.totalSell,
+          status: b.status,
+          holdExpiresAt: b.status === 'hold' ? b.holdExpiresAt : null,
+        }));
+      });
+    } catch (error) {
+      if (error instanceof LodgingUnavailableError) return [];
+      throw error;
+    }
+  }
+
+  /**
+   * The bot's holds of this conversation among `codes`: source `bot`, linked to the conversation
+   * (customer channels) or, from the test chat, unlinked and tagged `Chat thử`.
+   */
+  async #conversationHolds(
+    tx: LodgingTx,
+    input: { conversationId: string; channel: string; codes: string[] },
+    lock = false,
+  ): Promise<BookingRecord[]> {
+    const codes = [...new Set(input.codes.map((c) => c.trim().toUpperCase()))].filter((c) =>
+      BOOKING_CODE.test(c),
+    );
+    if (!codes.length) return [];
+    const customer = CUSTOMER_CHANNELS.has(input.channel);
+    return (await tx.bookingsByCodes(codes, lock)).filter(
+      (b) =>
+        b.source === 'bot' &&
+        (customer
+          ? b.conversationId === input.conversationId
+          : b.conversationId === null && b.tags.includes(TEST_HOLD_TAG)),
+    );
+  }
+
+  /** Cancels a replaced bot hold: nights freed, history row, `lodging.booking.cancelled.v1`. */
+  async #release(
+    tx: LodgingTx,
+    b: BookingRecord,
+    draft: BotHoldDraftRecord,
+    now: Date,
+  ): Promise<void> {
+    const status = nextStatus(b.kind, b.status, 'cancel', localToday(now), b.checkIn);
+    await tx.releaseNights(b.id);
+    await tx.updateBooking({
+      ...b,
+      status,
+      version: b.version + 1,
+      updatedAt: now.toISOString(),
+    });
+    await tx.audit(
+      null,
+      'lodging_booking',
+      b.id,
+      'lodging.booking.cancelled',
+      { from: b.status, to: status, reason: 'replaced_by_bot_hold' },
+      draft.botName || null,
+    );
+    await publishStatus(tx, 'lodging.booking.cancelled.v1', b);
   }
 
   async cancelBotHoldDraft(ws: WorkspaceId, input: { conversationId: string }): Promise<void> {
@@ -433,8 +575,46 @@ export class LodgingBotHolds implements LodgingBotFacade {
   }
 
   /** Free options of the sold properties, as the bot sees them (a min-stay breach is flagged). */
-  async #options(tx: LodgingTx, ctx: SoldContext, ask: StayAsk): Promise<BotAvailabilityOption[]> {
-    const free = await freeOptions(tx, ctx.sold, stayOf(ask), ctx);
+  async #options(
+    tx: LodgingTx,
+    ctx: SoldContext,
+    ask: StayAsk,
+    ignoreBookingIds: readonly string[] = [],
+  ): Promise<BotAvailabilityOption[]> {
+    const free = await freeOptions(tx, ctx.sold, stayOf(ask), ctx, ignoreBookingIds);
     return free.map((o) => toBotOption(o, ctx.ratesOf.get(o.property.id) ?? []));
   }
 }
+
+/** A booking code as the calendar numbers them (`BK-0016`). */
+const BOOKING_CODE = /^BK-\d{1,9}$/;
+
+/** The live hold of `holds` for the same property and guest phone (the one a new hold replaces). */
+function replacedHold(
+  holds: readonly BookingRecord[],
+  propertyId: string,
+  guestPhone: string,
+): BookingRecord | undefined {
+  const digits = (phone: string) => phone.replace(/\D/g, '').slice(-9);
+  return holds.find(
+    (b) =>
+      b.status === 'hold' &&
+      b.propertyId === propertyId &&
+      digits(b.guestPhone) !== '' &&
+      digits(b.guestPhone) === digits(guestPhone),
+  );
+}
+
+/**
+ * VL3-3: a foreign guest's number in E.164 (`+61 412 345 678`, `0061…`): 8–15 digits after the
+ * country code, never a Vietnamese one (those go through `normalizeVnPhone`). Null otherwise.
+ */
+export function internationalPhone(raw: string): string | null {
+  const compact = raw.replace(/[\s.()-]/g, '');
+  const m = /^(?:\+|00)([1-9]\d{7,14})$/.exec(compact);
+  if (!m?.[1] || m[1].startsWith('84')) return null;
+  return `+${m[1]}`;
+}
+
+/** Vietnamese numbers are stored `0xxxxxxxxx`, foreign ones in E.164. */
+const storedPhone = (e164: string): string => (e164.startsWith('+84') ? `0${e164.slice(3)}` : e164);

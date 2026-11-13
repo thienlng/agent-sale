@@ -1,0 +1,37 @@
+id: retail-handoff-says-each-line-once
+group: handoff
+tags: []
+bot:
+  industry: retail
+  name: TinyMind
+  profile:
+    fields: { displayName: TinyMind, hotline: '0900 000 000' }
+    notes: 'Shop bán đồ chơi gỗ Montessori cho bé.'
+products:
+  - name: 'Cầu vồng gỗ 12 mảnh cổ điển'
+    code: TM-010
+    description: 'Cầu vồng gỗ xếp chồng 12 mảnh.'
+    variants:
+      - { name: 'Tiêu chuẩn', sku: TM-010-STD, price: 520000, stock: 9 }
+# R5-6 / R5-7: the hand-off message says each line once (a send_message lead-in is not repeated
+# before the shop's hand-over line) and calls a customer who said "chị" "chị", never "anh/chị".
+conversation:
+  - customer: 'Chị muốn nói chuyện với nhân viên tư vấn trực tiếp'
+  - bot: 'Dạ chị cho em xin tên và số điện thoại để nhân viên liên hệ ạ.'
+  - customer: 'Chị tên Hạnh, số 0912 345 678'
+expect:
+  outcome: handoff
+  steps_succeeded: ['handoff']
+  max_occurrences: { 'Hạnh': 1, '0912 345 678': 1 }
+  not_contains: ['anh/chị']
+fake_turns:
+  - tool_calls:
+      - {
+          name: send_message,
+          input: { text: 'Dạ em đã nhận được tên chị Hạnh và số 0912 345 678 ạ.' },
+        }
+  - tool_calls:
+      - name: handoff
+        input:
+          reason: 'customer asked for a person'
+          say: 'Dạ em đã nhận được tên chị Hạnh và số 0912 345 678 ạ.'

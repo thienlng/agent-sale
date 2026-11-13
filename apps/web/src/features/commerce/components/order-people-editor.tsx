@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, formatPhone } from '@/lib/format';
 
 import { useUpdateOrder } from '../api/commerce';
 import { missingFieldsOf, orderErrorMessage } from '../hooks/order-errors';
@@ -67,7 +67,9 @@ export function OrderPeoplePanel({ order }: { order: OrderDto }) {
           <div>
             <div className="text-muted-foreground">{t('orderForm.customer')}</div>
             <div className="mt-1 font-medium">{order.customer.name}</div>
-            <div className="tabular-nums">{order.customer.phone ?? '—'}</div>
+            <div className="tabular-nums">
+              {order.customer.phone ? formatPhone(order.customer.phone) : '—'}
+            </div>
             {order.customer.email ? (
               <div className="text-muted-foreground">{order.customer.email}</div>
             ) : null}
@@ -75,7 +77,9 @@ export function OrderPeoplePanel({ order }: { order: OrderDto }) {
           <div>
             <div className="text-muted-foreground">{t('orderForm.recipient')}</div>
             <div className="mt-1 font-medium">{order.recipient.name}</div>
-            <div className="tabular-nums">{order.recipient.phone ?? '—'}</div>
+            <div className="tabular-nums">
+              {order.recipient.phone ? formatPhone(order.recipient.phone) : '—'}
+            </div>
             <div className="mt-1">
               {[order.recipient.address, order.recipient.ward, order.recipient.province]
                 .filter(Boolean)

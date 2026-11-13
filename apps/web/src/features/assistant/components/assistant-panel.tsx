@@ -269,11 +269,17 @@ export function AssistantPanel() {
           attachments.setCreating(false);
         }
         if (switched()) return false;
-        body =
-          text ||
-          (prepared.body.kind === 'sheet'
+        // The owner's own words keep a line naming what was attached, so the sent bubble and
+        // the thread history say which file it was (AS-24).
+        const attached =
+          prepared.body.kind === 'sheet'
+            ? t('import.attachedSheet', { file: prepared.label })
+            : t('import.attachedPhotos', { count: prepared.count });
+        body = text
+          ? `${text}\n\n${attached}`
+          : prepared.body.kind === 'sheet'
             ? t('import.defaultSheetText', { file: prepared.label })
-            : t('import.defaultPhotoText', { count: prepared.count }));
+            : t('import.defaultPhotoText', { count: prepared.count });
       }
       setPendingTurn(turnId);
       const res = await sendMessage.mutateAsync({
@@ -373,6 +379,7 @@ export function AssistantPanel() {
         pendingTurn={pendingTurn}
         unavailable={unavailable}
         onStarter={sending ? undefined : (text) => void send(text)}
+        onRetry={sending ? undefined : (text) => void send(text)}
         roomy={onPage}
       />
       <AssistantSuggestions />
@@ -441,6 +448,7 @@ export function AssistantPanel() {
 
   return (
     <>
+      <DockedMarker docked={open && !onPage} />
       {page}
       <Sheet open={open && !onPage} onOpenChange={setOpen} modal={false}>
         <SheetContent
@@ -500,4 +508,15 @@ export function AssistantPanel() {
       <AssistantSpotlight />
     </>
   );
+}
+
+/** Marks <html> while the side panel is open, so the dashboard makes room for it (AS-19). */
+function DockedMarker({ docked }: { docked: boolean }) {
+  useEffect(() => {
+    if (!docked) return;
+    const root = document.documentElement;
+    root.setAttribute('data-assistant-docked', '');
+    return () => root.removeAttribute('data-assistant-docked');
+  }, [docked]);
+  return null;
 }

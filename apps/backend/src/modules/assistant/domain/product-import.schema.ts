@@ -231,6 +231,13 @@ export interface BuildDraftsInput {
   existing: { codes: string[]; skus: string[] } | null;
   /** Drafts with a `created` result: never flagged exists_*. */
   createdKeys: ReadonlySet<string>;
+  /**
+   * The safety scan of the final draft text (AS-6): true when a text reads like instructions to
+   * an AI (prompt injection, a role override, invisible characters). A flagged field is cleared
+   * and recorded as `unsafe_text:<field>`, so a cell never reaches the shop bot as product text.
+   * Injected because the scanner lives in ai-core, which the domain may not import.
+   */
+  unsafeText?: (text: string) => boolean;
 }
 
 const ERROR_CODES = new Set<string>([

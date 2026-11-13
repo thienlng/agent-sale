@@ -1,0 +1,89 @@
+id: hotel-split-group-two-villas
+group: lodging-holds
+tags: [critical]
+bot:
+  industry: hotel
+  name: Tam Dao Villas
+  orderTaking: true
+  mission: 'Tư vấn villa. Lịch trống, cọc/hủy, giá lễ, phụ thu và xác nhận booking do nhân viên/chủ căn kiểm tra.'
+  profile:
+    fields: { displayName: 'Tam Dao Villas Central' }
+    notes: ''
+products:
+  - name: 'E64 – Villa E64'
+    code: E64
+    description: 'Villa nguyên căn 7 phòng ngủ ở sân golf Tam Đảo.'
+    variants: [{ name: 'Nguyên căn', price: 12000000, stock: 0 }]
+    accommodation:
+      rentalType: entire_property
+      code: E64
+      bedrooms: 7
+      standardAdults: 24
+      standardChildren: 8
+      childAgeBelow: 6
+      maxGuests: 40
+      roomLayout:
+        - { name: 'Phòng 1', beds: '2 giường đôi' }
+        - { name: 'Phòng 2', beds: '2 giường đôi' }
+        - { name: 'Phòng 3', beds: '2 giường đôi' }
+        - { name: 'Phòng 4', beds: '2 giường đôi' }
+        - { name: 'Phòng 5', beds: '2 giường đôi' }
+        - { name: 'Phòng 6', beds: '2 giường đôi' }
+        - { name: 'Phòng 7', beds: '2 giường đôi' }
+      amenities: ['Hồ bơi', 'BBQ']
+      rateBasis: night
+      rates:
+        - { days: [1, 2, 3, 4], amount: 12000000 }
+        - { days: [5, 7], amount: 13000000 }
+        - { days: [6], amount: 14000000 }
+      checkInOut: 'Nhận căn 14:00, trả căn 12:00'
+      depositPolicy: 'Đặt cọc 50% tổng tiền khi giữ căn. Hủy trước 7 ngày hoàn cọc, sau đó mất cọc.'
+      gallery: []
+      surcharges: { extraAdult: 300000, extraChild: 150000, childFreeBelow: 6, childAdultFrom: 12 }
+  - name: 'D33 – Villa D33'
+    code: D33
+    description: 'Villa nguyên căn 6 phòng ngủ ở sân golf Tam Đảo.'
+    variants: [{ name: 'Nguyên căn', price: 9000000, stock: 0 }]
+    accommodation:
+      rentalType: entire_property
+      code: D33
+      bedrooms: 6
+      standardAdults: 18
+      standardChildren: 6
+      childAgeBelow: 6
+      maxGuests: 25
+      roomLayout:
+        - { name: 'Phòng 1', beds: '2 giường đôi' }
+        - { name: 'Phòng 2', beds: '2 giường đôi' }
+        - { name: 'Phòng 3', beds: '2 giường đôi' }
+        - { name: 'Phòng 4', beds: '2 giường đôi' }
+        - { name: 'Phòng 5', beds: '2 giường đôi' }
+        - { name: 'Phòng 6', beds: '2 giường đôi' }
+      amenities: ['Hồ bơi', 'Karaoke (đến 22:00)', 'BBQ']
+      rateBasis: night
+      rates:
+        - { days: [1, 2, 3, 4], amount: 9000000 }
+        - { days: [5, 7], amount: 10000000 }
+        - { days: [6], amount: 11000000 }
+      checkInOut: 'Nhận căn 14:00, trả căn 12:00'
+      depositPolicy: ''
+      gallery: []
+      surcharges: { extraAdult: 250000, extraChild: 150000, childFreeBelow: 6, childAdultFrom: 12 }
+# VL3-4 / VL3-5: a group split over two villas is checked per villa with its own party; the total
+# is the sum of those two quotes, never the whole group in each villa.
+conversation:
+  - customer: "We are 40 adults. Split us: 24 people in E64 and 16 in D33, from 17 to 19 December 2027. What's the total?"
+expect:
+  outcome: answered
+  guardrail: none
+  steps_succeeded: ['check_availability', 'calculate']
+  steps_exclude: ['handoff']
+  contains_any: ['48,000,000', '48.000.000']
+fake_turns:
+  - tool_calls:
+      - name: check_availability
+        input: { checkIn: '2027-12-17', checkOut: '2027-12-19', adults: 24, propertyCode: E64 }
+      - name: check_availability
+        input: { checkIn: '2027-12-17', checkOut: '2027-12-19', adults: 16, propertyCode: D33 }
+  - tool_calls: [{ name: calculate, input: { expression: '27000000 + 21000000' } }]
+  - text: 'E64 for 24 adults is 27.000.000đ and D33 for 16 adults is 21.000.000đ for the 2 nights, 48.000.000đ in total.'

@@ -36,6 +36,16 @@ import {
   turnOwner,
   type Turn,
 } from './reply-resume.js';
+import { INBOX_GUARDS, type InboxGuards } from '../inbox-guards.js';
+import { runBounded } from './run-bounded.js';
+
+/** Events claimed per tick. */
+const CLAIM_LIMIT = 25;
+
+/** A held message is answered at most this long after it was sent (the reply window is 24 h). */
+const MAX_DEFER_MS = 23 * 3_600_000;
+/** A held event is claimed just after the takeover ends, never before. */
+const RESUME_GRACE_MS = 2_000;
 
 /** Invoked exclusively by the agent entry; API never starts background inference. */
 @Injectable()
@@ -56,6 +66,9 @@ export class MetaInboxProcessor {
     @Inject(REPLY_PACING)
     @Optional()
     private readonly pacing: ReplyPacing = realPacing,
+    @Inject(INBOX_GUARDS)
+    @Optional()
+    private readonly guards?: InboxGuards,
   ) {}
   async tick(): Promise<void> {
     const dead = await this.channels.deadLetterExhaustedEvents();
@@ -63,7 +76,12 @@ export class MetaInboxProcessor {
       this.logger.error(
         `Meta inbox dead-lettered ${dead.length} exhausted event(s): ${dead.join(', ')}`,
       );
-    const jobs = await this.channels.claimEvents(25);
+    // Per-workspace fairness of the claim (audit #3): one flooded shop cannot fill it.
+    const jobs = this.guards?.limits.claimPerWorkspace
+      ? await this.channels.claimEvents(CLAIM_LIMIT, {
+          perWorkspace: this.guards.limits.claimPerWorkspace,
+        })
+      : await this.channels.claimEvents(CLAIM_LIMIT);
     const groups = new Map<string, { conversationId: string; jobs: PendingMetaEvent[] }>();
     // Persist every receipt first: a burst produces one coherent context, and external staff echoes pause it.
     for (const job of jobs) {
@@ -99,36 +117,69 @@ export class MetaInboxProcessor {
         else await this.retrySoon(job);
       }
     }
-    for (const { conversationId, jobs: group } of groups.values()) {
-      // `group` is in claim order (= receipt order), which is also the order `receive` stored the
-      // messages in. Meta timestamps are never used to pick the newest: they can disagree with arrival.
-      // The newest customer message answers for the burst; a trailing echo must not swallow it.
-      const latest = group.findLast((j) => isCustomerContent(j.event)) ?? group.at(-1);
-      if (!latest) continue;
-      for (const job of group)
-        if (job !== latest) await this.channels.completeEvent(job.id, job.claimToken);
-      if (!(await this.channels.renewEvent(latest.id, latest.claimToken))) continue;
-      try {
-        if ((await this.process(latest)) === 'requeue')
-          await this.channels.requeueEvent(latest.id, latest.claimToken);
-        else await this.channels.completeEvent(latest.id, latest.claimToken);
-      } catch {
-        this.resumes.take(latest.workspaceId, conversationId);
-        this.failed(latest);
-        if (latest.attempt >= MAX_EVENT_ATTEMPTS) await this.handOver(latest, conversationId);
-        else await this.retrySoon(latest);
-      }
+    // One group per conversation, so different conversations run side by side (bounded) while
+    // each conversation's events stay in order inside its own group.
+    await runBounded([...groups.values()], this.guards?.limits.concurrency ?? 1, (group) =>
+      this.runGroup(group.conversationId, group.jobs),
+    );
+  }
+
+  private async runGroup(conversationId: string, group: PendingMetaEvent[]): Promise<void> {
+    // `group` is in claim order (= receipt order), which is also the order `receive` stored the
+    // messages in. Meta timestamps are never used to pick the newest: they can disagree with arrival.
+    // The newest customer message answers for the burst; a trailing echo must not swallow it.
+    const latest = group.findLast((j) => isCustomerContent(j.event)) ?? group.at(-1);
+    if (!latest) return;
+    for (const job of group)
+      if (job !== latest) await this.channels.completeEvent(job.id, job.claimToken);
+    if (!(await this.channels.renewEvent(latest.id, latest.claimToken))) return;
+    try {
+      const outcome = await this.process(latest);
+      if (outcome === 'requeue') await this.channels.requeueEvent(latest.id, latest.claimToken);
+      else if (outcome instanceof Date)
+        await this.channels.deferEvent(latest.id, latest.claimToken, outcome);
+      else await this.channels.completeEvent(latest.id, latest.claimToken);
+    } catch {
+      this.resumes.take(latest.workspaceId, conversationId);
+      this.failed(latest);
+      if (latest.attempt >= MAX_EVENT_ATTEMPTS) await this.handOver(latest, conversationId);
+      else await this.retrySoon(latest);
     }
   }
-  /** The last retry failed: give the customer a human instead of silently dropping the message. */
+  /**
+   * The last retry failed (e.g. the model stayed unavailable): the customer gets the bot's hand-over
+   * message, then staff take over and are alerted, instead of a silently dropped message (MS-9).
+   */
   private async handOver(job: PendingMetaEvent, conversationId: string): Promise<void> {
     try {
+      await this.sayHandedOver(job, conversationId).catch(() =>
+        this.logger.warn(`Meta inbox hand-over message not sent for event ${job.id}`),
+      );
       await this.inbox.handOff(job.workspaceId, conversationId, 'system');
       await this.channels.completeEvent(job.id, job.claimToken);
     } catch {
       this.logger.error(`Meta inbox handover after final retry failed for event ${job.id}`);
       await this.deadLetter(job);
     }
+  }
+  /** Only while the bot still owns the conversation and the customer's turn has no answer yet. */
+  private async sayHandedOver(job: PendingMetaEvent, conversationId: string): Promise<void> {
+    const ws = job.workspaceId;
+    if (job.event.type !== 'message' || !isCustomerContent(job.event)) return;
+    if (!withinReplyWindow(job.event.kind, job.event.occurredAt)) return;
+    const channel = await this.channels.getConnection(ws, job.connectionId);
+    if (!channel.botId || channel.status !== 'connected') return;
+    const bot = await this.bots.getBot(ws, channel.botId);
+    const context = await this.inbox.getReplyContext(ws, conversationId);
+    const { mode, status } = context.conversation;
+    if (mode !== 'bot' || status !== 'open') return;
+    const last = [...context.messages].sort((a, b) => (a.id < b.id ? -1 : 1)).at(-1);
+    if (last?.direction === 'outbound') return;
+    await this.inbox.commitBotReply(ws, conversationId, {
+      revision: context.revision,
+      text: handoffText(bot),
+      idempotencyKey: `bot:${job.event.externalEventId}:handover`,
+    });
   }
   private async deadLetter(job: PendingMetaEvent): Promise<void> {
     this.logger.error(`Meta inbox event ${job.id} dead-lettered after ${job.attempt} attempts`);
@@ -145,13 +196,28 @@ export class MetaInboxProcessor {
       .releaseEvent(job.id, job.claimToken, job.attempt <= 1 ? 20_000 : 60_000)
       .catch(() => undefined);
   }
-  async process(job: PendingMetaEvent): Promise<'requeue' | void> {
-    const c = await this.inbox.receive(job.workspaceId, job.connectionId, job.event);
+  /**
+   * `Date`: held until then without spending an attempt (the conversation is paused until the bot
+   * resumes, LM2-2, or the workspace's inbox turn budget is spent, audit #3).
+   */
+  async process(job: PendingMetaEvent): Promise<'requeue' | Date | void> {
+    let c = await this.inbox.receive(job.workspaceId, job.connectionId, job.event);
     // An echo (e.g. of the interrupted run's own send) leaves the pending re-run alone.
     if (job.event.type !== 'message' || !isCustomerContent(job.event))
       return this.skip(job, 'not a customer message');
     // Taken now so every skip below drops it: a later, unrelated turn must not inherit it.
     const taken = this.resumes.take(job.workspaceId, c.id);
+    // Staff hold the conversation for a while (a takeover or a hand-off): the message waits for the
+    // bot to resume, and is answered then unless staff replied meanwhile (LM2-2).
+    if (c.mode === 'human' && c.status === 'open' && c.takeover === 'temporary' && c.autoResumeAt) {
+      const resumeAt = new Date(c.autoResumeAt);
+      if (resumeAt.getTime() > Date.now()) {
+        if (resumeAt.getTime() - job.event.occurredAt.getTime() < MAX_DEFER_MS) {
+          this.skip(job, `paused until ${c.autoResumeAt}, held for the bot`);
+          return new Date(resumeAt.getTime() + RESUME_GRACE_MS);
+        }
+      } else c = (await this.inbox.resumeIfDue(job.workspaceId, c.id)) ?? c;
+    }
     if (c.mode !== 'bot' || c.status !== 'open') return this.skip(job, 'conversation not on bot');
     const channel = await this.channels.getConnection(job.workspaceId, job.connectionId);
     // Re-auth pending: the message is stored for staff, but the bot cannot send.
@@ -166,6 +232,14 @@ export class MetaInboxProcessor {
     // Outside the bot's reply hours the message stays in the inbox for staff.
     if (bot.replySchedule && !withinReplySchedule(bot.replySchedule, new Date()))
       return this.skip(job, 'outside reply hours');
+    // Per-workspace turn budget (audit #3): over it, the event comes back later (every stored
+    // message of the burst is still answered together then).
+    const deferMs = (await this.guards?.admitTurn(job.workspaceId)) ?? 0;
+    if (deferMs > 0) {
+      if (taken) this.resumes.put(job.workspaceId, c.id, taken);
+      this.logger.log(`Meta inbox event ${job.id}: workspace turn budget spent, deferred`);
+      return new Date(Date.now() + deferMs);
+    }
     const context = await this.inbox.getReplyContext(job.workspaceId, c.id);
     // Ids are monotonic (see nextMessageId), so they order messages by when we stored them rather
     // than by Meta timestamps or the store's createdAt order. This is the single notion of "arrival".
@@ -211,6 +285,21 @@ export class MetaInboxProcessor {
     if (result) await this.inbox.handOff(job.workspaceId, c.id, c.assigneeId ?? 'system');
   }
 
+  /**
+   * A capped visitor (website windows or per-contact cap) gets the bot's hand-over text once (no
+   * model call, no billing); the conversation stays in the inbox for staff without a hand-off
+   * alert per visitor, so a flood cannot also flood the team's notifications.
+   */
+  private async politeCap(turn: Turn): Promise<void> {
+    const { job, c, bot, context, key } = turn;
+    if (!(await this.guards?.firstCappedReply(job.workspaceId, c.id))) return;
+    await this.inbox.commitBotReply(job.workspaceId, c.id, {
+      revision: context.revision,
+      text: handoffText(bot),
+      idempotencyKey: key,
+    });
+  }
+
   private async answer(turn: Turn): Promise<'requeue' | void> {
     const { job, c, botId, stored, key } = turn;
     const lastReply = stored.findLastIndex((m) => m.direction === 'outbound');
@@ -227,6 +316,18 @@ export class MetaInboxProcessor {
     );
     if (provenance && (provenance.status === 'ambiguous' || provenance.status === 'unavailable'))
       return this.handOffWithMessage(turn);
+    // Abuse caps before any model call (audit #2, #18). Every website reply counts against the
+    // site and workspace windows; a lead or contact only moves the visitor to the larger budget
+    // (a typed phone can be fake), and a contact is also capped across its conversations.
+    const lead = turn.context.conversation.lead;
+    const contactId = c.contactId ?? lead?.contactId ?? null;
+    const capped = await this.guards?.replyCap(job.workspaceId, c.id, job.connectionId, {
+      website: job.event.kind === 'website',
+      anonymous: !lead && !contactId,
+      contactId,
+    });
+    if (capped) this.logger.warn(`Meta inbox event ${job.id}: reply cap (${capped}) reached`);
+    if (capped) return capped === 'handoff' ? this.handOffWithMessage(turn) : this.politeCap(turn);
     // ADR-012 §5: the account's allowance is taken before the model runs. Exhausted: the bot
     // stops and staff take over, with the bot's hand-off message for the customer.
     const quota = await this.billing.reserveReply(job.workspaceId, {
@@ -342,6 +443,7 @@ export class MetaInboxProcessor {
         return this.skip(job, 'conversation control changed during the turn');
       return this.rerun(turn, delivery, response.carry, 'interrupted by a newer message');
     }
+    if (response.requestContact) await this.linkRequestContact(turn, response.requestContact);
     const handoff = response.outcome === 'handoff';
     // A hand-off (or a created order) is never dropped: its message goes out whole.
     if (handoff || response.orderCreated) delivery.stopWatchingNewer(response.orderCreated);
@@ -370,6 +472,27 @@ export class MetaInboxProcessor {
       await delivery.sendFinal(handoff ? handoffText(bot) : fallbackText(bot), [], false);
     if (delivery.attempted && !delivery.takenOver && handoff)
       await this.inbox.handOff(job.workspaceId, c.id, c.assigneeId ?? 'system');
+  }
+
+  /**
+   * The bot recorded a request on a customer: the conversation is linked to it like a captured
+   * lead (staff's own choice still wins), so inbox and CRM show one customer (MS-11). Best effort.
+   */
+  private async linkRequestContact(
+    { job, c }: Turn,
+    contact: { contactId: string; phoneE164: string },
+  ): Promise<void> {
+    await this.inbox
+      .linkLead(job.workspaceId, c.id, {
+        contactId: contact.contactId,
+        phoneE164: contact.phoneE164,
+        capturedAt: new Date().toISOString(),
+      })
+      .catch((error: unknown) =>
+        this.logger.warn(
+          `Meta inbox event ${job.id}: request customer not linked (${errorClass(error)})`,
+        ),
+      );
   }
 
   /** A final that never went out may hold a confirmation question: it must not stay pending. */

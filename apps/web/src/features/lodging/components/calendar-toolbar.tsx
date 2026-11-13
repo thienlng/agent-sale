@@ -14,7 +14,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
-import { addDays, dayMonth } from '../lib/format';
+import { addDays, stayDate } from '../lib/format';
 
 export type RangeNights = 14 | 31;
 const ALL = '__all__';
@@ -72,7 +72,7 @@ export function CalendarToolbar({
           <ChevronRight />
         </Button>
         <span className="ml-1 text-sm tabular-nums text-muted-foreground">
-          {dayMonth(from)} – {dayMonth(addDays(from, shownNights - 1))}
+          {stayDate(from)} – {stayDate(addDays(from, shownNights - 1))}
         </span>
       </div>
       {showRange && (

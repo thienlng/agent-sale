@@ -13,6 +13,14 @@ let state: { data?: EntitlementsDto; isError?: boolean } = {};
 vi.mock('../api/use-entitlements', () => ({
   useEntitlements: () => ({ ...state, refetch }),
 }));
+let usage: unknown = undefined;
+vi.mock('../api/use-message-usage', () => ({ useMessageUsage: () => ({ data: usage }) }));
+vi.mock('@/lib/session', () => ({
+  useSession: () => ({
+    workspaceId: 'ws-1',
+    memberships: [{ workspaceId: 'ws-1', workspaceName: 'Mailisa', accountName: 'Ken Dev' }],
+  }),
+}));
 
 const PRO: EntitlementsDto = {
   plan: { code: 'pro', name: 'Pro', version: 1 },
@@ -27,6 +35,7 @@ const PRO: EntitlementsDto = {
 describe('PlanDialog', () => {
   beforeEach(() => {
     state = {};
+    usage = undefined;
     refetch.mockClear();
   });
 
@@ -45,6 +54,24 @@ describe('PlanDialog', () => {
     // Internal limits are not listed, and limits the plan does not define are not invented.
     expect(within(dialog).queryByText(/storage/)).toBeNull();
     expect(within(dialog).queryByText('Khách hàng')).toBeNull();
+  });
+
+  it('says which account it is and how many AI messages are used (AS-22)', () => {
+    state = { data: PRO };
+    usage = {
+      metered: true,
+      used: 1234,
+      limit: 7000,
+      cycleStart: '2026-11-01T00:00:00.000Z',
+      cycleEnd: '2026-11-28T00:00:00.000Z',
+      exhausted: false,
+    };
+    renderWithProviders(<PlanDialog open onOpenChange={() => {}} />);
+    const dialog = screen.getByRole('dialog', { name: 'Gói và thanh toán' });
+    expect(within(dialog).getByText('Tài khoản Ken Dev · đang xem Mailisa')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('Đã dùng 1.234 / 7.000 tin, đến 28/11/2026'),
+    ).toBeInTheDocument();
   });
 
   it('offers a retry when the plan cannot be loaded', async () => {

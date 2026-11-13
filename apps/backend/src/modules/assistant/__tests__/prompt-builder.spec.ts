@@ -20,6 +20,10 @@ const SNAP = {
 };
 // 07:05 UTC = 14:05 in Asia/Ho_Chi_Minh, on 2026-11-02.
 const AT = new Date('2026-11-02T07:05:00.000Z');
+/** `<current_time>` of AT: 14:05 on Monday 2 November in Asia/Ho_Chi_Minh (AS-4). */
+const NOW =
+  '<current_time>2026-11-02 14:05 Monday (Asia/Ho_Chi_Minh, +07:00); this week 2026-11-02..2026-11-08; ' +
+  'next week 2026-11-09..2026-11-15; this month 2026-11-01..2026-11-30</current_time>';
 
 const entry = (text: string) => ({
   id: text,
@@ -64,8 +68,8 @@ describe('renderMemoryBlock', () => {
 });
 
 describe('buildSystemPrompt', () => {
-  it('uses assistant@4 for new threads', () => {
-    expect(ASSISTANT_PROMPT).toEqual({ name: 'assistant', version: 4 });
+  it('uses assistant@6 for new threads', () => {
+    expect(ASSISTANT_PROMPT).toEqual({ name: 'assistant', version: 6 });
   });
 
   it('renders the same inputs to a byte-identical prompt with skills and memory', async () => {
@@ -101,7 +105,7 @@ describe('buildSystemPrompt', () => {
     expect(a).toContain('never from adding up rows yourself');
     // Customer contact data never comes out (QA Villas #3).
     expect(a).toContain("Never write a customer's phone number, e-mail address or home address");
-    expect(a).toContain('Today is 2026-11-02 (Asia/Ho_Chi_Minh).');
+    expect(a).toContain('This conversation started on 2026-11-02 (Asia/Ho_Chi_Minh);');
     expect(a).not.toContain('{{');
   });
 
@@ -160,7 +164,7 @@ describe('buildSystemPrompt', () => {
   it('leaves the memory section empty when nothing is remembered', async () => {
     const template = await loadAssistantTemplate();
     const out = buildSystemPrompt(template, SNAP, AT, { skillsIndex: SKILLS_INDEX, memory: [] });
-    expect(out).toContain('Memory:\n\n\nToday is');
+    expect(out).toContain('Memory:\n\n\nThis conversation started on');
   });
 });
 
@@ -208,6 +212,37 @@ describe('assistant@4 read-by-id rule (QA LOOKUP-m)', () => {
   });
 });
 
+describe('assistant@6 rules (staging wave 2)', () => {
+  it("puts a new product's stock on its card and answers from evidence", async () => {
+    const template = await loadAssistantTemplate();
+    // AS-12, AS2-7, AS2-2.
+    expect(template).toContain("A new product's stock goes on the same card");
+    expect(template).toContain('A verdict follows what you read, never the owner');
+    // AS3-3: a cut result is reported as incomplete; AS3-7: the shop bot never reads memory.
+    expect(template).toContain('em mới xem được 5/7 căn');
+    // AS4-1: "bot tính sai à?" goes to bot-doctor and the headline follows the evidence.
+    expect(template).toContain('load bot-doctor, verify the bot');
+    expect(template).toContain('the shop bot never reads it');
+    // A +07:00 instant is said as written, never shifted again (hotel-hold-expiry-local-time).
+    expect(template).toContain(
+      'never add or subtract 7 hours (2026-11-13T03:05:39+07:00 is 03:05 13/11)',
+    );
+  });
+});
+
+describe('assistant@5 rules (staging wave 1)', () => {
+  it('navigates only when asked, promises nothing later, and reads times on the owner clock', async () => {
+    const template = await loadAssistantTemplate();
+    // AS-10, AS-12, AS-3/AS-4, AS-11, AS-16, AS-2.
+    expect(template).toContain('Use ui_navigate to open a page only when the owner asks');
+    expect(template).toContain('Never promise a later step on your own');
+    expect(template).toContain('Times in tool results are already on the owner');
+    expect(template).toContain('it belongs to another account');
+    expect(template).toContain('tell the owner it looks suspicious');
+    expect(template).toContain('Never ask the owner for data you can read with a tool');
+  });
+});
+
 describe('buildTurnMessage', () => {
   it('puts the page context and the local time before the owner text', () => {
     expect(
@@ -218,7 +253,7 @@ describe('buildTurnMessage', () => {
       ),
     ).toBe(
       '<page_context>{"route":"/app/products","targets":["products.import"]}</page_context>\n' +
-        '<current_time>14:05</current_time>\n' +
+        `${NOW}\n` +
         'Có mấy sản phẩm chưa có ảnh?',
     );
   });
@@ -273,13 +308,11 @@ describe('buildTurnMessage', () => {
     expect(buildTurnMessage('Chào em', { route: '/app' }, AT, B1)).toBe(
       '<page_context>{"route":"/app"}</page_context>\n' +
         `<current_business>${B1}</current_business>\n` +
-        '<current_time>14:05</current_time>\nChào em',
+        `${NOW}\nChào em`,
     );
   });
 
   it('leaves the page context line out when there is none', () => {
-    expect(buildTurnMessage('Chào em', undefined, AT)).toBe(
-      '<current_time>14:05</current_time>\nChào em',
-    );
+    expect(buildTurnMessage('Chào em', undefined, AT)).toBe(`${NOW}\nChào em`);
   });
 });

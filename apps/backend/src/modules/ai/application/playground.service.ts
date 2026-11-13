@@ -5,6 +5,8 @@ import {
   PROMPTS_DIR,
   PromptRegistry,
   runAgentLoop,
+  stepDetail,
+  type StepDetail,
 } from '@agent-sales/ai-core';
 import {
   defaultOfferingKind,
@@ -82,7 +84,10 @@ import {
 } from './action-tools.js';
 import { createHistorySummarizer } from './history-summarizer.js';
 import {
+  conversationHoldsBlock,
+  currentPropertyBlock,
   HOLD_CONFIRM_PAYLOAD,
+  holdCodesIn,
   holdCreatedText,
   hotelHoldContext,
   localHoldTime,
@@ -99,12 +104,14 @@ import {
   type OrderToolContext,
   PLAYGROUND_ORDER_CHANNEL,
 } from './order-tools.js';
+import { guardHandoff, latestCustomerBlock } from './handoff-guard.js';
 import { HANDOFF_TOOL, ImageAllowlist, newOutputState } from './output-tools.js';
 import { withDefaultOfferings } from './catalog-tools.js';
 import {
   carriedProductIds,
   compactHistory,
   currentTimeBlock,
+  earlierPhones,
   EMAIL_KNOWN_LINE,
   focusBlock,
   historyTurns,
@@ -126,9 +133,12 @@ import {
   runBase,
   turnMessages,
   turnTools,
+  writesEnglish,
 } from './reply-pipeline.js';
 import { ReplyGuard } from './reply-guard.js';
 import type { RequestToolContext } from './request-tools.js';
+import { AI_SPEND_LIMITS, budgetHandoff, type AiSpendLimits } from './spend-guard.js';
+import type { CommitKind } from './commit-quota.js';
 import { sha256, TraceRecorder, traceExcerpt } from './trace-recorder.js';
 
 export { EMAIL_KNOWN_LINE, PHONE_KNOWN_LINE };
@@ -146,15 +156,26 @@ export { EMAIL_KNOWN_LINE, PHONE_KNOWN_LINE };
 // Steps 2 and 5 change bot behaviour: run the ai evals before/after. Measure first (prompt viewer).
 /** The sales-agent prompt version of a bot's industry; an industry not listed gets @15 (retail). */
 export const PROMPT_BY_INDUSTRY: Readonly<Record<string, SalesPromptVersion>> = {
-  // @20 + unit details, unit albums and bedroom packages (T-193). @20 = @18 + lodging media
-  // folders: albums by albumId, videos only on request (T-192).
-  hotel: 21,
-  // The request industries: @15 plus "Recording a request" and the course / service facts.
-  saas: 19,
-  education: 19,
-  spa: 19,
+  // @25 = @22 + the staging rules (EV-1, EV-4 and wave 1): catalogEmpty → the profile is the
+  // shop's facts; a known pronoun once per reply; the customer's language for the whole reply;
+  // tools and the live catalog/calendar win over contradicting training; handoff only for a
+  // person, a complaint/payment problem or out of scope (never for an answerable question,
+  // haggling, a claimed price or an injection, never again because of an earlier hand-over); ask
+  // the phone before handing off a health question; no invented policy; an internal "chiết
+  // khấu" is no offer; off-topic tasks declined; pictures by label only; plus the hotel rules
+  // sellByWeekday/notSoldOn, nightlyPackage, unsold packages unmentioned and a changed hold.
+  // @22 = @21 + "the catalog is live". @21 = @20 + units and bedroom packages (T-193).
+  hotel: 25,
+  // The request industries: @26 = @23 + the same common rules, plus weekday/date mismatch →
+  // ask, buying a product without order tools → consultation, no age for an adult, several
+  // ages matched one by one, a description's purchase condition. @23 = @19 + "the catalog is
+  // live"; @19 = @15 plus "Recording a request" and the course / service facts.
+  saas: 26,
+  education: 26,
+  spa: 26,
 };
-const DEFAULT_PROMPT_VERSION: SalesPromptVersion = 15;
+/** @27 = @24 + the common rules of @25 and @26. @24 = @15 + "the catalog is live". */
+const DEFAULT_PROMPT_VERSION: SalesPromptVersion = 27;
 /** The sales-agent prompt of a bot of `industry` (without the forcing option). */
 export function salesPromptFor(industry: string): {
   name: 'sales-agent';
@@ -163,7 +184,8 @@ export function salesPromptFor(industry: string): {
   return { name: 'sales-agent', version: PROMPT_BY_INDUSTRY[industry] ?? DEFAULT_PROMPT_VERSION };
 }
 /** The sales-agent prompt versions the option may force (13/14: before the order tools). */
-export type SalesPromptVersion = 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21;
+export type SalesPromptVersion =
+  13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27;
 /** Optional DI token: forces the sales-agent prompt for every bot (default: `PROMPT_BY_INDUSTRY`). */
 export const PROMPT_VERSION_OPTION = Symbol('PROMPT_VERSION_OPTION');
 /**
@@ -216,6 +238,7 @@ export class PlaygroundService implements AiFacade {
     @Inject(CRM_FACADE) @Optional() private readonly crm?: CrmFacade,
     @Inject(TURN_TRACE_REPOSITORY) @Optional() private readonly traces?: TurnTraceRepository,
     @Inject(REPLY_FIGURE_GUARD) @Optional() private readonly figureGuard?: boolean,
+    @Inject(AI_SPEND_LIMITS) @Optional() private readonly spend: AiSpendLimits = {},
   ) {
     this.#forcedPrompt = promptVersion
       ? { name: 'sales-agent', version: promptVersion }
@@ -236,8 +259,23 @@ export class PlaygroundService implements AiFacade {
     ws: WorkspaceId,
     botId: string,
     input: PlaygroundRequest,
+    actor?: { userId: string },
   ): Promise<PlaygroundResponse> {
-    return this.reply(ws, botId, input, { conversationId: null, isTest: true });
+    // Owner-side spend (audit #15): the user's run rate and the account's tokens of the day.
+    const owner = this.spend.owner;
+    const accountId = owner && actor ? await this.workspaces.accountOf(ws) : null;
+    if (owner && actor && accountId) await owner.playgroundRun(accountId, actor.userId);
+    return this.#turn(
+      ws,
+      botId,
+      input,
+      {
+        conversationId: null,
+        isTest: true,
+        ...(input.sessionId ? { playgroundSession: input.sessionId } : {}),
+      },
+      accountId,
+    );
   }
 
   async reply(
@@ -246,8 +284,25 @@ export class PlaygroundService implements AiFacade {
     input: PlaygroundRequest,
     options: ReplyOptions = { conversationId: null, isTest: false },
   ): Promise<ReplyResult> {
+    return this.#turn(ws, botId, input, options, null);
+  }
+
+  /** One turn; `accountId` set = an owner-side run charged to the account's daily tokens. */
+  async #turn(
+    ws: WorkspaceId,
+    botId: string,
+    input: PlaygroundRequest,
+    options: ReplyOptions,
+    accountId: string | null,
+  ): Promise<ReplyResult> {
     const startedAt = new Date();
     const bot = await this.bots.getBot(ws, botId);
+    // A conversation over its hourly model budget (audit #15): no model call, staff take over.
+    const budget = options.conversationId ? this.spend.conversation : undefined;
+    if (budget && options.conversationId && (await budget.exhausted(ws, options.conversationId))) {
+      this.#logger.warn(`Conversation model budget spent, handing off (bot ${botId})`);
+      return budgetHandoff(bot);
+    }
     const prompt = this.#forcedPrompt ?? salesPromptFor(bot.industry);
     const workspace = await this.workspaces.getById(ws);
     const customerTexts = input.messages.filter((m) => m.role === 'customer').map((m) => m.content);
@@ -280,7 +335,8 @@ export class PlaygroundService implements AiFacade {
 
     // Products already discussed (the last runs of this conversation) need no new search.
     // A comment reply has no conversation to remember, so it never shares one across customers.
-    const conversationKey = options.conversationId ?? playgroundConversationId(botId);
+    const conversationKey =
+      options.conversationId ?? playgroundConversationId(botId, options.playgroundSession);
     const remembers = options.conversationId !== null || options.isTest;
     const focusIds =
       catalog && remembers
@@ -370,6 +426,14 @@ export class PlaygroundService implements AiFacade {
     // Orders need a private conversation: never for a public comment reply. Hotel bots sell
     // lodging properties, which commerce orders cannot hold (T-160). A request industry converts
     // through record_request, never an order, even with order taking on (ESV-R7).
+    // Orders and holds per customer and day (audit #18); never for a test run.
+    const commitQuota = (kind: CommitKind) =>
+      options.isTest
+        ? null
+        : (this.spend.commits?.for(kind, ws, {
+            contactId: options.contactId ?? null,
+            conversationId: conversationKey,
+          }) ?? null);
     const orders: OrderToolContext | null =
       this.commerce &&
       bot.orderTaking &&
@@ -384,6 +448,7 @@ export class PlaygroundService implements AiFacade {
             channel: options.channel ?? PLAYGROUND_ORDER_CHANNEL,
             ...(options.sink ? { sink: options.sink } : {}),
             output,
+            customerBlock: latestCustomerBlock(input.messages),
             confirmable: await confirmableDraft(
               this.commerce,
               ws,
@@ -394,10 +459,18 @@ export class PlaygroundService implements AiFacade {
             state: newOrderToolState(),
             onError: (error: unknown) =>
               this.#logger.warn(`Order draft drop failed: ${errorClass(error)}`),
+            quota: commitQuota('order'),
           }
         : null;
+    const hotel = Boolean(this.lodgingBot && this.lodgingCatalog && bot.industry === 'hotel');
+    // VL2-4 / VL2-5: the holds the bot placed earlier in this conversation (its messages name them).
+    const earlierHolds = hotel && !isCommentReply ? holdCodesIn(input.messages) : [];
+    // VL4-1: an English-speaking guest (a button tap is not their language) gets English holds.
+    const guestWords = [...customerTexts].reverse().find((t) => !/^\W*(✅|✏️)/u.test(t));
+    const holdLanguage: 'vi' | 'en' =
+      bot.language === 'en' || writesEnglish(guestWords) ? 'en' : 'vi';
     const holds =
-      this.lodgingBot && this.lodgingCatalog && bot.industry === 'hotel'
+      this.lodgingBot && this.lodgingCatalog && hotel
         ? await hotelHoldContext({
             facade: this.lodgingBot,
             catalog: this.lodgingCatalog,
@@ -412,14 +485,40 @@ export class PlaygroundService implements AiFacade {
             privateChat: !isCommentReply,
             answered: answeredSince(input.messages, options.turnTimes, startedAt),
             warn: (message) => this.#logger.warn(message),
+            quota: commitQuota('hold'),
+            customerTexts,
+            earlierHolds,
+            language: holdLanguage,
           })
         : null;
+    const lodgingBlocks =
+      hotel && this.lodgingBot && this.lodgingCatalog
+        ? [
+            earlierHolds.length
+              ? conversationHoldsBlock(
+                  await this.lodgingBot.botConversationHolds(ws, {
+                    conversationId: conversationKey,
+                    channel: options.channel ?? PLAYGROUND_ORDER_CHANNEL,
+                    codes: earlierHolds,
+                  }),
+                )
+              : '',
+            // VL2-6: the property the conversation is about stays in focus across turns.
+            currentPropertyBlock(
+              await this.lodgingCatalog.searchBotCatalog(ws, scope, { limit: 100 }),
+              input.messages,
+            ),
+          ]
+            .filter(Boolean)
+            .join('\n\n')
+        : '';
     // A bot of a request industry records its requests on the CRM customer itself (ADR-020).
     const requestProfile = requestProfileFor(bot.industry);
     // The products the turn knows by name: an empty course or service is filled from them.
     const seenNames = new Map(focus.map((p) => [p.id, p.name]));
     // A website visitor's turn: the products the bot may show as cards (focus and catalog results).
     const shownable = new Map(focus.map((p) => [p.id, p]));
+    let requestContact: { contactId: string; phoneE164: string } | undefined;
     const requestTool: RequestToolContext | null =
       this.crm && requestProfile
         ? {
@@ -430,6 +529,11 @@ export class PlaygroundService implements AiFacade {
             customerTexts,
             calls: actionState.calls,
             catalogNames: () => [...seenNames.values()],
+            ...(options.channel ? { channel: options.channel } : {}),
+            ...(options.conversationId ? { conversationId: options.conversationId } : {}),
+            onRecorded: (contact) => {
+              requestContact = contact;
+            },
             onError: (error) => this.#logger.warn(`Request tool failed: ${errorClass(error)}`),
           }
         : null;
@@ -437,7 +541,12 @@ export class PlaygroundService implements AiFacade {
     const now = new Date();
     const profile = renderBusinessProfile(bot);
     const focusText = focusBlock(focus);
-    const pendingText = pending && waiting ? pendingBlock(waiting, pending) : '';
+    const pendingText = [
+      pending && waiting ? pendingBlock(waiting, pending) : '',
+      requestProfile ? await this.#requestStatusBlock(ws, options.contactId ?? null) : '',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
     const imagesText = imagesBlock(initialAllowed);
     const contextPrompts = [...(post ? [POST_PROMPT] : []), ...(page ? [PAGE_PROMPT] : [])];
     const template = await loadReplyTemplate(this.#prompts, [prompt, ...contextPrompts]);
@@ -450,6 +559,7 @@ export class PlaygroundService implements AiFacade {
         profile,
         ...sources.map((s) => `${s.question}\n${s.answer}`),
         situations,
+        lodgingBlocks,
         focusText,
         pendingText,
         imagesText,
@@ -499,7 +609,17 @@ export class PlaygroundService implements AiFacade {
       sentMediaUrls: options.sentMediaUrls ?? input.sentMediaUrls ?? [],
     });
 
-    const meter = meteredGenerate((req) => this.llm.generate(req));
+    // Every call is charged as it completes, so interrupted or undelivered turns count too.
+    const meter = meteredGenerate(async (req) => {
+      const res = await this.llm.generate(req);
+      await Promise.all([
+        budget && options.conversationId
+          ? budget.charge(ws, options.conversationId, res.usage)
+          : undefined,
+        accountId ? this.spend.owner?.charge(accountId, res.usage) : undefined,
+      ]).catch(() => this.#logger.warn('Model spend not counted'));
+      return res;
+    });
     const promptVersion = [prompt, ...contextPrompts]
       .map((p) => `${p.name}@${p.version}`)
       .join('+');
@@ -509,7 +629,7 @@ export class PlaygroundService implements AiFacade {
       this.summaries && summaryKey && history.times
         ? await this.summaries.get(ws, summaryKey)
         : null;
-    const steps: AgentStep[] = [];
+    const steps: (AgentStep & { detail?: StepDetail | null })[] = [];
     let loop: AgentLoopResult | null = null;
     let base: GenerateRequest | null = null;
     let historySummarized = false;
@@ -571,11 +691,12 @@ export class PlaygroundService implements AiFacade {
           ...withTurnContext(compact.turns, {
             profile,
             sources,
-            situations,
+            situations: [situations, lodgingBlocks].filter(Boolean).join('\n\n'),
             focus: focusText,
             pending: pendingText,
             images: imagesText,
             phoneKnown: input.phoneKnown === true,
+            earlierPhones: earlierPhones(history.turns, compact.turns),
             emailKnown: input.emailKnown === true,
             now,
           }),
@@ -589,14 +710,27 @@ export class PlaygroundService implements AiFacade {
       };
       loop = await runAgentLoop({
         base,
-        tools: recorder.wrap(guard.wrap(tools.runnable)),
+        tools: recorder.wrap(
+          guard.wrap(
+            // VL2-1: a handoff the turn's tools or the shop's data answer is refused once.
+            guardHandoff(tools.runnable, {
+              customerText: latestCustomerBlock(input.messages),
+              recentCustomerText: customerTexts.slice(-4).join('\n'),
+              offeredTools: tools.definitions.map((d) => d.name),
+              shopText: [profile, focusText, ...sources.map((s) => `${s.question}\n${s.answer}`)]
+                .filter(Boolean)
+                .join('\n'),
+            }),
+          ),
+        ),
         // Once a message went out, an empty final answer is fine: no gateway retry for it.
         generate: (req) => meter.generate(output.sent.length ? { ...req, allowEmpty: true } : req),
         onStep: (step) => {
-          // The shop bot keeps no tool arguments or results in its steps (only the trace's
-          // allowlisted detail); the owner-assistant debug fields stay out of its result.
+          // A customer turn keeps no tool arguments or results in its steps (only the trace's
+          // allowlisted detail). The owner's test chat gets the same redacted debug detail as
+          // the assistant's trace: tokens per model call, arguments and result head per tool.
           const { input: _in, result: _out, usage: _u, requested: _r, ...kept } = step;
-          steps.push(kept);
+          steps.push(options.isTest ? { ...kept, detail: stepDetail(step) } : kept);
           recorder.onStep(step);
         },
         isTerminal: (call) => call.name === HANDOFF_TOOL,
@@ -630,7 +764,15 @@ export class PlaygroundService implements AiFacade {
     }
 
     let decision: ReplyDecision = loop
-      ? decideReply({ loop, output, bot, actionFallback: actionState.fallback, check })
+      ? decideReply({
+          loop,
+          output,
+          bot,
+          actionFallback: actionState.fallback,
+          check,
+          customerTexts,
+          phoneKnown: input.phoneKnown === true,
+        })
       : { outcome: 'answered', guardrail: 'model_error', final: fallbackText(bot) };
     if (loop && base) {
       const { followUps } = loop;
@@ -677,11 +819,14 @@ export class PlaygroundService implements AiFacade {
     if (held) {
       decision = announceCreated(decision, {
         code: held.code,
-        line: holdCreatedText(held.code, held.expiresAt),
+        line: holdCreatedText(held.code, held.expiresAt, held.replaced, holdLanguage),
         sentTexts: output.sent.map((m) => m.text),
         fallback: fallbackText(bot),
         // The code alone is not enough: the customer must also read until when it is held.
-        alsoRequired: [localHoldTime(held.expiresAt)?.time].filter((t) => t !== undefined),
+        // VL2-4: and which earlier hold it replaced.
+        alsoRequired: [localHoldTime(held.expiresAt)?.time, held.replaced].filter(
+          (t) => t !== undefined,
+        ),
       });
     }
     const messages = turnMessages(output, decision);
@@ -737,6 +882,8 @@ export class PlaygroundService implements AiFacade {
       provider: run.provider,
       model: run.model,
       latencyMs: meter.latencyMs,
+      tier: bot.modelTier,
+      rounds: loop?.modelCalls ?? meter.calls,
       ...(actionState.calls.length ? { actions: actionState.calls } : {}),
       messages,
       steps,
@@ -744,7 +891,29 @@ export class PlaygroundService implements AiFacade {
       ...(actionState.askedConfirmation ? { askedConfirmation: true } : {}),
       // A placed hold is binding like an order: the caller must never drop its final message.
       ...(orders?.state.orderCreated || held ? { orderCreated: true } : {}),
+      ...(requestContact ? { requestContact } : {}),
     };
+  }
+
+  /**
+   * The conversation customer's latest request and whether staff confirmed it (MS2-7), so the bot
+   * never says "staff will confirm" about an appointment that is already confirmed. Best effort:
+   * empty without a customer, a request or a readable status.
+   */
+  async #requestStatusBlock(ws: WorkspaceId, contactId: string | null): Promise<string> {
+    if (!contactId || !this.crm) return '';
+    try {
+      const status = await this.crm.requestStatus(ws, contactId);
+      if (!status) return '';
+      const slot = [status.dateLabel, status.preferredTime].filter(Boolean).join(' ');
+      const state = status.confirmed
+        ? 'CONFIRMED by staff: say it is confirmed; never say staff will call to confirm it'
+        : 'not confirmed yet: staff will contact the customer to confirm';
+      return `<customer_request>\nThis customer's latest request: ${status.kindLabel}${slot ? ` (${slot})` : ''} — ${state}.\n</customer_request>`;
+    } catch (error) {
+      this.#logger.warn(`Request status not read: ${errorClass(error)}`);
+      return '';
+    }
   }
 
   /**

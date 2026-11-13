@@ -68,7 +68,16 @@ const json = (value: unknown): string => JSON.stringify(value).replaceAll('<', '
 export interface SkillToolContext extends SkillWriteContext {
   scope: OwnerKey;
   skills: SkillsService;
+  /**
+   * Toolsets this turn does not have (the SQL lane when it is not configured or turned off). A
+   * skill that needs only those loads as `toolset_unavailable` with what to do instead (AS-5).
+   */
+  unavailableToolsets?: ReadonlySet<string>;
 }
+
+/** Told to the model when a skill's toolsets are all missing this turn (AS-5). */
+export const TOOLSET_UNAVAILABLE_GUIDANCE =
+  'This skill needs tools that are not available here (data analysis over SQL is off). Do not search for them. Answer from the read tools tool_search finds (orders, products, bookings, summaries) when they cover the question; otherwise say once, plainly, that this analysis or chart is not available yet. Never draw a chart in text.';
 
 /**
  * skills_list and load_skill over the owner's catalog (platform skills, shadows in their place,
@@ -97,6 +106,19 @@ export function skillTools(ctx: SkillToolContext): RunnableTool[] {
         includePending: ctx.actor === 'review',
       });
       if (!skill) return { content: json({ ok: false, errorCode: 'unknown_skill' }), ok: false };
+      const missing = ctx.unavailableToolsets;
+      if (missing && skill.toolsets.length > 0 && skill.toolsets.every((t) => missing.has(t))) {
+        return {
+          content: json({
+            ok: false,
+            errorCode: 'toolset_unavailable',
+            name: skill.name,
+            toolsets: skill.toolsets,
+            guidance: TOOLSET_UNAVAILABLE_GUIDANCE,
+          }),
+          ok: false,
+        };
+      }
       ctx.loadedSkills.add(skill.name);
       return {
         content: json({ ok: true, name: skill.name, toolsets: skill.toolsets, body: skill.body }),

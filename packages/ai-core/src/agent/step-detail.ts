@@ -1,6 +1,10 @@
-import { redactSensitive, type AgentStep } from '@agent-sales/ai-core';
+import type { AgentStep } from './loop.js';
+import { redactSensitive } from './safety.js';
 
-/** Stored detail of one step: what the owner sees in the debug panel under an answer. */
+/**
+ * Detail of one step: what the owner sees in the debug panel under an answer (the assistant's
+ * stored steps and the bot test chat's steps).
+ */
 export type StepDetail =
   | { tokens: { input: number; cached: number; output: number }; requested: string[] }
   | { args: string; resultChars: number; result: string };

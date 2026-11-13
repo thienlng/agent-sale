@@ -71,7 +71,9 @@ expect:
   outcome: answered
   guardrail: none
   # No dates: the bot asks for check-in / check-out (and the party) instead of guessing.
-  steps_exclude: ['check_availability', 'prepare_hold', 'handoff']
+  # PO decision DEC-7: an attempt the tool refuses for the missing dates is harmless.
+  steps_exclude: ['prepare_hold', 'handoff']
+  steps_not_succeeded: ['check_availability']
   contains_any: ['ngày nhận', 'ngày trả', 'ngày nào', 'ngày đi', 'nhận phòng', 'check-in']
   not_contains: ['đã kín', 'hết phòng', 'đã giữ', 'đã đặt']
 fake_turns:

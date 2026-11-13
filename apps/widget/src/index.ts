@@ -6,6 +6,7 @@ import { createPoller, type PollMode } from './poller.js';
 import { initialState, reduce, type Action, type State } from './state.js';
 import { firstUrlKey, readItem, removeItem, reopenKey, tokenKey, writeItem } from './storage.js';
 import { getStrings } from './strings.js';
+import { challengeToken } from './turnstile.js';
 import type { WidgetConfig, WidgetSendRequest } from './types.js';
 import { uuid } from './uuid.js';
 import { createView, sameDocument } from './view.js';
@@ -272,9 +273,18 @@ function start(api: Api, key: string, config: WidgetConfig): void {
 
   const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
+  /** A Turnstile token for a new visitor when the site requires one, else undefined. */
+  async function challenge(): Promise<string | undefined> {
+    if (token || !config.turnstileSiteKey) return undefined;
+    return (await challengeToken(config.turnstileSiteKey)) ?? undefined;
+  }
+
   async function deliver(m: Outgoing): Promise<void> {
     for (let attempt = 0; ; attempt++) {
-      const r = await api.send(token, buildRequest(m));
+      const request = buildRequest(m);
+      const proof = await challenge();
+      if (proof) request.turnstileToken = proof;
+      const r = await api.send(token, request);
       if (r.body) {
         token = r.body.visitorToken;
         writeItem(tokenKey(key), token);
@@ -297,6 +307,8 @@ function start(api: Api, key: string, config: WidgetConfig): void {
         view.setNotice(strings.rateLimited);
         dispatch({ type: 'sendFailed', id: m.id });
         return;
+      } else if (r.status === 403 && r.code === 'CHALLENGE_REQUIRED' && attempt < MAX_RETRIES) {
+        continue; // a fresh challenge on the next attempt
       } else if ((r.status === 0 || r.status >= 500) && attempt < MAX_RETRIES) {
         await sleep(2000 * Math.pow(2, attempt)); // 2 s, 4 s, 8 s
         continue;
@@ -311,6 +323,7 @@ function start(api: Api, key: string, config: WidgetConfig): void {
     view.setBusy(true);
     try {
       const blob = await compressImage(file);
+      const proof = await challenge();
       // Without a token the upload itself starts the visitor and answers its token.
       const up = await api.upload(
         token,
@@ -322,6 +335,7 @@ function start(api: Api, key: string, config: WidgetConfig): void {
               referrer: document.referrer.slice(0, 500),
               pageUrl: window.location.href.slice(0, 500),
               pageTitle: document.title.slice(0, 150),
+              ...(proof ? { turnstileToken: proof } : {}),
             },
       );
       if (up.status === 401) {

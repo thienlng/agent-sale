@@ -22,7 +22,6 @@ import {
   InboxConversationDto,
   InboxDetailResponse,
   InboxListResponse,
-  InboxNote,
   type InboxTagChip,
   type InboxListQuery,
   type InboxUpdateBody,
@@ -261,8 +260,11 @@ export function useAddNote(id: string) {
   const ws = useWorkspaceId();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (text: string) =>
-      api(`/conversations/${id}/notes`, InboxNote, { method: 'POST', body: { text } }),
+    // The API answers the updated conversation (contract `201 ConversationDto`), not the note:
+    // parsing it as a note failed after a successful save, so the note was saved twice (LM2-9).
+    mutationFn: async (text: string) => {
+      await api(`/conversations/${id}/notes`, z.unknown(), { method: 'POST', body: { text } });
+    },
     onSettled: () =>
       Promise.all([
         qc.invalidateQueries({ queryKey: ['conversation', ws, id] }),

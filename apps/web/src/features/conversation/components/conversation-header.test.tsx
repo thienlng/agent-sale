@@ -182,4 +182,30 @@ describe('conversation header', () => {
     for (const name of [`${V}markUnread`, `${V}resolve`, 'channelInbox.meta.header.spam'])
       expect(screen.getByRole('button', { name })).toBeDisabled();
   });
+
+  it('keeps one row in a narrow header: spam and "mark unread" move into "…" (LM-8)', async () => {
+    const original = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class {
+      constructor(private readonly cb: ResizeObserverCallback) {}
+      observe(target: Element) {
+        this.cb(
+          [{ target, contentRect: { width: 420 } } as unknown as ResizeObserverEntry],
+          this as unknown as ResizeObserver,
+        );
+      }
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver;
+    try {
+      const user = userEvent.setup();
+      const h = renderHeader();
+      expect(screen.queryByRole('button', { name: 'channelInbox.meta.header.spam' })).toBeNull();
+      expect(screen.queryByRole('button', { name: `${V}markUnread` })).toBeNull();
+      await user.click(screen.getByRole('button', { name: `${V}more` }));
+      await user.click(await screen.findByRole('menuitem', { name: `${V}markUnread` }));
+      expect(h.onMarkUnread).toHaveBeenCalled();
+    } finally {
+      globalThis.ResizeObserver = original;
+    }
+  });
 });

@@ -11,6 +11,12 @@ export const WidgetConfigDto = z.object({
   phonePrompt: z.string(),
   phoneChipText: z.string(),
   language: z.enum(['vi', 'en']),
+  /**
+   * Cloudflare Turnstile site key when the platform requires a challenge for new visitors (off by
+   * default). The widget loads the challenge only then and sends its token with the first message
+   * or upload of a new visitor. Absent from older backends.
+   */
+  turnstileSiteKey: z.string().optional(),
 });
 export type WidgetConfigDto = z.infer<typeof WidgetConfigDto>;
 
@@ -74,6 +80,8 @@ export const WidgetSendRequest = z
     referrer: z.string().max(500).optional(),
     /** Greeting + invites the visitor saw before writing; stored with the first message. */
     seen: z.array(z.string().max(300)).max(5).optional(),
+    /** Turnstile token; required on a new visitor's first message when the config named a site key. */
+    turnstileToken: z.string().max(2048).optional(),
   })
   .refine((b) => Boolean(b.text) !== Boolean(b.attachmentUrl), 'text or attachmentUrl, not both');
 export type WidgetSendRequest = z.infer<typeof WidgetSendRequest>;

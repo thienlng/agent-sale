@@ -80,7 +80,9 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function tick() {
   // Events become claimable after a short quiet period (burst merge).
   await sleep(900);
-  await runner.tick();
+  // A claim admits a few conversations per workspace (fair claim), and earlier tests leave
+  // unanswered visitors behind: a few ticks drain that backlog.
+  for (let i = 0; i < 4; i++) await runner.tick();
 }
 
 beforeAll(async () => {
@@ -407,7 +409,10 @@ describe('uploads and rate limits', () => {
     const put = vi
       .spyOn(storage, 'put')
       .mockImplementation(async (key: string) => `https://cdn.test/${key}`);
-    spies.push(put);
+    const promote = vi
+      .spyOn(storage, 'promote')
+      .mockImplementation(async (_temporaryKey: string, key: string) => `https://cdn.test/${key}`);
+    spies.push(put, promote);
     const token = await visitorToken();
     const png = Buffer.concat([
       Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -416,9 +421,10 @@ describe('uploads and rate limits', () => {
     const ok = await pub('POST', '/uploads', { token, ...multipart(png) });
     expect(ok.statusCode).toBe(200);
     const { url } = WidgetUploadResponse.parse(ok.json());
+    // Stored under the temporary prefix until a message references it.
     expect(url).toMatch(
       new RegExp(
-        `^https://cdn\\.test/webchat/${owner.ownWorkspace}/${site.id}/[0-9a-f-]{36}\\.png$`,
+        `^https://cdn\\.test/webchat-tmp/${owner.ownWorkspace}/${site.id}/[0-9a-f-]{36}\\.png$`,
       ),
     );
     expect(put).toHaveBeenCalledTimes(1);
@@ -438,7 +444,13 @@ describe('uploads and rate limits', () => {
       payload: sendBody('', { text: undefined, attachmentUrl: url }),
     });
     expect(sent.statusCode).toBe(202);
-    expect(WidgetSendResponse.parse(sent.json()).message.imageUrl).toBe(url);
+    // Sending moves it to the permanent prefix; the message carries the permanent url.
+    const permanent = url.replace('/webchat-tmp/', '/webchat/');
+    expect(promote).toHaveBeenCalledWith(
+      url.slice('https://cdn.test/'.length),
+      permanent.slice('https://cdn.test/'.length),
+    );
+    expect(WidgetSendResponse.parse(sent.json()).message.imageUrl).toBe(permanent);
     for (const spy of spies) spy.mockRestore();
   });
 
@@ -448,6 +460,11 @@ describe('uploads and rate limits', () => {
       vi.spyOn(storage, 'available').mockReturnValue(true),
       vi.spyOn(storage, 'publicPrefix').mockReturnValue('https://cdn.test'),
       vi.spyOn(storage, 'put').mockImplementation(async (key: string) => `https://cdn.test/${key}`),
+      vi
+        .spyOn(storage, 'promote')
+        .mockImplementation(
+          async (_temporaryKey: string, key: string) => `https://cdn.test/${key}`,
+        ),
     ];
     const png = Buffer.concat([
       Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -580,10 +597,12 @@ describe('website lead capture', () => {
       payload: sendBody('gọi em số 0901.234.568 nhé'),
     });
     expect(sent.statusCode).toBe(202);
-    const found = ContactListResponse.parse(
-      (await hx.call(owner.h, 'POST', '/contacts/query', { q: '0901234568' })).json(),
-    );
-    expect(found.data).toHaveLength(1);
+    const query = async () =>
+      ContactListResponse.parse(
+        (await hx.call(owner.h, 'POST', '/contacts/query', { q: '0901234568' })).json(),
+      ).data;
+    // The first message already creates the customer: a lead no longer lifts the AI reply caps.
+    expect(await query()).toHaveLength(1);
     const bad = await pub('POST', '/phone', { token, payload: { phone: '0987654321' } });
     expect(bad.statusCode).toBe(422);
     expect(bad.json()).toEqual({ error: 'INVALID_PHONE' });

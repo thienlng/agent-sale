@@ -48,6 +48,7 @@ import {
   ASSISTANT_REPOSITORY,
   type AssistantRepository,
   type MemoryStoreRecord,
+  type RunRecord,
 } from '../domain/ports/assistant.repository.js';
 import { ChatTurnService } from './chat-turn.service.js';
 import { approveEntry, learningFeed, undoReviewEntry } from './learning-feed.js';
@@ -82,6 +83,17 @@ export class AssistantFacadeImpl implements AssistantFacade {
     @Inject(SuggestionsService) private readonly suggestions: SuggestionsService,
     @Inject(ImportBatchService) private readonly imports: ImportBatchService,
   ) {}
+
+  /** The runs behind the answers among `messages`, by id (for their `runMeta`). */
+  async #runsOf(
+    scope: OwnerScope,
+    messages: readonly { role: string; runId: string | null }[],
+  ): Promise<Map<string, RunRecord>> {
+    const ids = [
+      ...new Set(messages.flatMap((m) => (m.role === 'assistant' && m.runId ? [m.runId] : []))),
+    ];
+    return new Map((await this.repo.listRuns(scope, ids)).map((run) => [run.id, run]));
+  }
 
   #scope(actor: AssistantActor): Promise<OwnerScope> {
     return resolveOwnerScope(
@@ -147,9 +159,10 @@ export class AssistantFacadeImpl implements AssistantFacade {
 
   async listMessages(actor: AssistantActor, threadId: string): Promise<AssistantMessageList> {
     const scope = await this.#scope(actor);
-    return {
-      data: toMessageDtos(await this.repo.listMessages(scope, knownId('thread', threadId))),
-    };
+    // A turn cut off by a restart gets its "Thử lại" reply once it is stale (AS2-3).
+    await this.chat.reapStaleRuns(scope);
+    const messages = await this.repo.listMessages(scope, knownId('thread', threadId));
+    return { data: toMessageDtos(messages, await this.#runsOf(scope, messages)) };
   }
 
   /** One chat turn (`ChatTurnService`); a retried `turnId` returns the first result. */
@@ -168,7 +181,7 @@ export class AssistantFacadeImpl implements AssistantFacade {
       actor.displayName,
     );
     return {
-      messages: toMessageDtos(turn.messages),
+      messages: toMessageDtos(turn.messages, await this.#runsOf(scope, turn.messages)),
       run: toRunDto(turn.run),
       secretsRemoved: turn.secretsRemoved,
     };

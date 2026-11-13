@@ -82,6 +82,12 @@ describe('BusinessDeletionService', () => {
     expect(t.hook).toHaveBeenCalledWith(t.ws);
   });
 
+  it('accepts the name typed with decomposed accents or doubled spaces (Vietnamese input methods)', async () => {
+    const t = await setup();
+    await t.service.requestDeletion(t.ws, asOwner, 'Tiệm  Hoa Mai'.normalize('NFD'));
+    expect(await t.directory.isActive(t.ws)).toBe(false);
+  });
+
   it('refuses a name that is not exactly the business name', async () => {
     const t = await setup();
     await expect(t.service.requestDeletion(t.ws, asOwner, 'tiệm hoa mai')).rejects.toBeInstanceOf(

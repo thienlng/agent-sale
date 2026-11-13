@@ -3,9 +3,9 @@ import {
   BarChart3,
   Bot,
   Check,
-  ChevronDown,
   Compass,
   Loader2,
+  RotateCcw,
   ThumbsDown,
   ThumbsUp,
 } from 'lucide-react';
@@ -13,6 +13,8 @@ import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
+import { RunTraceBox, RunTraceToggle } from '@/components/run-trace';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
@@ -21,7 +23,7 @@ import { useMessageFeedback } from '../api/assistant-settings';
 import { NAVIGATE_FOLLOW_UP_TEXT } from '../utils/navigate-follow-up';
 import { AssistantMarkdown } from './assistant-markdown';
 import { AssistantProposal } from './assistant-proposals';
-import { AssistantStepList, AssistantSteps } from './assistant-steps';
+import { AssistantSteps, progressKey } from './assistant-steps';
 
 /** The assistant's feature groups on an empty conversation, four concrete abilities each. */
 const GROUPS = [
@@ -72,7 +74,14 @@ function AnswerFeedback({ message }: { message: AssistantMessageDto }) {
   );
 }
 
-function AssistantAnswer({ message }: { message: AssistantMessageDto }) {
+function AssistantAnswer({
+  message,
+  onRetry,
+}: {
+  message: AssistantMessageDto;
+  /** Sends the owner's question again (the busy reply of the last turn, AS-1). */
+  onRetry?: (() => void) | undefined;
+}) {
   const { t } = useTranslation('assistant');
   const [showSteps, setShowSteps] = useState(false);
   const charts = message.uiActions.flatMap((a) => (a.type === 'chart' ? [a.chart] : []));
@@ -81,32 +90,33 @@ function AssistantAnswer({ message }: { message: AssistantMessageDto }) {
       <div className="min-w-0 rounded-2xl rounded-bl-sm bg-muted px-3 py-2 break-words">
         <AssistantMarkdown content={message.content} />
       </div>
+      {onRetry ? (
+        <Button type="button" size="sm" variant="outline" className="self-start" onClick={onRetry}>
+          <RotateCcw className="size-3.5" aria-hidden />
+          {t('retry')}
+        </Button>
+      ) : null}
       {charts.map((chart, i) => (
         <Suspense key={i} fallback={<Skeleton className="h-[180px] w-full" />}>
           <AssistantChart chart={chart} />
         </Suspense>
       ))}
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center justify-between gap-2">
         {message.runId ? (
-          <button
-            type="button"
-            aria-expanded={showSteps}
-            onClick={() => setShowSteps((v) => !v)}
-            className="inline-flex w-fit items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring focus-visible:outline-none"
-          >
-            {showSteps ? t('hideSteps') : t('showSteps')}
-            <ChevronDown
-              className={cn('size-3 transition-transform', showSteps && 'rotate-180')}
-              aria-hidden
-            />
-          </button>
-        ) : null}
+          <RunTraceToggle
+            open={showSteps}
+            onToggle={() => setShowSteps((v) => !v)}
+            meta={message.runMeta}
+          />
+        ) : (
+          <span />
+        )}
         <AnswerFeedback message={message} />
       </div>
       {message.runId && showSteps ? (
-        <div className="rounded-lg border px-3 py-2">
+        <RunTraceBox>
           <AssistantSteps runId={message.runId} />
-        </div>
+        </RunTraceBox>
       ) : null}
     </li>
   );
@@ -144,16 +154,29 @@ function LiveTurn({ turnId }: { turnId: string }) {
     return () => clearTimeout(timer);
   }, [turnId]);
   const run = useAssistantRun(ready === turnId ? turnId : null, { poll: true });
+  // A plain status for the owner; the step trace stays behind "Xem các bước" on the answer (AS-9).
+  const steps = run.data?.steps ?? [];
+  const key = progressKey(steps);
+  const rounds = steps.filter((s) => !s.toolName).length;
   return (
     <li className="flex max-w-[85%] min-w-0 flex-col gap-2 self-start rounded-2xl rounded-bl-sm bg-muted px-3 py-2">
-      <span className="inline-flex items-center gap-2 text-muted-foreground" role="status">
-        <Loader2 className="size-4 animate-spin" aria-hidden />
-        {t('thinking')}
+      <span className="flex items-start gap-2 text-muted-foreground" role="status">
+        <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin" aria-hidden />
+        <span className="min-w-0">
+          {key ? t(`progress.${key}`) : t('thinking')}
+          {rounds > 1 ? (
+            <span className="ml-1 text-xs whitespace-nowrap tabular-nums opacity-70">
+              · {t('progress.steps', { count: rounds })}
+            </span>
+          ) : null}
+        </span>
       </span>
-      {run.data?.steps.length ? <AssistantStepList steps={run.data.steps} /> : null}
     </li>
   );
 }
+
+/** How close to the bottom (px) still counts as following the conversation. */
+const FOLLOW_SLACK_PX = 48;
 
 export function AssistantMessages({
   messages,
@@ -162,6 +185,7 @@ export function AssistantMessages({
   pendingTurn,
   unavailable,
   onStarter,
+  onRetry,
   roomy = false,
 }: {
   messages: readonly AssistantMessageDto[];
@@ -172,16 +196,46 @@ export function AssistantMessages({
   unavailable: boolean;
   /** Sends a starter question from the empty state; absent while a message is on its way. */
   onStarter?: ((text: string) => void) | undefined;
+  /** Sends a question again after a busy reply; absent while a message is on its way. */
+  onRetry?: ((text: string) => void) | undefined;
   /** The full page: a larger welcome with room for the starters in two columns. */
   roomy?: boolean;
 }) {
   const { t } = useTranslation('assistant');
+  const empty = messages.length === 0 && proposals.length === 0 && !pendingTurn;
   const end = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null);
+  // Following the bottom: true until the owner scrolls up, true again once back at the bottom.
+  const following = useRef(true);
   useEffect(() => {
+    following.current = true;
     end.current?.scrollIntoView({ block: 'end' });
   }, [messages.length, proposals.length, pendingTurn, unavailable]);
+  // The running turn's step trace, a proposal card or an image grows the conversation without a
+  // new message: keep the bottom in view while the owner is following it.
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const onScroll = () => {
+      following.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_SLACK_PX;
+    };
+    const grow = new ResizeObserver(() => {
+      if (following.current) el.scrollTop = el.scrollHeight;
+    });
+    for (const child of el.children) grow.observe(child);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      grow.disconnect();
+      el.removeEventListener('scroll', onScroll);
+    };
+  }, [loading, empty]);
 
   const placed = placeProposals(messages, proposals);
+  // "Thử lại" only under the last answer, when it is the busy reply to the question before it.
+  const last = messages.at(-1);
+  const asked = messages.at(-2);
+  const retryText =
+    last?.retryable && asked?.role === 'user' && !pendingTurn ? asked.content : undefined;
 
   if (loading)
     return (
@@ -192,8 +246,8 @@ export function AssistantMessages({
     );
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-      {messages.length === 0 && proposals.length === 0 && !pendingTurn ? (
+    <div ref={box} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      {empty ? (
         <div
           data-measure
           className={cn('flex flex-col px-4', roomy ? 'min-h-full justify-center py-10' : 'py-6')}
@@ -262,7 +316,14 @@ export function AssistantMessages({
                   </li>
                 )
               ) : m.role === 'assistant' ? (
-                <AssistantAnswer message={m} />
+                <AssistantAnswer
+                  message={m}
+                  onRetry={
+                    m === last && retryText !== undefined && onRetry
+                      ? () => onRetry(retryText)
+                      : undefined
+                  }
+                />
               ) : (
                 <li className="self-center text-center text-xs whitespace-pre-line text-muted-foreground">
                   {m.content}

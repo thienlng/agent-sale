@@ -236,7 +236,7 @@ describe('BookingSheet view', () => {
     expect(within(sheet).getByText(/Nhập giá thủ công mới/)).toBeInTheDocument();
     await user.click(within(sheet).getByRole('button', { name: 'Lưu' }));
     expect(calls.some((c) => c.key.startsWith('PATCH'))).toBe(false);
-    const manual = within(sheet).getByLabelText('Giá nhập tay (tiền phòng)');
+    const manual = within(sheet).getByLabelText('Tự nhập tổng tiền phòng');
     await user.clear(manual);
     await user.type(manual, '30000000');
     await user.click(within(sheet).getByRole('button', { name: 'Lưu' }));
@@ -386,6 +386,27 @@ describe('BookingSheet view', () => {
     );
     // One conversation link only: the guest section does not repeat it.
     expect(within(sheet).getAllByRole('link', { name: /Mở hội thoại/ })).toHaveLength(1);
+  });
+
+  it('labels a test-chat hold as a test that lapses, not a guest to call (VL2-9)', async () => {
+    stubApi({
+      [`GET /lodging/bookings/${BK}`]: {
+        status: 200,
+        body: booking({
+          source: 'bot',
+          reviewedAt: null,
+          conversationId: null,
+          tags: ['Chat thử'],
+        }),
+      },
+    });
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    const banner = await within(sheet).findByRole('region', { name: 'Bot tạo' });
+    expect(
+      within(banner).getByText('Giữ chỗ thử (Chat thử) — tự huỷ sau 15 phút'),
+    ).toBeInTheDocument();
+    expect(within(banner).queryByText(/gọi xác nhận/)).toBeNull();
   });
 
   it('drops the call hint once staff handled the bot hold but keeps the conversation button', async () => {

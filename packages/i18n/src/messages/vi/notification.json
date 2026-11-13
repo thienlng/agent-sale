@@ -114,6 +114,13 @@
     "message": {
       "title": "Tin nhắn mới từ {{customer}}",
       "body": "{{business}} · {{excerpt}}"
+    },
+    "ai_capped": {
+      "title": "AI tạm dừng trả lời khách trên website",
+      "body_site": "{{business}} · Một khung chat website đã hết lượt AI trả lời khách trong {{window}} này. Khách nhận một tin nhắn ngắn và chờ nhân viên.",
+      "body_workspace": "{{business}} · Doanh nghiệp đã hết lượt AI trả lời khách trên website trong {{window}} này. Khách nhận một tin nhắn ngắn và chờ nhân viên.",
+      "hour": "giờ",
+      "day": "ngày"
     }
   },
   "task": {
@@ -132,7 +139,7 @@
   "today": {
     "briefing": {
       "title": "Hôm nay: {{parts}}",
-      "body": "{{business}} · Mở màn hình Hôm nay để xử lý",
+      "body": "{{business}} · Mở Thống kê → Việc hôm nay để xử lý",
       "separator": ", ",
       "attention": "{{count}} cần chú ý",
       "unanswered": "{{count}} chưa trả lời",

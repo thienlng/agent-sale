@@ -143,7 +143,8 @@ describe('toBotProduct', () => {
     expect(acc.rentalType).toBe('entire_property');
     expect(acc.code).toBe('A17');
     expect(acc.rateBasis).toBe('night');
-    expect(acc.bedrooms).toBe(8);
+    // Eight layout rows (a basement among them) are no bedroom count: unknown (VL-A5).
+    expect(acc.bedrooms).toBeUndefined();
     expect(acc.roomLayout).toHaveLength(8);
     expect(acc.roomLayout[7]?.beds).toBe('(not provided)');
     expect(acc.childAgeBelow).toBe(6);
@@ -215,6 +216,8 @@ describe('toBotProduct', () => {
       today,
       auraPackages,
     )?.accommodation;
+    // The largest whole package states the bedrooms, whatever the layout lists (VL-A5).
+    expect(acc?.bedrooms).toBe(6);
     expect(acc?.packages).toEqual([
       {
         name: '4PN',

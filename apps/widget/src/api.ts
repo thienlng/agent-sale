@@ -19,6 +19,7 @@ export interface UploadContext {
   referrer?: string;
   pageUrl?: string;
   pageTitle?: string;
+  turnstileToken?: string;
 }
 
 export interface Api {

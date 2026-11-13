@@ -110,17 +110,19 @@ export function MetricCard({
         <h3 className="min-w-0 text-sm font-medium text-muted-foreground">{name}</h3>
         <DefinitionHelp metric={metric} definition={definition} />
       </div>
+      {/* The figure sits at the card's bottom: a label wrapping to two lines in one card no
+          longer pushes its number below its neighbours' (NEW-2). */}
       {onOpen && ok ? (
         <button
           type="button"
-          className="mt-0 text-left outline-none focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring"
+          className="mt-auto text-left outline-none focus-visible:ring-2 focus-visible:ring-offset-3 focus-visible:ring-offset-background focus-visible:ring-ring"
           onClick={onOpen}
           aria-label={t('analytics.drilldown.title', { metric: name })}
         >
           {body}
         </button>
       ) : (
-        body
+        <div className="mt-auto">{body}</div>
       )}
     </div>
   );

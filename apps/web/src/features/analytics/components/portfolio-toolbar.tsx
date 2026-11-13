@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { isoDate } from '@/lib/format';
+import { formatDay, isoDate } from '@/lib/format';
 
 import { daysAgo, type Filters, type FiltersSearch, toSearch } from '../lib/filters';
 
@@ -59,7 +59,9 @@ export function DateRangeToolbar({
         </PopoverContent>
       </Popover>
       <span className="text-xs text-muted-foreground">
-        {value.from} — {value.to}
+        {value.from === value.to
+          ? formatDay(value.from)
+          : `${formatDay(value.from)} – ${formatDay(value.to)}`}
       </span>
     </div>
   );

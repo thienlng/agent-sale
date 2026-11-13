@@ -144,12 +144,12 @@ export function OrderCreatedByCell({ order }: { order: OrderOrigin }) {
   return (
     <div className="-my-1.5 flex flex-wrap items-center gap-1.5">
       <BotBadge />
-      {order.reviewState === 'approved' ? (
+      {/* A cancelled order has no review left to show, approved or not (TM3-10). */}
+      {order.status === 'cancelled' ? null : order.reviewState === 'approved' ? (
         <ApprovedChip order={order} />
-      ) : order.status !== 'cancelled' ? (
-        // Cancelling a bot order rejects it: there is nothing left to review.
+      ) : (
         <PendingReviewChip />
-      ) : null}
+      )}
       {order.conversationId ? (
         <OpenConversationLink conversationId={order.conversationId} />
       ) : (

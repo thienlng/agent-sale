@@ -5,6 +5,7 @@ export type NotificationType =
   | 'assistant.schedule_paused'
   | 'inbox.handoff'
   | 'inbox.message'
+  | 'inbox.ai_capped'
   | 'dataexport.ready'
   | 'dataexport.failed'
   | 'task.due'

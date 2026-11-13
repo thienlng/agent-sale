@@ -181,6 +181,34 @@ describe('filters and browse paths', () => {
     });
   });
 
+  it('says catalogEmpty when the shop has listed no product (EV-1)', async () => {
+    const { facade } = fake({
+      searchBotCatalog: vi.fn(async () => []),
+      countBotCatalog: vi.fn(async () => 0),
+    } as Partial<CatalogFacade>);
+    const ctx = { ws, scope, catalog: facade };
+    const browse = await runCatalogTool(ctx, call('search_products', {}));
+    expect(JSON.parse(browse.content)).toEqual({ index: [], catalogEmpty: true });
+    const query = await runCatalogTool(ctx, call('search_products', { query: 'villa' }));
+    expect(JSON.parse(query.content)).toEqual({ rows: [], details: [], catalogEmpty: true });
+  });
+
+  it('a query that misses in a non-empty catalog is not catalogEmpty', async () => {
+    const { facade } = fake({ searchBotCatalog: vi.fn(async () => []) } as Partial<CatalogFacade>);
+    const r = await runCatalogTool(
+      { ws, scope, catalog: facade },
+      call('search_products', { query: 'villa' }),
+    );
+    expect(JSON.parse(r.content)).toEqual({ rows: [], details: [] });
+    // A hit does not count the catalog.
+    const hit = fake();
+    await runCatalogTool(
+      { ws, scope, catalog: hit.facade },
+      call('search_products', { query: 'x' }),
+    );
+    expect(hit.facade.countBotCatalog).not.toHaveBeenCalled();
+  });
+
   it('filtered browse under 300 rows returns an index', async () => {
     const { facade } = fake();
     const r = await runCatalogTool(

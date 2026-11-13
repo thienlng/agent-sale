@@ -1,11 +1,13 @@
 import type { RunnableTool, ToolDefinition } from '@agent-sales/ai-core';
-import type { AiOutcome } from '@agent-sales/contracts';
+import { type AiOutcome, PLAYGROUND_CHANNEL } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import { z } from 'zod';
 
 import type { CommerceFacade } from '../../commerce/api/index.js';
 import type { MessageSink, OutgoingMessage, QuickReply } from '../api/reply-options.js';
+import { isOrderAgreement } from '../domain/order-agreement.js';
 import { safeJson } from './action-tools.js';
+import { COMMIT_LIMIT_REPLY, type CommitAllowance } from './commit-quota.js';
 import type { OutputState } from './output-tools.js';
 
 /** Commerce's problem for a course or service SKU: offerings are not sold through orders. */
@@ -25,8 +27,11 @@ export const ORDER_QUICK_REPLIES: readonly QuickReply[] = [
   { title: '✏️ Sửa thông tin', payload: 'ORDER_EDIT' },
 ];
 
-/** The order source when the caller names no channel (the dashboard playground). */
-export const PLAYGROUND_ORDER_CHANNEL = 'other';
+/**
+ * The channel when the caller names none (the dashboard playground): commerce and lodging mark
+ * what it creates as a test (VL-A11); the order source stays `other`.
+ */
+export const PLAYGROUND_ORDER_CHANNEL = PLAYGROUND_CHANNEL;
 
 const PrepareOrderInput = z.object({
   items: z
@@ -47,7 +52,7 @@ const PrepareOrderInput = z.object({
 const PREPARE_DEFINITION: ToolDefinition = {
   name: PREPARE_ORDER_TOOL,
   description:
-    'Prepares an order once the customer clearly wants to buy and you know the products (sku from product details), quantities and the recipient name, phone and delivery address. The server checks stock, computes the prices and sends the customer the order summary with "Đặt hàng" / "Sửa thông tin" buttons; never restate the summary. Returns problems to ask the customer about, or that the order waits for the customer to confirm.',
+    'Prepares an order once the customer clearly wants to buy and you know the products (sku from product details), quantities and the recipient name, phone and delivery address. The server checks stock, computes the prices and sends the customer the order summary with "Đặt hàng" / "Sửa thông tin" buttons; never restate the summary. Returns problems to ask the customer about, or that the order waits for the customer to confirm. To change a summary already sent (a quantity, an item, the recipient), call it again with every detail, reusing the recipient from the earlier summary or messages unless the customer changed it ("cùng địa chỉ và số đt"): it replaces that summary. note: only what the customer asked to note on the order, in their words; never your own remarks (they are shown to the customer as the customer\'s note).',
   input: PrepareOrderInput,
 };
 
@@ -61,7 +66,7 @@ const CONFIRM_DEFINITION: ToolDefinition = {
 const CANCEL_DEFINITION: ToolDefinition = {
   name: CANCEL_ORDER_DRAFT_TOOL,
   description:
-    'The customer wants to change or drop the order summary sent earlier: discards it. To change something, prepare the order again with the new details.',
+    'Only when the customer no longer wants the order summarised earlier: discards it. Never for a change (a quantity, an item, the address): call prepare_order again with all details instead, which replaces the summary.',
   input: z.object({}),
 };
 
@@ -79,9 +84,13 @@ export interface OrderToolContext {
   output: OutputState;
   /** A draft stored before the customer's newest message: the only one this turn can confirm or cancel. */
   confirmable: boolean;
+  /** The customer's newest messages (after the shop's last one): a plain yes confirms (R5-1). */
+  customerBlock?: string;
   state: OrderToolState;
   /** Logs a failure the turn survives (the error class only). */
   onError?: (error: unknown) => void;
+  /** Orders this customer may still get today (audit #18); absent = no cap (playground). */
+  quota?: CommitAllowance | null;
 }
 
 export interface OrderToolState {
@@ -267,6 +276,17 @@ export function orderTools(ctx: OrderToolContext): {
           },
           false,
         );
+      // R5-1: "Ok đúng rồi, chị xác nhận đặt đơn" answers the summary that waits; preparing it
+      // again would only re-send it and ask for a second yes.
+      if (draftOpen() && isOrderAgreement(ctx.customerBlock ?? ''))
+        return reply(
+          {
+            ok: false,
+            error: 'summary_waiting',
+            hint: 'The customer agreed to the order summary already sent: call confirm_order now and give the order code from its result.',
+          },
+          false,
+        );
       const res = await facade.prepareBotOrder(ws, {
         botId: ctx.bot.id,
         conversationId,
@@ -330,12 +350,14 @@ export function orderTools(ctx: OrderToolContext): {
     // Never the model's arguments: only the draft the customer was shown.
     run: async () => {
       if (!draftOpen()) return reply({ ok: false, code: 'not_confirmable' }, false);
+      if (ctx.quota && !(await ctx.quota.allowed())) return reply(COMMIT_LIMIT_REPLY, false);
       const res = await facade.confirmBotOrder(ws, {
         botId: ctx.bot.id,
         botName: ctx.bot.name,
         conversationId,
       });
       if (!res.ok) return reply({ ok: false, code: res.code }, false);
+      await ctx.quota?.used().catch((error: unknown) => ctx.onError?.(error));
       state.orderCreated = true;
       state.orderCode = res.orderCode;
       return reply({ ok: true, orderCode: res.orderCode });

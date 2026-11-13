@@ -41,6 +41,13 @@
 - Assignees are validated through `TeamFacade` (active members only), names come from `IdentityFacade`.
 - **Staff alerts (T-190, `application/inbox-alerts.ts`):** `handOff` raises `inbox.handoff`, and a stored customer message (not an echo) in a `human`-mode conversation raises `inbox.message`, through `NOTIFICATION_FACADE` (`in_app` + `push`, target `{kind:'conversation'}`). Recipients: the active assignee, else every active member with `contacts.edit` (owner first, max 20). Dedup `inbox:<conversationId>:<n>` per user (`n` = the revision for a handoff, the 5-minute window for messages), so a burst alerts once. Spam conversations never alert; an alert failure is logged (ids and error class only) and never fails the inbox operation. Uses the `workspace` facade (account, members, business name) for it.
 
+- **Inbox guards (security audit #2, #3, #18; `application/inbox-guards.ts`, all limits on the shared limiter, `0` = off):**
+  - The meta inbox claims 25 events per tick with at most `INBOX_CLAIM_PER_WORKSPACE` conversations per workspace and runs up to `INBOX_CONCURRENCY` conversations at once; events of one conversation still run in order. A tick lasts as long as its slowest turn.
+  - Each workspace has a TenantFairness token bucket (`INBOX_TURNS_WORKSPACE_MINUTE`, burst `INBOX_TURNS_WORKSPACE_BURST`); a turn over it is deferred, not failed.
+  - At most `CONVERSATION_BOT_REPLIES_HOUR` bot replies per conversation and hour; the next turn hands the conversation to staff.
+  - Anonymous website visitors (no lead, no contact) get AI replies within `WEBCHAT_AI_REPLIES_SITE_HOUR|DAY` per site and `WEBCHAT_AI_REPLIES_WORKSPACE_HOUR|DAY` per workspace. Every website reply, anonymous or not, also counts against the same windows × `WEBCHAT_AI_REPLIES_KNOWN_FACTOR` (a typed phone or email is unverified: it buys a larger budget, never an exemption). A customer with a contact gets at most `CONTACT_BOT_REPLIES_HOUR` replies per hour across all of their conversations. Past one of these caps the visitor gets the bot's hand-over message once per conversation and day, with no model call, no credit and no hand-off; the active owners get one `inbox.ai_capped` notification per scope and window.
+  - `replyCap` checks every reply cap of a turn in one all-or-nothing limiter call (`hitAll`): a refused turn increments nothing, so it cannot eat the budget of a cap it never passed.
+
 **Do not:** read other modules' tables; put HTTP/Drizzle types in `domain/`; call LLMs outside `ai-core`.
 
 **Test:** `pnpm --filter @agent-sales/backend test -- conversation`

@@ -129,4 +129,19 @@ describe('InfoTab', () => {
     };
     expect(body.patch.internalNote).toBe('Chìa khoá ở bảo vệ');
   });
+
+  it('warns, without blocking the save, when the standard party exceeds the maximum (VL-A4)', async () => {
+    const calls = stubSequence({
+      [`GET ${path}`]: [{ status: 200, body: propertyFixture() }],
+      [`PATCH ${path}`]: [{ status: 200, body: propertyFixture({ maxGuests: 24, version: 2 }) }],
+    });
+    renderWithRouter(() => <Harness />);
+    const max = await screen.findByLabelText('Sức chứa tối đa');
+    await userEvent.type(max, '24');
+    expect(
+      await screen.findByText('Tối đa 24 khách nhưng tiêu chuẩn đã 32 khách — kiểm tra lại.'),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+    await waitFor(() => expect(calls.filter((c) => c.key === `PATCH ${path}`)).toHaveLength(1));
+  });
 });

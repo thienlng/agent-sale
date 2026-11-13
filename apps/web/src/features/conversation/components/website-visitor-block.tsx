@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { formatPhone } from '@/lib/format';
 import { useWebsiteVisitor } from '../api/inbox';
 import { PanelBlock } from './panel-block';
 
@@ -35,11 +36,20 @@ function PageLink({ url, title }: { url: string; title?: string | null }) {
 }
 
 /** Side panel of a website conversation: how the visitor arrived, where they are and their number or email. */
-export function WebsiteVisitorBlock({ conversationId }: { conversationId: string }) {
+export function WebsiteVisitorBlock({
+  conversationId,
+  customerPhone,
+}: {
+  conversationId: string;
+  /** The number the conversation already knows ("Giới thiệu"): shown when the widget has none. */
+  customerPhone?: string | null | undefined;
+}) {
   const { t } = useTranslation();
   const v = (key: string) => t(`channelInbox.v2.visitor.${key}`);
   const visitor = useWebsiteVisitor(conversationId, true);
   const data = visitor.data;
+  // One number for one customer (MS2-12): the visitor's own, else the conversation's.
+  const phone = data?.phone || customerPhone || null;
   return (
     <PanelBlock title={v('title')}>
       {visitor.isError ? (
@@ -69,9 +79,9 @@ export function WebsiteVisitorBlock({ conversationId }: { conversationId: string
           <div>
             <dt className="text-xs text-muted-foreground">{v('phone')}</dt>
             <dd>
-              {data.phone ? (
-                <a href={`tel:${data.phone}`} className="hover:underline">
-                  {data.phone}
+              {phone ? (
+                <a href={`tel:${phone}`} className="hover:underline">
+                  {formatPhone(phone)}
                 </a>
               ) : (
                 <span className="text-muted-foreground">{v('noPhone')}</span>

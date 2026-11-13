@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 /** Header of the page list: title, search, bulk actions and "Chọn tất cả". */
 export function PageListToolbar({
@@ -100,21 +99,6 @@ export function PageListToolbar({
             {ti(bot ? 'choosePages' : 'edit')}
             <Bot />
           </Button>
-          {!bot ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  {/* A disabled button gets no pointer events; the span carries the tooltip. */}
-                  <span tabIndex={0} className="inline-flex">
-                    <Button variant="outline" disabled>
-                      {ti('sync')}
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>{ti('comingSoon')}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : null}
           <Button
             variant="outline"
             disabled={!canUnassign || busy || readOnly}

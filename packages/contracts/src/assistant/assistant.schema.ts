@@ -151,8 +151,22 @@ export const AssistantMessageDto = z.object({
   content: z.string(),
   uiActions: z.array(AssistantUiAction),
   runId: z.uuid().nullable(),
+  /** Model, total tokens and time of the run behind an answer, shown under it (null when gone). */
+  runMeta: z
+    .object({
+      model: z.string().nullable(),
+      tokens: z.number().int(),
+      latencyMs: z.number().int(),
+    })
+    .nullable()
+    .optional(),
   /** The owner's 👍 (1) or 👎 (-1) on an assistant answer; null when none. */
   feedback: z.union([z.literal(1), z.literal(-1)]).nullable(),
+  /**
+   * True on the busy reply of a turn the model could not run (busy, rate-limited or down): the
+   * app offers "Thử lại", which sends the owner's text again (the server keeps one copy, AS-1).
+   */
+  retryable: z.boolean().optional(),
   createdAt: z.iso.datetime(),
 });
 export type AssistantMessageDto = z.infer<typeof AssistantMessageDto>;

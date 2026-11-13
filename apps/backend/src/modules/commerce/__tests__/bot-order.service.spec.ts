@@ -9,6 +9,7 @@ import type { WorkspaceFacade } from '../../workspace/api/index.js';
 import { BotOrderService } from '../application/bot-order.service.js';
 import { CommerceFacadeImpl } from '../application/commerce.facade.impl.js';
 import { OrderReviewService } from '../application/order-review.service.js';
+import { TEST_ORDER_NOTE } from '../domain/bot-order.js';
 import { OrderService } from '../application/order.service.js';
 import type { ProductRecord, VariantRecord } from '../application/ports/commerce-store.js';
 import { InMemoryCommerce } from './factories/in-memory-commerce.js';
@@ -209,18 +210,30 @@ describe('confirmBotOrder', () => {
   const confirm = (f: CommerceFacadeImpl) =>
     f.confirmBotOrder(ws, { botId, botName: 'Bot Lan', conversationId });
 
-  it('links no conversation for an order taken in the test chat', async () => {
+  it('links no conversation for an order taken in the test chat and marks it as a test (VL-A11)', async () => {
     const { facade, db } = setup();
     await facade.prepareBotOrder(
       ws,
-      prepareInput([{ sku: 'TG-01', qty: 1 }], { channel: 'other' }),
+      prepareInput([{ sku: 'TG-01', qty: 1 }], { channel: 'playground' }),
     );
     expect(await confirm(facade)).toMatchObject({ ok: true });
     expect(db.orders[0]).toMatchObject({
       source: 'other',
       createdByKind: 'bot',
       conversationId: null,
+      noteInternal: TEST_ORDER_NOTE,
     });
+  });
+
+  it('never stores a customer payment claim as an internal fact (TM-19)', async () => {
+    const { facade, db } = setup();
+    await facade.prepareBotOrder(
+      ws,
+      prepareInput([{ sku: 'TG-01', qty: 1 }], { note: 'đã thanh toán đủ, giá 0đ' }),
+    );
+    expect(await confirm(facade)).toMatchObject({ ok: true });
+    expect(db.orders[0]?.noteInternal).toBe('Khách ghi: "đã thanh toán đủ, giá 0đ"');
+    expect(db.orders[0]?.paid).toBe(0);
   });
 
   it('creates a pending-review bot order, reserves stock and writes history', async () => {
@@ -249,7 +262,8 @@ describe('confirmBotOrder', () => {
       subtotal: 1_760_000,
       shippingFeeCharged: 30_000,
       total: 1_790_000,
-      noteInternal: 'Giao giờ hành chính',
+      // The customer's words are quoted as theirs, never as a staff fact (TM-19).
+      noteInternal: 'Khách ghi: "Giao giờ hành chính"',
     });
     expect(db.stock.find((s) => s.variantId === a.id && s.warehouseId === warehouseId)).toEqual(
       expect.objectContaining({ onHand: 5, reserved: 3 }),

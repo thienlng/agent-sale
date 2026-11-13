@@ -26,10 +26,20 @@ describe('website visitor block', () => {
     expect(screen.getByText('shop.test/ao-thun')).toBeInTheDocument();
     expect(screen.getByText('Áo thun')).toBeInTheDocument();
     expect(screen.getByText('www.google.com')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '+84912345679' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '0912 345 679' })).toHaveAttribute(
       'href',
       'tel:+84912345679',
     );
+  });
+
+  it('shows the number the conversation knows when the widget has none (MS2-12)', () => {
+    mocks.visitor = { data: { ...visitor, phone: null }, isError: false };
+    render(<WebsiteVisitorBlock conversationId="c1" customerPhone="0987654321" />);
+    expect(screen.getByRole('link', { name: '0987 654 321' })).toHaveAttribute(
+      'href',
+      'tel:0987654321',
+    );
+    expect(screen.queryByText('channelInbox.v2.visitor.noPhone')).toBeNull();
   });
 
   it('says so when the visitor came directly and has not left a number', () => {

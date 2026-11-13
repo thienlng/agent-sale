@@ -1,7 +1,6 @@
 {
   "today": {
     "section": "Today's work",
-    "noneLine": "Nothing in: {{list}}",
     "allClear": "Nothing needs doing today yet",
     "refresh": "Refresh ({{count}} left)",
     "refreshUnlimited": "Refresh",
@@ -47,7 +46,7 @@
       "empty": "No follow-ups are waiting for approval."
     },
     "tasks": {
-      "title": "My tasks",
+      "title": "To do",
       "empty": "No task is due today."
     }
   },
@@ -103,7 +102,7 @@
   },
   "task": {
     "dialogTitle": "Add task",
-    "dialogDescription": "The task shows in the assignee's “My tasks” when it is due.",
+    "dialogDescription": "The task shows in the assignee's “To do” when it is due.",
     "title": "To do",
     "defaultTitle": "Get back to {{name}}",
     "due": "Due",
@@ -128,11 +127,12 @@
     "followUp": "Follow up {{time}}",
     "evaluatedAt": "Evaluated {{time}}",
     "tasks": "Tasks",
-    "noTasks": "No task for this conversation yet."
+    "noTasks": "No task for this conversation yet.",
+    "contactTasks": "To do"
   },
   "settings": {
     "title": "AI conversation evaluation",
-    "description": "The AI reads a conversation once the customer stops writing, to sort customers on the Today screen.",
+    "description": "The AI reads a conversation once the customer stops writing, to sort customers into “Today's work” under Statistics.",
     "usage": "{{used}}/{{limit}} evaluations used today",
     "usageUnlimited": "{{used}} evaluations used today (unlimited)",
     "mode": "When to evaluate",
@@ -280,8 +280,8 @@
     },
     "default": "(default)",
     "hints": {
-      "suggest": "The AI drafts; you approve it under “Awaiting approval” on Today before it is sent.",
-      "act_and_report": "The AI sends on time, then lists it under “Done by AI” on Today.",
+      "suggest": "The AI drafts; you approve it under “Awaiting approval” in Today's work (Statistics) before it is sent.",
+      "act_and_report": "The AI sends on time, then lists it under “Done by AI” in Today's work (Statistics).",
       "auto": "The AI sends; only the morning briefing and the reports mention it."
     }
   },
@@ -290,7 +290,7 @@
     "description": "The AI writes again to customers who went quiet or are about to buy, while Messenger still allows it.",
     "usage": "The AI wrote {{used}}/{{limit}} follow-ups today",
     "usageUnlimited": "The AI wrote {{used}} follow-ups today (no limit)",
-    "metaRule": "Messenger and Instagram let a page message a customer only within 24 hours of the customer's last message. The AI follows up only inside that window; after 24 hours the customer stays on Today for your team to decide.",
+    "metaRule": "Messenger and Instagram let a page message a customer only within 24 hours of the customer's last message. The AI follows up only inside that window; after 24 hours the customer stays in Today's work for your team to decide.",
     "loadError": "Could not load the follow-up settings.",
     "nothingChanged": "Nothing changed",
     "templates": "Follow-up templates",

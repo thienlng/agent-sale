@@ -14,7 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ApiClientError } from '@/lib/api-client';
-import { formatNumber } from '@/lib/format';
+import { formatNumber, formatPhone } from '@/lib/format';
 import { useCan } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
 
@@ -137,7 +137,8 @@ export function ContactsList({
                 <OptionBadge option={lookups.status(c.statusId)} />
               </span>
               <span className="truncate text-sm text-muted-foreground tabular-nums">
-                {[c.phone, c.email].filter(Boolean).join(' · ') || '—'}
+                {[c.phone ? formatPhone(c.phone) : null, c.email].filter(Boolean).join(' · ') ||
+                  '—'}
               </span>
             </button>
           </li>

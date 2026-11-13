@@ -87,9 +87,14 @@ export function vouchedValues(args: ActionArgs, texts: readonly string[]): strin
     );
 }
 
-/** A stable UUID for the playground, which has no conversation: lets confirmations work in tests. */
-export function playgroundConversationId(botId: string): string {
-  const h = createHash('sha1').update(`playground:${botId}`).digest('hex');
+/**
+ * A stable UUID for one test chat of the playground, which has no conversation: lets confirmations
+ * work in tests. Each session (`PlaygroundRequest.sessionId`) gets its own id, so drafts never
+ * leak from one test chat into another (TM-18); without a session the bot's one shared id.
+ */
+export function playgroundConversationId(botId: string, sessionId?: string): string {
+  const seed = sessionId ? `playground:${botId}:${sessionId}` : `playground:${botId}`;
+  const h = createHash('sha1').update(seed).digest('hex');
   const variant = ((Number.parseInt(h.slice(16, 18), 16) & 0x3f) | 0x80).toString(16);
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${variant}${h.slice(18, 20)}-${h.slice(20, 32)}`;
 }

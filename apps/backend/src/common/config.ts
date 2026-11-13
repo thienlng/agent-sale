@@ -3,6 +3,11 @@ import { isIP } from 'node:net';
 import { parseTrustProxy } from '@agent-sales/shared';
 import { z } from 'zod';
 
+/** A non-negative limit with a default; 0 disables the limit. */
+function limitVar(fallback: number) {
+  return z.coerce.number().int().min(0).default(fallback);
+}
+
 /**
  * Environment schema. The process refuses to start when a required variable is
  * missing or malformed — no silent defaults in production (docs/10 §1).
@@ -160,6 +165,58 @@ export const EnvSchema = z
     /** How recent a password, code or Google sign-in must be for a step-up protected action. */
     AUTH_STEP_UP_WINDOW_MINUTES: z.coerce.number().int().min(1).max(60).default(10),
     /**
+     * Abuse and spend limits (security audit 2026-11-12 #2, #3, #15, #17, #18). Every limit has a
+     * generous default; 0 turns that limit off. Counters live in Redis when `REDIS_URL` is set.
+     * See docs/08 §"Abuse caps" and docs/16 for the reasoning behind each default.
+     */
+    /**
+     * AI replies to anonymous website-chat visitors (no lead or contact), per site and per
+     * workspace. Every website reply counts against these windows; all website replies together
+     * (visitors with a lead included) may use `WEBCHAT_AI_REPLIES_KNOWN_FACTOR` times as much.
+     */
+    WEBCHAT_AI_REPLIES_SITE_HOUR: limitVar(300),
+    WEBCHAT_AI_REPLIES_SITE_DAY: limitVar(2000),
+    WEBCHAT_AI_REPLIES_WORKSPACE_HOUR: limitVar(600),
+    WEBCHAT_AI_REPLIES_WORKSPACE_DAY: limitVar(4000),
+    WEBCHAT_AI_REPLIES_KNOWN_FACTOR: z.coerce.number().int().min(1).max(20).default(4),
+    /** Bot replies to one customer (contact) per hour, across all of its conversations. */
+    CONTACT_BOT_REPLIES_HOUR: limitVar(60),
+    /** Images website-chat visitors may upload per site per day. */
+    WEBCHAT_UPLOADS_SITE_DAY: limitVar(500),
+    /**
+     * Optional Cloudflare Turnstile for new website-chat visitors. Off unless both are set: the
+     * widget then loads the challenge and the API verifies it on a new visitor's first send/upload.
+     */
+    TURNSTILE_SITE_KEY: z.string().min(10).optional(),
+    TURNSTILE_SECRET: z.string().min(10).optional(),
+    /** Inbox runner: conversations answered in parallel per agent process. */
+    INBOX_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(8),
+    /** Inbox runner: events one workspace may take in a single claim. */
+    INBOX_CLAIM_PER_WORKSPACE: z.coerce.number().int().min(1).max(100).default(5),
+    /** Inbox runner: customer turns per workspace per minute (token bucket), and its burst. */
+    INBOX_TURNS_WORKSPACE_MINUTE: limitVar(120),
+    INBOX_TURNS_WORKSPACE_BURST: z.coerce.number().int().min(1).default(30),
+    /** Bot replies in one conversation per hour before it is handed to staff. */
+    CONVERSATION_BOT_REPLIES_HOUR: limitVar(30),
+    /** Model calls and tokens one conversation may spend per hour (every call, delivered or not). */
+    CONVERSATION_MODEL_CALLS_HOUR: limitVar(150),
+    CONVERSATION_TOKENS_HOUR: limitVar(3_000_000),
+    /** Tokens an account's owners may spend per day on the bot playground and the assistant. */
+    OWNER_LLM_TOKENS_ACCOUNT_DAY: limitVar(5_000_000),
+    /** Playground runs per user per minute. */
+    PLAYGROUND_RUNS_USER_MINUTE: limitVar(10),
+    /** Assistant turns one user may have running at once, across threads. */
+    ASSISTANT_RUNS_PER_USER: limitVar(2),
+    /** Orders and lodging holds the bot may create for one customer per day. */
+    BOT_ORDERS_CONTACT_DAY: limitVar(10),
+    BOT_HOLDS_CONTACT_DAY: limitVar(3),
+    /**
+     * Orders and holds per workspace and day from conversations without a contact (anonymous
+     * visitors): their per-customer key is the conversation, which a visitor can rotate.
+     */
+    BOT_ANON_ORDERS_WORKSPACE_DAY: limitVar(30),
+    BOT_ANON_HOLDS_WORKSPACE_DAY: limitVar(10),
+    /**
      * Proxies whose `X-Forwarded-For` entry is believed (`parseTrustProxy` in packages/shared):
      * `false` or comma-separated addresses/CIDRs. Unset: the private ranges in production (NPM →
      * Caddy `edge` on Docker networks), loopback elsewhere. `true` and hop counts are refused.
@@ -170,6 +227,10 @@ export const EnvSchema = z
      * added to the built-in list in `identity/domain/trial-identity.ts`. Signup itself still works.
      */
     TRIAL_BLOCKED_EMAIL_DOMAINS: z.string().max(5000).optional(),
+  })
+  .refine((env) => !env.TURNSTILE_SITE_KEY === !env.TURNSTILE_SECRET, {
+    message: 'Set both TURNSTILE_SITE_KEY and TURNSTILE_SECRET, or neither',
+    path: ['TURNSTILE_SECRET'],
   })
   .superRefine((env, ctx) => {
     const error = trustProxyError(env.TRUST_PROXY, env.NODE_ENV);
