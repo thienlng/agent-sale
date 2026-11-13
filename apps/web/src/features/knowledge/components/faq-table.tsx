@@ -61,7 +61,7 @@ export function FaqTable({
   const all = rows.length > 0 && pageSelected === rows.length;
   const selecting = selected.size > 0;
   return (
-    <Table className="min-w-[640px] table-fixed">
+    <Table className="min-w-[28rem] table-fixed">
       <TableHeader>
         <TableRow className={tableHeadRow}>
           <TableHead className="w-16 text-center">

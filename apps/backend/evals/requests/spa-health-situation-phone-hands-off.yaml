@@ -1,0 +1,40 @@
+id: spa-health-situation-phone-hands-off
+group: requests
+tags: []
+bot:
+  industry: spa
+  name: Mailisa
+  profile:
+    fields:
+      displayName: Mailisa
+      address: '45 Lê Thánh Tôn, Quận 1, TP.HCM'
+      hotline: '0932 699 299'
+      hours: '7h30 - 18h00 mỗi ngày'
+      booking: 'Khách đặt lịch trước, nhân viên gọi xác nhận lịch.'
+      promotion: ''
+    notes: ''
+situations:
+  - title: 'Khách hỏi về sức khoẻ'
+    trigger: 'Khi khách hỏi: Da nhạy cảm, đang mang thai hoặc cho con bú có làm được không?'
+    content: 'Không tư vấn y khoa; xin số điện thoại và chuyển chuyên viên.'
+products:
+  - name: 'Phun môi collagen'
+    code: PX-MOI
+    description: 'Phun môi collagen tự nhiên, chuyên viên tư vấn màu trước khi làm.'
+    variants:
+      - { name: 'Tiêu chuẩn', sku: PX-MOI-STD, price: 3500000 }
+    offering: { kind: service, durationMinutes: 90 }
+# R5-5 (Mailisa): the owner's situation says to take the phone and transfer a pregnancy question.
+# Once the customer gives it, the bot reads it back and hands off; it never records a request.
+conversation:
+  - customer: 'Chị đang mang thai 4 tháng, phun môi được không em?'
+  - bot: "Dạ trường hợp đang mang thai cần chuyên viên tư vấn trực tiếp ạ.\nChị cho em xin họ tên và số điện thoại để chuyên viên liên hệ nhé."
+  - customer: 'Chị Lan, 0905123456'
+expect:
+  outcome: handoff
+  steps_exclude: ['record_request']
+  request_recorded: false
+fake_turns:
+  - text: 'Dạ em cảm ơn chị Lan, số 0905123456 ạ.'
+    tool_calls:
+      - { name: handoff, input: { reason: 'Khách mang thai hỏi phun môi, cần chuyên viên tư vấn' } }

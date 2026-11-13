@@ -54,15 +54,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
-      const code =
-        status === 404
-          ? 'NOT_FOUND'
-          : status === 401
-            ? 'UNAUTHENTICATED'
-            : status === 403
-              ? 'FORBIDDEN'
-              : 'INTERNAL';
-      return new ApiError(code, exception.message);
+      if (status === 404) return new ApiError('NOT_FOUND', exception.message);
+      if (status === 401) return new ApiError('UNAUTHENTICATED', exception.message);
+      if (status === 403) return new ApiError('FORBIDDEN', exception.message);
+      if (status === 409) return new ApiError('CONFLICT', exception.message);
+      if (status === 429) return new ApiError('RATE_LIMITED', exception.message);
+      // Any other 4xx raised by the framework before a handler runs is a client error (Nest maps a
+      // Fastify 4xx such as an unsupported media type to an HttpException): keep its status.
+      if (status >= 400 && status < 500)
+        return new ApiError('VALIDATION_FAILED', exception.message, undefined, status);
+      return new ApiError('INTERNAL', exception.message);
     }
     return new ApiError('INTERNAL', 'Internal error');
   }

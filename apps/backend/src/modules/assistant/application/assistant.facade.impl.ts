@@ -159,6 +159,8 @@ export class AssistantFacadeImpl implements AssistantFacade {
 
   async listMessages(actor: AssistantActor, threadId: string): Promise<AssistantMessageList> {
     const scope = await this.#scope(actor);
+    // A turn cut off by a restart gets its "Thử lại" reply once it is stale (AS2-3).
+    await this.chat.reapStaleRuns(scope);
     const messages = await this.repo.listMessages(scope, knownId('thread', threadId));
     return { data: toMessageDtos(messages, await this.#runsOf(scope, messages)) };
   }

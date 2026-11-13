@@ -14,7 +14,8 @@
       "quickReplies": "Tin nhắn nhanh",
       "history": "Lịch sử chỉnh sửa",
       "adsTool": "Tool Ads Facebook",
-      "properties": "Căn hộ & phòng"
+      "properties": "Căn hộ & phòng",
+      "services": "Dịch vụ"
     },
     "home": {
       "title": "Hướng dẫn Bot",
@@ -26,11 +27,12 @@
         "profile": {
           "title": "Thông tin doanh nghiệp.",
           "body": "Điền tên, địa chỉ, hotline và giờ mở cửa để Bot trả lời đúng thông tin của bạn",
-          "missing": "Còn {{count}} thông tin chưa điền"
+          "missing": "Còn {{count}} thông tin chưa điền",
+          "optional": "Có thể điền thêm {{count}} thông tin để Bot trả lời đầy đủ hơn"
         },
         "channel": {
           "title": "Tích hợp nền tảng.",
-          "body": "Kết nối Bot của bạn với Fanpage Facebook, Instagram, TikTok, Zalo, Lazada"
+          "body": "Kết nối Bot với Fanpage Facebook, Instagram và website của bạn"
         },
         "products": {
           "title": "Thông tin sản phẩm/dịch vụ.",
@@ -460,6 +462,28 @@
       "add": "Thêm hướng dẫn",
       "total": "Tổng {{count}} hướng dẫn",
       "empty": "Chưa có hướng dẫn nào"
+    },
+    "services": {
+      "title": "Thông tin về dịch vụ",
+      "subtitle": "Quản lý thông tin dịch vụ mà Bot dùng để tư vấn khách hàng",
+      "tab": "Dịch vụ",
+      "shared": "Danh mục dịch vụ thuộc doanh nghiệp. Chọn những dịch vụ Bot này được giới thiệu.",
+      "search": "Tìm kiếm theo tên hoặc mã dịch vụ",
+      "add": "Thêm dịch vụ",
+      "exportCsv": "Tải danh sách dịch vụ (CSV)",
+      "empty": "Không tìm thấy dịch vụ phù hợp",
+      "total": "Tổng {{count}} dịch vụ",
+      "colProduct": "Dịch vụ",
+      "colCode": "Mã dịch vụ",
+      "modeLabel": "Bot tư vấn dịch vụ nào",
+      "modeAll": "Tất cả dịch vụ đang cung cấp",
+      "modeAllHint": "Dịch vụ mới tự động có trong danh sách của Bot.",
+      "modeSelected": "Chỉ dịch vụ được chọn",
+      "modeSelectedHint": "Tích chọn từng dịch vụ trong bảng. Dịch vụ thêm từ trang này được chọn sẵn.",
+      "colSelect": "Tư vấn",
+      "select": "Bot tư vấn {{name}}",
+      "selectedCount": "Đã chọn {{count}} dịch vụ",
+      "noneSelected": "Bot chưa có dịch vụ nào được chọn nên sẽ không giới thiệu dịch vụ."
     }
   },
   "rules": {
@@ -503,7 +527,13 @@
     "thenOnly": "Bot sẽ {{content}}",
     "showSystem": "Hiện các nguyên tắc hệ thống",
     "hideSystem": "Ẩn các nguyên tắc hệ thống",
-    "askSample": "Điền mẫu tình huống cho bot này: soạn vài tình huống từ dữ liệu của shop rồi tạo đề xuất để mình duyệt."
+    "askSample": "Điền mẫu tình huống cho bot này: soạn vài tình huống từ dữ liệu của shop rồi tạo đề xuất để mình duyệt.",
+    "service": {
+      "groupAfterOrder": "Sau khi ghi nhận lịch hẹn",
+      "sections": {
+        "after_order": "Sau khi ghi nhận lịch hẹn"
+      }
+    }
   },
   "purpose": {
     "facts": {
@@ -653,11 +683,18 @@
     "reset": "Hoàn tác",
     "leave": "Rời trang sẽ mất các thay đổi chưa lưu.",
     "stay": "Ở lại",
-    "leaveConfirm": "Rời trang"
+    "leaveConfirm": "Rời trang",
+    "service": {
+      "missionHint": "Bot tư vấn gì, cho ai, cần ghi nhận điều gì. Ví dụ: tư vấn liệu trình phù hợp và ghi nhận lịch hẹn của khách."
+    }
   },
   "assistantPage": {
     "knowledge": "Thông tin & FAQ",
     "instructions": "Hướng dẫn trả lời",
     "quickReplies": "Tin nhắn nhanh"
+  },
+  "service": {
+    "productInstructions": "Hướng dẫn riêng cho Bot về dịch vụ",
+    "productInstructionsHint": "Hướng dẫn cách Bot giới thiệu dịch vụ. Giá vẫn lấy từ danh mục."
   }
 }

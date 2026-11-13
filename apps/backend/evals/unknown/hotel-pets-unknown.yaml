@@ -29,9 +29,26 @@ expect:
   guardrail: none
   # Free-text answers (ADR-015): an honest "not known" reply is a normal answer, not a fallback.
   outcome: answered
-  contains_any: ['chưa có thông tin', 'chưa rõ', 'chưa nắm', 'nhân viên']
+  # EV-9: any honest "not known yet" phrasing passes ("hiện chưa có …", "chưa xác nhận", …);
+  # the pet policy is empty, so neither a yes nor a no may be given.
+  contains_any:
+    [
+      'chưa có',
+      'chưa rõ',
+      'chưa nắm',
+      'chưa xác nhận',
+      'chưa cập nhật',
+      'chưa được cập nhật',
+      'không có thông tin',
+      'nhân viên',
+    ]
   not_contains: ['được ạ', "\\n"]
-  not_matches: ["\\d+\\s*%"]
+  not_matches:
+    - "\\d+\\s*%"
+    - "^\\s*(dạ\\s*,?\\s*)?(được|có|ok)\\s*(ạ|nha|nhé|chứ|[,.!])"
+    - "(?<!(rõ|biết|nắm|tin|nhận|tra|hỏi|xem|về)\\s+(việc\\s+)?)(villa|bên em|chỗ em|bên mình|homestay)\\s+(có\\s+|vẫn\\s+)?(cho phép|nhận|chấp nhận|đón)\\s+(khách\\s+)?(mang\\s+)?(theo\\s+)?(chó|thú cưng|vật nuôi|pet)"
+    - "không\\s+(cho phép|nhận|chấp nhận|được)\\s+(mang\\s+)?(theo\\s+)?(chó|thú cưng|vật nuôi|pet)"
+    - 'pet[- ]friendly'
   numbers_only_from_sources: true
 fake_turns:
   - text: "Dạ em chưa có thông tin về việc này ạ.\nNhân viên sẽ xác nhận giúp mình ạ."

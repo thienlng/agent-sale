@@ -205,7 +205,7 @@ test('integration controls stay inside the mobile panel instead of being clipped
     page.getByRole('checkbox', { name: 'Chọn Trang kiểm thử', exact: true }),
   ).toBeVisible();
   const controls = [
-    page.getByRole('searchbox', { name: 'Tìm theo tên hoặc ID page...' }),
+    page.getByRole('searchbox', { name: 'Tìm theo tên hoặc ID kênh...' }),
     page.getByRole('button', { name: 'Gán bot', exact: true }),
     page.getByRole('button', { name: 'Hủy gán bot', exact: true }),
     page.getByRole('button', { name: 'Gỡ trang', exact: true }),

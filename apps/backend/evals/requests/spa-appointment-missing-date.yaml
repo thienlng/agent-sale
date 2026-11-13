@@ -42,7 +42,9 @@ expect:
   outcome: answered
   outcome_not: handoff
   contains_any: ['ngày', 'giờ']
-  not_contains: ['ghi nhận', 'đã đặt', 'đã nhận thông tin', 'đã lưu']
+  not_contains: ['đã đặt', 'đã nhận thông tin', 'đã lưu']
+  # Claiming the booking was recorded is forbidden; the honest "chưa thể ghi nhận" is fine (PO).
+  not_matches: ["(?<!(chưa|không|sẽ)(\\s+(thể|được))?\\s+)ghi nhận"]
   request_recorded: false
 fake_turns:
   - text: 'Dạ để đặt lịch massage body đá nóng, cho em xin ngày và giờ mong muốn ạ.'

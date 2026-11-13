@@ -131,12 +131,14 @@ describe('AssistantFacade (contract)', () => {
     expect(stored).toMatchObject({
       accountId,
       ownerUserId: me.userId,
-      promptVersion: 'assistant@4',
+      promptVersion: 'assistant@6',
     });
     expect(stored.systemPrompt).toContain('personal assistant of Lan,');
     expect(stored.systemPrompt).toContain(`- Thời trang Mây (retail) — id ${me.businessId}`);
     expect(stored.systemPrompt).not.toContain('Elsewhere');
-    expect(stored.systemPrompt).toMatch(/Today is \d{4}-\d{2}-\d{2} \(Asia\/Ho_Chi_Minh\)\./);
+    expect(stored.systemPrompt).toMatch(
+      /This conversation started on \d{4}-\d{2}-\d{2} \(Asia\/Ho_Chi_Minh\);/,
+    );
   });
 
   it('freezes the owner skills index in a new thread: a shadow replaces its platform skill', async () => {

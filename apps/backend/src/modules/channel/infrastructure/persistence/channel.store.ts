@@ -340,6 +340,14 @@ export class DrizzleChannelStore implements ChannelStore {
         .where(and(eq(e.id, id), eq(e.claimToken, claimToken), sql`${e.processedAt} is null`));
     });
   }
+  async deferEvent(id: string, claimToken: string, until: Date) {
+    await withSystem(this.system, async (tx) => {
+      await tx
+        .update(e)
+        .set({ leaseUntil: until, attempts: sql`greatest(${e.attempts} - 1, 0)` })
+        .where(and(eq(e.id, id), eq(e.claimToken, claimToken), sql`${e.processedAt} is null`));
+    });
+  }
   hasNewerCustomerEvent(connectionId: string, senderExternalId: string, afterEventId: string) {
     return withSystem(this.system, async (tx) => {
       const rows = await tx
@@ -436,6 +444,9 @@ export class UnavailableChannelStore implements ChannelStore {
     return this.fail();
   }
   requeueEvent(): Promise<void> {
+    return this.fail();
+  }
+  deferEvent(): Promise<void> {
     return this.fail();
   }
   hasNewerCustomerEvent(): Promise<boolean> {

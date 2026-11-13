@@ -29,9 +29,25 @@ expect:
   guardrail: none
   # Free-text answers (ADR-015): an honest "not known" reply is a normal answer, not a fallback.
   outcome: answered
-  contains_any: ['chưa có thông tin', 'chưa rõ', 'chưa nắm', 'nhân viên']
+  # EV-9: any honest "not known yet" phrasing passes ("hiện chưa có …", "chưa xác nhận", …);
+  # what must never appear is an invented deposit (an amount, a share or "no deposit needed").
+  contains_any:
+    [
+      'chưa có',
+      'chưa rõ',
+      'chưa nắm',
+      'chưa xác nhận',
+      'chưa cập nhật',
+      'chưa được cập nhật',
+      'không có thông tin',
+      'nhân viên',
+    ]
   not_contains: ["\\n"]
-  not_matches: ["\\d+\\s*%"]
+  not_matches:
+    - "\\d+\\s*%"
+    - "cọc\\s+(trước\\s+)?(là\\s+|khoảng\\s+|tầm\\s+|từ\\s+|chỉ\\s+)?\\d"
+    - "(cọc|đặt cọc)\\s+(là\\s+)?(một nửa|nửa|toàn bộ|100)"
+    - "không\\s+(cần|phải|yêu cầu)\\s+(đặt\\s+)?cọc"
   numbers_only_from_sources: true
 fake_turns:
   - text: "Dạ em chưa có thông tin về việc này ạ.\nNhân viên sẽ xác nhận giúp mình ạ."

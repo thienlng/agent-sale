@@ -276,7 +276,10 @@ test('visitor chats, staff answers from the inbox, visitor leaves a phone', asyn
   const row2 = dash.getByRole('button', { name: /Khách website #1/ });
   await expect(row2.getByText('Số mới')).toBeVisible();
   await row2.click();
-  await expect(dash.getByRole('link', { name: /912345678/ })).toBeVisible();
+  // Shown in the local format, dialled in full (MS-22/LM-5 local phones).
+  const phoneLink = dash.getByRole('link', { name: '0912 345 678', exact: true });
+  await expect(phoneLink).toBeVisible();
+  await expect(phoneLink).toHaveAttribute('href', /^tel:(\+84|0)912345678$/);
   await context.close();
 });
 

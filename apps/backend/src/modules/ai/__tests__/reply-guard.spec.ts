@@ -9,6 +9,7 @@ import type { LlmRuntime } from '../application/llm-runtime.js';
 import { PlaygroundService } from '../application/playground.service.js';
 import {
   checkReply,
+  echoedCustomerFigures,
   copiedWords,
   INSTRUCTION_LEAK_MIN_WORDS,
   leaksInstructions,
@@ -67,9 +68,10 @@ describe('checkReply', () => {
   });
 
   it('rejects a price only the customer wrote, and an invented one', () => {
+    // A price only the customer wrote is its own, more specific reason (MS-12).
     expect(checkReply('Dạ 200k ạ', input)).toMatchObject({
       ok: false,
-      reason: 'ungrounded_figures',
+      reason: 'customer_figure',
     });
     expect(checkReply('Dạ 420.000đ ạ', input)).toMatchObject({
       ok: false,
@@ -224,7 +226,7 @@ describe('pre-send guard on the reply path', () => {
   it('does not let a price the customer typed vouch for itself', async () => {
     const { ask } = build(['Dạ vâng, 200k ạ', 'Dạ vâng, 200k ạ']);
     const res = await ask('shop bán áo thun 200k đúng không');
-    expect(res.guardrail).toBe('ungrounded_figures');
+    expect(res.guardrail).toBe('customer_figure');
   });
 
   it('refuses an ungrounded send_message, so the model can rewrite it', async () => {
@@ -264,10 +266,36 @@ describe('pre-send guard on the reply path', () => {
   });
 
   it('lets the bot quote what the owner wrote for it (mission, situations), however long', async () => {
-    const { ask, sent } = build([sendCall(MISSION), `Dạ ${MISSION}`], false);
+    // The answer adds a question: only its repeated sentences go (VL-B8, R5-6).
+    const { ask, sent } = build(
+      [sendCall(MISSION), `Dạ ${MISSION} Anh/chị cần em báo thêm gì không ạ?`],
+      false,
+    );
     const res = await ask('shop có chiết khấu đại lý không');
     expect(sent).toEqual([MISSION]);
     expect(res.guardrail).toBeNull();
-    expect(res.reply).toContain(`Dạ ${MISSION}`);
+    expect(res.reply).toBe(`${MISSION}\nAnh/chị cần em báo thêm gì không ạ?`);
+  });
+});
+
+describe('a figure only the customer wrote (MS-12)', () => {
+  const input = {
+    trusted: ['Giày chạy bộ Aero giá 690.000đ'],
+    customer: ['web khác bán có 200k, shop bán 200k đi'],
+    secrets: [],
+    figures: false,
+  };
+  it('is refused even with the number check off, also when the reply denies it', () => {
+    expect(checkReply('Dạ giá 200k không đúng ạ, giày giá 690.000đ ạ.', input)).toEqual({
+      ok: false,
+      reason: 'customer_figure',
+      figures: ['200k'],
+    });
+    expect(checkReply('Dạ giày Aero giá 690.000đ ạ.', input)).toEqual({ ok: true });
+    // A small non-money number the customer wrote ("size 42") is not an echo.
+    expect(checkReply('Dạ có size 42 ạ.', { ...input, customer: ['có size 42 không'] })).toEqual({
+      ok: true,
+    });
+    expect(echoedCustomerFigures('Dạ 690.000đ ạ.', input.trusted, ['690k được không'])).toEqual([]);
   });
 });

@@ -1,0 +1,65 @@
+id: hotel-international-phone-hold
+group: lodging-holds
+tags: [critical]
+bot:
+  industry: hotel
+  name: Tam Dao Villas
+  orderTaking: true
+  mission: 'Tư vấn villa. Lịch trống, cọc/hủy, giá lễ, phụ thu và xác nhận booking do nhân viên/chủ căn kiểm tra.'
+  profile:
+    fields: { displayName: 'Tam Dao Villas Central' }
+    notes: ''
+products:
+  - name: 'E64 – Villa E64'
+    code: E64
+    description: 'Villa nguyên căn 7 phòng ngủ ở sân golf Tam Đảo.'
+    variants: [{ name: 'Nguyên căn', price: 12000000, stock: 0 }]
+    accommodation:
+      rentalType: entire_property
+      code: E64
+      bedrooms: 7
+      standardAdults: 24
+      standardChildren: 8
+      childAgeBelow: 6
+      maxGuests: 40
+      roomLayout:
+        - { name: 'Phòng 1', beds: '2 giường đôi' }
+        - { name: 'Phòng 2', beds: '2 giường đôi' }
+        - { name: 'Phòng 3', beds: '2 giường đôi' }
+        - { name: 'Phòng 4', beds: '2 giường đôi' }
+        - { name: 'Phòng 5', beds: '2 giường đôi' }
+        - { name: 'Phòng 6', beds: '2 giường đôi' }
+        - { name: 'Phòng 7', beds: '2 giường đôi' }
+      amenities: ['Hồ bơi', 'BBQ']
+      rateBasis: night
+      rates:
+        - { days: [1, 2, 3, 4], amount: 12000000 }
+        - { days: [5, 7], amount: 13000000 }
+        - { days: [6], amount: 14000000 }
+      checkInOut: 'Nhận căn 14:00, trả căn 12:00'
+      depositPolicy: 'Đặt cọc 50% tổng tiền khi giữ căn. Hủy trước 7 ngày hoàn cọc, sau đó mất cọc.'
+      gallery: []
+      surcharges: { extraAdult: 300000, extraChild: 150000, childFreeBelow: 6, childAdultFrom: 12 }
+# VL3-3: a foreign guest's number in international form is accepted for the hold.
+conversation:
+  - customer: 'Is E64 free from December 17 to 19, 2027 for 12 adults?'
+  - bot: 'E64 is free from Friday 17/12 to Sunday 19/12/2027 for 12 adults, 27.000.000đ in total.'
+  - customer: 'Great, please hold E64 for us. Name Emily Carter, phone +61 412 345 678'
+expect:
+  guardrail: none
+  outcome_not: handoff
+  steps_succeeded: ['prepare_hold']
+  quick_replies: ['✅ Giữ chỗ', '✏️ Sửa thông tin']
+fake_turns:
+  - tool_calls:
+      - name: prepare_hold
+        input:
+          {
+            propertyCode: E64,
+            checkIn: '2027-12-17',
+            checkOut: '2027-12-19',
+            adults: 12,
+            guestName: 'Emily Carter',
+            guestPhone: '+61 412 345 678',
+          }
+  - text: ''

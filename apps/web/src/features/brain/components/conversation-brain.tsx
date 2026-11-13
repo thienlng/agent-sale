@@ -13,7 +13,7 @@ import { peekPendingDraft, takePendingDraft } from '@/lib/pending-reply-draft';
 import { useCan } from '@/lib/permissions';
 import { useWorkspaceId } from '@/lib/use-workspace';
 
-import { useConversationTasks, useSignal } from '../api/brain';
+import { useContactTasks, useConversationTasks, useSignal } from '../api/brain';
 import { useItemActions } from '../hooks/use-item-actions';
 import { StageBadge, StageMenu } from './stage-menu';
 import { TaskDialog, type TaskSubject } from './task-dialog';
@@ -128,6 +128,31 @@ export function ConversationTasks({
       </div>
       <TaskDialog subject={open ? subject : null} onOpenChange={setOpen} />
     </div>
+  );
+}
+
+/**
+ * "Việc cần làm" on the customer sheet (MS2-8): the customer's open tasks — the bot's
+ * "Xác nhận – …" and "Khách đổi lịch – …" included — each with its due time, assignee and a tick
+ * to finish it. Nothing when there is none.
+ */
+export function ContactTasks({ contactId }: { contactId: string }) {
+  const { t } = useTranslation('brain');
+  const viewAll = useCan('contacts.view_all');
+  const tasks = useContactTasks(contactId, viewAll ? 'all' : 'mine');
+  if (!tasks.data?.length) return null;
+  const now = Date.now();
+  return (
+    <section aria-labelledby={`contact-tasks-${contactId}`} className="rounded-xl border">
+      <h3 id={`contact-tasks-${contactId}`} className="px-4 pt-3 text-sm font-medium">
+        {t('panel.contactTasks')}
+      </h3>
+      <ul className="divide-y">
+        {tasks.data.map((task) => (
+          <TaskRow key={task.id} task={task} now={now} />
+        ))}
+      </ul>
+    </section>
   );
 }
 

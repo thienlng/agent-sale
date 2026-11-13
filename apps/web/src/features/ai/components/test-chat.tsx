@@ -25,6 +25,9 @@ import { Outcome } from './test-chat-outcome';
 import { AttachmentThumbs, BotImages, BotVideos } from './test-chat-images';
 import { TestChatSteps } from './test-chat-steps';
 
+/** The pictures of a request as the playground sends them. */
+type PlaygroundImages = Awaited<ReturnType<typeof toPlaygroundImages>> | undefined;
+
 interface Turn {
   id: number;
   role: 'customer' | 'bot';
@@ -33,6 +36,8 @@ interface Turn {
   /** Object URLs of the pictures the customer sent with this turn. */
   images?: { id: number; url: string }[];
   error?: boolean;
+  /** The failed request can be sent again as is ("AI đang bận", VL2-8). */
+  retry?: { images: PlaygroundImages };
 }
 
 /**
@@ -57,24 +62,35 @@ export function TestChat({
   const playground = usePlayground(botId);
   const seq = useRef(0);
   const [turns, setTurns] = useState<Turn[]>([]);
+  // One id per test chat: a new chat never confirms the order or hold another chat prepared.
+  const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
   const [draft, setDraft] = useState('');
   const [reading, setReading] = useState(false);
   const attachments = useImageAttachments();
   const busy = playground.isPending || reading;
 
-  function fail(err: Error, withImages: boolean) {
+  /** No model for the tier (an admin must act), not a temporary outage (TM-3). */
+  function notConfigured(err: ApiClientError): boolean {
+    return err.details?.['reason'] === 'not_configured' || err.details?.['tier'] !== undefined;
+  }
+
+  function fail(err: Error, images: PlaygroundImages) {
     const imageIssue =
-      withImages && err instanceof ApiClientError && /image|vision/i.test(err.message);
+      !!images && err instanceof ApiClientError && /image|vision/i.test(err.message);
+    const unavailable = err instanceof ApiClientError && err.code === 'AI_UNAVAILABLE';
+    // A busy model or a failed request can be retried; a missing model or an image issue cannot.
+    const retryable = !imageIssue && !(unavailable && notConfigured(err));
     setTurns((all) => [
       ...all,
       {
         id: ++seq.current,
         role: 'bot',
         error: true,
+        ...(retryable ? { retry: { images } } : {}),
         content: imageIssue
           ? t('playground.imagesUnsupported')
-          : err instanceof ApiClientError && err.code === 'AI_UNAVAILABLE'
-            ? t('playground.unavailable')
+          : unavailable
+            ? t(notConfigured(err) ? 'playground.unavailable' : 'playground.busy')
             : t('playground.error', { message: err.message }),
       },
     ]);
@@ -115,7 +131,7 @@ export function TestChat({
   function dispatch(
     content: string,
     sentImages: { id: number; url: string }[],
-    images: Awaited<ReturnType<typeof toPlaygroundImages>> | undefined,
+    images: PlaygroundImages,
   ) {
     const history: Turn[] = [
       ...turns,
@@ -127,6 +143,11 @@ export function TestChat({
       },
     ];
     setTurns(history);
+    request(history, images);
+  }
+
+  /** Asks the bot to answer `history` (its error turns are left out of the request). */
+  function request(history: Turn[], images: PlaygroundImages) {
     const messages = [
       ...(greeting ? [{ role: 'bot' as const, content: greeting }] : []),
       ...history
@@ -134,28 +155,37 @@ export function TestChat({
         .map((h) => ({ role: h.role, content: h.content.trim() || t('playground.imageOnly') })),
     ];
     // The playground stores no conversation: it tells the server what the bot already sent.
-    const sentMediaUrls = turns.flatMap(
+    const sentMediaUrls = history.flatMap(
       (h) =>
         h.result?.messages?.flatMap((m) => m.images.map((i) => i.url)) ??
         h.result?.images.map((i) => i.url) ??
         [],
     );
     playground.mutate(
-      { messages, images, sentMediaUrls },
+      { messages, images, sentMediaUrls, sessionId },
       {
         onSuccess: (result) =>
           setTurns((all) => [
             ...all,
             { id: ++seq.current, role: 'bot', content: result.reply, result },
           ]),
-        onError: (err) => fail(err, !!images),
+        onError: (err) => fail(err, images),
       },
     );
+  }
+
+  /** "Thử lại" under a failed reply: drops that error and asks again, without re-adding the message. */
+  function retry(failed: Turn) {
+    if (busy || !failed.retry) return;
+    const history = turns.filter((h) => h.id !== failed.id);
+    setTurns(history);
+    request(history, failed.retry.images);
   }
 
   function reset() {
     attachments.discardAll();
     setTurns([]);
+    setSessionId(crypto.randomUUID());
   }
 
   return (
@@ -277,6 +307,19 @@ export function TestChat({
                           ) : null}
                         </>
                       )}
+                      {turn.retry && turn === turns.at(-1) ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-1 w-fit"
+                          disabled={busy}
+                          onClick={() => retry(turn)}
+                        >
+                          <RotateCcw aria-hidden />
+                          {training('retry')}
+                        </Button>
+                      ) : null}
                       {turn.result ? (
                         <MessageFooter className="flex-col items-start gap-1.5">
                           {turn.result.interrupted ? (

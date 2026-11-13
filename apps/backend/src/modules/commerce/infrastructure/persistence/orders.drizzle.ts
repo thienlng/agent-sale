@@ -156,6 +156,7 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
         // Status is the only filter the per-status counts ignore (they label the choices).
         const base = allBut('status');
         const where = allBut();
+        const live = sql`${o.status} <> 'cancelled'`;
         const [rows, countRows, [totals], creators, carriers, bySource, byCreator, byCarrier] =
           await Promise.all([
             tx
@@ -173,11 +174,12 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
             tx
               .select({
                 c: sql<number>`count(*)`,
-                itemQty: sql<number>`coalesce(sum(${o.itemQty}), 0)`,
-                shippingFeeCharged: sql<number>`coalesce(sum(${o.shippingFeeCharged}), 0)`,
-                cod: sql<number>`coalesce(sum(${o.codAmount}), 0)`,
-                gross: sql<number>`coalesce(sum(${grossExpr}), 0)`,
-                total: sql<number>`coalesce(sum(${o.total}), 0)`,
+                // A cancelled order is counted but never adds goods or money (TM-5).
+                itemQty: sql<number>`coalesce(sum(${o.itemQty}) filter (where ${live}), 0)`,
+                shippingFeeCharged: sql<number>`coalesce(sum(${o.shippingFeeCharged}) filter (where ${live}), 0)`,
+                cod: sql<number>`coalesce(sum(${o.codAmount}) filter (where ${live}), 0)`,
+                gross: sql<number>`coalesce(sum(${grossExpr}) filter (where ${live}), 0)`,
+                total: sql<number>`coalesce(sum(${o.total}) filter (where ${live}), 0)`,
               })
               .from(o)
               .where(where),

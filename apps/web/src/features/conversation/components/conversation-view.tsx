@@ -15,6 +15,7 @@ import { useCan } from '@/lib/permissions';
 import { useAssistantContext } from '@/lib/assistant-context';
 import { openAssistantWith, useAssistantAvailable } from '@/lib/assistant-launch';
 import { customerDisplayName } from '../lib/inbox-list';
+import { replyWindowState } from '../lib/reply-window';
 import { useReadOnOpen } from '../hooks/use-read-on-open';
 import { ConversationHeader, externalInboxUrl, type HeaderChannel } from './conversation-header';
 import { CustomerPanel } from './customer-panel';
@@ -172,14 +173,15 @@ export function ConversationView({
         </div>
       </div>
     );
-  // Past 24 hours a member may still reply for up to 7 days when the business sends with Meta's
-  // HUMAN_AGENT tag (`humanAgentReply`, ADR-031); the bot and the care agent never may.
-  const sinceCustomer = clock - Date.parse(c.lastInboundAt);
-  const humanAgentWindow =
-    detail.data.humanAgentReply === true &&
-    sinceCustomer >= 86400000 &&
-    sinceCustomer < 7 * 86400000;
-  const windowClosed = sinceCustomer >= 86400000 && !humanAgentWindow;
+  // Only Messenger and Instagram have Meta's 24-hour window; the website never closes (MS-20).
+  const replyWindow = replyWindowState(
+    c.provider,
+    c.lastInboundAt,
+    clock,
+    detail.data.humanAgentReply === true,
+  );
+  const humanAgentWindow = replyWindow === 'human_agent';
+  const windowClosed = replyWindow === 'closed';
   const folder = c.status === 'open' ? null : c.status;
   const name = customerDisplayName(c, (provider, last4) => tr('v2.row.guest', { provider, last4 }));
   const slots: PanelSlots = {
@@ -217,7 +219,9 @@ export function ConversationView({
         externalUrl={externalInboxUrl(c.provider, channel)}
         onCollapse={() => setDetails(false)}
       />
-      {c.provider === 'website' ? <WebsiteVisitorBlock conversationId={c.id} /> : null}
+      {c.provider === 'website' ? (
+        <WebsiteVisitorBlock conversationId={c.id} customerPhone={c.customerPhone} />
+      ) : null}
       {renderSalesPanel ? (
         renderSalesPanel(c, slots)
       ) : (
@@ -231,6 +235,7 @@ export function ConversationView({
         conversation={c}
         channel={channel}
         botAvailable={Boolean(botId) && bot.data?.isActive !== false}
+        replyModeLocked={channel?.removed === true}
         takeoverMinutes={bot.data?.takeoverMinutes}
         members={members.data ?? []}
         membersLoading={members.isPending}
@@ -314,7 +319,8 @@ export function ConversationView({
         botId={botId}
         windowClosed={windowClosed}
         humanAgentWindow={humanAgentWindow}
-        locked={folder !== null || !canEdit || channel?.removed === true}
+        locked={folder !== null || !canEdit}
+        disabled={channel?.removed === true}
         channelLabel={CHANNEL_LABEL[c.provider]}
         channelId={c.channelId}
         renderTools={

@@ -215,6 +215,8 @@ export interface LodgingTx {
   lockRequestKey(key: string): Promise<void>;
   findBooking(id: string, lock?: boolean): Promise<BookingRecord | null>;
   findBookingByRequest(clientRequestId: string): Promise<BookingRecord | null>;
+  /** Stays with these codes (at most 20 codes are read; locked FOR UPDATE with `lock`). */
+  bookingsByCodes(codes: string[], lock?: boolean): Promise<BookingRecord[]>;
   /** One page of 100 rows plus one probe row (101 max). */
   listBookings(q: BookingListQuery & { today: string }): Promise<BookingRecord[]>;
   /** Bookings in occupying statuses overlapping the nights [from, to). */

@@ -106,7 +106,8 @@ describe('assistant attachments', { timeout: 20_000 }, () => {
     renderWithRouter(() => <AssistantPanel />);
     const csv = new File(['Tên;Giá\nÁo;150k\n'], 'hang.csv', { type: 'text/csv' });
     await user.upload(await screen.findByTestId('assistant-file-input'), csv);
-    expect(await screen.findByText('2 dòng')).toBeInTheDocument();
+    // The header row is not counted (AS-24).
+    expect(await screen.findByText('1 dòng')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Gửi' }));
     await waitFor(() => expect(calls.some((c) => c.key === MESSAGES)).toBe(true));
@@ -155,7 +156,8 @@ describe('assistant attachments', { timeout: 20_000 }, () => {
       ],
     });
     expect(calls.find((c) => c.key === MESSAGES)?.body).toMatchObject({
-      text: 'Giá 200k cả hai',
+      // The sent text names what was attached (AS-24).
+      text: 'Giá 200k cả hai\n\n📎 Đính kèm 2 ảnh',
       importBatchId: ASSISTANT_IDS.batch,
     });
   });

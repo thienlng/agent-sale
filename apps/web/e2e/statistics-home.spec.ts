@@ -145,7 +145,8 @@ test('logo reads authorized business totals without changing the selected busine
   expect(await page.evaluate(() => localStorage.getItem('rapiz.workspace'))).toBe(A);
   expect(requests).toContain(A);
   expect(requests).toContain(B);
-  await expect(page.getByText('Thống kê theo shop chưa có dữ liệu.')).toBeVisible();
+  // The per-business list is the shop breakdown, so no "not yet" note contradicts it (AS-20).
+  await expect(page.getByText('Thống kê theo shop chưa có dữ liệu.')).toHaveCount(0);
   await expect(page.getByText(/Chỉ gồm khách bạn phụ trách/).first()).toBeVisible();
   await page.goto('/app/analytics');
   await expect(page.getByRole('button', { name: 'Chọn business', exact: true })).toContainText(

@@ -88,7 +88,12 @@ export function useUpdateContact(id: string) {
   return useMutation({
     mutationFn: (body: UpdateContactRequest) =>
       api(`/contacts/${id}`, ContactDto, { method: 'PATCH', body }),
-    onSuccess: (c) => changed(c.id, c),
+    onSuccess: (c, body) => {
+      changed(c.id, c);
+      // A confirmed status completes the customer's open "Xác nhận" task on the server: the task
+      // lists (customer sheet, inbox panel) and Today read it again (MS3-8).
+      if (body.statusId !== undefined) void qc.invalidateQueries({ queryKey: ['ws', ws, 'brain'] });
+    },
     // A stale edit: load the latest version so the user can redo it on top.
     onError: () => void qc.invalidateQueries({ queryKey: queryKeys.contact(ws, id) }),
   });

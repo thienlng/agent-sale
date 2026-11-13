@@ -132,7 +132,7 @@
   "today": {
     "briefing": {
       "title": "Today: {{parts}}",
-      "body": "{{business}} · Open Today to work through them",
+      "body": "{{business}} · Open Statistics → Today's work to go through them",
       "separator": ", ",
       "attention_one": "{{count}} needs attention",
       "attention_other": "{{count}} need attention",

@@ -2,6 +2,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { loadNamespace } from '@/lib/i18n';
 import { renderWithProviders, stubFetch } from '@/testing/render';
 
 import type { ActionInput } from '@agent-sales/contracts';
@@ -9,6 +10,8 @@ import type { ActionInput } from '@agent-sales/contracts';
 import { emptyParam, type ParamRow } from '../lib/action-form';
 import { ActionTestPanel } from './action-test-panel';
 import { BOT_ID } from './fixtures';
+
+beforeAll(() => loadNamespace('action'));
 
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-1' }));
 afterEach(() => vi.unstubAllGlobals());

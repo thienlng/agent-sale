@@ -1,10 +1,20 @@
 import type { AssistantMessageDto, AssistantProposalDto } from '@agent-sales/contracts';
-import { BarChart3, Bot, Check, Compass, Loader2, ThumbsDown, ThumbsUp } from 'lucide-react';
+import {
+  BarChart3,
+  Bot,
+  Check,
+  Compass,
+  Loader2,
+  RotateCcw,
+  ThumbsDown,
+  ThumbsUp,
+} from 'lucide-react';
 import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { RunTraceBox, RunTraceToggle } from '@/components/run-trace';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
@@ -13,7 +23,7 @@ import { useMessageFeedback } from '../api/assistant-settings';
 import { NAVIGATE_FOLLOW_UP_TEXT } from '../utils/navigate-follow-up';
 import { AssistantMarkdown } from './assistant-markdown';
 import { AssistantProposal } from './assistant-proposals';
-import { AssistantStepList, AssistantSteps } from './assistant-steps';
+import { AssistantSteps, progressKey } from './assistant-steps';
 
 /** The assistant's feature groups on an empty conversation, four concrete abilities each. */
 const GROUPS = [
@@ -64,7 +74,15 @@ function AnswerFeedback({ message }: { message: AssistantMessageDto }) {
   );
 }
 
-function AssistantAnswer({ message }: { message: AssistantMessageDto }) {
+function AssistantAnswer({
+  message,
+  onRetry,
+}: {
+  message: AssistantMessageDto;
+  /** Sends the owner's question again (the busy reply of the last turn, AS-1). */
+  onRetry?: (() => void) | undefined;
+}) {
+  const { t } = useTranslation('assistant');
   const [showSteps, setShowSteps] = useState(false);
   const charts = message.uiActions.flatMap((a) => (a.type === 'chart' ? [a.chart] : []));
   return (
@@ -72,6 +90,12 @@ function AssistantAnswer({ message }: { message: AssistantMessageDto }) {
       <div className="min-w-0 rounded-2xl rounded-bl-sm bg-muted px-3 py-2 break-words">
         <AssistantMarkdown content={message.content} />
       </div>
+      {onRetry ? (
+        <Button type="button" size="sm" variant="outline" className="self-start" onClick={onRetry}>
+          <RotateCcw className="size-3.5" aria-hidden />
+          {t('retry')}
+        </Button>
+      ) : null}
       {charts.map((chart, i) => (
         <Suspense key={i} fallback={<Skeleton className="h-[180px] w-full" />}>
           <AssistantChart chart={chart} />
@@ -130,13 +154,23 @@ function LiveTurn({ turnId }: { turnId: string }) {
     return () => clearTimeout(timer);
   }, [turnId]);
   const run = useAssistantRun(ready === turnId ? turnId : null, { poll: true });
+  // A plain status for the owner; the step trace stays behind "Xem các bước" on the answer (AS-9).
+  const steps = run.data?.steps ?? [];
+  const key = progressKey(steps);
+  const rounds = steps.filter((s) => !s.toolName).length;
   return (
     <li className="flex max-w-[85%] min-w-0 flex-col gap-2 self-start rounded-2xl rounded-bl-sm bg-muted px-3 py-2">
-      <span className="inline-flex items-center gap-2 text-muted-foreground" role="status">
-        <Loader2 className="size-4 animate-spin" aria-hidden />
-        {t('thinking')}
+      <span className="flex items-start gap-2 text-muted-foreground" role="status">
+        <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin" aria-hidden />
+        <span className="min-w-0">
+          {key ? t(`progress.${key}`) : t('thinking')}
+          {rounds > 1 ? (
+            <span className="ml-1 text-xs whitespace-nowrap tabular-nums opacity-70">
+              · {t('progress.steps', { count: rounds })}
+            </span>
+          ) : null}
+        </span>
       </span>
-      {run.data?.steps.length ? <AssistantStepList steps={run.data.steps} /> : null}
     </li>
   );
 }
@@ -151,6 +185,7 @@ export function AssistantMessages({
   pendingTurn,
   unavailable,
   onStarter,
+  onRetry,
   roomy = false,
 }: {
   messages: readonly AssistantMessageDto[];
@@ -161,6 +196,8 @@ export function AssistantMessages({
   unavailable: boolean;
   /** Sends a starter question from the empty state; absent while a message is on its way. */
   onStarter?: ((text: string) => void) | undefined;
+  /** Sends a question again after a busy reply; absent while a message is on its way. */
+  onRetry?: ((text: string) => void) | undefined;
   /** The full page: a larger welcome with room for the starters in two columns. */
   roomy?: boolean;
 }) {
@@ -194,6 +231,11 @@ export function AssistantMessages({
   }, [loading, empty]);
 
   const placed = placeProposals(messages, proposals);
+  // "Thử lại" only under the last answer, when it is the busy reply to the question before it.
+  const last = messages.at(-1);
+  const asked = messages.at(-2);
+  const retryText =
+    last?.retryable && asked?.role === 'user' && !pendingTurn ? asked.content : undefined;
 
   if (loading)
     return (
@@ -274,7 +316,14 @@ export function AssistantMessages({
                   </li>
                 )
               ) : m.role === 'assistant' ? (
-                <AssistantAnswer message={m} />
+                <AssistantAnswer
+                  message={m}
+                  onRetry={
+                    m === last && retryText !== undefined && onRetry
+                      ? () => onRetry(retryText)
+                      : undefined
+                  }
+                />
               ) : (
                 <li className="self-center text-center text-xs whitespace-pre-line text-muted-foreground">
                   {m.content}

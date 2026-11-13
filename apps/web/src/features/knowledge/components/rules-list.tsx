@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { useAssistantForm } from '@/lib/assistant-context';
 import { errorMessage } from '@/lib/errors';
+import { groupWording } from '@/lib/industry-group';
 import { cn } from '@/lib/utils';
 import {
   useAddStarterRules,
@@ -149,7 +150,16 @@ const byCreation = (a: TrainingItemDto, b: TrainingItemDto) =>
   a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
 
 /** "Hướng dẫn" page: rules grouped by section with switch, copy, edit, delete and search. */
-export function RulesList({ botId, introduction }: { botId: string; introduction?: ReactNode }) {
+export function RulesList({
+  botId,
+  introduction,
+  industry,
+}: {
+  botId: string;
+  introduction?: ReactNode;
+  /** The business's industry: a service business has appointments, not orders, after a sale. */
+  industry?: string | undefined;
+}) {
   const { t } = useTranslation('training');
   const { t: common } = useTranslation();
   const items = useTrainingItems(botId);
@@ -308,7 +318,10 @@ export function RulesList({ botId, introduction }: { botId: string; introduction
               <p className="text-sm text-muted-foreground">{t('rules.noResults')}</p>
             ) : null}
             {renderGroup('general', t('rules.groupGeneral'))}
-            {renderGroup('after_order', t('rules.groupAfterOrder'))}
+            {renderGroup(
+              'after_order',
+              t(groupWording(industry, 'rules', 'rules.service')('groupAfterOrder')),
+            )}
           </>
         )}
       </section>

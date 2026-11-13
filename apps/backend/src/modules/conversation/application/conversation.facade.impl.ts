@@ -42,7 +42,7 @@ import { nextMessageId } from '../domain/message-id.js';
 import { toListFilter } from '../domain/conversation-filter.js';
 import { detectVietnamesePhone, normalizeVietnamesePhone } from '../domain/phone.js';
 import { applyControlUpdate, newConversation, preview } from '../domain/conversation-state.js';
-import { attachTags, tagConditions } from './conversation-tags.js';
+import { attachContactNames, attachTags, tagConditions } from './conversation-tags.js';
 import { refreshCustomerProfile } from './customer-profile.js';
 import { addNote, assertAssignable, markRead, markUnread, setStarred } from './inbox-state.js';
 import { InboxAlerts } from './inbox-alerts.js';
@@ -174,8 +174,14 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
     const rows = await this.store.run(ws, (tx) =>
       tx.todayCandidates({ ...q, ids, limit, lastHumanFor }),
     );
-    return rows.map(({ conversation, lastHumanReplyAt }) => {
-      const c = named(conversation.provider, conversation.customerId, conversation);
+    // A website visitor's placeholder gives way to the linked customer's name, as in the inbox (MS3-5).
+    const shown = await attachContactNames(
+      this.crm,
+      ws,
+      rows.map((r) => named(r.conversation.provider, r.conversation.customerId, r.conversation)),
+    );
+    return rows.map(({ conversation, lastHumanReplyAt }, i) => {
+      const c = shown[i] ?? conversation;
       return {
         id: c.id,
         provider: c.provider,
@@ -251,6 +257,9 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
         mode: 'human' as const,
         takeover: 'temporary' as const,
         autoResumeAt: this.resumeAt(bot),
+        // The bot's hand-over line answered nobody: the customer now waits for staff, so the
+        // conversation is "Chờ trả lời" in the inbox and "Chưa trả lời" on Today (MS2-11).
+        awaitingSince: c.awaitingSince ?? c.lastInboundAt,
         // A control change: new revision, same place in the list.
         revision: c.revision + 1,
       };
@@ -267,6 +276,42 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
     // Staff learn at once (bell and push) that the bot passed the customer to them (T-190).
     await this.alerts?.raise(ws, handed, 'handoff');
     return handed;
+  }
+  async resumeIfDue(ws: WorkspaceId, id: string): Promise<ConversationView | null> {
+    const channelId = await this.store.run(
+      ws,
+      async (tx) => (await requireConversation(tx, id)).channelId,
+    );
+    const bot = await this.channelBot(ws, channelId);
+    if (!bot?.isActive) return null;
+    return this.store.run(ws, async (tx) => {
+      const c = await requireConversation(tx, id);
+      const due =
+        c.mode === 'human' &&
+        c.status === 'open' &&
+        c.takeover === 'temporary' &&
+        c.autoResumeAt !== null &&
+        Date.parse(c.autoResumeAt) <= Date.now() &&
+        c.awaitingSince !== null &&
+        c.lastMessageSender === 'customer';
+      if (!due) return null;
+      const updated = {
+        ...c,
+        mode: 'bot' as const,
+        takeover: null,
+        autoResumeAt: null,
+        revision: c.revision + 1,
+      };
+      await tx.save(updated);
+      await tx.audit(id, 'conversation.control.updated.v1', {
+        actorId: 'system',
+        mode: updated.mode,
+        status: updated.status,
+        assigneeId: updated.assigneeId,
+        revision: updated.revision,
+      });
+      return updated;
+    });
   }
   private async tagged(ws: WorkspaceId, c: ConversationView): Promise<ConversationView> {
     return (await attachTags(this.crm, ws, [c]))[0] ?? c;

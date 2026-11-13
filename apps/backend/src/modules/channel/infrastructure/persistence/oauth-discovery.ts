@@ -85,6 +85,7 @@ export function selectDiscoveredAccounts(
               setWhere: eq(c.workspaceId, ws),
             })
             .returning()
+            .catch(otherBusinessToConflict)
         )[0];
       if (!row)
         throw new ChannelError('CONFLICT', 'This account is connected to another workspace');
@@ -92,4 +93,16 @@ export function selectDiscoveredAccounts(
     }
     return result;
   });
+}
+
+/**
+ * Another business holds the live row: older Postgres minors (16.14) let the upsert's `setWhere`
+ * skip it, newer ones (16.16) check the existing row against the RLS update policy first and raise
+ * 42501. Both mean the page belongs to someone else.
+ */
+function otherBusinessToConflict(err: unknown): never {
+  const code = (e: unknown) => (e as { code?: string } | null)?.code;
+  if (code(err) === '42501' || code((err as { cause?: unknown } | null)?.cause) === '42501')
+    throw new ChannelError('CONFLICT', 'This account is connected to another workspace');
+  throw err;
 }

@@ -680,6 +680,17 @@ export class DrizzleAssistantRepository implements AssistantRepository {
     });
   }
 
+  deleteRunMessages(s: OwnerScope, threadId: string, runId: string): Promise<number> {
+    return this.#in(s, async (tx) => {
+      await this.#ownThread(tx, s, threadId, true);
+      const rows = await tx
+        .delete(m)
+        .where(and(eq(m.threadId, threadId), ownsMessage(s), eq(m.runId, runId)))
+        .returning({ id: m.id });
+      return rows.length;
+    });
+  }
+
   searchMessages(s: OwnerScope, query: string, limit: number): Promise<SearchHit[]> {
     const text = query.trim();
     if (!text) return Promise.resolve([]);
@@ -776,6 +787,23 @@ export class DrizzleAssistantRepository implements AssistantRepository {
     return this.#in(s, async (tx) => {
       await this.#ownRun(tx, s, step.runId);
       await tx.insert(st).values({ ...step, accountId: s.accountId });
+    });
+  }
+
+  failStaleRuns(s: OwnerScope, staleMs: number): Promise<RunRecord[]> {
+    return this.#in(s, async (tx) => {
+      const rows = await tx
+        .update(r)
+        .set({ status: 'failed', guardrail: 'interrupted', finishedAt: sql`now()` })
+        .where(
+          and(
+            ownsRun(s),
+            eq(r.status, 'running'),
+            sql`greatest(${r.createdAt}, coalesce((select max(${st.createdAt}) from ${st} where ${st.runId} = ${r.id}), ${r.createdAt})) < now() - make_interval(secs => ${staleMs / 1000})`,
+          ),
+        )
+        .returning();
+      return rows.map(toRun);
     });
   }
 

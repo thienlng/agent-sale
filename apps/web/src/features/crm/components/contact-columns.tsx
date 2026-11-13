@@ -3,7 +3,7 @@ import type { TFunction } from 'i18next';
 import type { ReactNode } from 'react';
 import { useSyncExternalStore } from 'react';
 
-import { formatDate, formatDateTime } from '@/lib/format';
+import { formatDate, formatDateTime, formatPhone } from '@/lib/format';
 import { storage } from '@/lib/storage';
 
 import type { CrmLookups } from '../hooks/use-crm-lookups';
@@ -38,7 +38,9 @@ export const CONTACT_COLUMNS: readonly ContactColumn[] = [
     id: 'phone',
     header: 'crm.col.phone',
     defaultVisible: true,
-    cell: (c) => <span className="tabular-nums">{dash(c.phone)}</span>,
+    cell: (c) => (
+      <span className="tabular-nums">{c.phone ? formatPhone(c.phone) : dash(c.phone)}</span>
+    ),
   },
   {
     id: 'email',

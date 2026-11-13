@@ -3,7 +3,7 @@ import type { TFunction } from 'i18next';
 import type { ReactNode } from 'react';
 import { useSyncExternalStore } from 'react';
 
-import { formatDateTime, formatVnd } from '@/lib/format';
+import { formatDateTime, formatPhone, formatVnd } from '@/lib/format';
 import { storage } from '@/lib/storage';
 
 import { OrderCreatedByCell } from './order-created-by-cell';
@@ -42,6 +42,16 @@ export const ORDER_COLUMNS: readonly OrderColumn[] = [
     csv: (o) => o.code,
   },
   {
+    // Right after the code: a cancelled order must read as cancelled without scrolling sideways
+    // (TM-4), and the status filter lives in this header.
+    id: 'status',
+    header: 'orders.col.status',
+    defaultVisible: true,
+    fixed: true,
+    cell: (o) => <OrderStatusBadge status={o.status} />,
+    csv: (o, t) => t(`status.${o.status}`),
+  },
+  {
     id: 'tracking',
     header: 'orders.col.tracking',
     defaultVisible: false,
@@ -58,7 +68,9 @@ export const ORDER_COLUMNS: readonly OrderColumn[] = [
     cell: (o) => (
       <>
         <div className="truncate font-medium">{o.customer.name}</div>
-        <div className="text-xs text-muted-foreground tabular-nums">{o.customer.phone}</div>
+        <div className="text-xs text-muted-foreground tabular-nums">
+          {o.customer.phone ? formatPhone(o.customer.phone) : null}
+        </div>
       </>
     ),
     csv: (o) => o.customer.name,
@@ -67,7 +79,11 @@ export const ORDER_COLUMNS: readonly OrderColumn[] = [
     id: 'phone',
     header: 'orders.col.phone',
     defaultVisible: false,
-    cell: (o) => <span className="tabular-nums">{o.recipient.phone ?? '—'}</span>,
+    cell: (o) => (
+      <span className="tabular-nums">
+        {o.recipient.phone ? formatPhone(o.recipient.phone) : '—'}
+      </span>
+    ),
     csv: (o) => o.recipient.phone ?? '',
   },
   {
@@ -138,8 +154,9 @@ export const ORDER_COLUMNS: readonly OrderColumn[] = [
     header: 'orders.col.cod',
     align: 'right',
     defaultVisible: true,
-    cell: (o) => formatVnd(o.amounts.cod),
-    csv: (o) => o.amounts.cod,
+    // A cancelled order collects nothing (TM-5, TM3-10), like the phone card.
+    cell: (o) => (o.status === 'cancelled' ? '—' : formatVnd(o.amounts.cod)),
+    csv: (o) => (o.status === 'cancelled' ? 0 : o.amounts.cod),
   },
   {
     id: 'note',
@@ -188,14 +205,6 @@ export const ORDER_COLUMNS: readonly OrderColumn[] = [
     fixed: true,
     cell: (o) => <OrderExternalChip order={o} />,
     csv: (o, t) => (o.external ? pushStateLabel(t, o.external) : ''),
-  },
-  {
-    id: 'status',
-    header: 'orders.col.status',
-    defaultVisible: true,
-    fixed: true,
-    cell: (o) => <OrderStatusBadge status={o.status} />,
-    csv: (o, t) => t(`status.${o.status}`),
   },
 ];
 

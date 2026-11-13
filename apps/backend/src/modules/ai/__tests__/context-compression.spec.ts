@@ -11,7 +11,13 @@ import {
   compressHistory,
   needsCompression,
 } from '../application/context-compression.js';
-import { compactHistory } from '../application/reply-context.js';
+import {
+  compactHistory,
+  earlierPhones,
+  earlierPhonesLine,
+  spokenDigits,
+  withTurnContext,
+} from '../application/reply-context.js';
 
 const turn = (i: number, size = 10): ChatMessage => ({
   role: i % 2 === 0 ? 'user' : 'assistant',
@@ -168,6 +174,59 @@ describe('compressHistory', () => {
   });
 });
 
+describe('earlierPhones (EV-2)', () => {
+  const customer = (text: string): ChatMessage => ({
+    role: 'user',
+    content: `<customer>\n${text}\n</customer>`,
+  });
+  const bot = (text: string): ChatMessage => ({ role: 'assistant', content: text });
+
+  it('lists the phones of customer turns that left the history, as written', () => {
+    const first = customer(
+      'Mình là Hạnh, khoảng 18 người. Số của mình là 0987 654 321, gọi giờ hành chính',
+    );
+    const second = customer('mua 2 0912.345.679 nhé'); // a quantity glued to the number
+    const echoed = bot('Dạ em ghi nhận số 0903 111 222 ạ.'); // the bot's words never count
+    const kept = [customer('số nào ấy nhỉ?')];
+    const all = [first, echoed, second, bot('Dạ'), ...kept];
+    expect(earlierPhones(all, kept)).toEqual(['0987 654 321', '0912.345.679']);
+  });
+
+  it('leaves out numbers still visible, duplicates and non-phones', () => {
+    const kept = [customer('vẫn số 0987654321 nhé')];
+    const all = [
+      customer('số 0987 654 321, đoàn 18 người, ngày 12/12/2026, giá 8.000.000đ'),
+      customer('0912 345 679'),
+      customer('lại là 0912345679'),
+      ...kept,
+    ];
+    expect(earlierPhones(all, kept)).toEqual(['0912 345 679']);
+    expect(earlierPhones(all, all)).toEqual([]);
+  });
+
+  it('adds one line to the turn context only when there is a phone', () => {
+    const ctx = {
+      profile: '<business_profile>\n</business_profile>',
+      sources: [],
+      situations: '',
+      focus: '',
+      pending: '',
+      images: '',
+      phoneKnown: false,
+      now: new Date(0),
+    };
+    const last = (earlier?: string[]) =>
+      withTurnContext([customer('số nào ấy nhỉ?')], {
+        ...ctx,
+        ...(earlier ? { earlierPhones: earlier } : {}),
+      }).at(-1)?.content ?? '';
+    expect(last(['0987 654 321'])).toContain(earlierPhonesLine(['0987 654 321']));
+    expect(last(['0987 654 321'])).toContain('0987 654 321');
+    expect(last([])).not.toContain('earlier messages');
+    expect(last()).not.toContain('earlier messages');
+  });
+});
+
 describe('createHistorySummarizer', () => {
   it('asks the given tier, without tools, and merges the previous note', async () => {
     const generate = vi.fn(
@@ -252,5 +311,37 @@ describe('InMemoryConversationSummaryRepository', () => {
     expect(await repo.get(a, 'c1')).toEqual({ coveredUntil: new Date(2), summary: 'two' });
     expect(await repo.get(b, 'c1')).toBeNull();
     expect(await repo.get(a, 'c2')).toBeNull();
+  });
+});
+
+describe('spokenDigits and the phone line (TM3-2, TM3-3)', () => {
+  it('reads a phone dictated in words as digits, and leaves ordinary words', () => {
+    expect(spokenDigits('sdt khong chin bay bon nam nam nam sau sau sau nhé')).toBe(
+      'sdt 0974555666 nhé',
+    );
+    expect(spokenDigits('số không chín không năm một hai ba bốn năm sáu')).toBe('số 0905123456');
+    expect(spokenDigits('chị lấy hai bộ, ba ngày nữa giao')).toBe(
+      'chị lấy hai bộ, ba ngày nữa giao',
+    );
+  });
+
+  it('names every phone the customer gave, kept turns included', () => {
+    const turns: ChatMessage[] = [
+      { role: 'user', content: '<customer>\nsố chị 0935 444 555\n</customer>' },
+      { role: 'assistant', content: 'Dạ em ghi nhận ạ.' },
+      { role: 'user', content: '<customer>\nđặt thêm 1 bộ, cùng địa chỉ và số đt\n</customer>' },
+    ];
+    const last =
+      withTurnContext(turns, {
+        profile: '',
+        sources: [],
+        situations: '',
+        focus: '',
+        pending: '',
+        images: '',
+        phoneKnown: false,
+        now: new Date(0),
+      }).at(-1)?.content ?? '';
+    expect(last).toContain(earlierPhonesLine(['0935 444 555']));
   });
 });

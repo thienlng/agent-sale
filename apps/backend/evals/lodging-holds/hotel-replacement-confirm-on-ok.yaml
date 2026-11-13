@@ -1,0 +1,80 @@
+id: hotel-replacement-confirm-on-ok
+group: lodging-holds
+tags: [critical]
+bot:
+  industry: hotel
+  name: Tam Dao Villas
+  orderTaking: true
+  mission: 'Tư vấn villa. Lịch trống, cọc/hủy, giá lễ, phụ thu và xác nhận booking do nhân viên/chủ căn kiểm tra.'
+  profile:
+    fields: { displayName: 'Tam Dao Villas Central' }
+    notes: ''
+products:
+  - name: 'E64 – Villa E64'
+    code: E64
+    description: 'Villa nguyên căn 7 phòng ngủ ở sân golf Tam Đảo.'
+    variants: [{ name: 'Nguyên căn', price: 12000000, stock: 0 }]
+    accommodation:
+      rentalType: entire_property
+      code: E64
+      bedrooms: 7
+      standardAdults: 24
+      standardChildren: 8
+      childAgeBelow: 6
+      maxGuests: 40
+      roomLayout:
+        - { name: 'Phòng 1', beds: '2 giường đôi' }
+        - { name: 'Phòng 2', beds: '2 giường đôi' }
+        - { name: 'Phòng 3', beds: '2 giường đôi' }
+        - { name: 'Phòng 4', beds: '2 giường đôi' }
+        - { name: 'Phòng 5', beds: '2 giường đôi' }
+        - { name: 'Phòng 6', beds: '2 giường đôi' }
+        - { name: 'Phòng 7', beds: '2 giường đôi' }
+      amenities: ['Hồ bơi', 'BBQ']
+      rateBasis: night
+      rates:
+        - { days: [1, 2, 3, 4], amount: 12000000 }
+        - { days: [5, 7], amount: 13000000 }
+        - { days: [6], amount: 14000000 }
+      checkInOut: 'Nhận căn 14:00, trả căn 12:00'
+      depositPolicy: 'Đặt cọc 50% tổng tiền khi giữ căn. Hủy trước 7 ngày hoàn cọc, sau đó mất cọc.'
+      gallery: []
+      surcharges: { extraAdult: 300000, extraChild: 150000, childFreeBelow: 6, childAdultFrom: 12 }
+lodging:
+  holds_before:
+    - {
+        hold: BK-0016,
+        code: E64,
+        checkIn: '2028-01-14',
+        checkOut: '2028-01-16',
+        adults: 9,
+        guestPhone: '0987654321',
+        totalSell: 27000000,
+      }
+  hold_draft:
+    {
+      code: E64,
+      checkIn: '2028-01-21',
+      checkOut: '2028-01-23',
+      adults: 9,
+      guestName: 'Lê Minh Quân',
+      guestPhone: '0987654321',
+    }
+# VL2-4: "ok giữ luôn" answers the waiting summary (confirm, never a second summary); the new hold
+# cancels the one it replaces and the customer reads both codes.
+conversation:
+  - customer: 'giữ E64 14/1/2028 đến 16/1/2028, 9 người lớn. Lê Minh Quân 0987654321'
+  - bot: 'Dạ em đã giữ chỗ BK-0016 đến 03:47 ngày 13/11 ạ. Nhân viên sẽ gọi xác nhận sớm ạ.'
+  - customer: 'à đổi sang 21/1/2028 đến 23/1/2028 nhé'
+  - bot: "Giữ chỗ E64 – Villa E64\n21/01 (T6) → 23/01 (CN) · 2 đêm\n9 người lớn\nTổng: 27.000.000đ\nTên: Lê Minh Quân · SĐT: 0987654321\nThay cho giữ chỗ BK-0016 (huỷ khi giữ chỗ này)\nGiữ trong 2 giờ, nhân viên sẽ gọi xác nhận."
+  - customer: 'ok giữ luôn cho anh'
+expect:
+  outcome: answered
+  guardrail: none
+  steps_succeeded: ['confirm_hold']
+  steps_exclude: ['prepare_hold', 'handoff']
+  order_created: true
+  contains_all: ['BK-0017', 'BK-0016']
+fake_turns:
+  - tool_calls: [{ name: confirm_hold, input: {} }]
+  - text: ''

@@ -22,6 +22,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { type AssistantFormField, useAssistantForm } from '@/lib/assistant-context';
 import { errorMessage } from '@/lib/errors';
+import { groupWording } from '@/lib/industry-group';
 import { useCan } from '@/lib/permissions';
 
 import { useBotProfile, useSaveBotSettings } from '../api/bot-profile';
@@ -208,7 +209,9 @@ function Form({ bot }: { bot: BotDto }) {
               value={draft.mission}
               onChange={(e) => set('mission', e.target.value)}
             />
-            <p className="text-xs text-muted-foreground">{t('personality.missionHint')}</p>
+            <p className="text-xs text-muted-foreground">
+              {t(groupWording(bot.industry, 'personality', 'personality.service')('missionHint'))}
+            </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <PronounField

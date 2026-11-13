@@ -60,7 +60,7 @@ export class HermesLoginRateLimitedError extends DomainError {
 export class AiNotConfiguredError extends DomainError {
   readonly code = 'AI_UNAVAILABLE';
   constructor(tier: string) {
-    super('No AI model is configured for this tier', { tier });
+    super('No AI model is configured for this tier', { tier, reason: 'not_configured' });
   }
 }
 
@@ -69,7 +69,8 @@ export class AiProviderFailedError extends DomainError {
   readonly code = 'AI_UNAVAILABLE';
   /** The classified cause of the last failure (`rate_limit`, `timeout`, …); never returned. */
   constructor(readonly kind?: string) {
-    super('The AI model is temporarily unavailable');
+    // `reason` lets a client tell a temporary outage from a missing configuration (TM-3).
+    super('The AI model is temporarily unavailable', { reason: 'temporarily_unavailable' });
   }
 }
 

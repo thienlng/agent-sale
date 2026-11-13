@@ -190,7 +190,9 @@ describe('business brain tables (0073)', () => {
     await expect(insertTask({ title: '   ' })).rejects.toThrow();
     await expect(insertTask({ note: 'x'.repeat(2001) })).rejects.toThrow();
     await expect(insertTask({ status: 'later' as 'open' })).rejects.toThrow();
-    await expect(insertTask({ source: 'bot' as 'manual' })).rejects.toThrow();
+    await expect(insertTask({ source: 'robot' as 'manual' })).rejects.toThrow();
+    // 0083 adds 'bot' (a request recorded by the bot leaves a staff task).
+    await expect(insertTask({ source: 'bot' })).resolves.toBeDefined();
     await expect(insertTask({ assigneeKind: 'team' as 'member' })).rejects.toThrow();
     await expect(insertTask({ subjectType: 'order' })).rejects.toThrow();
     await expect(

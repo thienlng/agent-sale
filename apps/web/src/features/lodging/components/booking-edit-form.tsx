@@ -141,8 +141,20 @@ export function BookingEditForm({
             party,
             packageIds: packageKey ? packageKey.split(',') : [],
             keepPackageIds: keepKey ? keepKey.split(',') : [],
+            excludeBookingId: booking.id,
           }),
-    [block, booking.propertyId, checkIn, checkOut, whole, unitIds, party, packageKey, keepKey],
+    [
+      block,
+      booking.id,
+      booking.propertyId,
+      checkIn,
+      checkOut,
+      whole,
+      unitIds,
+      party,
+      packageKey,
+      keepKey,
+    ],
   );
   const quote = useQuote(useDebouncedValue(stayChanged ? body : null, 300));
   const live = stayChanged ? quote.data : undefined;

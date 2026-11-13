@@ -1,0 +1,42 @@
+id: tinymind-reuses-details-given-earlier
+group: orders
+tags: [critical]
+bot:
+  industry: retail
+  name: TinyMind
+  orderTaking: true
+  orderShippingFeeVnd: 30000
+  profile:
+    fields: { displayName: TinyMind }
+    notes: 'Shop bán đồ chơi gỗ Montessori cho bé.'
+products:
+  - name: 'Thú gỗ xếp thăng bằng'
+    code: TM-001
+    description: 'Bộ thú gỗ xếp thăng bằng, phù hợp bé từ 1 tuổi trở lên.'
+    variants:
+      - { name: 'Mặc định', sku: TM-001-STD, price: 340000, stock: 12 }
+# TM3-3: phone and address given earlier in the conversation are reused ("cùng địa chỉ và số
+# đt"), not asked again.
+conversation:
+  - customer: 'số chị 0935 444 555 nhé, chị ở 12 Bạch Đằng, Hải Châu, Đà Nẵng'
+  - bot: 'Dạ em ghi nhận ạ. Chị cần em tư vấn món nào ạ?'
+  - customer: 'Thú gỗ xếp thăng bằng còn không em'
+  - bot: 'Dạ Thú gỗ xếp thăng bằng còn hàng, giá 340.000đ ạ.'
+  - customer: 'đặt 1 bộ thú gỗ, cùng địa chỉ và số đt trên, tên Hoàng Thu Trang'
+expect:
+  guardrail: none
+  steps_succeeded: ['prepare_order']
+  steps_exclude: ['handoff']
+  not_contains: ['chưa thấy số điện thoại', 'cho em xin số điện thoại']
+fake_turns:
+  - tool_calls:
+      - name: prepare_order
+        input:
+          items: [{ sku: TM-001-STD, qty: 1 }]
+          recipient:
+            {
+              name: 'Hoàng Thu Trang',
+              phone: '0935 444 555',
+              address: '12 Bạch Đằng, Hải Châu, Đà Nẵng',
+            }
+  - text: ''

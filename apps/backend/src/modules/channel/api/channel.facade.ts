@@ -118,6 +118,11 @@ export interface ChannelFacade {
    * before the newer message's own quiet window has passed.
    */
   requeueEvent(id: string, claimToken: string): Promise<void>;
+  /**
+   * Holds the event until `until` without spending an attempt: a customer message that arrived
+   * while staff held the conversation is answered once the bot resumes (LM2-2).
+   */
+  deferEvent(id: string, claimToken: string, until: Date): Promise<void>;
   /** Whether the same customer wrote again after this event (its answer would already be stale). */
   hasNewerCustomerEvent(
     connectionId: string,

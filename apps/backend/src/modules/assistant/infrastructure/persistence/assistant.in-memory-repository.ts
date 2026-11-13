@@ -337,6 +337,19 @@ export class InMemoryAssistantRepository implements AssistantRepository {
     return added.map((m) => this.#publicMessage(m));
   }
 
+  async deleteRunMessages(s: OwnerScope, threadId: string, runId: string): Promise<number> {
+    this.#thread(s, threadId);
+    let n = 0;
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      const m = this.messages[i] as StoredMessage;
+      if (mine(s, m) && m.threadId === threadId && m.runId === runId) {
+        this.messages.splice(i, 1);
+        n++;
+      }
+    }
+    return n;
+  }
+
   async searchMessages(s: OwnerScope, query: string, limit: number): Promise<SearchHit[]> {
     const words = foldText(query).split(/\s+/).filter(Boolean);
     if (!words.length) return [];
@@ -412,6 +425,26 @@ export class InMemoryAssistantRepository implements AssistantRepository {
   async addStep(s: OwnerScope, step: StepRecord): Promise<void> {
     this.#run(s, step.runId);
     this.steps.push({ ...step, accountId: s.accountId });
+    this.#activity.set(step.runId, this.#now().getTime());
+  }
+
+  /** Last step time per run (the Postgres steps carry `created_at`). */
+  readonly #activity = new Map<string, number>();
+
+  async failStaleRuns(s: OwnerScope, staleMs: number): Promise<RunRecord[]> {
+    const now = this.#now();
+    const out: RunRecord[] = [];
+    for (const run of this.runs.values()) {
+      if (!mine(s, run) || run.status !== 'running') continue;
+      const last = Math.max(run.createdAt.getTime(), this.#activity.get(run.id) ?? 0);
+      if (now.getTime() - last < staleMs) continue;
+      run.status = 'failed';
+      run.guardrail = 'interrupted';
+      run.finishedAt = now;
+      const { accountId: _a, ownerUserId: _o, ...rest } = run;
+      out.push(structuredClone(rest));
+    }
+    return out;
   }
 
   async finishRun(s: OwnerScope, runId: string, patch: Partial<RunRecord>): Promise<void> {

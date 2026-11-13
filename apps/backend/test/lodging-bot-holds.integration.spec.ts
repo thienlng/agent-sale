@@ -593,6 +593,37 @@ describe('bot holds', () => {
     expect(row?.reviewedBy).not.toBeNull();
   });
 
+  it('tags a test-chat hold "Chat thử", links no conversation and holds it 15 minutes (VL-A11)', async () => {
+    const o = await hotel();
+    const a = await villa(o.headers, 'A17', 9_000_000);
+    const conversationId = newId();
+    const ready = await facade().prepareBotHold(
+      o.ws,
+      holdInput(o.botId, a.id, conversationId, { channel: 'playground' }),
+    );
+    expect(ready).toMatchObject({ status: 'ready', holdMinutes: 15 });
+    if (ready.status === 'ready') expect(ready.summary).toContain('15 phút');
+    const held = await facade().confirmBotHold(o.ws, { conversationId });
+    expect(held.status).toBe('held');
+    if (held.status !== 'held') return;
+    const minutes = (Date.parse(held.holdExpiresAt) - Date.now()) / 60_000;
+    expect(minutes).toBeGreaterThan(13);
+    expect(minutes).toBeLessThanOrEqual(15);
+    const list = await ok(
+      await call(o.headers, 'GET', '/lodging/bookings?view=holds&source=bot'),
+      BookingList,
+    );
+    expect(list.data[0]).toMatchObject({
+      code: held.code,
+      conversationId: null,
+      tags: ['Chat thử'],
+    });
+    // It lapses on its own: staff have nothing to handle (VL2-9).
+    expect(
+      await ok(await call(o.headers, 'GET', '/lodging/bookings/review-count'), BookingReviewCount),
+    ).toEqual({ pending: 0 });
+  });
+
   it('an edit by staff reviews a bot hold too', async () => {
     const o = await hotel();
     const a = await villa(o.headers, 'A17', 9_000_000);

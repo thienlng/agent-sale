@@ -64,6 +64,15 @@ function validate(d: InfoDraft): InfoErrors {
   return e;
 }
 
+/** The standard party above the maximum: a warning only, never a save error (VL-A4). */
+function standardOverMax(d: InfoDraft): { max: number; standard: number } | null {
+  const max = intOrNull(d.maxGuests);
+  const standard = (intOrNull(d.standardAdults) ?? 0) + (intOrNull(d.standardChildren) ?? 0);
+  return d.maxGuests.trim() && max !== null && max >= 1 && standard > max
+    ? { max, standard }
+    : null;
+}
+
 /** "Thông tin" tab: identity, sell mode, status, standard capacity, amenities, layout. */
 export function InfoTab({
   property: p,
@@ -151,6 +160,8 @@ export function InfoTab({
       />
     </Field>
   );
+  // A maximum below the standard party is saved (existing data stays valid) but flagged (VL-A4).
+  const maxBelowStandard = standardOverMax(d);
   const count = (key: 'standardAdults' | 'standardChildren' | 'maxGuests', hint?: string) => (
     <Field id={`${id}-${key}`} label={t(`info.${key}`)} hint={hint} error={err(key)}>
       <Input
@@ -216,7 +227,10 @@ export function InfoTab({
       <div className="flex flex-wrap gap-4">
         {count('standardAdults')}
         {count('standardChildren')}
-        {count('maxGuests', t('info.maxGuestsHint'))}
+        {count(
+          'maxGuests',
+          maxBelowStandard ? t('info.maxBelowStandard', maxBelowStandard) : t('info.maxGuestsHint'),
+        )}
       </div>
       <Field id={`${id}-amenities`} label={t('info.amenities')} hint={t('info.amenitiesHint')}>
         <Textarea

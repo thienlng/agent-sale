@@ -662,8 +662,10 @@ describe('HTTP: AI playground', () => {
     );
     expect(human.outcome).toBe('handoff');
     expect(human.messages?.at(-1)?.via).toBe('final');
-    // A handoff may open with one short sentence, but always ends with the bot's own message.
-    expect(human.reply.endsWith(bot.settings.handoffMessage)).toBe(true);
+    // A handoff may open with one short sentence, then the bot's own message; no phone is known,
+    // so the phone ask follows it (R5-7).
+    expect(human.reply).toContain(bot.settings.handoffMessage);
+    expect(human.reply.endsWith('để lại số điện thoại để nhân viên gọi lại ạ.')).toBe(true);
   });
 
   it('validates the conversation and hides bots of other workspaces', async () => {

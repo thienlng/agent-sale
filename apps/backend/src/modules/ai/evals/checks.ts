@@ -40,12 +40,80 @@ export interface CheckInput {
   customerTexts: readonly string[];
   /** Everything the reply may state figures from: profile, notes, FAQs, situations, products. */
   trusted: readonly string[];
+  /**
+   * When the turn ran: the pipeline's `<current_time>` block. A date of the next
+   * {@link NEAR_DATE_DAYS} days ("cuối tuần này" → 14/11) is derived from it, so it is grounded.
+   */
+  now?: Date;
+}
+
+/** How many days after the turn's date count as derived from `<current_time>` (this and next week). */
+export const NEAR_DATE_DAYS = 14;
+const SHOP_TIME_ZONE = 'Asia/Ho_Chi_Minh';
+// d/m, dd/mm, optionally /yy or /yyyy, optionally a range "14–16/11" (the first day shares the
+// month); not part of a longer slash or digit run.
+const DATE = /(?<![\d/])(?:(\d{1,2})\s*[–-]\s*)?(\d{1,2})\/(\d{1,2})(?:\/(\d{4}|\d{2}))?(?![\d/])/g;
+
+/** The shop's calendar date of `now`, as UTC midnight (only the y/m/d fields are read). */
+function shopDay(now: Date): Date {
+  const [y, m, d] = new Intl.DateTimeFormat('en-CA', {
+    timeZone: SHOP_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+    .format(now)
+    .split('-')
+    .map(Number);
+  return new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
+}
+
+/**
+ * The reply without the dates the model derived from the turn's `<current_time>` block: a d/m date
+ * (with an optional year), or a range "14–16/11", whose days are the turn's day or the next
+ * {@link NEAR_DATE_DAYS} days.
+ * Any other date stays and is checked like every figure.
+ */
+export function withoutNearDates(reply: string, now: Date): string {
+  const near = new Set<string>();
+  const start = shopDay(now);
+  for (let i = 0; i <= NEAR_DATE_DAYS; i += 1) {
+    const day = new Date(start.getTime() + i * 86_400_000);
+    near.add(`${day.getUTCDate()}/${day.getUTCMonth() + 1}/${day.getUTCFullYear()}`);
+  }
+  return reply.replace(
+    DATE,
+    (whole, from: string | undefined, d: string, m: string, y: string | undefined) => {
+      const years = y
+        ? [y.length === 2 ? 2000 + Number(y) : Number(y)]
+        : [start.getUTCFullYear(), start.getUTCFullYear() + 1];
+      const days = from ? [from, d] : [d];
+      return years.some((year) =>
+        days.every((day) => near.has(`${Number(day)}/${Number(m)}/${year}`)),
+      )
+        ? ' '
+        : whole;
+    },
+  );
 }
 
 // A greeting anywhere in the reply: a multi-turn answer must not open the conversation again.
 const GREETING = /(xin chào|em chào|shop chào|mình chào|chào (anh|chị|bạn|quý)|\bhello\b|^hi\b)/iu;
 
 const norm = (text: string): string => text.normalize('NFC').toLowerCase();
+
+/**
+ * Whether `reply` (normalized) contains `fragment`. A fragment that starts with a digit only
+ * matches at the start of a number: "8.000.000" is not found inside "18.000.000".
+ */
+export function hasFragment(reply: string, fragment: string): boolean {
+  const needle = norm(fragment);
+  if (!/^\d/.test(needle)) return reply.includes(needle);
+  for (let at = reply.indexOf(needle); at !== -1; at = reply.indexOf(needle, at + 1)) {
+    if (at === 0 || !/[\d.,]/.test(reply[at - 1] ?? '')) return true;
+  }
+  return false;
+}
 
 /** Deterministic checks only (docs/13 §2.3): an absent expectation is not checked. */
 export function runChecks(expected: EvalExpect, input: CheckInput): CheckResult[] {
@@ -138,7 +206,7 @@ export function runChecks(expected: EvalExpect, input: CheckInput): CheckResult[
         : 'no request recorded',
     );
   if (expected.contains_any) {
-    const hit = expected.contains_any.find((s) => reply.includes(norm(s)));
+    const hit = expected.contains_any.find((s) => hasFragment(reply, s));
     add(
       'contains_any',
       hit !== undefined,
@@ -148,7 +216,7 @@ export function runChecks(expected: EvalExpect, input: CheckInput): CheckResult[
     );
   }
   if (expected.contains_all) {
-    const missing = expected.contains_all.filter((s) => !reply.includes(norm(s)));
+    const missing = expected.contains_all.filter((s) => !hasFragment(reply, s));
     add(
       'contains_all',
       missing.length === 0,
@@ -156,7 +224,7 @@ export function runChecks(expected: EvalExpect, input: CheckInput): CheckResult[
     );
   }
   if (expected.not_contains) {
-    const found = expected.not_contains.filter((s) => reply.includes(norm(s)));
+    const found = expected.not_contains.filter((s) => hasFragment(reply, s));
     add(
       'not_contains',
       found.length === 0,
@@ -193,7 +261,8 @@ export function runChecks(expected: EvalExpect, input: CheckInput): CheckResult[
     );
   }
   if (expected.numbers_only_from_sources) {
-    const bad = ungroundedFigures(input.reply, input.trusted, input.customerTexts);
+    const reply = input.now ? withoutNearDates(input.reply, input.now) : input.reply;
+    const bad = ungroundedFigures(reply, input.trusted, input.customerTexts);
     add(
       'numbers_only_from_sources',
       bad.length === 0,

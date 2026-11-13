@@ -58,6 +58,12 @@ const revoke = (url: string | null) => {
  * once, or up to 8 product photos, each resized (WebP → JPEG), uploaded to the business's product
  * pictures and thumbnailed for the vision call. Errors are i18n keys shown in the tray.
  */
+/** The sheet's rows without blank ones and the header row (AS-24): what the owner counts. */
+export function dataRowCount(rows: readonly (readonly string[])[]): number {
+  const filled = rows.filter((r) => r.some((c) => c.trim() !== '')).length;
+  return Math.max(0, filled - 1);
+}
+
 export function useAssistantAttachments(businessId: string) {
   const [attachment, setAttachment] = useState<Attachment>(NONE);
   const [error, setError] = useState<TrayError | null>(null);
@@ -270,7 +276,7 @@ export function AttachmentTray({ attachments }: { attachments: AssistantAttachme
             <span className="text-xs text-muted-foreground">{t('import.reading')}</span>
           ) : attachment.rows ? (
             <span className="text-xs text-muted-foreground">
-              {t('import.rows', { count: attachment.rows.length })}
+              {t('import.rows', { count: dataRowCount(attachment.rows) })}
             </span>
           ) : null}
           <button

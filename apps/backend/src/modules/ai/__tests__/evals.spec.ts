@@ -243,20 +243,21 @@ describe('eval suite (fake mode)', () => {
     const results = await Promise.all(cases.map((c) => runCaseFake(c)));
     const report = buildReport('fake', results);
     expect(report.gate).toBe('pass');
-    expect(report.promptVersion).toContain('sales-agent@24');
-    expect(report.promptVersion).toContain('sales-agent@22');
-    expect(report.promptVersion).toContain('sales-agent@23');
+    expect(report.promptVersion).toContain('sales-agent@27');
+    expect(report.promptVersion).toContain('sales-agent@25');
+    expect(report.promptVersion).toContain('sales-agent@26');
     expect(report.passed).toBe(report.total);
     expect(report.groups.map((g) => g.group)).toContain('safety');
     expect(renderText(report)).toContain('Critical:');
     expect(renderMarkdown(report)).toContain('| Group | Passed | Total |');
-  });
+    // Runs every case of the suite (119+ since release staging); 5 s is too tight on a loaded runner.
+  }, 30_000);
 });
 
 describe('eval prompt version option', () => {
   it('runs on the industry prompt by default and on the forced one with promptVersion', async () => {
     const byIndustry = await runCaseFake(parseCase(MINIMAL));
-    expect(byIndustry.promptVersion).toBe('sales-agent@24');
+    expect(byIndustry.promptVersion).toBe('sales-agent@27');
     const forced = await runCaseFake(parseCase(MINIMAL), { promptVersion: 19 });
     expect(forced.promptVersion).toBe('sales-agent@19');
   });
@@ -414,7 +415,8 @@ conversation:`,
     );
     const result = await runCaseFake(c);
     expect(result).toMatchObject({ images: 1, messages: 2, modelCalls: 3, pass: true });
-    expect(result.reply).toBe('Thú gỗ xếp thăng bằng\nDạ bảo hành 6 tháng ạ.');
+    // TM2-10: the caption-only text goes with the picture, not as a bubble of its own.
+    expect(result.reply).toBe('Dạ bảo hành 6 tháng ạ.');
   });
 
   it('fails the message checks on what each delivered message carried', async () => {

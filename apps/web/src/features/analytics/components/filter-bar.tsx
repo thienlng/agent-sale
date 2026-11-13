@@ -6,7 +6,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { isoDate } from '@/lib/format';
+import { formatDay, isoDate } from '@/lib/format';
 
 import { useAssignees } from '../api/analytics';
 import { CUSTOMER_ORIGINS, daysAgo, type Filters, rangeProblem } from '../lib/filters';
@@ -29,6 +29,7 @@ export function FilterBar({
   const active = value.origins.length !== CUSTOMER_ORIGINS.length || value.sales.length > 0;
   const [expanded, setExpanded] = useState(active);
   const presets = [
+    { key: 'presetToday', from: daysAgo(0) },
     { key: 'preset7', from: daysAgo(6) },
     { key: 'preset30', from: daysAgo(29) },
   ] as const;
@@ -104,7 +105,9 @@ export function FilterBar({
         </CollapsibleTrigger>
       </div>
       <p className="text-xs text-muted-foreground">
-        {value.from} — {value.to}
+        {value.from === value.to
+          ? formatDay(value.from)
+          : `${formatDay(value.from)} – ${formatDay(value.to)}`}
       </p>
       {problem ? (
         <p role="alert" className="text-sm text-destructive">

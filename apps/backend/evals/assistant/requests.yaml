@@ -31,17 +31,91 @@ cases:
                 commentary: false
       - text: 'Dạ em đã soạn cảnh báo khi có khách đặt lịch mới, kiểm tra mỗi 15 phút trong ứng dụng; anh/chị bấm Duyệt giúp em nhé.'
 
+  # DEC-8 (PO): GET /crm/requests/summary and the customers-view SQL are both correct; the answer gives the same counts either way.
   - id: data-requests-by-status
     industry: education
     message: 'các khách đăng ký học thử đang ở trạng thái nào, mỗi trạng thái bao nhiêu người?'
+    routes:
+      'GET /crm/requests/summary':
+        statuses:
+          - {
+              statusId: 01a16d77-0000-7000-8000-000000000301,
+              key: new_lead,
+              name: Lead mới,
+              color: '#64748b',
+              count: 41,
+            }
+          - {
+              statusId: 01a16d77-0000-7000-8000-000000000302,
+              key: consulting,
+              name: Đang tư vấn,
+              color: '#0ea5e9',
+              count: 35,
+            }
+          - {
+              statusId: 01a16d77-0000-7000-8000-000000000303,
+              key: test_requested,
+              name: Đăng ký test / học thử,
+              color: '#6366f1',
+              count: 13,
+            }
+          - {
+              statusId: 01a16d77-0000-7000-8000-000000000304,
+              key: test_scheduled,
+              name: Đã hẹn test / học thử,
+              color: '#8b5cf6',
+              count: 27,
+            }
+          - {
+              statusId: 01a16d77-0000-7000-8000-000000000305,
+              key: tested,
+              name: Đã test / học thử,
+              color: '#f59e0b',
+              count: 19,
+            }
+          - {
+              statusId: 01a16d77-0000-7000-8000-000000000306,
+              key: enrolled,
+              name: Đã đăng ký học,
+              color: '#16a34a',
+              count: 22,
+            }
+          - {
+              statusId: 01a16d77-0000-7000-8000-000000000307,
+              key: lost,
+              name: Không theo học,
+              color: '#ef4444',
+              count: 16,
+            }
+        open:
+          - id: 01a16d77-0000-7000-8000-000000000311
+            contactId: 01a16d77-0000-7000-8000-000000000321
+            kind: trial
+            update: false
+            details: { course: IELTS 6.5 }
+            dateLabel: null
+            recordedAt: '2026-11-12T02:15:00.000Z'
+            contactName: Minh Anh
+            statusKey: test_requested
+        recorded7d: 9
+    sql_rows:
+      columns: [{ name: status_name, type: text }, { name: customers, type: number }]
+      rows:
+        - [Lead mới, 41]
+        - [Đang tư vấn, 35]
+        - [Đăng ký test / học thử, 13]
+        - [Đã hẹn test / học thử, 27]
+        - [Đã test / học thử, 19]
+        - [Đã đăng ký học, 22]
+        - [Không theo học, 16]
     expect:
-      sql:
-        contains: ['from customers', 'group by status_name']
+      answer:
+        contains: ['13', '27', '19']
     fake_turns:
       - tool_calls:
           - name: tool_call
             input:
               key: sql_query
               body:
-                sql: "select status_name, count(*) as customers from customers where not archived and status_key in ('consulting', 'test_requested', 'test_scheduled', 'tested', 'enrolled') group by status_name order by customers desc"
-      - text: 'Dạ hiện có 2 khách ở trạng thái Đăng ký kiểm tra ạ.'
+                sql: 'select status_name, count(*) as customers from customers where not archived group by status_name order by customers desc'
+      - text: 'Dạ khách học thử hiện ở các trạng thái: Đăng ký test / học thử 13 người, Đã hẹn test / học thử 27 người, Đã test / học thử 19 người ạ.'

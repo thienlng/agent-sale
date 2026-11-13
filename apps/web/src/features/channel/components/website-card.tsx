@@ -105,25 +105,28 @@ export function WebsiteCard({
                 <Settings />
                 {tw('settingsAction')}
               </Button>
-              {toggleable ? (
-                <Switch
-                  size="sm"
-                  checked={enabled}
-                  disabled={busy}
-                  aria-label={tw('toggleLabel', { name: c.name })}
-                  onCheckedChange={onToggle}
-                />
-              ) : null}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-destructive"
-                aria-label={`${tw('disconnect')}: ${c.name}`}
-                title={tw('disconnect')}
-                onClick={onDisconnect}
-              >
-                <Trash2 />
-              </Button>
+              {/* On/off and remove stay together at the end of the row, never alone on a line. */}
+              <span className="ml-auto flex items-center gap-1">
+                {toggleable ? (
+                  <Switch
+                    size="sm"
+                    checked={enabled}
+                    disabled={busy}
+                    aria-label={tw('toggleLabel', { name: c.name })}
+                    onCheckedChange={onToggle}
+                  />
+                ) : null}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive"
+                  aria-label={`${tw('disconnect')}: ${c.name}`}
+                  title={tw('disconnect')}
+                  onClick={onDisconnect}
+                >
+                  <Trash2 />
+                </Button>
+              </span>
             </>
           ) : null}
         </div>

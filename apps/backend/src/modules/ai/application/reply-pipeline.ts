@@ -13,9 +13,10 @@ import type { BotView } from '../../bot/api/index.js';
 import type { MessageSink, ReplyOptions } from '../api/reply-options.js';
 import { defaultFallbackMessage, defaultHandoffMessage } from '../domain/default-messages.js';
 import { correctionNote, type ReplyCheck } from '../domain/reply-guard.js';
-import { normalizeReplyText } from '../domain/reply-text.js';
+import { normalizeReplyText, withoutSentLines } from '../domain/reply-text.js';
 import { type ActionToolContext, playgroundConversationId, runActionTool } from './action-tools.js';
 import { CALCULATE_TOOL, calculateTool } from './calculator.js';
+import { customerSelfPronoun, phonesIn } from './reply-context.js';
 import { type HoldToolContext, holdTools } from './hold-tools.js';
 import { type OrderToolContext, orderTools } from './order-tools.js';
 import { type RequestToolContext, requestTools } from './request-tools.js';
@@ -169,6 +170,153 @@ export const fallbackText = (bot: BotView): string =>
 const handoffText = (bot: BotView): string =>
   bot.handoffMessage.trim() || defaultHandoffMessage(bot);
 
+// The customer asks for the phone they gave earlier ("số nào ấy nhỉ", "đọc lại số giúp mình").
+const ASKS_OWN_PHONE =
+  /((sđt|sdt|số đt|điện thoại|số (của )?(mình|tôi|chị|anh|em|con))[^.?!\n]{0,40}(số nào|nào ấy|nào nhỉ|là gì|đọc lại|nhắc lại))|((đọc|nhắc) lại[^.?!\n]{0,20}(số|sđt|sdt))|((which|what) (number|phone))/iu;
+
+// An order recipient's details: a phone sent with these is for the order, not a call-back.
+const ADDRESS_WORDS =
+  /(?<!\p{L})(địa chỉ|dia chi|đường|duong|phường|phuong|quận|quan|ngõ|ngo|ngách|số nhà|tp|thành phố|huyện|xã)(?!\p{L})/iu;
+
+/**
+ * VL-B9 / LM-14: a phone number the customer gives in their newest message, for the first time in
+ * the conversation, is read back before the shop's hand-over message (the model often hands off
+ * bare). Once only (TM2-1: it was repeated on every later hand-off and even answered "số tài
+ * khoản bên em là gì?"), never for an order recipient's phone sent with an address, and not when
+ * the turn's texts already repeat it.
+ */
+export function phoneReadBack(
+  customerTexts: readonly string[],
+  said: readonly string[],
+  english = false,
+): string {
+  const last = customerTexts.at(-1) ?? '';
+  const digits = (t: string) => t.replace(/\D/g, '');
+  // EV-2: the customer asks which number they gave ("số nào ấy nhỉ? đọc lại giúp"): their latest
+  // earlier phone is the answer, read back even though it was given before.
+  if (ASKS_OWN_PHONE.test(last) && !phonesIn(last).length) {
+    const earlier = customerTexts
+      .slice(0, -1)
+      .flatMap((t) => phonesIn(t))
+      .at(-1);
+    if (!earlier || said.some((t) => digits(t).includes(digits(earlier).slice(-9)))) return '';
+    return english ? `Your number is ${earlier}.` : `Dạ số anh/chị để lại là ${earlier} ạ.`;
+  }
+  const phone = phonesIn(last).at(-1);
+  if (!phone || ADDRESS_WORDS.test(last)) return '';
+  const tail = digits(phone).slice(-9);
+  if (customerTexts.slice(0, -1).some((t) => digits(t).includes(tail))) return '';
+  if (said.some((t) => digits(t).includes(tail))) return '';
+  return english ? `Noted, your number is ${phone}.` : `Dạ em đã ghi nhận số ${phone} ạ.`;
+}
+
+const VIETNAMESE_LETTERS =
+  /[ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]/iu;
+const ENGLISH_WORDS =
+  /\b(the|you|your|my|is|are|please|can|want|call|number|hello|hi|thanks?|what|how|order|with|and)\b/giu;
+
+/** The customer's newest message reads as English: no Vietnamese letters, several English words. */
+export function writesEnglish(text: string | undefined): boolean {
+  if (!text || VIETNAMESE_LETTERS.test(text)) return false;
+  return (text.match(ENGLISH_WORDS) ?? []).length >= 2;
+}
+
+/**
+ * MS2-2: the shop's hand-over message is an owner setting in Vietnamese; a customer writing English
+ * reads this generic English line instead (the model's lead-in already follows their language).
+ */
+export const ENGLISH_HANDOFF = 'A member of our staff will get back to you here shortly.';
+
+const READ_BACK_LINE = /(ghi nhận số|ghi nhan so|noted,? your number|số (của )?(anh|chị|em) là)/iu;
+
+/**
+ * TM2-1: the model copies the earlier read-back line ("Dạ em đã ghi nhận số … ạ.") into later
+ * hand-offs. A lead-in line that reads back a phone the customer gave before their newest message
+ * is dropped; reading back a newly given number stays.
+ */
+export function withoutStaleReadBack(lead: string, customerTexts: readonly string[]): string {
+  const digits = (t: string) => t.replace(/\D/g, '');
+  const newest = digits(customerTexts.at(-1) ?? '');
+  const earlier = customerTexts
+    .slice(0, -1)
+    .flatMap((t) => phonesIn(t).map((p) => digits(p).slice(-9)))
+    .filter((tail) => !newest.includes(tail));
+  if (!earlier.length) return lead;
+  return lead
+    .split('\n')
+    .filter((line) => !(READ_BACK_LINE.test(line) && earlier.some((t) => digits(line).includes(t))))
+    .join('\n')
+    .trim();
+}
+
+const ASKS_PHONE = /(số điện thoại|sđt|sdt|phone|number)/iu;
+
+/**
+ * MS2-1: staff can only call back a customer whose phone they have. A hand-off in a conversation
+ * where the customer never wrote a phone (and the contact has none) asks for it, in the
+ * customer's language and with their pronoun, unless the lead-in already asks.
+ */
+export function phoneAsk(
+  customerTexts: readonly string[],
+  said: readonly string[],
+  phoneKnown: boolean,
+  english = false,
+): string {
+  if (phoneKnown || customerTexts.some((t) => phonesIn(t).length > 0)) return '';
+  if (said.some((t) => ASKS_PHONE.test(t))) return '';
+  if (english)
+    return 'Meanwhile, could you leave your phone number so our staff can call you back?';
+  // TM3-7: the pronoun the lead-in already uses wins ("Dạ em xin lỗi chị…" → "Chị để lại…").
+  const used = said
+    .join(' ')
+    .match(/(?<![\p{L}/])(anh|chị|cô|chú|bác)(?![\p{L}/])/iu)?.[1]
+    ?.toLowerCase();
+  const pronoun = used ?? customerSelfPronoun(customerTexts);
+  // MS3-4 / TM3-9: a customer who says "em" is not called "em" (nor "anh/chị").
+  if (pronoun === 'em') return 'Trong lúc chờ, cho em xin số điện thoại để nhân viên gọi lại ạ.';
+  return `Trong lúc chờ, ${pronoun ?? 'anh/chị'} để lại số điện thoại để nhân viên gọi lại ạ.`;
+}
+
+const UNKNOWN_PRONOUN = /(?<![\p{L}])(anh\s*\/\s*chị|anh chị|a\/c)(?![\p{L}])/giu;
+
+/**
+ * R5-7: the shop's hand-over line (an owner setting, often "…anh/chị đợi một chút ạ") addresses a
+ * customer who told how they refer to themselves ("Chị tên Hạnh") with that pronoun. A customer
+ * who is "em", or one who never said, keeps the line as written.
+ */
+export function withKnownPronoun(text: string, customerTexts: readonly string[]): string {
+  const pronoun = customerSelfPronoun(customerTexts);
+  if (!pronoun || pronoun === 'em') return text;
+  return text.replace(UNKNOWN_PRONOUN, (found) =>
+    /^\p{Lu}/u.test(found) ? pronoun.charAt(0).toUpperCase() + pronoun.slice(1) : pronoun,
+  );
+}
+
+/**
+ * EV-4 (examiner: tinymind-pronoun-*): the customer called themselves "anh" / "chị" / … and the
+ * turn never addresses them: the final answer's closing "ạ" becomes "{pronoun} ạ", the way a shop
+ * assistant would write it. "em" customers are left alone (no pronoun is the safe choice).
+ */
+export function withCustomerPronoun(
+  text: string,
+  customerTexts: readonly string[],
+  sent: readonly { text: string }[] = [],
+): string {
+  const pronoun = customerSelfPronoun(customerTexts);
+  // MS3-4: the bot is "em"; a customer who is "em" too is thanked or greeted as "bạn".
+  if (pronoun === 'em')
+    return (
+      text
+        .replace(/(cảm ơn|chào|của)\s+em(?!\p{L})/giu, '$1 bạn')
+        // "…rồi em ạ." addressed to the customer: the "em" goes.
+        .replace(/(?<!\p{L})em ạ(?=[.!]?\s*(\n|$))/giu, 'ạ')
+    );
+  if (!pronoun) return text;
+  const word = new RegExp(`(?<!\\p{L})${pronoun}(?!\\p{L})`, 'iu');
+  if ([text, ...sent.map((m) => m.text)].some((t) => word.test(t))) return text;
+  return text.replace(/(?<!\p{L})ạ([.!]?)\s*$/u, `${pronoun} ạ$1`);
+}
+
 /** Why the turn cannot end with the model's text, or null when it can. */
 function forcedGuardrail(loop: AgentLoopResult, actionFallback: string | null | undefined) {
   if (loop.outcome === 'limit') return 'tool_loop_limit';
@@ -191,6 +339,10 @@ export function decideReply(input: {
   actionFallback: string | null | undefined;
   /** The pre-send guard: a hand-off's model-written lead that fails it is dropped. */
   check?: (text: string) => ReplyCheck;
+  /** The conversation's contact already has a phone: a hand-off does not ask for one (MS2-1). */
+  phoneKnown?: boolean | undefined;
+  /** The customer's messages, oldest first: their latest phone is read back before a hand-off. */
+  customerTexts?: readonly string[] | undefined;
 }): ReplyDecision {
   const { loop, output, bot } = input;
   const sentAny = output.sent.length > 0;
@@ -200,19 +352,51 @@ export function decideReply(input: {
       : { outcome: 'fallback', guardrail: 'interrupted', final: null };
   }
   if (output.handoff !== null) {
-    const written = normalizeReplyText(loop.res?.text ?? '');
-    const lead = written && input.check && !input.check(written).ok ? '' : written;
+    const english = bot.language === 'vi' && writesEnglish(input.customerTexts?.at(-1));
+    // The model's own lead-in, else the handoff's `say` line (TM2-7): either must pass the guard.
+    const written =
+      normalizeReplyText(loop.res?.text ?? '') || normalizeReplyText(output.handoffSay ?? '');
+    const checked = written && input.check && !input.check(written).ok ? '' : written;
+    const customerTexts = input.customerTexts ?? [];
+    const handover = english ? ENGLISH_HANDOFF : withKnownPronoun(handoffText(bot), customerTexts);
+    const sentTexts = output.sent.map((m) => m.text);
+    // R5-6: a lead-in that send_message already said this turn is not sent twice.
+    const lead = withoutSentLines(withoutStaleReadBack(checked, customerTexts), sentTexts);
     return {
       outcome: 'handoff',
       guardrail: null,
-      final: [lead, handoffText(bot)].filter(Boolean).join('\n'),
+      // R5-7: the phone ask follows the hand-over line, so the message reads "passed on, wait;
+      // meanwhile leave your number", not "leave your number" then "already passed on".
+      final: [
+        lead,
+        bot.language === 'vi' ? phoneReadBack(customerTexts, [lead, ...sentTexts], english) : '',
+        handover,
+        bot.language === 'vi'
+          ? phoneAsk(customerTexts, [lead, ...sentTexts], input.phoneKnown === true, english)
+          : '',
+      ]
+        .filter(Boolean)
+        .join('\n'),
     };
   }
   if (loop.res?.stopReason === 'refusal')
     return { outcome: 'handoff', guardrail: 'provider_refusal', final: handoffText(bot) };
   const forced = forcedGuardrail(loop, input.actionFallback);
   const text = forced ? '' : normalizeReplyText(loop.res?.text ?? '');
-  if (text) return { outcome: 'answered', guardrail: null, final: text };
+  // The model repeated what it already sent this turn (EV-5, VL-B8): the customer reads it once.
+  const fresh = text
+    ? withoutSentLines(
+        text,
+        output.sent.map((m) => m.text),
+      )
+    : '';
+  if (text && !fresh) return { outcome: 'answered', guardrail: null, final: null };
+  if (fresh)
+    return {
+      outcome: 'answered',
+      guardrail: null,
+      final: withCustomerPronoun(fresh, input.customerTexts ?? [], output.sent),
+    };
   // Cut short after a send (budget, round limit, invalid tools): close with the fallback line so
   // a promise like "em gửi ảnh từng mẫu nhé" is not left hanging.
   if (sentAny)
@@ -247,7 +431,7 @@ export async function guardFinal(input: {
   if (first.reason === 'instruction_leak') return refuse('instruction_leak');
   const rewritten = await input.rewrite(decision.final, correctionNote(first));
   if (rewritten && input.check(rewritten).ok) return { ...decision, final: rewritten };
-  return refuse('ungrounded_figures');
+  return refuse(first.reason);
 }
 
 /**
@@ -286,7 +470,8 @@ export function runBase(input: {
     botId,
     // A playground run is remembered under its stable id; a comment reply under none.
     conversationId:
-      options.conversationId ?? (options.isTest ? playgroundConversationId(botId) : null),
+      options.conversationId ??
+      (options.isTest ? playgroundConversationId(botId, options.playgroundSession) : null),
     tier: input.tier,
     provider: meter.last?.provider ?? 'none',
     model: meter.last?.model ?? 'none',

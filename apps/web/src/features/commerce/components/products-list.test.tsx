@@ -95,6 +95,18 @@ describe('ProductsList', () => {
     expect(row).not.toHaveTextContent('KiotViet');
   });
 
+  it("shows a service's package count only from two packages (MS2-9)", async () => {
+    const one = { ...product('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f21', 'DV21', 'Gội đầu', false) };
+    const { fetchStub } = stubFetch({
+      'GET /products?status=active&page=1&pageSize=20': page([one]),
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <ProductsList offeringKind="service" />);
+    await screen.findByText('Gội đầu');
+    expect(screen.queryByRole('columnheader', { name: 'Số gói' })).toBeNull();
+    expect(screen.queryByText(/gói$/)).toBeNull();
+  });
+
   it('shows the length and sessions of a course or service instead of its stock', async () => {
     const offering = (o: Record<string, unknown>) => ({
       kind: 'service',
@@ -130,6 +142,34 @@ describe('ProductsList', () => {
     const shoe = screen.getByText('Giày sneaker').closest('tr') as HTMLElement;
     expect(within(shoe).getAllByRole('cell').at(-1)).toHaveTextContent('3');
     expect(screen.getByRole('columnheader', { name: 'Có thể bán / Thời lượng' })).toBeVisible();
+  });
+
+  it('gives sessions their own column in an education or spa catalog (LM3-10)', async () => {
+    const COURSE = {
+      ...product('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f31', 'KH31', 'IELTS Intensive', false),
+      offering: {
+        kind: 'course',
+        durationMinutes: 90,
+        sessions: 48,
+        period: '',
+        format: null,
+        level: '',
+        schedule: '',
+        audience: '',
+        outcomes: [],
+        priceNote: '',
+      },
+    };
+    const { fetchStub } = stubFetch({
+      'GET /products?status=active&page=1&pageSize=20': page([COURSE]),
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <ProductsList offeringKind="course" />);
+    const row = (await screen.findByText('IELTS Intensive')).closest('tr') as HTMLElement;
+    expect(screen.getByRole('columnheader', { name: 'Số buổi' })).toBeVisible();
+    const cells = within(row).getAllByRole('cell');
+    expect(cells.at(-2)).toHaveTextContent(/^48 buổi$/);
+    expect(cells.at(-1)).toHaveTextContent(/^90 phút$/);
   });
 
   it('shows the price note, or "Liên hệ", instead of a 0 price of a course or service', async () => {
@@ -168,11 +208,12 @@ describe('ProductsList', () => {
     });
     vi.stubGlobal('fetch', fetchStub);
     renderWithRouter(() => <ProductsList offeringKind="course" />);
+    // Every course has a single package here, so the package column is hidden (MS2-9).
     const price = (name: string) =>
-      within(screen.getByText(name).closest('tr') as HTMLElement).getAllByRole('cell')[3];
+      within(screen.getByText(name).closest('tr') as HTMLElement).getAllByRole('cell')[2];
     await screen.findByText('Starters');
     expect(price('Starters')).toHaveTextContent(/^Liên hệ$/);
-    expect(price('Movers')).toHaveTextContent(/^theo lộ trình$/);
+    expect(price('Movers')).toHaveTextContent(/^Theo lộ trình$/);
     expect(price('Flyers')).toHaveTextContent('100.000 ₫ (giá tham khảo)');
     expect(price('IELTS')).toHaveTextContent(/^Liên hệ$/);
     expect(screen.queryByText(/^0\s?₫$/)).toBeNull();
@@ -229,8 +270,10 @@ describe('ProductsList', () => {
     const price = (name: string) =>
       within(screen.getByText(name).closest('tr') as HTMLElement).getAllByRole('cell')[3];
     await screen.findByText('Nâng mũi');
-    expect(price('Nâng mũi')).toHaveTextContent(/^9\.000\.000\s?₫$/);
-    expect(price('Triệt lông')).toHaveTextContent(/^2\.000\.000\s?₫ – 9\.000\.000\s?₫$/);
+    expect(price('Nâng mũi')).toHaveTextContent(/^9\.000\.000\s?₫ · có gói liên hệ$/);
+    expect(price('Triệt lông')).toHaveTextContent(
+      /^2\.000\.000\s?₫ – 9\.000\.000\s?₫ · có gói liên hệ$/,
+    );
   });
 
   it('keeps a 0 price of a shop product as it is', async () => {

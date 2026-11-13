@@ -114,7 +114,12 @@ function service(
     takenNights: async (unitIds: string[]) =>
       (opts.takenUnits ?? [])
         .filter((id) => unitIds.includes(id))
-        .map((unitId) => ({ unitId, night: '2026-12-01', bookingId: 'b', code: 'BK-0001' })),
+        .map((unitId) => ({
+          unitId,
+          night: '2026-12-01',
+          bookingId: '01890000-0000-7000-8000-0000000000c1',
+          code: 'BK-0001',
+        })),
     ratesByProperty: async (ids: string[]) => {
       rateReads.push(ids);
       return new Map(ids.map((id) => [id, (opts.rates ?? rates).get(id) ?? []]));
@@ -291,6 +296,25 @@ describe('CalendarService with bedroom packages (T-193)', () => {
   it('has no alternatives without packages', async () => {
     const r = await service().calendar.availability(ws, { ...request(2), propertyIds: [VILLA] });
     expect(r.options[0]).toMatchObject({ packages: [], alternatives: [] });
+  });
+
+  it('does not report the edited booking as a conflict of its own preview (VL-A3)', async () => {
+    const stay = {
+      propertyId: VILLA,
+      whole: true,
+      unitIds: [],
+      packageIds: [],
+      checkIn: '2026-12-01',
+      checkOut: '2026-12-03',
+      party: { adults: 4, childAges: [] },
+    };
+    const { calendar } = service({ takenUnits: [WHOLE] });
+    expect((await calendar.quote(ws, stay)).takenBy).toEqual(['BK-0001']);
+    const own = await calendar.quote(ws, {
+      ...stay,
+      excludeBookingId: '01890000-0000-7000-8000-0000000000c1',
+    });
+    expect(own.takenBy).toEqual([]);
   });
 
   it('quotes an explicit package', async () => {

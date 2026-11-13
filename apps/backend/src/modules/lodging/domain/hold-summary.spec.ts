@@ -100,3 +100,35 @@ describe('buildHoldSummary', () => {
     );
   });
 });
+
+describe('buildHoldSummary in English (VL4-1)', () => {
+  it('renders the same lines and figures for an English-speaking guest', () => {
+    const text = buildHoldSummary({
+      propertyName: 'Villa E64',
+      whole: true,
+      unitNames: [],
+      checkIn: '2027-12-17',
+      checkOut: '2027-12-19',
+      adults: 12,
+      childAges: [1, 4],
+      totalSell: 27_000_000,
+      guestName: 'Emily Carter',
+      guestPhone: '+61412345678',
+      holdMinutes: 15,
+      note: '',
+      replaces: 'BK-0016',
+      language: 'en',
+    });
+    expect(text).toBe(
+      [
+        'Hold: Villa E64',
+        '17/12 (Fri) → 19/12 (Sun) · 2 nights',
+        '12 adults, 2 children (aged 1, 4)',
+        'Total: 27.000.000đ',
+        'Name: Emily Carter · Phone: +61412345678',
+        'Replaces hold BK-0016 (cancelled when this one is placed)',
+        'Held for 15 minutes; our staff will call you to confirm.',
+      ].join('\n'),
+    );
+  });
+});

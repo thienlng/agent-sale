@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { MessageSink, OutgoingMessage } from '../api/reply-options.js';
 import {
   ImageAllowlist,
+  isCaptionOnly,
   newOutputState,
   outputTools,
   SEND_MESSAGE_TOOL,
@@ -193,5 +194,117 @@ describe('send_message videos', () => {
       (await tool!.run({ text: 'Dạ video ạ', videoId: 'v:villa-1:1:0' })).content,
     );
     expect(res).toEqual({ status: 'sent', delivered: 1, video: 'video', incomplete: true });
+  });
+});
+
+describe('send_message: one product per message (EV-5)', () => {
+  const toy = (id: string, n: number) =>
+    ({
+      id,
+      name: id,
+      imageUrls: Array.from({ length: n }, (_, i) => `https://cdn.example.com/${id}-${i}.jpg`),
+      accommodation: null,
+    }) as unknown as ProductDto;
+
+  it('refuses pictures of two products in one call and sends nothing', async () => {
+    const sent: OutgoingMessage[] = [];
+    const sink: MessageSink = {
+      send: vi.fn(async (m: OutgoingMessage) => {
+        sent.push(m);
+        return { delivered: 1 };
+      }),
+    };
+    const allowlist = new ImageAllowlist([], BASE);
+    allowlist.addProducts([toy('thu-go', 3), toy('xuong-rong', 2)]);
+    const state = newOutputState();
+    const tool = outputTools({ sink, allowlist, state, sendMessage: true }).runnable.find(
+      (t) => t.name === SEND_MESSAGE_TOOL,
+    )!;
+    const mixed = await tool.run({
+      text: 'Dạ ảnh hai mẫu ạ',
+      imageIds: ['p:thu-go:0', 'p:thu-go:1', 'p:xuong-rong:0'],
+    });
+    expect(mixed.ok).toBe(false);
+    expect(JSON.parse(mixed.content)).toMatchObject({ error: 'one_product_per_message' });
+    expect(sent).toHaveLength(0);
+    expect(state.sent).toHaveLength(0);
+
+    for (const ids of [['p:thu-go:0', 'p:thu-go:1'], ['p:xuong-rong:0']])
+      expect(JSON.parse((await tool.run({ text: 'Mẫu', imageIds: ids })).content)).toMatchObject({
+        status: 'sent',
+      });
+    expect(sent.map((m) => m.images.length)).toEqual([2, 1]);
+  });
+});
+
+describe('send_message: pictures already received (MS2-5, LM2-4)', () => {
+  it('drops a picture the conversation received and refuses a call left with none', async () => {
+    const product = {
+      id: 'thu-go',
+      name: 'Thú gỗ',
+      imageUrls: ['https://cdn.example.com/a.jpg', 'https://cdn.example.com/b.jpg'],
+      accommodation: null,
+    } as unknown as ProductDto;
+    const sent: OutgoingMessage[] = [];
+    const sink: MessageSink = {
+      send: vi.fn(async (m: OutgoingMessage) => {
+        sent.push(m);
+        return { delivered: 1 };
+      }),
+    };
+    const allowlist = new ImageAllowlist([], BASE);
+    allowlist.addProducts([product]);
+    const tool = outputTools({
+      sink,
+      allowlist,
+      state: newOutputState(),
+      sendMessage: true,
+      sentMediaUrls: ['https://cdn.example.com/a.jpg'],
+    }).runnable.find((t) => t.name === SEND_MESSAGE_TOOL)!;
+    const again = await tool.run({ text: 'Thú gỗ', imageIds: ['p:thu-go:0'] });
+    expect(JSON.parse(again.content)).toMatchObject({ error: 'pictures_already_sent' });
+    expect(sent).toHaveLength(0);
+    await tool.run({ text: 'Thú gỗ', imageIds: ['p:thu-go:0', 'p:thu-go:1'] });
+    expect(sent[0]?.images.map((i) => i.url)).toEqual(['https://cdn.example.com/b.jpg']);
+    // LM3-3: the customer asked to see them again.
+    await tool.run({ text: 'Thú gỗ', imageIds: ['p:thu-go:0'], resend: true });
+    expect(sent[1]?.images.map((i) => i.url)).toEqual(['https://cdn.example.com/a.jpg']);
+  });
+});
+
+describe('send_message captions and the picture cap (TM2-10, LM3-6)', () => {
+  const toy = (id: string, name: string) =>
+    ({
+      id,
+      name,
+      imageUrls: [`https://cdn.example.com/${id}.jpg`],
+      accommodation: null,
+    }) as unknown as ProductDto;
+
+  it('drops a text that only names the pictured product and caps picture messages at 3', async () => {
+    const sent: OutgoingMessage[] = [];
+    const sink: MessageSink = {
+      send: vi.fn(async (m: OutgoingMessage) => {
+        sent.push(m);
+        return { delivered: 1 };
+      }),
+    };
+    const allowlist = new ImageAllowlist([], BASE);
+    allowlist.addProducts(['a', 'b', 'c', 'd'].map((x) => toy(x, `Thú gỗ ${x.toUpperCase()}`)));
+    const tool = outputTools({
+      sink,
+      allowlist,
+      state: newOutputState(),
+      sendMessage: true,
+    }).runnable.find((t) => t.name === SEND_MESSAGE_TOOL)!;
+    await tool.run({ text: 'Thú gỗ A', imageIds: ['p:a:0'] });
+    expect(sent[0]?.text).toBeUndefined();
+    await tool.run({ text: 'Thú gỗ B phù hợp bé từ 1 tuổi, giá 340.000đ', imageIds: ['p:b:0'] });
+    expect(sent[1]?.text).toContain('phù hợp bé');
+    await tool.run({ imageIds: ['p:c:0'] });
+    const fourth = await tool.run({ imageIds: ['p:d:0'] });
+    expect(JSON.parse(fourth.content)).toMatchObject({ error: 'too_many_picture_messages' });
+    expect(sent).toHaveLength(3);
+    expect(isCaptionOnly('Dạ ảnh bộ Thú gỗ A ạ', ['Thú gỗ A (1/2)'])).toBe(true);
   });
 });

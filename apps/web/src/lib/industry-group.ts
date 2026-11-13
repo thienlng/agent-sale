@@ -20,3 +20,18 @@ export function offeringKindOf(industry: string | undefined): 'course' | 'servic
   if (industry === 'spa') return 'service';
   return null;
 }
+
+/**
+ * A label that a `service` business (education, spa) words differently, as i18n keys: its own
+ * key under `serviceBase` first, the shared key under `base` as the fallback (i18next picks the
+ * first key that exists), so a service business never reads "sản phẩm", "tồn kho" or "đơn".
+ * Hotels keep their own wording through their own pages.
+ */
+export function groupWording(
+  industry: string | undefined,
+  base: string,
+  serviceBase: string,
+): (key: string) => string | string[] {
+  const service = industryGroup(industry) === 'service';
+  return (key) => (service ? [`${serviceBase}.${key}`, `${base}.${key}`] : `${base}.${key}`);
+}

@@ -37,14 +37,21 @@ export function DeleteProductSection({
   product: p,
   onDeleted,
   onArchived,
+  service = false,
 }: {
   product: ProductDto;
+  /** A course or service of an education or spa business: worded as a service, not a product. */
+  service?: boolean;
   /** Called after the delete (the page goes back to the catalog). */
   onDeleted: () => void;
   /** Called after "Lưu trữ" instead (the form shows the product archived). */
   onArchived?: () => void;
 }) {
   const { t } = useTranslation();
+  const k = (key: string) =>
+    service
+      ? [`products.service.delete.${key}`, `products.delete.${key}`]
+      : `products.delete.${key}`;
   const remove = useDeleteProduct();
   const save = useSaveProduct();
   const [open, setOpen] = useState(false);
@@ -59,7 +66,7 @@ export function DeleteProductSection({
   function confirm() {
     remove.mutate(p.id, {
       onSuccess: () => {
-        toast.success(t('products.delete.deleted', { name: label }));
+        toast.success(t(k('deleted'), { name: label }));
         close(false);
         onDeleted();
       },
@@ -76,7 +83,7 @@ export function DeleteProductSection({
       { id: p.id, body: withStatus(p, 'archived') },
       {
         onSuccess: () => {
-          toast.success(t('products.delete.archivedDone', { name: label }));
+          toast.success(t(k('archivedDone'), { name: label }));
           close(false);
           onArchived?.();
         },
@@ -87,10 +94,10 @@ export function DeleteProductSection({
 
   const message =
     refusal === 'product_synced'
-      ? t('products.delete.synced')
+      ? t(k('synced'))
       : p.status === 'archived'
-        ? t('products.delete.inOrdersArchived')
-        : t('products.delete.inOrders');
+        ? t(k('inOrdersArchived'))
+        : t(k('inOrders'));
 
   return (
     <section
@@ -99,21 +106,19 @@ export function DeleteProductSection({
     >
       <div className="min-w-0 flex-1 basis-64">
         <h2 id="delete-product-title" className="font-semibold">
-          {t('products.delete.title')}
+          {t(k('title'))}
         </h2>
-        <p className="mt-1 text-sm text-muted-foreground">{t('products.delete.hint')}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t(k('hint'))}</p>
       </div>
       <Button type="button" variant="destructive" onClick={() => setOpen(true)}>
         <Trash2 aria-hidden />
-        {t('products.delete.action')}
+        {t(k('action'))}
       </Button>
       <AlertDialog open={open} onOpenChange={close}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t('products.delete.confirmTitle', { name: label })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>{t('products.delete.confirmBody')}</AlertDialogDescription>
+            <AlertDialogTitle>{t(k('confirmTitle'), { name: label })}</AlertDialogTitle>
+            <AlertDialogDescription>{t(k('confirmBody'))}</AlertDialogDescription>
           </AlertDialogHeader>
           {refusal ? (
             <Alert variant="destructive">
@@ -126,7 +131,7 @@ export function DeleteProductSection({
             {refusal ? (
               refusal === 'product_in_orders' && p.status === 'active' ? (
                 <Button type="button" disabled={save.isPending} onClick={archiveInstead}>
-                  {t('products.delete.archiveInstead')}
+                  {t(k('archiveInstead'))}
                 </Button>
               ) : null
             ) : (
@@ -136,7 +141,7 @@ export function DeleteProductSection({
                 disabled={remove.isPending}
                 onClick={confirm}
               >
-                {remove.isPending ? t('products.delete.deleting') : t('products.delete.confirm')}
+                {remove.isPending ? t(k('deleting')) : t(k('confirm'))}
               </Button>
             )}
           </AlertDialogFooter>

@@ -146,6 +146,8 @@ describe('quoteStay', () => {
   it('charges only the child band above the standard and flags extra small children', () => {
     const p: QuoteProperty = {
       ...villa,
+      // No spare adult place: the small children above the child standard cannot fit.
+      standardAdults: 2,
       standardChildren: 1,
       surcharges: { extraAdult: null, extraChild: { sell: 150_000, cost: 100_000 } },
     };
@@ -163,6 +165,34 @@ describe('quoteStay', () => {
     expect(q.warnings).toContain('over_standard');
   });
 
+  it('lets a free child use a spare adult place, like a paid child fits (VL-A1)', () => {
+    // A20: 24 adults standard, no child standard, extra child surcharge only.
+    const a20: QuoteProperty = {
+      ...villa,
+      standardChildren: 0,
+      surcharges: { extraAdult: null, extraChild: { sell: 100_000, cost: 50_000 } },
+    };
+    const stay = { ...whole, checkIn: '2026-11-09', checkOut: '2026-11-10', adults: 20 };
+    const toddler = quoteStay(a20, villaUnits, a17Rates, { ...stay, childAges: [3] });
+    expect(toddler.warnings).toEqual([]);
+    expect(toddler.surcharges).toEqual([]);
+    expect(toddler.totalSell).toBe(12_000_000);
+    // The paid child keeps its surcharge.
+    const paid = quoteStay(a20, villaUnits, a17Rates, { ...stay, childAges: [8] });
+    expect(paid.warnings).toEqual([]);
+    expect(paid.totalSell).toBe(12_100_000);
+    // A full adult standard leaves no place: the toddler is over the standard again.
+    const full = quoteStay(a20, villaUnits, a17Rates, { ...stay, adults: 24, childAges: [3] });
+    expect(full.warnings).toEqual(['over_standard']);
+    // Older children count as adults and use the spare places first.
+    const crowded = quoteStay(a20, villaUnits, a17Rates, {
+      ...stay,
+      adults: 22,
+      childAges: [3, 13, 14],
+    });
+    expect(crowded.warnings).toEqual(['over_standard']);
+  });
+
   it('warns over standard when a surcharge is not configured', () => {
     const q = quoteStay(villa, villaUnits, a17Rates, {
       ...whole,
@@ -174,6 +204,26 @@ describe('quoteStay', () => {
     expect(q.surcharges).toEqual([]);
     expect(q.warnings).toEqual(['over_standard']);
     expect(q.totalSell).toBe(12_000_000);
+  });
+
+  it('needs staff approval for a party above the standard places when no maximum is set (VL2-7)', () => {
+    const p: QuoteProperty = {
+      ...villa,
+      surcharges: { extraAdult: { sell: 300_000, cost: 200_000 }, extraChild: null },
+    };
+    const stay = { ...whole, checkIn: '2026-11-09', checkOut: '2026-11-10', childAges: [] };
+    // 45 adults in a villa for 24 + 8: the surcharge prices them, but nothing caps the party.
+    const crowd = quoteStay(p, villaUnits, a17Rates, { ...stay, adults: 45 });
+    expect(crowd.warnings).toEqual(['over_standard']);
+    expect(crowd.surcharges).toEqual([
+      { kind: 'extra_adult', persons: 21, nights: 1, sell: 6_300_000, cost: 4_200_000 },
+    ]);
+    // Within the standard's places (adults + children) the surcharge alone covers the party.
+    expect(quoteStay(p, villaUnits, a17Rates, { ...stay, adults: 26 }).warnings).toEqual([]);
+    // With a maximum the surcharged party fits up to it.
+    expect(
+      quoteStay({ ...p, maxGuests: 50 }, villaUnits, a17Rates, { ...stay, adults: 45 }).warnings,
+    ).toEqual([]);
   });
 
   it('warns above the hard maximum', () => {

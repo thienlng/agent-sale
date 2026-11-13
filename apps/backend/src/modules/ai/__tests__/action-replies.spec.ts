@@ -382,7 +382,7 @@ describe('bot API actions in the reply pipeline', () => {
         'handoff',
       ]);
       expect(fake.calls).toHaveLength(1);
-      expect(runs.runs[0]?.promptVersion).toBe('sales-agent@24');
+      expect(runs.runs[0]?.promptVersion).toBe('sales-agent@27');
     }
     // A tool call is meaningless without actions: nothing runs.
     const none = build([call(LOOKUP), answer('Dạ em chưa rõ ạ.')], { actions: [] });

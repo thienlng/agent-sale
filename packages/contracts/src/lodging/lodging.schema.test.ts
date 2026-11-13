@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AccommodationDetails } from '../commerce/lodging.schema.js';
+import { AccommodationDetails, AccommodationWrite } from '../commerce/lodging.schema.js';
 import {
   AvailabilityOption,
   BookingDto,
@@ -195,8 +195,10 @@ describe('accommodation details stay backward compatible', () => {
     expect(AccommodationDetails.safeParse(a17).success).toBe(true);
   });
 
-  it('still requires every bedroom in the layout of a whole property', () => {
-    expect(AccommodationDetails.safeParse({ ...a17, bedrooms: 9 }).success).toBe(false);
+  it('still requires every bedroom in the layout of a whole property when it is written', () => {
+    // VL-A5: the rule moved to the write schema; the read shape may omit `bedrooms` for the bot.
+    expect(AccommodationWrite.safeParse({ ...a17, bedrooms: 9 }).success).toBe(false);
+    expect(AccommodationWrite.safeParse(a17).success).toBe(true);
   });
 
   it('parses a rooms property whose layout lists fewer rows than bedrooms', () => {

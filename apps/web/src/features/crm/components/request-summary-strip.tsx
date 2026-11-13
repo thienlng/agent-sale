@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type CSSProperties, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,22 @@ export function RequestSummaryStrip(props: {
 }) {
   if (!useCan('contacts.view_all')) return null;
   return <Strip {...props} />;
+}
+
+/**
+ * As many columns as keep the rows even (9 cells: 5 + 4 on a wide screen, 3 + 3 + 3 on a
+ * tablet) instead of a full row and a half-empty one (LM-5).
+ */
+export function balancedColumns(cells: number, max: number): number {
+  return Math.max(1, Math.ceil(cells / Math.ceil(Math.max(cells, 1) / max)));
+}
+
+function balancedGrid(cells: number): CSSProperties {
+  const repeat = (n: number) => `repeat(${n}, minmax(0, 1fr))`;
+  return {
+    '--cols-sm': repeat(balancedColumns(cells, 4)),
+    '--cols-lg': repeat(balancedColumns(cells, 6)),
+  } as CSSProperties;
 }
 
 const CELL = 'rounded-xl border bg-card px-4 py-3 text-left';
@@ -52,7 +68,8 @@ function Strip({
   return (
     <section className="space-y-2" aria-label={t('crm.requests.strip.label')}>
       <div
-        className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6"
+        className="grid grid-cols-2 gap-2 sm:grid-cols-(--cols-sm) lg:grid-cols-(--cols-lg)"
+        style={balancedGrid(2 + (s?.statuses.length ?? 4))}
         aria-busy={summary.isPending}
       >
         <div className={CELL}>

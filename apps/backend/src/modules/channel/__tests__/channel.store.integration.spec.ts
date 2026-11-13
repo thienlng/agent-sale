@@ -380,6 +380,19 @@ describe('Inbox queue', () => {
     expect(requeued!.leaseUntil!.getTime()).toBeGreaterThan(Date.now());
   });
 
+  it('defers an event until a given time without spending an attempt (LM2-2)', async () => {
+    const c = await connect(a, 'page-defer');
+    const id = await message(c.id, 'cust-9', 10_000);
+    const [job] = (await store.claimEvents(10)).filter((j) => j.id === id);
+    const until = new Date(Date.now() + 60_000);
+    await store.deferEvent(id, job!.claimToken, until);
+    const held = await event(id);
+    expect(held?.attempts).toBe(0);
+    expect(held?.processedAt).toBeNull();
+    expect(held?.leaseUntil?.getTime()).toBe(until.getTime());
+    expect((await store.claimEvents(10)).map((j) => j.id)).not.toContain(id);
+  });
+
   it('holds a requeued event back until the newer message clears its quiet window, then claims both', async () => {
     const c = await connect(a, 'page-requeue');
     // E1 is older than the max wait, so only its lease can hold it back.

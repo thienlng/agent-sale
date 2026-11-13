@@ -43,6 +43,7 @@ Inside `apps/backend/src/modules/<name>/`: the fixed shape from `docs/ARCHITECTU
   { "error": { "code": "QUOTA_EXCEEDED", "message": "Bạn đã dùng hết 5.000 khách CRM của gói Miễn phí", "details": {"key":"contacts.max","limit":5000}, "traceId": "..." } }
   ```
   Error codes are defined centrally in `packages/shared/errors.ts`; the FE maps codes → UI (e.g. `FEATURE_LOCKED` → `<UpgradeGate/>`).
+  A body the server cannot parse is a client error, never a 500: malformed or empty JSON answers 400 `VALIDATION_FAILED` with `details.reason` `INVALID_JSON_BODY` / `EMPTY_JSON_BODY`; any other framework 4xx (e.g. 415) keeps its status as `VALIDATION_FAILED`. A `DELETE` that sends `content-type: application/json` with no body is accepted as having no body.
 - OpenAPI is generated automatically from NestJS (Swagger) → generates a TypeScript client for the FE (orval/openapi-typescript). The public API (P2) shares the same spec, with separate scopes.
 - Outbound webhooks for customers (P2): HMAC-SHA256 signed, progressive retry for 24h, delivery log.
 - WebSocket events are named `domain.action` (`message.new`).

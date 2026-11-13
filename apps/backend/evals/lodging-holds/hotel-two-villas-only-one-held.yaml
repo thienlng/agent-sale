@@ -1,0 +1,99 @@
+id: hotel-two-villas-only-one-held
+group: lodging-holds
+tags: [critical]
+bot:
+  industry: hotel
+  name: Tam Dao Villas
+  orderTaking: true
+  mission: 'Tư vấn villa. Lịch trống, cọc/hủy, giá lễ, phụ thu và xác nhận booking do nhân viên/chủ căn kiểm tra.'
+  profile:
+    fields: { displayName: 'Tam Dao Villas Central' }
+    notes: ''
+products:
+  - name: 'E64 – Villa E64'
+    code: E64
+    description: 'Villa nguyên căn 7 phòng ngủ ở sân golf Tam Đảo.'
+    variants: [{ name: 'Nguyên căn', price: 12000000, stock: 0 }]
+    accommodation:
+      rentalType: entire_property
+      code: E64
+      bedrooms: 7
+      standardAdults: 24
+      standardChildren: 8
+      childAgeBelow: 6
+      maxGuests: 40
+      roomLayout:
+        - { name: 'Phòng 1', beds: '2 giường đôi' }
+        - { name: 'Phòng 2', beds: '2 giường đôi' }
+        - { name: 'Phòng 3', beds: '2 giường đôi' }
+        - { name: 'Phòng 4', beds: '2 giường đôi' }
+        - { name: 'Phòng 5', beds: '2 giường đôi' }
+        - { name: 'Phòng 6', beds: '2 giường đôi' }
+        - { name: 'Phòng 7', beds: '2 giường đôi' }
+      amenities: ['Hồ bơi', 'BBQ']
+      rateBasis: night
+      rates:
+        - { days: [1, 2, 3, 4], amount: 12000000 }
+        - { days: [5, 7], amount: 13000000 }
+        - { days: [6], amount: 14000000 }
+      checkInOut: 'Nhận căn 14:00, trả căn 12:00'
+      depositPolicy: 'Đặt cọc 50% tổng tiền khi giữ căn. Hủy trước 7 ngày hoàn cọc, sau đó mất cọc.'
+      gallery: []
+      surcharges: { extraAdult: 300000, extraChild: 150000, childFreeBelow: 6, childAdultFrom: 12 }
+  - name: 'EVANI – EVANI 7PN'
+    code: EVANI
+    description: 'Villa nguyên căn 7 phòng ngủ ở sân golf Tam Đảo.'
+    variants: [{ name: 'Nguyên căn', price: 12000000, stock: 0 }]
+    accommodation:
+      rentalType: entire_property
+      code: EVANI
+      bedrooms: 7
+      standardAdults: 24
+      standardChildren: 8
+      childAgeBelow: 6
+      maxGuests: 40
+      roomLayout:
+        - { name: 'Phòng 1', beds: '2 giường đôi' }
+        - { name: 'Phòng 2', beds: '2 giường đôi' }
+        - { name: 'Phòng 3', beds: '2 giường đôi' }
+        - { name: 'Phòng 4', beds: '2 giường đôi' }
+        - { name: 'Phòng 5', beds: '2 giường đôi' }
+        - { name: 'Phòng 6', beds: '2 giường đôi' }
+        - { name: 'Phòng 7', beds: '2 giường đôi' }
+      amenities: ['Hồ bơi', 'BBQ']
+      rateBasis: night
+      rates:
+        - { days: [1, 2, 3, 4], amount: 12000000 }
+        - { days: [5, 7], amount: 13000000 }
+        - { days: [6], amount: 14000000 }
+      checkInOut: 'Nhận căn 14:00, trả căn 12:00'
+      depositPolicy: 'Đặt cọc 50% tổng tiền khi giữ căn.'
+      gallery: []
+      surcharges: { extraAdult: 300000, extraChild: 150000, childFreeBelow: 6, childAdultFrom: 12 }
+lodging:
+  holds_before:
+    - {
+        hold: BK-0018,
+        code: EVANI,
+        checkIn: '2027-12-08',
+        checkOut: '2027-12-09',
+        adults: 26,
+        guestPhone: '0904567891',
+        totalSell: 12600000,
+      }
+# VL2-5: only EVANI was held; E64 was only quoted. Totals, deposits and codes cover what is held.
+conversation:
+  - customer: 'E64 đêm 8/12/2027 cho 23 người lớn giá bao nhiêu'
+  - bot: 'Dạ E64 còn trống đêm Thứ Tư 8/12/2027 cho 23 người lớn, giá 12.000.000đ ạ.'
+  - customer: 'giữ EVANI đêm đó cho 26 người lớn, Trịnh Quốc Bảo 0904567891'
+  - bot: 'Dạ em đã giữ chỗ BK-0018 đến 03:49 ngày 13/11 ạ. Nhân viên sẽ gọi xác nhận sớm ạ.'
+  - customer: 'tổng 2 căn hết bao nhiêu tiền? 2 mã giữ chỗ của mình là gì'
+expect:
+  outcome: answered
+  guardrail: none
+  outcome_not: handoff
+  contains_all: ['BK-0018']
+  not_contains: ['24.000.000', '24.600.000']
+  not_matches: ['E64[^.\n]{0,40}(đã giữ|BK-)']
+fake_turns:
+  - text: "Dạ hiện mới giữ EVANI đêm 8/12/2027 với mã BK-0018, tổng 12.600.000đ ạ.\nE64 mới được báo giá, chưa giữ chỗ; anh/chị muốn em giữ E64 luôn không ạ?"

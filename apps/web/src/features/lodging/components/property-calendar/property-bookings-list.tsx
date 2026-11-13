@@ -18,17 +18,12 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 import { useBookings } from '../../api/bookings';
 import { botHoldPending } from '../../lib/bot-hold';
-import { dayMonth, formatVnd, nightsBetween } from '../../lib/format';
+import { formatVnd, nightsBetween, stayDate } from '../../lib/format';
 import { BookingStatusBadge } from '../booking-status-badge';
 import { BotBadge } from '../bookings-table';
 
 type ListFilter = 'upcoming' | 'past' | 'all';
 
-/** "06/11", or "06/11/2025" outside the current year. */
-const stayDate = (night: string, today: string) =>
-  night.slice(0, 4) === today.slice(0, 4)
-    ? dayMonth(night)
-    : `${dayMonth(night)}/${night.slice(0, 4)}`;
 const FILTERS: ListFilter[] = ['upcoming', 'past', 'all'];
 const ALL = '__all__';
 

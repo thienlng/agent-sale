@@ -23,6 +23,23 @@ function folderSummary(
   }));
 }
 
+const WEEKDAYS = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
+
+/**
+ * A bedroom package with its prices by weekday name instead of the Monday-first index array
+ * (staging VL-B11: the model read index 5 wrongly and quoted a Saturday the package is not sold),
+ * plus the weekdays it is not sold.
+ */
+function packageView<P extends { weekdaySell: readonly (number | null)[] }>(pkg: P) {
+  const { weekdaySell, ...rest } = pkg;
+  const notSoldOn = WEEKDAYS.filter((_, i) => (weekdaySell[i] ?? null) === null);
+  return {
+    ...rest,
+    sellByWeekday: Object.fromEntries(WEEKDAYS.map((day, i) => [day, weekdaySell[i] ?? null])),
+    ...(notSoldOn.length ? { notSoldOn } : {}),
+  };
+}
+
 /**
  * The model view of a product that `product-view.ts` builds on. Accommodations have reference
  * tariffs and date occupancy, never stock availability. Courses and services (`offering`) have
@@ -40,12 +57,18 @@ export function catalogProductContext(product: ProductDto) {
     const { gallery: _gallery, albums, units, ...details } = product.accommodation;
     const summary = folderSummary(albums);
     // A unit's own folders (T-193) are summarised the same way.
-    const unitViews = units?.map(({ albums: own, ...unit }) => {
+    const unitViews = units?.map(({ albums: own, packages: unitPackages, ...unit }) => {
       const folders = folderSummary(own);
-      return folders.length ? { ...unit, albums: folders } : unit;
+      return {
+        ...unit,
+        ...(unitPackages ? { packages: unitPackages.map(packageView) } : {}),
+        ...(folders.length ? { albums: folders } : {}),
+      };
     });
+    const { packages, ...rest } = details;
     const accommodation = {
-      ...details,
+      ...rest,
+      ...(packages ? { packages: packages.map(packageView) } : {}),
       ...(unitViews ? { units: unitViews } : {}),
       ...(summary.length ? { albums: summary } : {}),
     };
@@ -63,7 +86,13 @@ export function catalogProductContext(product: ProductDto) {
       ...base,
       catalogKind: kind,
       offering: offeringFacts(facts),
-      variants: product.variants.map((v) => ({ sku: v.sku, name: v.name, priceVnd: v.price })),
+      // A price of 0 is "not published" (EV-6): no priceVnd, so the model reads the row's
+      // priceNote ("liên hệ") instead of a 0 it would turn into "no information".
+      variants: product.variants.map((v) => ({
+        sku: v.sku,
+        name: v.name,
+        ...(v.price > 0 ? { priceVnd: v.price } : {}),
+      })),
     };
   }
   return {

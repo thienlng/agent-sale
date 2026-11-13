@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { industryGroup, offeringKindOf } from './industry-group';
+import { groupWording, industryGroup, offeringKindOf } from './industry-group';
 
 describe('industryGroup', () => {
   it.each([
@@ -28,5 +28,18 @@ describe('offeringKindOf', () => {
     expect(offeringKindOf('spa')).toBe('service');
     expect(offeringKindOf('retail')).toBeNull();
     expect(offeringKindOf(undefined)).toBeNull();
+  });
+});
+
+describe('groupWording', () => {
+  it('reads the service key first for education and spa, the shared key otherwise', () => {
+    expect(groupWording('spa', 'data.products', 'data.services')('title')).toEqual([
+      'data.services.title',
+      'data.products.title',
+    ]);
+    expect(groupWording('education', 'a', 'b')('x')).toEqual(['b.x', 'a.x']);
+    expect(groupWording('retail', 'a', 'b')('x')).toBe('a.x');
+    expect(groupWording('hotel', 'a', 'b')('x')).toBe('a.x');
+    expect(groupWording(undefined, 'a', 'b')('x')).toBe('a.x');
   });
 });

@@ -100,7 +100,7 @@
   },
   "integrations": {
     "title": "Platform integrations",
-    "workspaceSubtitle": "Connect pages and choose which bot answers each one.",
+    "workspaceSubtitle": "Connect pages and websites and choose which bot answers each channel.",
     "botSubtitle": "Connect pages to the bot so it advises and answers customers automatically.",
     "feedbackPrefix": "Which platform should we integrate next?",
     "feedbackEmphasis": "Share your ideas and feedback with us.",
@@ -115,9 +115,9 @@
       "tiktok": "TikTok Business",
       "website": "Website"
     },
-    "listTitle": "Pages",
-    "botListTitle": "Pages connected to this bot",
-    "searchPlaceholder": "Search by page name or ID...",
+    "listTitle": "Channels",
+    "botListTitle": "Channels connected to this bot",
+    "searchPlaceholder": "Search by channel name or ID...",
     "edit": "Assign bot",
     "sync": "Sync messages",
     "deactivate": "Unassign bot",
@@ -207,6 +207,7 @@
       "installTitle": "Install chat on {{name}}",
       "installBody": "Paste this code into every page that should show the chat window, right before the </body> tag.",
       "embedLabel": "Embed code",
+      "localOnly": "This code points at the test environment's localhost, so it only works on this computer.",
       "settingsTitle": "Settings for {{name}}",
       "settingsSaved": "Website settings saved.",
       "fieldInvalid": "This value is not valid.",
@@ -572,6 +573,8 @@
       "reopen": "Reopen",
       "replyMode": {
         "label": "Reply mode",
+        "shortBot": "Bot",
+        "shortHuman": "Person",
         "bot": "Bot is replying",
         "takeover": "You took over · bot resumes in {{time}}",
         "human": "A person replies (bot off)",

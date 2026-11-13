@@ -170,7 +170,7 @@ describe('the reply pipeline answers from catalog tools', () => {
     expect(runs.runs[0]).toMatchObject({
       productIds: ['toy-1'],
       conversationId: playgroundConversationId(botId),
-      promptVersion: 'sales-agent@24',
+      promptVersion: 'sales-agent@27',
       isTest: true,
     });
     expect(res.usage).toEqual({ inputTokens: 30, outputTokens: 15, cachedInputTokens: 0 });
@@ -224,7 +224,7 @@ describe('the reply pipeline answers from catalog tools', () => {
         tier: 'smart',
         provider: 'p',
         model: 'm',
-        promptVersion: 'sales-agent@24',
+        promptVersion: 'sales-agent@27',
         inputTokens: 0,
         outputTokens: 0,
         cachedTokens: 0,
@@ -254,7 +254,7 @@ describe('the reply pipeline answers from catalog tools', () => {
       tier: 'smart',
       provider: 'p',
       model: 'm',
-      promptVersion: 'sales-agent@24',
+      promptVersion: 'sales-agent@27',
       inputTokens: 0,
       outputTokens: 0,
       cachedTokens: 0,
@@ -319,7 +319,9 @@ describe('the reply pipeline answers from catalog tools', () => {
         tool('search_products', { query: 'thu go' }),
         tool('product_details', { ids: ['toy-4', 'toy-5', 'toy-6'] }),
         tool('product_details', { ids: ['toy-7'] }),
-        send(['p:toy-1:0', 'p:toy-7:0']),
+        // One message per product (EV-5).
+        send(['p:toy-1:0']),
+        send(['p:toy-7:0']),
         final('Dạ bộ thú gỗ giá 350.000đ ạ.'),
       ],
       undefined,

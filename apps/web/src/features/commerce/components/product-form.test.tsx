@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { collectPageContext, fillAssistantForm } from '@/lib/assistant-context';
 import { renderWithRouter, stubFetch } from '@/testing/render';
 
-import { ProductForm } from './product-form';
+import { fillMissingSkus, ProductForm } from './product-form';
 
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
@@ -147,7 +147,7 @@ describe('ProductForm and the owner assistant', () => {
       fields: expect.arrayContaining([
         expect.objectContaining({ name: 'name', type: 'text', empty: true }),
         expect.objectContaining({ name: 'price', type: 'number', empty: true }),
-        expect.objectContaining({ name: 'sku', type: 'text', empty: true, required: true }),
+        expect.objectContaining({ name: 'sku', type: 'text', empty: true }),
         expect.objectContaining({ name: 'cost', type: 'number', empty: true }),
         expect.objectContaining({ name: 'weightGram', type: 'number', empty: true }),
       ]),
@@ -212,6 +212,19 @@ describe('ProductForm of a spa or education business', () => {
     type(NAME, 'Chăm sóc da');
     type(/^SKU/, 'DV01-60');
   }
+
+  it('saves a new service without a package SKU, making it from the code (LM-3b)', async () => {
+    const calls = renderNew('service');
+    await screen.findByLabelText(CODE);
+    type(CODE, 'DV09');
+    type(NAME, 'Gội đầu');
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu dịch vụ' }));
+    await waitFor(() => expect(calls.find((c) => c.key === 'POST /products')).toBeDefined());
+    expect(calls.find((c) => c.key === 'POST /products')?.body).toMatchObject({
+      code: 'DV09',
+      variants: [expect.objectContaining({ sku: 'DV09' })],
+    });
+  });
 
   it('sends the service details of a new spa service', async () => {
     const calls = renderNew('service');
@@ -371,7 +384,7 @@ describe('ProductForm of a spa or education business', () => {
     expect(screen.getByRole('link', { name: 'Dịch vụ' })).toBeVisible();
     expect(screen.getByLabelText(/^Mã dịch vụ/)).toBeVisible();
     expect(screen.getByLabelText('Tên dịch vụ')).toBeVisible();
-    expect(screen.getByLabelText('Tên gói (buổi lẻ, lớp, liệu trình…)')).toBeVisible();
+    expect(screen.getByLabelText('Tên gói (buổi lẻ, gói 10 buổi, liệu trình…)')).toBeVisible();
     expect(screen.queryByLabelText(/^Cân nặng/)).toBeNull();
     expect(screen.getByRole('button', { name: 'Lưu dịch vụ' })).toBeVisible();
     await userEvent.click(screen.getByRole('switch', { name: 'Đây là sản phẩm bán lẻ' }));
@@ -453,5 +466,59 @@ describe('ProductForm of a spa or education business', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Lưu sản phẩm' }));
     await waitFor(() => expect(calls.find((c) => c.key === 'POST /products')).toBeDefined());
     expect(calls.find((c) => c.key === 'POST /products')?.body).not.toHaveProperty('offering');
+  });
+});
+
+describe('ProductForm SKU errors (TM-7)', () => {
+  function setupEdit(put: { status: number; body?: unknown }) {
+    const { fetchStub, calls } = stubFetch({
+      'GET /warehouses': { status: 200, body: { data: [] } },
+      [`PUT /products/${ID}`]: put,
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <ProductForm product={product(false)} pmsLink={null} />);
+    return calls;
+  }
+
+  it('marks a SKU repeated in the product on its field and sends nothing', async () => {
+    const calls = setupEdit({ status: 200, body: product(false) });
+    await userEvent.click(await screen.findByRole('button', { name: 'Thêm mẫu mã' }));
+    const skus = screen.getAllByLabelText(/^SKU/);
+    await userEvent.clear(skus[1]!);
+    await userEvent.type(skus[1]!, 'sm01-m');
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu sản phẩm' }));
+    expect(skus[1]).toHaveAttribute('aria-invalid', 'true');
+    expect(skus[1]).toHaveAccessibleDescription('Mỗi mẫu mã cần một SKU khác nhau.');
+    expect(skus[0]).not.toHaveAttribute('aria-invalid');
+    expect(calls.some((c) => c.key.startsWith('PUT'))).toBe(false);
+    await userEvent.type(skus[1]!, 'x');
+    expect(skus[1]).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('marks the SKU another product holds when the server answers CONFLICT', async () => {
+    setupEdit({
+      status: 409,
+      body: {
+        error: {
+          code: 'CONFLICT',
+          message: 'A variant with this SKU already exists',
+          details: { field: 'sku', value: 'SM01-M' },
+        },
+      },
+    });
+    await userEvent.click(await screen.findByRole('button', { name: 'Lưu sản phẩm' }));
+    const [sku] = screen.getAllByLabelText(/^SKU/);
+    await waitFor(() =>
+      expect(sku).toHaveAccessibleDescription('SKU này đã dùng cho một sản phẩm khác.'),
+    );
+  });
+});
+
+describe('fillMissingSkus', () => {
+  it('makes empty SKUs from the code and skips the ones already used', () => {
+    expect(fillMissingSkus('KH01', ['', ''])).toEqual(['KH01', 'KH01-2']);
+    expect(fillMissingSkus('KH01', ['KH01-2', '', ''])).toEqual(['KH01-2', 'KH01-3', 'KH01-4']);
+    expect(fillMissingSkus('KH01', [' A ', ''])).toEqual(['A', 'KH01-2']);
+    expect(fillMissingSkus('', [''])).toEqual(['']);
   });
 });

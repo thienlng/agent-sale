@@ -51,3 +51,27 @@ export function AssistantSteps({ runId }: { runId: string }) {
     return <p className="text-xs text-destructive">{t('loadError', { ns: 'assistant' })}</p>;
   return <AssistantStepList steps={run.data.steps} run={run.data} />;
 }
+
+const TOOL_PROGRESS: Record<string, string> = {
+  load_skill: 'skill',
+  skills_list: 'skill',
+  tool_search: 'search',
+  tool_describe: 'search',
+  tool_call: 'read',
+  session_search: 'read',
+  memory: 'memory',
+  import_preview: 'import',
+  import_propose: 'propose',
+  schedule: 'propose',
+  ui_navigate: 'ui',
+  ui_fill_form: 'ui',
+  ui_spotlight: 'ui',
+};
+
+/** The `progress.*` key of a running turn: what its latest step is doing, in plain words (AS-9). */
+export function progressKey(steps: readonly AssistantStepDto[]): string | null {
+  const last = steps.at(-1);
+  if (!last) return null;
+  if (!last.toolName) return 'model';
+  return TOOL_PROGRESS[last.toolName] ?? 'read';
+}
