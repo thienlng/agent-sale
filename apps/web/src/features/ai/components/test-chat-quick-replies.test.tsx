@@ -2,9 +2,12 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { loadNamespace } from '@/lib/i18n';
 import { renderWithProviders } from '@/testing/render';
 
 import { TestChat } from './test-chat';
+
+beforeAll(() => loadNamespace('action'));
 
 const botId = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d21';
 const base = {

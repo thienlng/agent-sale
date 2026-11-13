@@ -14,6 +14,7 @@ import { TrainingNav } from '@/features/bot/components/training-nav';
 import { useFaqs } from '@/features/knowledge/api/faqs';
 import { useVisualViewportBox } from '@/hooks/use-visual-viewport';
 import { ApiClientError } from '@/lib/api-client';
+import { loadNamespace } from '@/lib/i18n';
 
 /**
  * Bot space: its own training menu on the left, the section in the middle and
@@ -23,6 +24,8 @@ import { ApiClientError } from '@/lib/api-client';
  * user chose.
  */
 export const Route = createFileRoute('/app/bots/$botId')({
+  // Custom actions and the test chat's action results use the lazy `action` namespace.
+  loader: () => loadNamespace('action').catch(() => undefined),
   component: BotSpace,
 });
 

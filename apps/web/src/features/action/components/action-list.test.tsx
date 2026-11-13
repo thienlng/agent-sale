@@ -2,10 +2,13 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { loadNamespace } from '@/lib/i18n';
 import { renderWithRouter, stubFetch } from '@/testing/render';
 
 import { ActionList } from './action-list';
 import { actionDto, BOT_ID } from './fixtures';
+
+beforeAll(() => loadNamespace('action'));
 
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-1' }));
 afterEach(() => vi.unstubAllGlobals());

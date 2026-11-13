@@ -3,10 +3,13 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { loadNamespace } from '@/lib/i18n';
 import { renderWithRouter, stubFetch } from '@/testing/render';
 
 import { ActionFormView } from './action-form';
 import { actionDto, BOT_ID } from './fixtures';
+
+beforeAll(() => loadNamespace('action'));
 
 // Form interactions are many and the suite runs in parallel with the whole web package.
 vi.setConfig({ testTimeout: 20_000 });
