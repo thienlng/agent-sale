@@ -154,8 +154,9 @@ export const ORDER_COLUMNS: readonly OrderColumn[] = [
     header: 'orders.col.cod',
     align: 'right',
     defaultVisible: true,
-    cell: (o) => formatVnd(o.amounts.cod),
-    csv: (o) => o.amounts.cod,
+    // A cancelled order collects nothing (TM-5, TM3-10), like the phone card.
+    cell: (o) => (o.status === 'cancelled' ? '—' : formatVnd(o.amounts.cod)),
+    csv: (o) => (o.status === 'cancelled' ? 0 : o.amounts.cod),
   },
   {
     id: 'note',
