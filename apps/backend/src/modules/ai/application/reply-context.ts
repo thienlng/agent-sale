@@ -25,7 +25,7 @@ export const EMAIL_KNOWN_LINE =
 
 /** Added to the last user message when older turns holding the customer's phone were folded away. */
 export const earlierPhonesLine = (phones: readonly string[]): string =>
-  `Phone numbers the customer wrote in earlier messages (now summarized): ${phones.join(', ')}.`;
+  `The customer's phone numbers in this conversation: ${phones.join(', ')}. Use them for an order or a call-back without asking again; do not read them back again.`;
 const MAX_EARLIER_PHONES = 3;
 
 export const SHOP_TIME_ZONE = 'Asia/Ho_Chi_Minh';
@@ -182,7 +182,55 @@ export function historyTurns(
 }
 
 /** The Vietnamese mobile numbers in `text` as written ("0987 654 321"), digit-run splits included. */
-export function phonesIn(text: string): string[] {
+const DIGIT_WORDS: Record<string, string> = {
+  không: '0',
+  khong: '0',
+  o: '0',
+  một: '1',
+  mot: '1',
+  mốt: '1',
+  hai: '2',
+  ba: '3',
+  bốn: '4',
+  bon: '4',
+  tư: '4',
+  tu: '4',
+  năm: '5',
+  nam: '5',
+  lăm: '5',
+  lam: '5',
+  sáu: '6',
+  sau: '6',
+  bảy: '7',
+  bay: '7',
+  bẩy: '7',
+  tám: '8',
+  tam: '8',
+  chín: '9',
+  chin: '9',
+};
+const DIGIT_WORD = `(?:${Object.keys(DIGIT_WORDS).join('|')})`;
+const SPOKEN_RUN = new RegExp(
+  `(?<!\\p{L})${DIGIT_WORD}(?:[\\s,.-]+${DIGIT_WORD}){8,10}(?!\\p{L})`,
+  'giu',
+);
+
+/**
+ * TM3-2: a phone dictated in words (voice-to-text: "không chín bảy bốn năm năm năm sáu sáu sáu")
+ * as digits; runs of 9-11 digit words only, so ordinary words stay.
+ */
+export function spokenDigits(text: string): string {
+  return text.replace(SPOKEN_RUN, (run) =>
+    run
+      .toLowerCase()
+      .split(/[\s,.-]+/)
+      .map((w) => DIGIT_WORDS[w] ?? '')
+      .join(''),
+  );
+}
+
+export function phonesIn(written: string): string[] {
+  const text = spokenDigits(written);
   const out: string[] = [];
   for (const candidate of text.match(/\+?\d(?:[\s.\-()]?\d)+/g) ?? []) {
     if (normalizeVnPhone(candidate)) {
@@ -230,7 +278,7 @@ export function earlierPhones(all: readonly ChatMessage[], kept: readonly ChatMe
   return out.slice(-MAX_EARLIER_PHONES);
 }
 
-const SELF = '(anh|chị|chi|em|cô|chú|bác)';
+const SELF = '(anh|chị|chi|em|e|cô|chú|bác)';
 const VERBS =
   '(hỏi|hoi|muốn|muon|cần|can|lấy|lay|đặt|dat|mua|xem|định|dinh|thấy|thay|ở|đang|dang|có|co|đi|di|tên|ten|chốt|chot|gửi|gui|nhận|nhan|ship|đổi|doi|thích|thich|chọn|chon|là|la)';
 const SELF_PATTERNS = [
@@ -253,7 +301,7 @@ export function customerSelfPronoun(customerTexts: readonly string[]): string | 
     for (const pattern of SELF_PATTERNS)
       for (const m of text.matchAll(pattern)) {
         const word = (m[1] ?? '').toLowerCase();
-        return word === 'chi' ? 'chị' : word;
+        return word === 'chi' ? 'chị' : word === 'e' ? 'em' : word;
       }
   }
   return null;
@@ -286,9 +334,15 @@ export function withTurnContext(turns: readonly ChatMessage[], ctx: TurnContext)
       prev.content = `${prev.content}\n\n${turn.content}`;
     else merged.push({ ...turn });
   }
-  const pronoun = customerSelfPronoun(
-    turns.flatMap((t) => (t.role === 'user' ? [customerBlock(t.content) ?? ''] : [])),
-  );
+  const said = turns.flatMap((t) => (t.role === 'user' ? [customerBlock(t.content) ?? ''] : []));
+  const pronoun = customerSelfPronoun(said);
+  // TM3-3: every phone the customer gave (kept turns and folded ones), so an order or a
+  // call-back reuses it instead of asking again.
+  const phones = [...(ctx.earlierPhones ?? [])];
+  for (const phone of said.flatMap(phonesIn)) {
+    const key = normalizeVnPhone(phone);
+    if (phones.every((p) => normalizeVnPhone(p) !== key)) phones.push(phone);
+  }
   const blocks = [
     ctx.profile,
     knowledgeBlock(ctx.sources),
@@ -298,7 +352,7 @@ export function withTurnContext(turns: readonly ChatMessage[], ctx: TurnContext)
     ctx.images,
     ctx.phoneKnown ? PHONE_KNOWN_LINE : '',
     customerPronounLine(pronoun),
-    ctx.earlierPhones?.length ? earlierPhonesLine(ctx.earlierPhones) : '',
+    phones.length ? earlierPhonesLine(phones) : '',
     ctx.emailKnown ? EMAIL_KNOWN_LINE : '',
     currentTimeBlock(ctx.now),
   ].filter(Boolean);

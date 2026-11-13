@@ -12,7 +12,35 @@ export function unescapeLineBreaks(reply: string): string {
 
 /** The model's free-text answer as it may be sent: literal `\n` fixed, outer whitespace trimmed. */
 export function normalizeReplyText(text: string): string {
-  return withoutRepeatedLines(unescapeLineBreaks(text)).trim();
+  return withoutMetaLines(
+    withoutForeignScripts(withoutRepeatedLines(unescapeLineBreaks(text))),
+  ).trim();
+}
+
+// Scripts a Vietnamese shop chat never uses; the model sometimes leaks a character ("સố", "જો").
+const FOREIGN_SCRIPTS =
+  /[\p{Script=Gujarati}\p{Script=Devanagari}\p{Script=Bengali}\p{Script=Gurmukhi}\p{Script=Oriya}\p{Script=Tamil}\p{Script=Telugu}\p{Script=Kannada}\p{Script=Malayalam}\p{Script=Sinhala}\p{Script=Arabic}\p{Script=Hebrew}\p{Script=Armenian}\p{Script=Georgian}\p{Script=Ethiopic}]+/gu;
+
+/** TM-22: stray characters of scripts no Vietnamese chat uses are dropped. */
+export function withoutForeignScripts(text: string): string {
+  return FOREIGN_SCRIPTS.test(text)
+    ? text
+        .replace(FOREIGN_SCRIPTS, '')
+        .replace(/[ \t]{2,}/g, ' ')
+        .replace(/ +([.,!?])/g, '$1')
+    : text;
+}
+
+// A line about the message instead of to the customer: the model's own reasoning (TM3-8).
+const META_LINE =
+  /^\s*(tin nhắn này|câu (này|hỏi này)|khách (đang|muốn|hỏi|vừa|chỉ)|người dùng|this message|the (customer|user) (is|wants|asks))(?![\p{L}])/iu;
+
+/** TM3-8: lines that describe the message ("Tin nhắn này là câu chào…") are not sent. */
+export function withoutMetaLines(text: string): string {
+  return text
+    .split('\n')
+    .filter((line) => !META_LINE.test(line))
+    .join('\n');
 }
 
 /**

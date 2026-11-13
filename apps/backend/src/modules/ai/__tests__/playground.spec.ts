@@ -1048,8 +1048,6 @@ describe('phones from summarised turns (EV-2)', () => {
     const reply = requests.find((r) => r.tools);
     const last = reply?.messages.at(-1)?.content ?? '';
     expect(JSON.stringify(reply?.messages.slice(1, -1))).not.toContain('0987 654 321');
-    expect(last).toContain(
-      'Phone numbers the customer wrote in earlier messages (now summarized): 0987 654 321.',
-    );
+    expect(last).toContain("The customer's phone numbers in this conversation: 0987 654 321.");
   });
 });

@@ -15,6 +15,7 @@ import {
   compactHistory,
   earlierPhones,
   earlierPhonesLine,
+  spokenDigits,
   withTurnContext,
 } from '../application/reply-context.js';
 
@@ -310,5 +311,37 @@ describe('InMemoryConversationSummaryRepository', () => {
     expect(await repo.get(a, 'c1')).toEqual({ coveredUntil: new Date(2), summary: 'two' });
     expect(await repo.get(b, 'c1')).toBeNull();
     expect(await repo.get(a, 'c2')).toBeNull();
+  });
+});
+
+describe('spokenDigits and the phone line (TM3-2, TM3-3)', () => {
+  it('reads a phone dictated in words as digits, and leaves ordinary words', () => {
+    expect(spokenDigits('sdt khong chin bay bon nam nam nam sau sau sau nhé')).toBe(
+      'sdt 0974555666 nhé',
+    );
+    expect(spokenDigits('số không chín không năm một hai ba bốn năm sáu')).toBe('số 0905123456');
+    expect(spokenDigits('chị lấy hai bộ, ba ngày nữa giao')).toBe(
+      'chị lấy hai bộ, ba ngày nữa giao',
+    );
+  });
+
+  it('names every phone the customer gave, kept turns included', () => {
+    const turns: ChatMessage[] = [
+      { role: 'user', content: '<customer>\nsố chị 0935 444 555\n</customer>' },
+      { role: 'assistant', content: 'Dạ em ghi nhận ạ.' },
+      { role: 'user', content: '<customer>\nđặt thêm 1 bộ, cùng địa chỉ và số đt\n</customer>' },
+    ];
+    const last =
+      withTurnContext(turns, {
+        profile: '',
+        sources: [],
+        situations: '',
+        focus: '',
+        pending: '',
+        images: '',
+        phoneKnown: false,
+        now: new Date(0),
+      }).at(-1)?.content ?? '';
+    expect(last).toContain(earlierPhonesLine(['0935 444 555']));
   });
 });

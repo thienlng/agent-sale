@@ -251,7 +251,14 @@ export function phoneAsk(
   if (phoneKnown || customerTexts.some((t) => phonesIn(t).length > 0)) return '';
   if (said.some((t) => ASKS_PHONE.test(t))) return '';
   if (english) return 'Could you leave your phone number so our staff can call you back?';
-  const pronoun = customerSelfPronoun(customerTexts);
+  // TM3-7: the pronoun the lead-in already uses wins ("Dạ em xin lỗi chị…" → "Chị để lại…").
+  const used = said
+    .join(' ')
+    .match(/(?<![\p{L}/])(anh|chị|cô|chú|bác)(?![\p{L}/])/iu)?.[1]
+    ?.toLowerCase();
+  const pronoun = used ?? customerSelfPronoun(customerTexts);
+  // MS3-4 / TM3-9: a customer who says "em" is not called "em" (nor "anh/chị").
+  if (pronoun === 'em') return 'Cho em xin số điện thoại để nhân viên gọi tư vấn ạ.';
   const who =
     pronoun && pronoun !== 'em' ? pronoun.charAt(0).toUpperCase() + pronoun.slice(1) : 'Anh/chị';
   return `${who} để lại số điện thoại để nhân viên gọi tư vấn ạ.`;

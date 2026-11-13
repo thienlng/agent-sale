@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import type { BotRequestResult, CrmFacade } from '../../crm/api/index.js';
 import { weekdayMismatch } from '../domain/weekday-date.js';
+import { spokenDigits } from './reply-context.js';
 import { type ActionCall, safeJson } from './action-tools.js';
 
 /**
@@ -43,7 +44,7 @@ export function requestDefinition(profile: RequestProfile): ToolDefinition {
   return { name: REQUEST_TOOL, description: profile.description, input: requestInput(profile) };
 }
 
-const digits = (v: string) => v.replace(/\D/g, '');
+const digits = (v: string) => spokenDigits(v).replace(/\D/g, '');
 /** A national-form tail: "+84 983…" and "0983…" both end with the same 9 digits. */
 const phoneTail = (v: string) => digits(v).slice(-9);
 

@@ -201,3 +201,17 @@ describe('withoutStaleReadBack (TM2-1)', () => {
     ).toBe('Dạ em đã ghi nhận số 0977 123 456 ạ.');
   });
 });
+
+describe('phoneAsk pronouns (TM3-7, MS3-4)', () => {
+  it('follows the lead-in pronoun and never calls an "em" customer "em"', () => {
+    expect(phoneAsk(['alo shop, hôm qua chị có đặt đơn'], ['Dạ em xin lỗi chị ạ.'], false)).toBe(
+      'Chị để lại số điện thoại để nhân viên gọi tư vấn ạ.',
+    );
+    expect(phoneAsk(['e muốn hỏi liệu trình'], [''], false)).toBe(
+      'Cho em xin số điện thoại để nhân viên gọi tư vấn ạ.',
+    );
+    expect(phoneAsk(['shop ơi'], ['Dạ anh/chị chờ em ạ.'], false)).toBe(
+      'Anh/chị để lại số điện thoại để nhân viên gọi tư vấn ạ.',
+    );
+  });
+});

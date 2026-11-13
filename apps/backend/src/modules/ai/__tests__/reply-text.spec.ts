@@ -97,3 +97,21 @@ describe('withoutSentLines (VL-B8)', () => {
     expect(withoutSentLines('Dạ còn ạ.', [])).toBe('Dạ còn ạ.');
   });
 });
+
+describe('normalizeReplyText: stray scripts and meta lines (TM-22, TM3-8)', () => {
+  it('drops characters of scripts a Vietnamese chat never uses', () => {
+    expect(normalizeReplyText('Dạ giá 340.000đ ạ જો.')).toBe('Dạ giá 340.000đ ạ.');
+    expect(normalizeReplyText('Dạ em gửi સố điện thoại ạ.')).toBe('Dạ em gửi ố điện thoại ạ.');
+  });
+
+  it('drops a line about the message instead of to the customer', () => {
+    expect(
+      normalizeReplyText(
+        'Dạ em đây ạ 😊\nTin nhắn này là câu chào nên có thể trả lời tự nhiên, không cần tra cứu.',
+      ),
+    ).toBe('Dạ em đây ạ 😊');
+    expect(normalizeReplyText('Dạ khách hàng thân thiết được giảm 5% ạ.')).toBe(
+      'Dạ khách hàng thân thiết được giảm 5% ạ.',
+    );
+  });
+});
