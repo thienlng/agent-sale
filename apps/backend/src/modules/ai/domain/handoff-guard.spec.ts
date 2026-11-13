@@ -293,3 +293,33 @@ describe('handoffVerdict: complaints, refunds, exchanges and cancels always pass
     ).toBe(true);
   });
 });
+
+describe('handoffVerdict: request industries (LM3-7, MS3-1)', () => {
+  const edu = { offeredTools: EDUCATION, reason: 'customer wants staff', refused: 0, shopText: '' };
+  it('updates a call-back time with record_request instead of handing off', () => {
+    const v = handoffVerdict({ ...edu, customerText: 'gọi chị sau 9h tối thứ 3 nha' });
+    expect(refusedFor(v)).toBe('request_update→record_request');
+  });
+  it('answers the request status from the context', () => {
+    const v = handoffVerdict({ ...edu, customerText: 'lịch của chị xác nhận chưa em' });
+    expect(refusedFor(v)).toBe('request_status');
+  });
+  it('still lets an explicit staff request, a complaint or a cancel through', () => {
+    expect(handoffVerdict({ ...edu, customerText: 'cho chị gặp nhân viên tư vấn' }).allow).toBe(
+      true,
+    );
+    expect(
+      handoffVerdict({ ...edu, customerText: 'nhân viên gọi lại cho chị sau 9h nhé' }).allow,
+    ).toBe(true);
+    expect(
+      handoffVerdict({ ...edu, customerText: 'chị muốn hoàn tiền khoá học, lịch xác nhận chưa' })
+        .allow,
+    ).toBe(true);
+  });
+  it('without record_request a call-back time is a hand-over as before', () => {
+    expect(
+      handoffVerdict({ ...edu, offeredTools: RETAIL, customerText: 'gọi chị sau 9h tối thứ 3 nha' })
+        .allow,
+    ).toBe(true);
+  });
+});

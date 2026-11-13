@@ -37,6 +37,16 @@ const ASKS_FOR_PERSON = new RegExp(
 const DECLINES_PERSON =
   /\b(chua|khong|ko|k|khg|dung|chang)( can| muon| phai)?( gap| chuyen| noi chuyen voi)? (nhan vien|nv|nguoi that)\b|\b(do not|don't|dont|no need to) (transfer|need (a |the )?(person|staff|human))\b/;
 
+/** The customer names staff or a real person explicitly (then a call-back stays a hand-over). */
+const NAMES_STAFF =
+  /\b(nhan vien|nguoi that|quan ly|chu (shop|trung tam|spa)|tu van vien|staff|human|real person|manager)\b/;
+/** "gọi chị sau 9h tối thứ 3 nha", "call me after 6pm": a call-back time. */
+const CALLBACK_TIME =
+  /\b(goi|call|lien he|lien lac)( lai)?( cho)? (anh|chi|em|minh|toi|tui|me|us)? ?(sau|luc|vao|truoc|tu|khoang|after|at|before|around|on|tomorrow|toi|sang|chieu|trua|mai|thu \d|t\d|\d{1,2} ?(h|gio|pm|am))/;
+/** "lịch của chị xác nhận chưa", "is my booking confirmed": the request's status. */
+const REQUEST_STATUS =
+  /\b(lich|lich hen|lich hoc|lich thu|dang ky|yeu cau|buoi hen)( cua (anh|chi|em|minh|toi|be|con))? (da )?(duoc )?(xac nhan|duyet|chot|ok|on)( chua| roi chua| chua a)?\b|\bxac nhan (lich|dang ky) chua\b|\b(is|was) my (booking|appointment|registration|request) confirmed\b/;
+
 /** A complaint or a payment problem: staff handle these. */
 const COMPLAINT_OR_PAYMENT = new RegExp(
   [
@@ -237,13 +247,29 @@ export function handoffVerdict(input: HandoffGuardInput): HandoffVerdict {
   if (input.refused > 0) return { allow: true, why: 'insisted' };
   const customer = foldText(input.customerText);
   const reason = foldText(input.reason);
-  if (ASKS_FOR_PERSON.test(customer) && !DECLINES_PERSON.test(customer))
-    return { allow: true, why: 'asked_for_person' };
   // DEC-2 (TM3-4, VL3-2): complaints, defects, refunds, exchanges, cancels of a placed order and
   // payment problems always reach staff, in this message or one of the last few.
   const recent = foldText(input.recentCustomerText ?? '');
   if (COMPLAINT_OR_PAYMENT.test(customer) || COMPLAINT_OR_PAYMENT.test(recent))
     return { allow: true, why: 'complaint_or_payment' };
+  // Request industries (LM3-7, MS3-1): a call-back time updates the recorded request, and the
+  // request's status is in the turn context; neither needs staff.
+  if (input.offeredTools.includes('record_request') && !NAMES_STAFF.test(customer)) {
+    if (CALLBACK_TIME.test(customer))
+      return refuse(
+        'request_update',
+        'record_request',
+        'The customer gives a time to be called back: call record_request again with the new preferred time (it updates the recorded request) and confirm it. Do not hand off.',
+      );
+    if (REQUEST_STATUS.test(customer))
+      return refuse(
+        'request_status',
+        null,
+        "The customer asks about their recorded request: answer from the request status in this turn's context (recorded / confirmed, with its time). Do not hand off.",
+      );
+  }
+  if (ASKS_FOR_PERSON.test(customer) && !DECLINES_PERSON.test(customer))
+    return { allow: true, why: 'asked_for_person' };
   if (EXISTING_ORDER.test(customer) || EXISTING_ORDER.test(recent))
     return { allow: true, why: 'existing_order' };
   if (INSTRUCTION_PROBE.test(customer))
