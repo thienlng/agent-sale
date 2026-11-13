@@ -250,7 +250,8 @@ describe('eval suite (fake mode)', () => {
     expect(report.groups.map((g) => g.group)).toContain('safety');
     expect(renderText(report)).toContain('Critical:');
     expect(renderMarkdown(report)).toContain('| Group | Passed | Total |');
-  });
+    // Runs every case of the suite (119+ since release staging); 5 s is too tight on a loaded runner.
+  }, 30_000);
 });
 
 describe('eval prompt version option', () => {
