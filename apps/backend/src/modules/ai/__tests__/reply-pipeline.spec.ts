@@ -228,3 +228,25 @@ describe('withCustomerPronoun for an "em" customer (MS3-4)', () => {
     );
   });
 });
+
+describe('final sign-off fixes (EV-2, MS3-4)', () => {
+  it('reads back the earlier phone when the customer asks which number they gave', () => {
+    const texts = [
+      'Chào shop, số của mình là 0987 654 321, có gì gọi mình',
+      'nãy giờ nói nhiều quá, đầu buổi mình có để lại số điện thoại rồi đúng không, số nào ấy nhỉ? shop đọc lại giúp mình',
+    ];
+    expect(phoneReadBack(texts, [''])).toBe('Dạ số anh/chị để lại là 0987 654 321 ạ.');
+    expect(phoneReadBack(texts, ['Dạ số chị để lại là 0987654321 ạ.'])).toBe('');
+    expect(phoneReadBack([texts[0]!, 'Số tài khoản bên em là gì?'], [''])).toBe('');
+  });
+
+  it('never addresses an "em" customer as "em"', () => {
+    expect(
+      withCustomerPronoun('Em cảm ơn lời chào và lời cảm ơn của em ạ.', ['em chào spa, em cảm ơn']),
+    ).toBe('Em cảm ơn lời chào và lời cảm ơn của bạn ạ.');
+    expect(withCustomerPronoun('Dạ còn hàng rồi em ạ.', ['em muốn hỏi'])).toBe(
+      'Dạ còn hàng rồi ạ.',
+    );
+    expect(withCustomerPronoun('Dạ cho em xin số ạ.', ['em muốn hỏi'])).toBe('Dạ cho em xin số ạ.');
+  });
+});

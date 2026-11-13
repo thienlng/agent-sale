@@ -170,6 +170,10 @@ export const fallbackText = (bot: BotView): string =>
 const handoffText = (bot: BotView): string =>
   bot.handoffMessage.trim() || defaultHandoffMessage(bot);
 
+// The customer asks for the phone they gave earlier ("số nào ấy nhỉ", "đọc lại số giúp mình").
+const ASKS_OWN_PHONE =
+  /((sđt|sdt|số đt|điện thoại|số (của )?(mình|tôi|chị|anh|em|con))[^.?!\n]{0,40}(số nào|nào ấy|nào nhỉ|là gì|đọc lại|nhắc lại))|((đọc|nhắc) lại[^.?!\n]{0,20}(số|sđt|sdt))|((which|what) (number|phone))/iu;
+
 // An order recipient's details: a phone sent with these is for the order, not a call-back.
 const ADDRESS_WORDS =
   /(?<!\p{L})(địa chỉ|dia chi|đường|duong|phường|phuong|quận|quan|ngõ|ngo|ngách|số nhà|tp|thành phố|huyện|xã)(?!\p{L})/iu;
@@ -187,9 +191,19 @@ export function phoneReadBack(
   english = false,
 ): string {
   const last = customerTexts.at(-1) ?? '';
+  const digits = (t: string) => t.replace(/\D/g, '');
+  // EV-2: the customer asks which number they gave ("số nào ấy nhỉ? đọc lại giúp"): their latest
+  // earlier phone is the answer, read back even though it was given before.
+  if (ASKS_OWN_PHONE.test(last) && !phonesIn(last).length) {
+    const earlier = customerTexts
+      .slice(0, -1)
+      .flatMap((t) => phonesIn(t))
+      .at(-1);
+    if (!earlier || said.some((t) => digits(t).includes(digits(earlier).slice(-9)))) return '';
+    return english ? `Your number is ${earlier}.` : `Dạ số anh/chị để lại là ${earlier} ạ.`;
+  }
   const phone = phonesIn(last).at(-1);
   if (!phone || ADDRESS_WORDS.test(last)) return '';
-  const digits = (t: string) => t.replace(/\D/g, '');
   const tail = digits(phone).slice(-9);
   if (customerTexts.slice(0, -1).some((t) => digits(t).includes(tail))) return '';
   if (said.some((t) => digits(t).includes(tail))) return '';
@@ -276,7 +290,13 @@ export function withCustomerPronoun(
 ): string {
   const pronoun = customerSelfPronoun(customerTexts);
   // MS3-4: the bot is "em"; a customer who is "em" too is thanked or greeted as "bạn".
-  if (pronoun === 'em') return text.replace(/(cảm ơn|chào)\s+em(?!\p{L})/giu, '$1 bạn');
+  if (pronoun === 'em')
+    return (
+      text
+        .replace(/(cảm ơn|chào|của)\s+em(?!\p{L})/giu, '$1 bạn')
+        // "…rồi em ạ." addressed to the customer: the "em" goes.
+        .replace(/(?<!\p{L})em ạ(?=[.!]?\s*(\n|$))/giu, 'ạ')
+    );
   if (!pronoun) return text;
   const word = new RegExp(`(?<!\\p{L})${pronoun}(?!\\p{L})`, 'iu');
   if ([text, ...sent.map((m) => m.text)].some((t) => word.test(t))) return text;

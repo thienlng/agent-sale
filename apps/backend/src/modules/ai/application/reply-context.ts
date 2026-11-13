@@ -280,7 +280,7 @@ export function earlierPhones(all: readonly ChatMessage[], kept: readonly ChatMe
 
 const SELF = '(anh|chị|chi|em|e|cô|chú|bác)';
 const VERBS =
-  '(hỏi|hoi|muốn|muon|cần|can|lấy|lay|đặt|dat|mua|xem|định|dinh|thấy|thay|ở|đang|dang|có|co|đi|di|tên|ten|chốt|chot|gửi|gui|nhận|nhan|ship|đổi|doi|thích|thich|chọn|chon|là|la)';
+  '(hỏi|hoi|muốn|muon|cần|can|lấy|lay|đặt|dat|mua|xem|định|dinh|thấy|thay|ở|đang|dang|có|co|đi|di|tên|ten|chốt|chot|gửi|gui|nhận|nhan|ship|đổi|doi|thích|thich|chọn|chon|là|la|chào|chao|cảm ơn|cam on)';
 const SELF_PATTERNS = [
   // "Anh hỏi bộ…", "chị lấy 2 cái" (a vocative "chị ơi" is the customer calling the shop).
   new RegExp(`(?:^|[.!?,\\n]\\s*)${SELF}\\s+${VERBS}(?![\\p{L}])`, 'giu'),
