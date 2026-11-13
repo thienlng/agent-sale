@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { runChecks } from '../evals/checks.js';
+import { hasFragment, runChecks } from '../evals/checks.js';
 import { loadCases } from '../evals/load.js';
 
 const base = {
@@ -285,5 +285,15 @@ describe('eval checks', () => {
       'Dạ Xương rồng gỗ xếp thăng bằng phù hợp bé từ 2 tuổi trở lên, còn hàng ạ.',
     ])
       expect(runChecks(expectation, { ...base, reply: answer })[0]?.pass, answer).toBe(true);
+  });
+});
+
+describe('hasFragment', () => {
+  it('matches a number only at its start, text anywhere', () => {
+    expect(hasFragment('gói 6pn giá 18.000.000đ', '8.000.000')).toBe(false);
+    expect(hasFragment('giá 8.000.000đ/đêm', '8.000.000')).toBe(true);
+    expect(hasFragment('8.000.000đ', '8.000.000')).toBe(true);
+    expect(hasFragment('18.000.000đ, còn 8.000.000đ', '8.000.000')).toBe(true);
+    expect(hasFragment('dạ không bán ạ', 'Không bán')).toBe(true);
   });
 });

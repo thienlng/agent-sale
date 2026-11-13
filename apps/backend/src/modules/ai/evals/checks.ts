@@ -102,6 +102,19 @@ const GREETING = /(xin chào|em chào|shop chào|mình chào|chào (anh|chị|b�
 
 const norm = (text: string): string => text.normalize('NFC').toLowerCase();
 
+/**
+ * Whether `reply` (normalized) contains `fragment`. A fragment that starts with a digit only
+ * matches at the start of a number: "8.000.000" is not found inside "18.000.000".
+ */
+export function hasFragment(reply: string, fragment: string): boolean {
+  const needle = norm(fragment);
+  if (!/^\d/.test(needle)) return reply.includes(needle);
+  for (let at = reply.indexOf(needle); at !== -1; at = reply.indexOf(needle, at + 1)) {
+    if (at === 0 || !/[\d.,]/.test(reply[at - 1] ?? '')) return true;
+  }
+  return false;
+}
+
 /** Deterministic checks only (docs/13 §2.3): an absent expectation is not checked. */
 export function runChecks(expected: EvalExpect, input: CheckInput): CheckResult[] {
   const results: CheckResult[] = [];
@@ -193,7 +206,7 @@ export function runChecks(expected: EvalExpect, input: CheckInput): CheckResult[
         : 'no request recorded',
     );
   if (expected.contains_any) {
-    const hit = expected.contains_any.find((s) => reply.includes(norm(s)));
+    const hit = expected.contains_any.find((s) => hasFragment(reply, s));
     add(
       'contains_any',
       hit !== undefined,
@@ -203,7 +216,7 @@ export function runChecks(expected: EvalExpect, input: CheckInput): CheckResult[
     );
   }
   if (expected.contains_all) {
-    const missing = expected.contains_all.filter((s) => !reply.includes(norm(s)));
+    const missing = expected.contains_all.filter((s) => !hasFragment(reply, s));
     add(
       'contains_all',
       missing.length === 0,
@@ -211,7 +224,7 @@ export function runChecks(expected: EvalExpect, input: CheckInput): CheckResult[
     );
   }
   if (expected.not_contains) {
-    const found = expected.not_contains.filter((s) => reply.includes(norm(s)));
+    const found = expected.not_contains.filter((s) => hasFragment(reply, s));
     add(
       'not_contains',
       found.length === 0,
