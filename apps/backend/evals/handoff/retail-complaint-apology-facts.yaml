@@ -35,6 +35,8 @@ conversation:
 expect:
   guardrail: none
   contains_any: ['xin lỗi']
-  contains_all: ['6 tháng']
+  # PO decision DEC-2 (release staging 2026-11-13): a complaint needs an apology and may be handed
+  # off; quoting the warranty figure is welcome but not required.
+  numbers_only_from_sources: true
 fake_turns:
   - text: 'Dạ em xin lỗi chị vì sự bất tiện này ạ. Giày được bảo hành 6 tháng cho lỗi bong keo, chị gửi giúp em ảnh và mã đơn để cửa hàng hỗ trợ nhé.'
