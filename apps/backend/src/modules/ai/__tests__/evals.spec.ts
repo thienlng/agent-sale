@@ -414,7 +414,8 @@ conversation:`,
     );
     const result = await runCaseFake(c);
     expect(result).toMatchObject({ images: 1, messages: 2, modelCalls: 3, pass: true });
-    expect(result.reply).toBe('Thú gỗ xếp thăng bằng\nDạ bảo hành 6 tháng ạ.');
+    // TM2-10: the caption-only text goes with the picture, not as a bubble of its own.
+    expect(result.reply).toBe('Dạ bảo hành 6 tháng ạ.');
   });
 
   it('fails the message checks on what each delivered message carried', async () => {

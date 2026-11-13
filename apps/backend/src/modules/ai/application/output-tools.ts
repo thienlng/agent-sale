@@ -22,6 +22,28 @@ export const SEND_MESSAGE_TOOL = 'send_message';
 export const HANDOFF_TOOL = 'handoff';
 export const MAX_SEND_TEXT_CHARS = 2_000;
 export const MAX_SEND_IMAGES = 3;
+/** Picture messages per turn (LM3-6: a first reply of 10 bubbles). */
+export const MAX_PICTURE_MESSAGES = 3;
+
+const foldCaption = (text: string): string =>
+  text
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/đ/gi, 'd')
+    .toLowerCase()
+    .replace(/\b(da|day la|anh|hinh|em gui|gui|cua|mau|bo|a)\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+/** The text only names a pictured product ("Thú gỗ xếp thăng bằng", "Dạ ảnh bộ thú gỗ ạ"). */
+export function isCaptionOnly(text: string, labels: readonly string[]): boolean {
+  const t = foldCaption(text);
+  if (!t) return Boolean(text.trim());
+  return labels.some((label) => {
+    const name = foldCaption(label.split(' – ')[0]?.replace(/\s*\(\d+\/\d+\)$/, '') ?? label);
+    return name.includes(t) || (t.includes(name) && t.length <= name.length + 12);
+  });
+}
 
 const SendMessageInput = z
   .object({
@@ -168,7 +190,7 @@ export class ImageAllowlist {
 const SEND_MESSAGE_DEFINITION: ToolDefinition = {
   name: SEND_MESSAGE_TOOL,
   description:
-    'Sends one chat message to the customer right away, while you keep working: optional text (max 2000 characters) and either up to 3 picture ids of one product (from its "images", or the "Images you may send" list) with a line naming that product as the catalog does or one albumId (from product "albums": sends the next 8 photos of that folder the customer has not received yet; the result says how many remain), plus at most one videoId (from product "videos"). Call it several times for more. Do not repeat its text in your answer.',
+    'Sends one chat message to the customer right away, while you keep working: optional text (max 2000 characters) and either up to 3 picture ids of one product (from its "images", or the "Images you may send" list); a text that only names the product is dropped (the pictures carry its name), so put the product names in your answer or one albumId (from product "albums": sends the next 8 photos of that folder the customer has not received yet; the result says how many remain), plus at most one videoId (from product "videos"). Call it several times for more. Do not repeat its text in your answer.',
   input: SendMessageInput,
 };
 
@@ -213,6 +235,8 @@ export function outputTools(opts: {
     return from === undefined ? earlier.has(sentKey(url)) || sentIn(0, url) : sentIn(from, url);
   };
 
+  // Product picture messages sent this turn (album pages page on freely).
+  let pictureMessages = 0;
   const sendMessage: RunnableTool = {
     name: SEND_MESSAGE_TOOL,
     readOnly: false,
@@ -264,7 +288,26 @@ export function outputTools(opts: {
         };
       // A link is text the customer opens; an uploaded video goes out as its own message.
       const link = video?.kind === 'link' ? `${video.title}: ${video.url}` : '';
-      const written = normalizeReplyText(args.text ?? '');
+      // TM2-10: a text that only names the pictured product is a caption, not a message of its
+      // own: the pictures carry the product's name as their label.
+      const raw = normalizeReplyText(args.text ?? '');
+      const written =
+        images.length &&
+        isCaptionOnly(
+          raw,
+          images.map((i) => i.label),
+        )
+          ? ''
+          : raw;
+      // LM3-6: at most MAX_PICTURE_MESSAGES picture messages per turn (one reply stays short).
+      if (!album && images.length && pictureMessages >= MAX_PICTURE_MESSAGES)
+        return {
+          content: safeJson({
+            error: 'too_many_picture_messages',
+            hint: 'Enough pictures for this reply: answer in text and offer more pictures.',
+          }),
+          ok: false,
+        };
       const verdict = written && opts.check ? opts.check(written) : null;
       if (verdict && !verdict.ok)
         return {
@@ -298,6 +341,7 @@ export function outputTools(opts: {
       const firstRestart = Boolean(album && page?.restarted && !restartAt.has(album.id));
       if (album && page?.restarted) restartAt.set(album.id, state.sent.length);
       state.sent.push({ text, images, ...(videos.length ? { videos } : {}), via: 'send_message' });
+      if (!album && images.length) pictureMessages += 1;
       const albumResult = page
         ? {
             album: {

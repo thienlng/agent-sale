@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { MessageSink, OutgoingMessage } from '../api/reply-options.js';
 import {
   ImageAllowlist,
+  isCaptionOnly,
   newOutputState,
   outputTools,
   SEND_MESSAGE_TOOL,
@@ -268,5 +269,42 @@ describe('send_message: pictures already received (MS2-5, LM2-4)', () => {
     // LM3-3: the customer asked to see them again.
     await tool.run({ text: 'Thú gỗ', imageIds: ['p:thu-go:0'], resend: true });
     expect(sent[1]?.images.map((i) => i.url)).toEqual(['https://cdn.example.com/a.jpg']);
+  });
+});
+
+describe('send_message captions and the picture cap (TM2-10, LM3-6)', () => {
+  const toy = (id: string, name: string) =>
+    ({
+      id,
+      name,
+      imageUrls: [`https://cdn.example.com/${id}.jpg`],
+      accommodation: null,
+    }) as unknown as ProductDto;
+
+  it('drops a text that only names the pictured product and caps picture messages at 3', async () => {
+    const sent: OutgoingMessage[] = [];
+    const sink: MessageSink = {
+      send: vi.fn(async (m: OutgoingMessage) => {
+        sent.push(m);
+        return { delivered: 1 };
+      }),
+    };
+    const allowlist = new ImageAllowlist([], BASE);
+    allowlist.addProducts(['a', 'b', 'c', 'd'].map((x) => toy(x, `Thú gỗ ${x.toUpperCase()}`)));
+    const tool = outputTools({
+      sink,
+      allowlist,
+      state: newOutputState(),
+      sendMessage: true,
+    }).runnable.find((t) => t.name === SEND_MESSAGE_TOOL)!;
+    await tool.run({ text: 'Thú gỗ A', imageIds: ['p:a:0'] });
+    expect(sent[0]?.text).toBeUndefined();
+    await tool.run({ text: 'Thú gỗ B phù hợp bé từ 1 tuổi, giá 340.000đ', imageIds: ['p:b:0'] });
+    expect(sent[1]?.text).toContain('phù hợp bé');
+    await tool.run({ imageIds: ['p:c:0'] });
+    const fourth = await tool.run({ imageIds: ['p:d:0'] });
+    expect(JSON.parse(fourth.content)).toMatchObject({ error: 'too_many_picture_messages' });
+    expect(sent).toHaveLength(3);
+    expect(isCaptionOnly('Dạ ảnh bộ Thú gỗ A ạ', ['Thú gỗ A (1/2)'])).toBe(true);
   });
 });

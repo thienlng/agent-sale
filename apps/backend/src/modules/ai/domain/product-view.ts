@@ -35,6 +35,8 @@ export interface CompactProduct {
    */
   fromVnd?: number;
   toVnd?: number;
+  /** A retail product priced 0 (a gift): no stock is shown for it (LM2-11). */
+  notSoldAlone?: boolean;
   /** Retail products only: courses, services and accommodations have no stock. */
   inStock?: boolean;
   catalogKind?: 'accommodation' | 'course' | 'service';
@@ -101,6 +103,18 @@ export function compactProduct(p: ProductDto): CompactProduct {
       imageCount: base.imageCount,
     };
   }
+  // LM2-11: a product priced 0 (a gift with another item) is not stock the customer can buy.
+  if (p.priceMax === 0 && p.variants.some((v) => v.stock.length > 0))
+    return {
+      id: base.id,
+      name: base.name,
+      category: base.category,
+      fromVnd: 0,
+      toVnd: 0,
+      notSoldAlone: true,
+      summary: base.summary,
+      imageCount: base.imageCount,
+    };
   return {
     id: base.id,
     name: base.name,
@@ -125,6 +139,12 @@ export function productDetails(p: ProductDto): ProductDetails {
   }
   const albums = productAlbums([p]).map(idLabel);
   const videos = productVideos([p]).map(idLabel);
+  // LM2-11: no stock count for a 0đ gift.
+  if (compact.notSoldAlone && 'variants' in rest && Array.isArray(rest.variants))
+    rest.variants = rest.variants.map((v) => ({
+      ...v,
+      available: undefined,
+    })) as typeof rest.variants;
   return {
     ...compact,
     ...rest,
