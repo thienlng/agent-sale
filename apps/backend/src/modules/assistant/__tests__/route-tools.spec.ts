@@ -16,6 +16,7 @@ import {
   MAX_PROPOSAL_BODY_CHARS,
   MAX_ROUTE_RESULT_CHARS,
   PROPOSAL_TTL_MS,
+  removedLines,
   routeTools,
   TRUNCATED,
   TURN_READ_BUDGET_CHARS,
@@ -469,6 +470,37 @@ describe('tool_call', () => {
       params: { productId: product.id },
     });
     expect((one.json.body as { description: string }).description).toBe(long);
+  });
+
+  it('tells the model which lines a text edit drops (AS3-2)', () => {
+    const before = {
+      title: 'Giá',
+      content: '- Báo giá từng món.\n- Không hứa giao chủ nhật.\n- Hỏi số điện thoại.',
+    };
+    expect(
+      removedLines(before, { content: '- Báo giá từng món, rồi cộng tổng.\n- Hỏi số điện thoại.' }),
+    ).toEqual(['- Báo giá từng món.', '- Không hứa giao chủ nhật.']);
+    expect(removedLines(before, { content: before.content + '\n- Thêm dòng.' })).toEqual([]);
+    expect(removedLines(before, { enabled: false })).toEqual([]);
+  });
+
+  it('marks test-chat bookings in lodging reads (AS3-4)', async () => {
+    const t = await setup(() => ({
+      status: 200,
+      body: {
+        data: [
+          { code: 'BK-0014', tags: ['Chat thử'] },
+          { code: 'BK-0012', tags: [] },
+        ],
+      },
+    }));
+    const out = await t.call({ key: 'GET /lodging/bookings', query: { view: 'holds' } });
+    expect(out.json.body).toEqual({
+      data: [
+        { testChat: true, code: 'BK-0014', tags: ['Chat thử'] },
+        { code: 'BK-0012', tags: [] },
+      ],
+    });
   });
 
   it('names the property of every availability option (AS3-3)', async () => {

@@ -15,7 +15,7 @@ Use this when the owner wants a figure sent on a rhythm ("mỗi sáng 8h gửi d
    - revenue, sales, profit → revenue_summary (report only); for a hotel it reports the stays (stay revenue, nights sold, bookings, profit) checking in during the period, so "doanh thu lưu trú" is revenue_summary too;
    - new orders → new_orders (report: orders placed in the period; alert: minCount new orders since the last check);
    - products running out → low_stock (threshold, default 5);
-   - customers waiting for a reply → unanswered_conversations (minutes, default 30; minCount, default 1);
+   - customers waiting for a reply → unanswered_conversations (minutes, default 30; minCount, default 1). It reports who is waiting now, at each run, never a past day: name and summarize it so ("Khách đang chờ trả lời"), and tell the owner when they asked for "hôm qua";
    - new customers → new_customers (report only).
 3. Pick the mode: "gửi / báo cáo mỗi …" is a report; "báo khi …" is an alert. Alerts are checked on an every cadence only, minutes in 15, 30, 60, 120, 180, 240, 360 or 720 (default 30).
 4. Turn the phrase into a cadence, Asia/Ho_Chi_Minh time:

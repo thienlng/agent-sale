@@ -234,6 +234,62 @@ export function compactProductList(body: unknown): unknown {
   };
 }
 
+/** Told with `removedLines` (AS3-2). */
+export const REMOVED_LINES_NOTE =
+  'This edit removes these lines the record has now. Unless the owner asked to remove them, draft the edit again keeping them; otherwise name them in your reply.';
+const MAX_REMOVED_LINES = 10;
+
+/** The rule lines or sentences of a text, normalised for comparison. */
+function textLines(text: string): string[] {
+  const lines = text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const parts = lines.length > 1 ? lines : text.split(/(?<=[.!?;])\s+/).map((l) => l.trim());
+  return parts.filter((l) => l.replace(/[-•*\s]/g, '').length > 0);
+}
+const fold = (l: string) =>
+  l
+    .toLowerCase()
+    .replace(/^[-•*\d.)\s]+/, '')
+    .replace(/\s+/g, ' ');
+
+/**
+ * Lines of a string field the record has now (`before`) that the drafted body no longer holds:
+ * a scenario edit that quietly drops existing rules (AS3-2). Only fields the body sets are
+ * compared; at most 10 lines, each cut to 160 chars.
+ */
+export function removedLines(before: unknown, body: unknown): string[] {
+  if (!before || typeof before !== 'object' || !body || typeof body !== 'object') return [];
+  const out: string[] = [];
+  for (const [key, value] of Object.entries(body as Record<string, unknown>)) {
+    const old = (before as Record<string, unknown>)[key];
+    if (typeof value !== 'string' || typeof old !== 'string' || value === old) continue;
+    const kept = new Set(textLines(value).map(fold));
+    const next = fold(value);
+    for (const line of textLines(old)) {
+      if (!kept.has(fold(line)) && !next.includes(fold(line))) out.push(line.slice(0, 160));
+    }
+  }
+  return out.slice(0, MAX_REMOVED_LINES);
+}
+
+/** The tag the bot's test chat puts on its orders and holds. */
+const TEST_CHAT_TAG = 'Chat thử';
+
+/**
+ * Every object carrying the test chat's tag gets `testChat: true` (AS3-4), so a hold made in
+ * "Chat thử" is never read as a guest's.
+ */
+export function markTestChat(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(markTestChat);
+  if (!value || typeof value !== 'object') return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = markTestChat(v);
+  const tags = (value as { tags?: unknown }).tags;
+  return Array.isArray(tags) && tags.includes(TEST_CHAT_TAG) ? { testChat: true, ...out } : out;
+}
+
 const AVAILABILITY_KEY = 'POST /lodging/availability';
 type PropertyLabel = { name: string; code?: string };
 
@@ -385,7 +441,9 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
         ? compactProductList(shown)
         : p.entry.key === AVAILABILITY_KEY
           ? withPropertyNames(shown, await propertyNames(p.businessId))
-          : shown;
+          : p.entry.key.startsWith('GET /lodging/')
+            ? markTestChat(shown)
+            : shown;
     const content = cut(json({ status: res.status, body }), room);
     readChars += content.length;
     return { content };
@@ -465,7 +523,15 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
       expiresAt: new Date(now().getTime() + PROPOSAL_TTL_MS),
     });
     ctx.proposalIds.push(proposal.id);
-    return { content: json({ status: 'awaiting_owner_approval', proposalId: proposal.id }) };
+    // An edit that drops lines of a text the record has now must say so (AS3-2).
+    const removed = before !== undefined ? removedLines(before, p.body) : [];
+    return {
+      content: json({
+        status: 'awaiting_owner_approval',
+        proposalId: proposal.id,
+        ...(removed.length > 0 ? { removedLines: removed, note: REMOVED_LINES_NOTE } : {}),
+      }),
+    };
   }
 
   const search: RunnableTool = {
