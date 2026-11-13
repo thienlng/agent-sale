@@ -18,20 +18,91 @@ cases:
       - text: 'Dạ top sản phẩm 30 ngày qua (tính cả hôm nay, không tính đơn huỷ) là Đăng ký kiểm tra với 2 sản phẩm ạ.'
 
   # AS2-4: customers by status come from customers, not customer_requests.
+  # DEC-8 (PO): GET /crm/requests/summary and the customers-view SQL are both correct; the answer gives the same counts either way.
   - id: customers-by-status-from-customers
     industry: spa
     message: 'khách hàng theo trạng thái hiện tại thế nào'
+    routes:
+      'GET /crm/requests/summary':
+        statuses:
+          - {
+              statusId: 01a16d77-0000-7000-8000-000000000401,
+              key: new_lead,
+              name: Khách mới,
+              color: '#64748b',
+              count: 18,
+            }
+          - {
+              statusId: 01a16d77-0000-7000-8000-000000000402,
+              key: consulting,
+              name: Đang tư vấn,
+              color: '#0ea5e9',
+              count: 27,
+            }
+          - {
+              statusId: 01a16d77-0000-7000-8000-000000000403,
+              key: booking_requested,
+              name: Yêu cầu đặt lịch,
+              color: '#6366f1',
+              count: 14,
+            }
+          - {
+              statusId: 01a16d77-0000-7000-8000-000000000404,
+              key: booked,
+              name: Đã xác nhận lịch,
+              color: '#8b5cf6',
+              count: 23,
+            }
+          - {
+              statusId: 01a16d77-0000-7000-8000-000000000405,
+              key: visited,
+              name: Đã đến,
+              color: '#16a34a',
+              count: 41,
+            }
+          - {
+              statusId: 01a16d77-0000-7000-8000-000000000406,
+              key: no_show,
+              name: Không đến,
+              color: '#f97316',
+              count: 12,
+            }
+          - {
+              statusId: 01a16d77-0000-7000-8000-000000000407,
+              key: lost,
+              name: Không quan tâm,
+              color: '#ef4444',
+              count: 35,
+            }
+        open:
+          - id: 01a16d77-0000-7000-8000-000000000411
+            contactId: 01a16d77-0000-7000-8000-000000000421
+            kind: appointment
+            update: false
+            details: { service: Chăm sóc da mặt }
+            dateLabel: 'Thứ Bảy 14/11/2026'
+            recordedAt: '2026-11-12T03:40:00.000Z'
+            contactName: Thu Hà
+            statusKey: booking_requested
+        recorded7d: 6
+    sql_rows:
+      columns: [{ name: status_name, type: text }, { name: customers, type: number }]
+      rows:
+        - [Khách mới, 18]
+        - [Đang tư vấn, 27]
+        - [Yêu cầu đặt lịch, 14]
+        - [Đã xác nhận lịch, 23]
+        - [Đã đến, 41]
+        - [Không đến, 12]
+        - [Không quan tâm, 35]
     expect:
-      sql:
-        contains: ['from customers', 'group by status_name']
+      answer:
+        contains: ['18', '27', '14', '23', '41', '12', '35']
     fake_turns:
       - tool_calls:
           - name: tool_call
-            input:
-              key: sql_query
-              body:
-                sql: 'select status_name, count(*) as customers from customers where not archived group by status_name order by customers desc'
-      - text: 'Dạ hiện có 2 khách ở trạng thái Đăng ký kiểm tra ạ.'
+            input: { key: GET /crm/requests/summary }
+      - text: 'Dạ khách theo trạng thái: Khách mới 18, Đang tư vấn 27, Yêu cầu đặt lịch 14, Đã xác nhận lịch 23, Đã đến 41, Không đến 12, Không quan tâm 35 ạ.'
 
   # AS-12, AS2-7: the product keeps its whole name and its stock goes on the same card.
   - id: create-product-name-whole-with-stock

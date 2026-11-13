@@ -48,6 +48,33 @@ const TextCheck = z
   .strict()
   .refine((t) => t.contains.length + t.not_contains.length > 0, 'contains or not_contains');
 
+const SqlRows = z
+  .object({
+    columns: z
+      .array(
+        z
+          .object({
+            name: z.string().min(1),
+            type: z.enum(['number', 'text', 'boolean', 'date', 'other']),
+          })
+          .strict(),
+      )
+      .min(1),
+    rows: z.array(z.array(z.union([z.string(), z.number(), z.boolean(), z.null()]))),
+  })
+  .strict()
+  .refine((r) => r.rows.every((row) => row.length === r.columns.length), 'row width = columns');
+type SqlRows = z.infer<typeof SqlRows>;
+
+/** The rows a case's SQL lane answers when it gives no `sql_rows`. */
+const DEFAULT_SQL_ROWS: SqlRows = {
+  columns: [
+    { name: 'status_name', type: 'text' },
+    { name: 'n', type: 'number' },
+  ],
+  rows: [['Đăng ký kiểm tra', 2]],
+};
+
 /** `contains` fragments missing from `text`, and `not_contains` ones present (case-insensitive). */
 export function textProblems(
   label: string,
@@ -108,6 +135,12 @@ export const AssistantEvalCase = z
      * tool calls, without the query) → the JSON body of a 200. Any other route answers 404.
      */
     routes: z.record(z.string().regex(/^(GET|POST|PUT|PATCH|DELETE) \//), z.unknown()).default({}),
+    /**
+     * The rows every `sql_query` of the case answers, whatever the query (DEC-8): a case that
+     * checks the figures in the answer gives the same counts here as in its routes. With it, or
+     * with `expect.sql`, the turn has the SQL lane.
+     */
+    sql_rows: SqlRows.optional(),
     /** The scripted model of fake mode: one entry per model call. */
     fake_turns: z.array(FakeTurn).min(1),
   })
@@ -182,17 +215,15 @@ function subsetProblems(expected: unknown, actual: unknown, path: string): strin
 const noFigures = (): Promise<never> => Promise.reject(new Error('no report data in evals'));
 const squash = (sql: string) => sql.toLowerCase().replace(/\s+/g, ' ');
 
-/** A read-only SQL lane that records the queries and answers one row. */
+/** A read-only SQL lane that records the queries and answers the case's fixed rows. */
 class RecordingSqlRunner implements SqlRunner {
   readonly queries: string[] = [];
+  constructor(private readonly answer: SqlRows) {}
   run(i: Parameters<SqlRunner['run']>[0]): ReturnType<SqlRunner['run']> {
     this.queries.push(i.sql);
     return Promise.resolve({
-      columns: [
-        { name: 'status_name', type: 'text' },
-        { name: 'n', type: 'number' },
-      ],
-      rows: [['Đăng ký kiểm tra', 2]],
+      columns: this.answer.columns.map((c) => ({ ...c })),
+      rows: this.answer.rows.map((r) => [...r]),
       truncated: false,
     });
   }
@@ -259,7 +290,8 @@ export async function runAssistantCase(
       );
     },
   };
-  const sql = c.expect.sql ? new RecordingSqlRunner() : null;
+  const sql =
+    c.expect.sql || c.sql_rows ? new RecordingSqlRunner(c.sql_rows ?? DEFAULT_SQL_ROWS) : null;
   const chat = new ChatTurnService(
     repo,
     gateway,

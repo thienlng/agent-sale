@@ -115,9 +115,12 @@ cases:
       - text: 'Dạ tuần này có 1 đơn mới: DH000003. Anh/chị xem chi tiết ở [Đơn hàng](/app/orders) nhé.'
 
   # AS-12: a create with stock is proposed without promising a later action.
+  # DEC-8 (PO): the duplicate search answers an empty catalog page, as the real route does.
   - id: create-product-with-stock-no-promise
     industry: retail
     message: "tạo thêm sp 'QA Lật đật gấu', giá 89k, tồn 5 cái"
+    routes:
+      'GET /products': { data: [], total: 0, page: 1, pageSize: 20 }
     expect:
       proposal:
         routeKey: POST /products
