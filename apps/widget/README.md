@@ -12,9 +12,9 @@ The site key is read from the script URL (`?key=`). The API origin is the script
 
 ## Look
 
-The launcher is a 60 px rounded square: the bot's avatar (`config.avatarUrl`) on charcoal, else a
+The launcher is a 52 px rounded square: the bot's avatar (`config.avatarUrl`) on charcoal, else a
 chat icon in the shop colour (`--c`), with a status dot and a "Chat với …" tooltip. The panel
-(420 × ≤680 px, full screen under 640 px) has a header with the avatar, name and "Sẵn sàng hỗ trợ",
+(380 × ≤600 px, 8 px above the launcher, full screen under 640 px) has a header with the avatar, name and "Sẵn sàng hỗ trợ",
 the phone strip right under it, the messages (agent bubbles carry the avatar), the composer and a
 "Được hỗ trợ bởi Rapiz AI" footer. Colours derive from the shop colour; motion is a 200 ms open and
 a 150 ms fade on close, none with `prefers-reduced-motion`.

@@ -10,16 +10,16 @@ export const CSS = `
 :host{all:initial}
 *{box-sizing:border-box}
 .root{font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:#1f1f1f;-webkit-font-smoothing:antialiased}
-.root.left .bubble,.root.left .panel{left:24px}
-.root.right .bubble,.root.right .panel{right:24px}
-.root.left .tip{left:96px}.root.right .tip{right:96px}
+.root.left .bubble,.root.left .panel{left:20px}
+.root.right .bubble,.root.right .panel{right:20px}
+.root.left .tip{left:84px}.root.right .tip{right:84px}
 button{font:inherit;cursor:pointer;border:0;background:none;color:inherit;padding:0}
 svg{width:20px;height:20px;fill:currentColor;flex:none}
 button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid #b54708;outline-offset:2px}
-.bubble{position:fixed;bottom:24px;width:60px;height:60px;border-radius:16px;background:var(--c);color:var(--on-c);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(31,31,31,.12),0 10px 28px rgba(31,31,31,.18);transition:transform .15s ease-out,box-shadow .15s ease-out,background .15s ease-out}
+.bubble{position:fixed;bottom:20px;width:52px;height:52px;border-radius:14px;background:var(--c);color:var(--on-c);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(31,31,31,.12),0 10px 28px rgba(31,31,31,.18);transition:transform .15s ease-out,box-shadow .15s ease-out,background .15s ease-out}
 .bubble.mark{background:#1f1f1f}
-.bubble img{width:34px;height:34px;object-fit:contain}
-.bubble svg{width:26px;height:26px}
+.bubble img{width:28px;height:28px;object-fit:contain}
+.bubble svg{width:22px;height:22px}
 .bubble:hover{transform:translateY(-2px);box-shadow:0 4px 8px rgba(31,31,31,.14),0 14px 32px rgba(31,31,31,.2)}
 .bubble:active{transform:none;box-shadow:0 1px 2px rgba(31,31,31,.16)}
 .root.open .bubble{transform:none}
@@ -27,10 +27,10 @@ button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px soli
 .bubble.unread .dot{display:none}
 .badge{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:#d92d20;color:#fff;font-size:12px;font-weight:600;line-height:20px;text-align:center;box-shadow:0 0 0 2px #fff}
 .badge[hidden],.tip[hidden]{display:none}
-.tip{position:fixed;bottom:38px;padding:6px 12px;border-radius:8px;background:#fff;border:1px solid #e5e5e5;font-size:13px;font-weight:500;line-height:18px;white-space:nowrap;box-shadow:0 4px 16px rgba(31,31,31,.12);opacity:0;transform:translateX(4px);pointer-events:none;transition:opacity .15s ease-out,transform .15s ease-out}
+.tip{position:fixed;bottom:31px;padding:6px 12px;border-radius:8px;background:#fff;border:1px solid #e5e5e5;font-size:13px;font-weight:500;line-height:18px;white-space:nowrap;box-shadow:0 4px 16px rgba(31,31,31,.12);opacity:0;transform:translateX(4px);pointer-events:none;transition:opacity .15s ease-out,transform .15s ease-out}
 .bubble:hover+.tip,.bubble:focus-visible+.tip{opacity:1;transform:none}
 .root.open .tip{display:none}
-.panel{position:fixed;bottom:98px;width:min(420px,calc(100vw - 48px));height:min(680px,calc(100vh - 122px));background:#fff;border-radius:20px;border:1px solid #e5e5e5;box-shadow:0 2px 6px rgba(31,31,31,.06),0 24px 56px rgba(31,31,31,.16);display:flex;flex-direction:column;overflow:hidden;animation:pop .2s ease-out}
+.panel{position:fixed;bottom:80px;width:min(380px,calc(100vw - 40px));height:min(600px,calc(100vh - 100px));background:#fff;border-radius:16px;border:1px solid #e5e5e5;box-shadow:0 2px 6px rgba(31,31,31,.06),0 24px 56px rgba(31,31,31,.16);display:flex;flex-direction:column;overflow:hidden;animation:pop .2s ease-out}
 .panel.out{animation:fade .15s ease-in forwards}
 .panel[hidden]{display:none}
 .head{position:relative;display:flex;align-items:center;gap:12px;padding:14px 14px 14px 16px;background:#faf8f5;border-bottom:1px solid #e5e5e5;overflow:hidden}
