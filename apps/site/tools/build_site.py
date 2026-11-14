@@ -956,16 +956,14 @@ def replace_block(text: str, name: str, html: str) -> str:
     return pattern.sub(lambda _: html, text)
 
 
-def agent_loop(root: str) -> str:
-    section = (SITE / 'tools/templates/agent-loop.html').read_text(encoding='utf-8')
-    weave = (SITE / 'tools/templates/agent-weave.svg').read_text(encoding='utf-8')
-    return section.replace('{{root}}', root).replace('{{weave}}', weave)
+def rapiz_agents(root: str) -> str:
+    return (SITE / 'tools/templates/rapiz-agents.html').read_text(encoding='utf-8').replace('{{root}}', root)
 
 
-def build_agent_loop() -> None:
+def build_rapiz_agents() -> None:
     path = ROOT / 'index.html'
-    markup = f'<!--#agent-loop-->{agent_loop("")}<!--/agent-loop-->'
-    path.write_text(replace_block(path.read_text(encoding='utf-8'), 'agent-loop', markup), encoding='utf-8')
+    markup = f'<!--#agents-->{rapiz_agents("")}<!--/agents-->'
+    path.write_text(replace_block(path.read_text(encoding='utf-8'), 'agents', markup), encoding='utf-8')
 
 
 def main() -> None:
@@ -982,7 +980,7 @@ def main() -> None:
     if os.environ.get('SKIP_INDEX'):
         print('skipped index.html (SKIP_INDEX)')
         return
-    build_agent_loop()
+    build_rapiz_agents()
     index = ROOT / 'index.html'
     text = index.read_text(encoding='utf-8')
     text = replace_block(text, 'site-head', header(''))

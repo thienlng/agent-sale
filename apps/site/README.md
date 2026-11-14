@@ -35,9 +35,14 @@ python3 apps/site/tools/build_site.py
 ```
 
 It rewrites every `public/<slug>/index.html` and the marked blocks of `public/index.html`
-(`<!--#site-head-->`, `<!--#site-foot-->`, `<!--#plans-->`, `<!--#plan-cards-->`, `<!--#agent-loop-->`). Do not edit
+(`<!--#site-head-->`, `<!--#site-foot-->`, `<!--#plans-->`, `<!--#plan-cards-->`, `<!--#agents-->`). Do not edit
 generated pages by hand; the next build overwrites them. `public/` is excluded from Prettier for
 the same reason.
+
+The `<!--#agents-->` block is the Rapiz Agents and Core AI sections (`tools/templates/rapiz-agents.html`,
+styled by `static/agents.css`, driven by `static/agents.js`). It names the two agents Shop-Agent
+(customer-facing) and Personal-Assistant (owner-facing); every claim there must match
+`FEATURES.vi.md` sections A and B.
 
 - Plan prices and limits come from plan version 1 in `packages/db/migrations/0015_billing.sql`.
   Update `PLANS` and `COMPARE` when a new plan version is published.
