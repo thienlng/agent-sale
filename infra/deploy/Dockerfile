@@ -25,10 +25,13 @@ RUN pnpm turbo run build \
 # only (`--filter-prod`: devDependency links such as @agent-sales/testing are not followed): no dev
 # tool chain, no web/site/widget libraries. Built outputs stay in place, so the four
 # entries and the migrate CLI keep their paths. Lifecycle scripts already ran in `build`.
+# Not `--offline`: when CI restores the `pnpm fetch` layer from the registry cache, the step
+# does not run and the store cache mount is empty (the packages live only in the deleted
+# node_modules/.pnpm), so missing tarballs are downloaded; the frozen lockfile pins them.
 FROM build AS prod-deps
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     rm -rf node_modules apps/*/node_modules packages/*/node_modules && \
-    pnpm install --prod --frozen-lockfile --offline --ignore-scripts \
+    pnpm install --prod --frozen-lockfile --ignore-scripts \
       --filter-prod '@agent-sales/backend...' --filter-prod '@agent-sales/webhook...'
 
 FROM node:24-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS app
