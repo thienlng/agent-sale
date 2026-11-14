@@ -277,9 +277,15 @@ export class WebchatService {
           page.conversationId,
         );
     }
+    // A message held while staff have the conversation (hand-off or takeover) is pending too, but
+    // the bot is not working on it: no typing dots for the minutes of the pause.
+    const botTyping =
+      typing &&
+      (!page.conversationId ||
+        (await this.conversations.botHolds(site.workspaceId, page.conversationId)));
     return {
       messages: page.messages,
-      botTyping: typing,
+      botTyping,
       phoneCaptured: Boolean(visitor?.phoneE164),
       phoneRequired: phoneRequired(site, visitor),
     };
