@@ -1,4 +1,4 @@
-import webpush from 'web-push';
+import { sendNotification } from 'web-push';
 
 import type {
   NotificationChannel,
@@ -64,7 +64,7 @@ export class WebPushChannel implements NotificationChannel {
   constructor(
     private readonly config: WebPushConfig | null,
     private readonly repo: NotificationRepository,
-    private readonly send_ = webpush.sendNotification.bind(webpush),
+    private readonly send_ = sendNotification,
     private readonly now: () => Date = () => new Date(),
   ) {}
 
