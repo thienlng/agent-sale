@@ -13,7 +13,7 @@
     "serve:tunnel": "PUBLIC_APP_URL=/ SITE_OUT_DIR=./dist-tunnel astro build && SITE_OUT_DIR=./dist-tunnel astro preview --port 4323 --host 127.0.0.1 --ignore-lock"
   },
   "dependencies": {
-    "astro": "^7.4.4"
+    "astro": "^7.4.8"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
