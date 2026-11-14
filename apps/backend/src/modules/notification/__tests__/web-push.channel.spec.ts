@@ -112,7 +112,9 @@ describe('WebPushChannel', () => {
 
     await service.savePushSubscription(accountId, userId, device(1));
     await service.notify({ ...base, dedupKey: 'b' });
-    await runner.tick();
+    // The in-memory clock never repeats a millisecond: a second notification created in the same
+    // millisecond as the first is due 1 ms from now, so tick a little later.
+    await runner.tick(new Date(Date.now() + 1000));
     const retried = [...repo.deliveries.values()].find((d) => d.status !== 'skipped');
     expect(retried).toMatchObject({ status: 'queued', errorCode: 'PushFailedError' });
     expect([...repo.pushSubscriptions.values()][0]?.failures).toBe(1);

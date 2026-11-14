@@ -22,13 +22,14 @@ RUN pnpm turbo run build \
       --filter=@agent-sales/web --filter=@agent-sales/site --filter=@agent-sales/widget
 
 # Production dependencies of the backend and the webhook (and the workspace packages they use)
-# only: no dev tool chain, no web/site/widget libraries. Built outputs stay in place, so the four
+# only (`--filter-prod`: devDependency links such as @agent-sales/testing are not followed): no dev
+# tool chain, no web/site/widget libraries. Built outputs stay in place, so the four
 # entries and the migrate CLI keep their paths. Lifecycle scripts already ran in `build`.
 FROM build AS prod-deps
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     rm -rf node_modules apps/*/node_modules packages/*/node_modules && \
     pnpm install --prod --frozen-lockfile --offline --ignore-scripts \
-      --filter '@agent-sales/backend...' --filter '@agent-sales/webhook...'
+      --filter-prod '@agent-sales/backend...' --filter-prod '@agent-sales/webhook...'
 
 FROM node:24-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS app
 ENV NODE_ENV=production
