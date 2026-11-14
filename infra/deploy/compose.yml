@@ -180,6 +180,8 @@ services:
     restart: unless-stopped
     environment:
       HERMES_BRIDGE_KEY: ${HERMES_BRIDGE_KEY:-}
+      # Turns served at once (1..4); several testers chatting at once need more than one.
+      HERMES_BRIDGE_CONCURRENCY: ${HERMES_BRIDGE_CONCURRENCY:-1}
     volumes: [hermes:/data]
     # `default` for egress to OpenAI (sign-in and turns); `backend` is internal-only.
     networks: [default, backend]
