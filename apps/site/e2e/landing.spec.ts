@@ -164,3 +164,52 @@ test('the chat bubble loads only when a site key is filled in', async ({ page })
   expect(new URL(widget[0]!).pathname).toBe('/widget.js');
   expect(new URL(widget[0]!).searchParams.get('key')).toBe(key);
 });
+
+test('Rapiz Agents: the two chats tell the fix story, then the right answer shows', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/');
+  const duo = page.locator('#ag-duo');
+  await duo.scrollIntoViewIfNeeded();
+  await expect(duo).toHaveClass(/ag-playing/);
+  await expect(duo).toHaveClass(/ag-fixed/, { timeout: 20_000 });
+  await expect(duo.locator('.ag-good')).toHaveText('Dạ phí ship 30.000đ ạ.');
+  await expect(duo.locator('.ag-approve')).toHaveClass(/ag-done/);
+});
+
+test('Rapiz Agents: picking an agent switches the Core AI run; phones get a step list', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/');
+  const root = page.locator('#agents');
+  await page.locator('.ag-go[data-pick="pa"]').click();
+  await expect(root).toHaveAttribute('data-agent', 'pa');
+  await expect(page.locator('.ag-tabs [data-pick="pa"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.ag-fig-pa svg')).toBeVisible();
+  await expect(page.locator('.ag-fig-shop')).toBeHidden();
+  await page.locator('.ag-scn.ag-for-pa [data-scn="1"]').click();
+  await expect(page.locator('#ag-run-title')).toHaveText('“Sao bot trả lời sai khách này?”');
+  await page.locator('.ag-tabs [data-pick="shop"]').click();
+  await expect(root).toHaveAttribute('data-agent', 'shop');
+  await expect(page.locator('#ag-run-title')).toHaveText('Khách hỏi hàng, bot chốt đơn');
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator('.ag-fig-shop .ag-steps')).toBeVisible();
+  await expect(page.locator('.ag-fig-shop svg')).toBeHidden();
+});
+
+test('Rapiz Agents: with reduced motion every message and step is shown at once', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  const duo = page.locator('#ag-duo');
+  await expect(duo).not.toHaveClass(/ag-playing/);
+  for (const item of await duo.locator('[data-at]').all()) await expect(item).toBeVisible();
+  await expect(page.locator('#ag-duo-replay')).toBeHidden();
+  await expect(page.locator('.ag-ctrl')).toBeHidden();
+  await expect(page.locator('.ag-run[data-agent="shop"][data-scn="0"] li')).toHaveCount(5);
+  await expect(page.locator('.ag-run[data-agent="shop"][data-scn="0"]')).toBeVisible();
+});

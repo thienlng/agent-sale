@@ -142,6 +142,7 @@
 | 3 | Bot làm việc thật: chốt đơn, tính tiền, tìm sản phẩm, gọi API | A | [x] |
 | 4 | Bình luận hiểu bài post | D | [x] |
 | 5 | Trợ lý Rapiz: hỏi số liệu ra biểu đồ, báo cáo định kỳ, bác sĩ bot | B | [x] |
+| 5b | Rapiz Agents: hai khung chat minh họa Shop-Agent (bot bán hàng) và Personal-Assistant (trợ lý của chủ), mỗi bên 3 nhóm tính năng; Core AI: một lượt chạy của từng agent | A, B | [x] |
 | 6 | Theo ngành: tab bán lẻ / villa / spa / giáo dục / SaaS, mỗi tab một đoạn chat mẫu | C | [x] |
 | 7 | Bot và người làm chung: inbox, chuyển người, push trên điện thoại | E | [x] |
 | 8 | Dạy bot như dạy nhân viên mới: hồ sơ, quy tắc, lịch sử + khôi phục | F | [x] |
