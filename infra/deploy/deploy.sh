@@ -79,5 +79,15 @@ echo "$tag" > .deployed-tag
 # Backup cron lines (ADR-028); idempotent, so every deploy keeps them current.
 . ./backup-lib.sh
 install_backup_cron "$PWD"
-docker image prune -f --filter until=168h >/dev/null
+# Each deploy pulls a new tag and `image prune` never removes tagged images: on 2026-11-14 107 old
+# tags filled the disk and stopped Postgres. Keep the deployed tag and the previous one (rollback).
+image_repo=${RAPIZ_IMAGE:-$(grep -E '^RAPIZ_IMAGE=' .env | tail -1 | cut -d= -f2- || true)}
+image_repo=${image_repo:-ghcr.io/thienlng/agent-sale}
+for name in app edge; do
+  docker images "$image_repo/$name" --format '{{.Tag}}' | while read -r old; do
+    [[ $old == "$tag" || $old == "$current" ]] || docker rmi "$image_repo/$name:$old" >/dev/null 2>&1 || true
+  done
+done
+docker image prune -f >/dev/null
+docker builder prune -f --filter until=168h >/dev/null 2>&1 || true
 echo "deployed $tag"

@@ -25,6 +25,9 @@ import { type CatalogEntry, ROUTE_CATALOG, type RouteCatalog } from './route-cat
 import { routeErrorLine, summariseRouteError } from './route-errors.js';
 import { type ScheduleProposalBody, SchedulesService } from './schedules.service.js';
 
+/** Tolerated difference between the database clock and this process's clock. */
+const CLOCK_SKEW_MS = 5_000;
+
 /** The stored result shown on a done proposal is at most this long. */
 export const RESULT_PREVIEW_CHARS = 1_000;
 
@@ -326,7 +329,8 @@ export class ProposalService {
         p.status === 'done' &&
         p.businessId === proposal.businessId &&
         p.decidedAt !== null &&
-        p.decidedAt.getTime() >= proposal.createdAt.getTime() &&
+        // `createdAt` comes from the database clock and `decidedAt` from this process: allow skew.
+        p.decidedAt.getTime() >= proposal.createdAt.getTime() - CLOCK_SKEW_MS &&
         (within(p.path, proposal.path) || within(proposal.path, p.path)),
     );
     if (!sibling) return null;

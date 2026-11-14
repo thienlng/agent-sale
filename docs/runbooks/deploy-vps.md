@@ -102,7 +102,8 @@ Merge into `main`. CI runs; when it is green (and the environment reviewer appro
    - ensure the bucket exists;
    - run `migrate`;
    - `up --wait`;
-   - reinstall the backup cron lines.
+   - reinstall the backup cron lines;
+   - remove the app and edge image tags other than the deployed and the previous one (rollback), then dangling images and old build cache. Every release is a new tag, and on 2026-11-14 the old tags filled the disk and stopped Postgres.
 
 If the services do not become healthy, `deploy.sh` restarts the previous tag and the workflow fails.
 
