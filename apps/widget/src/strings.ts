@@ -3,6 +3,13 @@ import type { WidgetLanguage } from './types.js';
 export interface Strings {
   open: string;
   close: string;
+  minimize: string;
+  /** Next to the bubble on hover. */
+  chatWith(name: string): string;
+  /** Under the composer. */
+  poweredBy: string;
+  /** The device lost its network connection. */
+  offline: string;
   send: string;
   /** Under the agent name in the header. */
   status: string;
@@ -16,6 +23,9 @@ export interface Strings {
   phoneSend: string;
   phoneCancel: string;
   invalidPhone: string;
+  contactPlaceholder: string;
+  namePlaceholder: string;
+  invalidContact: string;
   uploadFailed: string;
   genericError: string;
   defaultGreeting: string;
@@ -34,8 +44,12 @@ export interface Strings {
 const vi: Strings = {
   open: 'Mở chat',
   close: 'Đóng',
+  minimize: 'Thu nhỏ',
+  chatWith: (name) => `Chat với ${name}`,
+  poweredBy: 'Được hỗ trợ bởi Rapiz AI',
+  offline: 'Mất kết nối mạng, vui lòng kiểm tra lại kết nối.',
   send: 'Gửi',
-  status: 'Thường trả lời ngay',
+  status: 'Sẵn sàng hỗ trợ',
   placeholder: 'Nhập tin nhắn...',
   attach: 'Gửi ảnh',
   rateLimited: 'Bạn nhắn hơi nhanh, vui lòng thử lại sau ít giây.',
@@ -46,6 +60,9 @@ const vi: Strings = {
   phoneSend: 'Gửi số',
   phoneCancel: 'Quay lại',
   invalidPhone: 'Số điện thoại chưa đúng, vui lòng kiểm tra lại.',
+  contactPlaceholder: 'Số điện thoại hoặc email',
+  namePlaceholder: 'Tên của bạn (không bắt buộc)',
+  invalidContact: 'Số điện thoại hoặc email chưa đúng, vui lòng kiểm tra lại.',
   uploadFailed: 'Không gửi được ảnh, vui lòng thử ảnh khác.',
   genericError: 'Có lỗi xảy ra, vui lòng thử lại sau.',
   defaultGreeting: 'Xin chào! Bạn cần hỗ trợ gì ạ?',
@@ -62,8 +79,12 @@ const vi: Strings = {
 const en: Strings = {
   open: 'Open chat',
   close: 'Close',
+  minimize: 'Minimize',
+  chatWith: (name) => `Chat with ${name}`,
+  poweredBy: 'Powered by Rapiz AI',
+  offline: 'You are offline, please check your connection.',
   send: 'Send',
-  status: 'Usually replies right away',
+  status: 'Ready to help',
   placeholder: 'Type a message...',
   attach: 'Send an image',
   rateLimited: 'You are sending messages too fast, please try again in a few seconds.',
@@ -74,6 +95,9 @@ const en: Strings = {
   phoneSend: 'Send number',
   phoneCancel: 'Back',
   invalidPhone: 'That phone number looks wrong, please check it.',
+  contactPlaceholder: 'Phone number or email',
+  namePlaceholder: 'Your name (optional)',
+  invalidContact: 'That phone number or email looks wrong, please check it.',
   uploadFailed: 'Could not send the image, please try another one.',
   genericError: 'Something went wrong, please try again later.',
   defaultGreeting: 'Hi! How can we help you?',

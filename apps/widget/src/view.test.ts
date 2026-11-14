@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { onColor, sameDocument } from './view.js';
+import { onColor, sameDocument, tint } from './view.js';
 
 describe('onColor', () => {
   it('puts charcoal on light colours', () => {
@@ -28,5 +28,14 @@ describe('sameDocument', () => {
     expect(sameDocument('https://shop.vn/bang-gia/#pricing', here)).toBe(false);
     expect(sameDocument('https://other.vn/#pricing', here)).toBe(false);
     expect(sameDocument('https://shop.vn/', here)).toBe(false);
+  });
+});
+
+describe('tint', () => {
+  it('mixes the colour into white', () => {
+    expect(tint('#FF7A45', 0)).toBe('#ffffff');
+    expect(tint('#FF7A45', 1)).toBe('#ff7a45');
+    expect(tint('#FF7A45', 0.2)).toBe('#ffe4da');
+    expect(tint('#000', 0.5)).toBe('#808080');
   });
 });

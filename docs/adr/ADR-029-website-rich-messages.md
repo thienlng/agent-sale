@@ -21,7 +21,7 @@ untrusted, ADR on the page context); the widget stays plain TypeScript, ES2017, 
 
 1. **One optional `ui` on a message.** `MessageUi {cards?: MessageCard[] ≤6, suggestions?:
    MessageSuggestion[] ≤4}` in `packages/contracts/src/conversation/message-ui.schema.ts`. A card is
-   `{productId, title, price, imageUrl|null}`; a suggestion is `{kind: 'reply', text}` or
+   `{productId, title, price, imageUrl|null, summary?, highlights? ≤3, recommended?}`; a suggestion is `{kind: 'reply', text}` or
    `{kind: 'link', title, url}`. It is stored in the existing `conversation_messages.data` jsonb (no
    migration), only for bot messages of a `website` conversation, and returned by the widget poll
    (`WidgetMessageDto.ui`) and the inbox (`InboxMessageDto.ui`, shown read-only).
@@ -32,7 +32,9 @@ untrusted, ADR on the page context); the widget stays plain TypeScript, ES2017, 
      every product a catalog tool listed, search rows included): name, price line (one price,
      "Từ / From" a range start, or the offering's price note, a short note next to the price) and
      the product's first picture on the public media base (a card picture does not become
-     sendable by id). An id the turn has not seen may also be an exact product code or name
+     sendable by id), plus the description's first sentence as `summary` and up to 3 short
+     facts of the rest as `highlights` (figures first). `recommendedId` (optional, one of the
+     ids) marks that card `recommended`. An id the turn has not seen may also be an exact product code or name
      (models garble near-identical UUIDv7s). Unknown ids are reported back; with none known,
      nothing is sent and the known `{id, name}` are listed so the model can retry.
    - `suggest_next {replies? ≤3, links? ≤2 {id, title}}` keeps up to 4 buttons, replies first,
@@ -47,7 +49,8 @@ untrusted, ADR on the page context); the widget stays plain TypeScript, ES2017, 
    without a fragment and duplicates, and numbers them `n1…`. The model sees `{id, label, path,
    here}` inside `<visitor_page>` and passes ids only; the stored URL is the server's.
 4. **The widget renders and acts.** Cards are a scroll-snap carousel (lazy image fading in over a
-   tinted initial, title, price, "Tìm hiểu thêm →"); a tap sends "Cho mình tìm hiểu thêm về
+   tinted initial, title, price, "Tìm hiểu thêm →"); cards with a summary or highlights are plan
+   cards instead (text and facts, no picture, two per row, the recommended one featured); a tap sends "Cho mình tìm hiểu thêm về
    <title>" as the visitor. Suggestions show under the newest message only while it is an answer
    and the bot is not typing. A reply is sent as the visitor; a link to a section of the same page
    scrolls to it smoothly (instant with reduced motion) and rings it once in the site's colour,

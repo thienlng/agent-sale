@@ -32,7 +32,11 @@ export interface Api {
     file: Blob,
     context?: UploadContext,
   ): Promise<ApiResponse<WidgetUploadResponse>>;
-  phone(token: string, phone: string): Promise<ApiResponse<{ phoneCaptured: boolean }>>;
+  /** The lead form: a phone number or an email in `contact`, and an optional name. */
+  contact(
+    token: string,
+    body: { contact: string; name?: string },
+  ): Promise<ApiResponse<{ captured: 'phone' | 'email' }>>;
 }
 
 export function createApi(origin: string, siteKey: string): Api {
@@ -93,6 +97,6 @@ export function createApi(origin: string, siteKey: string): Api {
       const qs = query.toString();
       return call(`/uploads${qs ? `?${qs}` : ''}`, { method: 'POST', body: form }, token);
     },
-    phone: (token, phone) => call('/phone', json({ phone }), token),
+    contact: (token, body) => call('/contact', json(body), token),
   };
 }

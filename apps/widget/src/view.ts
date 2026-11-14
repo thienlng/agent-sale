@@ -1,5 +1,5 @@
 import { CSS } from './styles.js';
-import { showPhoneChip, type LocalMessage, type State } from './state.js';
+import { GREETING_ID, showPhoneChip, type LocalMessage, type State } from './state.js';
 import type { Strings } from './strings.js';
 import type { MessageCard, MessageSuggestion, WidgetConfig } from './types.js';
 
@@ -9,10 +9,16 @@ export interface ViewHandlers {
   onPickImage(file: File): void;
   onRetry(id: string): void;
   onPhoneChip(): void;
-  onPhoneSubmit(raw: string): void;
+  /** The lead form: a phone or an email, and a name ('' when left empty). */
+  onPhoneSubmit(contact: string, name: string): void;
   onPhoneCancel(): void;
   /** A suggested place on the site: a section of this page or another page (ADR-029). */
   onNavigate(url: string): void;
+}
+
+export interface ViewOptions {
+  /** Questions offered under the greeting of a new conversation (`data-starters`). */
+  starters?: readonly string[];
 }
 
 export interface View {
@@ -26,9 +32,9 @@ export interface View {
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-function icon(path: string): SVGElement {
+function icon(path: string, box = '0 0 24 24'): SVGElement {
   const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('viewBox', box);
   svg.setAttribute('aria-hidden', 'true');
   const p = document.createElementNS(SVG_NS, 'path');
   p.setAttribute('d', path);
@@ -50,8 +56,17 @@ const ICON_CHEVRON =
   'M9.3 5.3a1 1 0 0 1 1.4 0l6 6a1 1 0 0 1 0 1.4l-6 6a1 1 0 0 1-1.4-1.4l5.3-5.3-5.3-5.3a1 1 0 0 1 0-1.4z';
 const ICON_PHONE =
   'M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z';
-const ICON_IMAGE =
-  'M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2zM8.5 13.5l2.5 3 3.5-4.5 4.5 6H5l3.5-4.5z';
+const ICON_ATTACH =
+  'M16.5 6.5v10a4.5 4.5 0 0 1-9 0V6a3 3 0 0 1 6 0v9.5a1.5 1.5 0 0 1-3 0V7H9v8.5a3 3 0 0 0 6 0V6a4.5 4.5 0 0 0-9 0v10.5a6 6 0 0 0 12 0v-10z';
+const ICON_PLANE =
+  'M3.4 20.4 21 12 3.4 3.6a.7.7 0 0 0-1 .8L4.5 11l9.5 1-9.5 1-2.1 6.6a.7.7 0 0 0 1 .8z';
+const ICON_MINUS = 'M5 11h14a1 1 0 1 1 0 2H5a1 1 0 1 1 0-2z';
+const ICON_CHECK =
+  'M9.5 16.2 5.3 12a1 1 0 0 0-1.4 1.4l4.9 4.9a1 1 0 0 0 1.4 0l10-10a1 1 0 0 0-1.4-1.4z';
+const ICON_ASK =
+  'M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-6.5L8 20.5V17H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v9h5v1.5l2-1.5h7V6z';
+/** The brand's three slanted bars (header, featured card, footer). */
+const SLASHES = 'M10 0h6L8 18H2zm12 0h6l-8 18h-6zm12 0h6l-8 18h-6z';
 
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -65,6 +80,11 @@ function el<K extends keyof HTMLElementTagNameMap>(
 }
 
 const isHttp = (u: string): boolean => /^https?:\/\//i.test(u);
+const slashes = (cls: string): SVGElement => {
+  const svg = icon(SLASHES, '0 0 42 18');
+  svg.setAttribute('class', cls);
+  return svg;
+};
 
 /** A URL of this very page with a fragment: following it scrolls instead of loading a page. */
 export function sameDocument(url: string, href: string = window.location.href): boolean {
@@ -90,7 +110,24 @@ export function onColor(hex: string): string {
   return (l + 0.05) / 0.0637 >= 1.05 / (l + 0.05) ? '#1F1F1F' : '#FFFFFF';
 }
 
-export function createView(config: WidgetConfig, strings: Strings, h: ViewHandlers): View {
+/** `hex` mixed into white: `amount` 0 is white, 1 the colour itself. */
+export function tint(hex: string, amount: number): string {
+  let h = hex.slice(1);
+  if (h.length <= 4) h = h.slice(0, 3).replace(/./g, (x) => x + x);
+  const mix = [0, 2, 4].map((i) =>
+    Math.round(255 - (255 - parseInt(h.slice(i, i + 2), 16)) * amount)
+      .toString(16)
+      .padStart(2, '0'),
+  );
+  return `#${mix.join('')}`;
+}
+
+export function createView(
+  config: WidgetConfig,
+  strings: Strings,
+  h: ViewHandlers,
+  options: ViewOptions = {},
+): View {
   const host = el('div');
   host.setAttribute('data-rapiz-widget', '');
   host.style.cssText = 'position:fixed;bottom:0;left:0;width:0;height:0;z-index:2147483000';
@@ -104,15 +141,37 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
   const color = safeColor(config.color);
   wrap.style.setProperty('--c', color);
   wrap.style.setProperty('--on-c', onColor(color));
+  wrap.style.setProperty('--tint', tint(color, 0.2));
+  wrap.style.setProperty('--wash', tint(color, 0.08));
+  const avatarUrl = config.avatarUrl && isHttp(config.avatarUrl) ? config.avatarUrl : null;
+  const initial = (config.agentName.charAt(0) || '?').toUpperCase();
+  // The avatar beside each bot message: the picture, else the name's first letter.
+  wrap.style.setProperty('--av', avatarUrl ? `url(${JSON.stringify(avatarUrl)})` : 'none');
+  wrap.style.setProperty('--ini', avatarUrl ? '""' : JSON.stringify(initial));
+  const logo = (): HTMLElement => {
+    if (!avatarUrl) return el('div', 'logo', initial);
+    const img = el('img', 'logo');
+    img.src = avatarUrl;
+    img.alt = '';
+    return img;
+  };
 
   // Bubble
-  const bubble = el('button', 'bubble');
+  // Bubble: the site's mark on charcoal (like the app icon), else a chat icon in the site colour.
+  const bubble = el('button', avatarUrl ? 'bubble mark' : 'bubble');
   bubble.type = 'button';
   bubble.setAttribute('aria-label', strings.open);
-  bubble.appendChild(icon(ICON_CHAT));
+  if (avatarUrl) {
+    const mark = el('img');
+    mark.src = avatarUrl;
+    mark.alt = '';
+    bubble.appendChild(mark);
+  } else bubble.appendChild(icon(ICON_CHAT));
   const badge = el('span', 'badge');
   badge.hidden = true;
-  bubble.appendChild(badge);
+  bubble.append(el('span', 'dot'), badge);
+  const tip = el('span', 'tip', strings.chatWith(config.agentName));
+  tip.setAttribute('aria-hidden', 'true');
 
   // Panel
   const panel = el('section', 'panel');
@@ -121,24 +180,20 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
   panel.setAttribute('aria-label', config.agentName);
 
   const head = el('div', 'head');
-  let avatar: HTMLElement;
-  if (config.avatarUrl && isHttp(config.avatarUrl)) {
-    const img = el('img', 'avatar');
-    img.src = config.avatarUrl;
-    img.alt = '';
-    avatar = img;
-  } else {
-    avatar = el('div', 'avatar', (config.agentName.charAt(0) || '?').toUpperCase());
-  }
   const title = el('div', 'title');
   const name = el('div', 'name', config.agentName);
   const status = el('div', 'status', strings.status);
   title.append(name, status);
-  const closeBtn = el('button', 'hbtn');
-  closeBtn.appendChild(icon(ICON_CLOSE));
-  closeBtn.type = 'button';
-  closeBtn.setAttribute('aria-label', strings.close);
-  head.append(avatar, title, closeBtn);
+  const headButton = (path: string, label: string): HTMLButtonElement => {
+    const b = el('button', 'hbtn');
+    b.type = 'button';
+    b.setAttribute('aria-label', label);
+    b.appendChild(icon(path));
+    return b;
+  };
+  const minBtn = headButton(ICON_MINUS, strings.minimize);
+  const closeBtn = headButton(ICON_CLOSE, strings.close);
+  head.append(logo(), title, slashes('deco'), minBtn, closeBtn);
 
   const list = el('div', 'list');
   list.setAttribute('role', 'log');
@@ -153,7 +208,8 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
   notice.hidden = true;
   notice.setAttribute('role', 'alert');
 
-  // Phone chip: a pill above the text field, the way into the phone form.
+  // Phone strip under the header: the offer, then the phone form in its place.
+  const lead = el('div', 'lead');
   const chip = el('button', 'chip');
   chip.type = 'button';
   chip.hidden = true;
@@ -170,7 +226,7 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
   const attach = el('button', 'ibtn');
   attach.type = 'button';
   attach.setAttribute('aria-label', strings.attach);
-  attach.appendChild(icon(ICON_IMAGE));
+  attach.appendChild(icon(ICON_ATTACH));
   const input = el('textarea');
   input.rows = 1;
   input.maxLength = 2000;
@@ -179,12 +235,14 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
   const send = el('button', 'send');
   send.type = 'submit';
   send.setAttribute('aria-label', strings.send);
-  send.appendChild(icon(ICON_SEND));
+  send.appendChild(icon(ICON_PLANE));
+  send.disabled = true;
   const field = el('div', 'field');
   field.append(attach, input, send);
-  composer.append(chip, file, field);
+  composer.append(file, field);
 
-  // Phone composer: the prompt, then the number in the same field as a message.
+  // Lead form: the prompt, an optional name, then a phone number or an email (a phone only while
+  // the site requires one) next to the send button.
   const phoneForm = el('form', 'phoneform');
   phoneForm.hidden = true;
   const phoneHead = el('div', 'phead');
@@ -196,29 +254,47 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
   phoneCancel.setAttribute('aria-label', strings.phoneCancel);
   phoneCancel.appendChild(icon(ICON_CLOSE));
   phoneHead.append(phoneBadge, hint, phoneCancel);
+  const nameInput = el('input');
+  nameInput.type = 'text';
+  nameInput.autocomplete = 'name';
+  nameInput.maxLength = 80;
+  nameInput.placeholder = strings.namePlaceholder;
+  nameInput.setAttribute('aria-label', strings.namePlaceholder);
+  const nameField = el('div', 'field');
+  nameField.append(nameInput);
   const phoneInput = el('input');
-  phoneInput.type = 'tel';
-  phoneInput.autocomplete = 'tel';
-  phoneInput.inputMode = 'tel';
-  phoneInput.placeholder = strings.phonePlaceholder;
-  phoneInput.setAttribute('aria-label', strings.phonePlaceholder);
+  phoneInput.type = 'text';
+  phoneInput.maxLength = 254;
+  phoneInput.autocomplete = 'on';
+  /** The contact field takes an email too, unless the site requires a phone number. */
+  const contactField = (phoneOnly: boolean): void => {
+    const label = phoneOnly ? strings.phonePlaceholder : strings.contactPlaceholder;
+    phoneInput.inputMode = phoneOnly ? 'tel' : 'text';
+    phoneInput.placeholder = label;
+    phoneInput.setAttribute('aria-label', label);
+  };
+  contactField(false);
   const phoneSend = el('button', 'send');
   phoneSend.type = 'submit';
   phoneSend.setAttribute('aria-label', strings.phoneSend);
-  phoneSend.appendChild(icon(ICON_ARROW));
+  phoneSend.appendChild(icon(ICON_SEND));
   const phoneField = el('div', 'field');
   phoneField.append(phoneInput, phoneSend);
   const phoneErr = el('p', 'err');
   phoneErr.hidden = true;
   phoneErr.setAttribute('role', 'alert');
-  phoneForm.append(phoneHead, phoneField, phoneErr);
+  phoneForm.append(phoneHead, nameField, phoneField, phoneErr);
 
-  panel.append(head, list, notice, composer, phoneForm);
-  wrap.append(bubble, panel);
+  lead.append(chip, phoneForm);
+  const foot = el('div', 'foot');
+  foot.append(slashes(''), el('span', '', strings.poweredBy));
+  panel.append(head, lead, list, notice, composer, foot);
+  wrap.append(bubble, tip, panel);
   root.append(style, wrap);
 
   // Events
   let isOpen = false;
+  let closing: ReturnType<typeof setTimeout> | undefined;
   const toggle = (open: boolean): void => h.onToggle(open);
   bubble.addEventListener('click', () => toggle(!isOpen));
   const closePanel = (): void => {
@@ -226,6 +302,7 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
     bubble.focus();
   };
   closeBtn.addEventListener('click', closePanel);
+  minBtn.addEventListener('click', closePanel);
   panel.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && isOpen) closePanel();
   });
@@ -241,8 +318,17 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
     const text = input.value.trim();
     if (!text) return;
     input.value = '';
+    grow();
     h.onSend(text);
   });
+  let busy = false;
+  /** The field follows its text up to the CSS max height; send waits for some text. */
+  const grow = (): void => {
+    input.style.height = 'auto';
+    if (input.scrollHeight) input.style.height = `${input.scrollHeight}px`;
+    send.disabled = busy || !input.value.trim();
+  };
+  input.addEventListener('input', grow);
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
@@ -251,7 +337,7 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
   });
   phoneForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    h.onPhoneSubmit(phoneInput.value);
+    h.onPhoneSubmit(phoneInput.value, nameInput.value);
   });
   phoneCancel.addEventListener('click', () => h.onPhoneCancel());
 
@@ -264,6 +350,31 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
     for (const c of cards) {
       const card = el('button', 'card');
       card.type = 'button';
+      card.addEventListener('click', () => h.onSend(strings.askAbout(c.title)));
+      row.appendChild(card);
+      if (c.summary || c.highlights?.length) {
+        card.classList.add('plan');
+        if (c.recommended) {
+          card.classList.add('rec');
+          card.appendChild(slashes('sl'));
+        }
+        card.append(el('span', 'ct', c.title));
+        if (c.summary) card.append(el('span', 'cs', c.summary));
+        if (c.price) card.append(el('span', 'cp', c.price));
+        if (c.highlights?.length) {
+          const facts = el('ul', 'hl');
+          for (const x of c.highlights) {
+            const li = el('li');
+            li.append(icon(ICON_CHECK), el('span', '', x));
+            facts.appendChild(li);
+          }
+          card.appendChild(facts);
+        }
+        const cta = el('span', 'cta', strings.learnMore);
+        cta.appendChild(icon(ICON_ARROW));
+        card.appendChild(cta);
+        continue;
+      }
       const pic = el('span', 'pic');
       pic.setAttribute('data-initial', (c.title.trim().charAt(0) || '•').toUpperCase());
       if (c.imageUrl && isHttp(c.imageUrl)) {
@@ -285,8 +396,6 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
       more.appendChild(go);
       body.append(more);
       card.append(pic, body);
-      card.addEventListener('click', () => h.onSend(strings.askAbout(c.title)));
-      row.appendChild(card);
     }
     const step = (dir: number) => (): void =>
       row.scrollBy({ left: dir * (row.clientWidth - 48), behavior: 'smooth' });
@@ -323,7 +432,7 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
         if (local) b.classList.add('down');
         b.addEventListener('click', () => h.onNavigate(s.url));
       } else {
-        b.appendChild(icon(ICON_ARROW));
+        b.insertBefore(icon(ICON_ASK), b.firstChild);
         b.addEventListener('click', () => h.onSend(s.text));
       }
       box.appendChild(b);
@@ -404,9 +513,21 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
     host,
     update(s) {
       isOpen = s.open;
-      panel.hidden = !s.open;
+      if (s.open) {
+        clearTimeout(closing);
+        panel.classList.remove('out');
+        panel.hidden = false;
+      } else if (!panel.hidden && !panel.classList.contains('out')) {
+        // Fade out, then hide (the CSS skips the fade for reduced motion and small screens).
+        panel.classList.add('out');
+        closing = setTimeout(() => {
+          panel.hidden = true;
+          panel.classList.remove('out');
+        }, 150);
+      }
       wrap.classList.toggle('open', s.open);
       bubble.setAttribute('aria-expanded', String(s.open));
+      bubble.classList.toggle('unread', s.unread > 0);
       badge.hidden = s.unread === 0;
       badge.textContent = s.unread > 9 ? '9+' : String(s.unread);
       fit();
@@ -423,15 +544,24 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
       });
       // Suggestions belong to the newest message only, while it is an answer and nothing is coming.
       const last = s.messages[s.messages.length - 1];
+      // A new conversation offers the site's starter questions under the greeting instead.
+      const starters: MessageSuggestion[] =
+        s.messages.length === 1 && last?.id === GREETING_ID
+          ? (options.starters ?? []).map((text) => ({ kind: 'reply', text }))
+          : [];
       const offer =
-        last && last.role === 'agent' && !s.botTyping && last.ui?.suggestions?.length ? last : null;
+        last && last.role === 'agent' && !s.botTyping && last.ui?.suggestions?.length
+          ? { id: last.id, items: last.ui.suggestions }
+          : starters.length
+            ? { id: GREETING_ID, items: starters }
+            : null;
       let added = false;
       if (suggestion && suggestion.id !== offer?.id) {
         suggestion.node.remove();
         suggestion = null;
       }
       if (offer && !suggestion) {
-        suggestion = { id: offer.id, node: buildSuggestions(offer.ui?.suggestions ?? []) };
+        suggestion = { id: offer.id, node: buildSuggestions(offer.items) };
         added = true;
       }
       let cursor: ChildNode | null = list.firstChild;
@@ -457,7 +587,9 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
       composer.hidden = phoneMode;
       phoneForm.hidden = !phoneMode;
       phoneCancel.hidden = s.phoneRequired;
+      contactField(s.phoneRequired);
       chip.hidden = !showPhoneChip(s);
+      lead.hidden = chip.hidden && !phoneMode;
       // Last, once the chip or the phone form has resized the list: a reader at the bottom stays there.
       if (nearBottom || (added && s.messages.length < 3)) list.scrollTop = list.scrollHeight;
     },
@@ -473,12 +605,15 @@ export function createView(config: WidgetConfig, strings: Strings, h: ViewHandle
         phoneErr.textContent = text ?? '';
       });
     },
-    setBusy(busy) {
-      send.disabled = busy;
-      phoneSend.disabled = busy;
+    setBusy(on) {
+      busy = on;
+      field.setAttribute('aria-busy', String(on));
+      phoneField.setAttribute('aria-busy', String(on));
+      phoneSend.disabled = on;
+      grow();
     },
     focusInput() {
-      (phoneForm.hidden ? input : phoneInput).focus();
+      (phoneForm.hidden ? input : nameInput).focus();
     },
   };
   return view;

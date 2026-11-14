@@ -13,3 +13,9 @@ export function checkPhone(input: string): string | null {
   if (/^\+|^\(\+/.test(trimmed) && digits.length >= 8 && digits.length <= 15) return `+${digits}`;
   return null;
 }
+
+/** Client-side email shape check (the server normalises and rejects placeholders). */
+export function checkEmail(input: string): string | null {
+  const trimmed = input.trim();
+  return trimmed.length <= 254 && /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(trimmed) ? trimmed : null;
+}

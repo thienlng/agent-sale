@@ -131,11 +131,11 @@ test('visitor chats, staff answers from the inbox, visitor leaves a phone', asyn
         phoneRequired: false,
       });
     }
-    if (url.pathname === `${new URL(API).pathname}/phone`) {
-      const body = route.request().postDataJSON() as { phone: string };
-      phone = body.phone;
+    if (url.pathname === `${new URL(API).pathname}/contact`) {
+      const body = route.request().postDataJSON() as { contact: string; name?: string };
+      phone = body.contact;
       capturedAt = new Date().toISOString();
-      return json({ phoneCaptured: true });
+      return json({ captured: 'phone' });
     }
     return json({ error: 'not_found' }, 404);
   });
@@ -263,9 +263,9 @@ test('visitor chats, staff answers from the inbox, visitor leaves a phone', asyn
     timeout: WIDGET_POLL_WAIT_MS,
   });
 
-  // The visitor leaves a number through the chip.
+  // The visitor leaves a number through the chip (the lead form takes a phone or an email).
   await host.getByRole('button', { name: 'Gửi số điện thoại để được gọi lại' }).click();
-  await host.getByRole('textbox', { name: 'Số điện thoại của bạn' }).fill(PHONE);
+  await host.getByRole('textbox', { name: 'Số điện thoại hoặc email' }).fill(PHONE);
   await host.getByRole('button', { name: 'Gửi số', exact: true }).click();
   await expect.poll(() => phone).toMatch(/^(\+84|0)912345678$/);
 

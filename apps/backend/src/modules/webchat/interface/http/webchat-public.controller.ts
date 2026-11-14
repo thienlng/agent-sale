@@ -154,6 +154,17 @@ export class WebchatPublicController {
     return this.reply(reply, req, 200, () => this.service.phone(this.call(key, req), body));
   }
 
+  @Post('contact')
+  @HttpCode(200)
+  contact(
+    @Param('key') key: string,
+    @Body() body: unknown,
+    @Req() req: FastifyRequest,
+    @Res() reply: FastifyReply,
+  ) {
+    return this.reply(reply, req, 200, () => this.service.contact(this.call(key, req), body));
+  }
+
   private call(key: string, req: FastifyRequest): PublicCall {
     return {
       key,

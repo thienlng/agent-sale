@@ -13,6 +13,8 @@ export interface State {
   awaiting: boolean;
   botTyping: boolean;
   phoneCaptured: boolean;
+  /** A phone or an email was left: the lead form is done. */
+  contactCaptured: boolean;
   phoneRequired: boolean;
   inputMode: 'text' | 'phone';
   /** Id of the last server message seen by the poller (`after` cursor). */
@@ -38,7 +40,7 @@ export type Action =
   | { type: 'awaitTimeout' }
   | { type: 'phoneRequired' }
   | { type: 'inputMode'; mode: 'text' | 'phone' }
-  | { type: 'phoneSaved' }
+  | { type: 'contactSaved'; kind: 'phone' | 'email' }
   | { type: 'reset' };
 
 export function initialState(greeting: string, now: string = new Date().toISOString()): State {
@@ -59,6 +61,7 @@ export function initialState(greeting: string, now: string = new Date().toISOStr
     awaiting: false,
     botTyping: false,
     phoneCaptured: false,
+    contactCaptured: false,
     phoneRequired: false,
     inputMode: 'text',
     cursor: null,
@@ -106,6 +109,7 @@ function merge(s: State, res: WidgetPollResponse, restored: boolean): State {
   }
 
   const phoneCaptured = s.phoneCaptured || res.phoneCaptured;
+  const contactCaptured = s.contactCaptured || phoneCaptured || res.contactCaptured === true;
   const phoneRequired = !phoneCaptured && res.phoneRequired;
   return {
     ...s,
@@ -116,6 +120,7 @@ function merge(s: State, res: WidgetPollResponse, restored: boolean): State {
     awaiting: gotAgent ? false : s.awaiting,
     botTyping: res.botTyping,
     phoneCaptured,
+    contactCaptured,
     phoneRequired,
     inputMode: phoneRequired ? 'phone' : s.inputMode,
   };
@@ -161,18 +166,26 @@ export function reduce(s: State, a: Action): State {
       return s.phoneCaptured ? s : { ...s, phoneRequired: true, inputMode: 'phone' };
     case 'inputMode':
       return { ...s, inputMode: a.mode };
-    case 'phoneSaved':
-      return { ...s, phoneCaptured: true, phoneRequired: false, inputMode: 'text' };
+    case 'contactSaved':
+      return a.kind === 'phone'
+        ? {
+            ...s,
+            phoneCaptured: true,
+            contactCaptured: true,
+            phoneRequired: false,
+            inputMode: 'text',
+          }
+        : { ...s, contactCaptured: true, inputMode: s.phoneRequired ? 'phone' : 'text' };
     case 'reset':
       return { ...s, cursor: null, serverIds: [] };
   }
 }
 
-/** The phone chip shows after the first real agent message, until a phone is captured. */
+/** The lead chip shows after the first real agent message, until a phone or an email is left. */
 export function showPhoneChip(s: State): boolean {
   return (
     s.hasToken &&
-    !s.phoneCaptured &&
+    !s.contactCaptured &&
     s.inputMode === 'text' &&
     s.messages.some((m) => m.role === 'agent' && m.id !== GREETING_ID)
   );

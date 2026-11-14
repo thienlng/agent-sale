@@ -79,10 +79,15 @@ the pages make no extra request.
   `apps/backend/src/cli/rapiz-site-bot/content.ts`; it may only state what these pages and
   `FEATURES.vi.md` say, so update it with the copy (prices included).
 - **The plans.** The seed also puts the four plans (`SITE_PLANS`) in the bot's catalog as service
-  products, one variant per prepaid term, so the bot answers price questions with plan cards. Their
+  products, one variant per prepaid term, so the bot answers price questions with plan cards. A
+  plan's description starts with a one-sentence pitch, then its figures: the cards show the pitch
+  and the first figures. Their
   pictures are `public/images/plans/*.png`, rendered by `node apps/site/tools/plan_images.mjs`
   (re-run it after changing the plans). The seed copies each picture into the catalog from `--site`
   (default `https://<first domain>`) when the product has none, so deploy the site first.
+- **The look.** The seed names the bot "Rapiz AI" and sets its avatar to
+  `https://<first public domain>/images/rapiz-symbol-faceted.svg` (the launcher and message
+  avatar). `public/static/site-widget.js` sets the greeting's starter buttons (`data-starters`).
 
 The bot reads the page the visitor writes from. Every page names its parts with
 `data-rapiz-section` (lowercase, `hero`, `pricing`, `plan-sales_smart`, …) and, where a short

@@ -2,6 +2,8 @@ import { defineRoutes } from '../common/routes.js';
 import {
   WebsiteVisitorDto,
   WidgetConfigDto,
+  WidgetContactRequest,
+  WidgetContactResponse,
   WidgetPhoneRequest,
   WidgetPhoneResponse,
   WidgetPollResponse,
@@ -51,6 +53,15 @@ export const webchatRoutes = defineRoutes([
     summary: 'Leave a phone number',
     body: WidgetPhoneRequest,
     responses: { 200: WidgetPhoneResponse },
+  },
+  {
+    ...open,
+    method: 'post',
+    path: '/webchat/v1/sites/{key}/contact',
+    summary:
+      'Leave contact details (lead form): a phone number or an email in `contact` and an optional name, which names a new customer or replaces a generated name',
+    body: WidgetContactRequest,
+    responses: { 200: WidgetContactResponse },
   },
   {
     auth: true,

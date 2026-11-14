@@ -16,7 +16,7 @@ import type { WorkspaceFacade } from '../../workspace/api/index.js';
 import { LlmRuntime } from '../application/llm-runtime.js';
 import { PlaygroundService } from '../application/playground.service.js';
 import type { LlmProviderFactory } from '../application/ports/llm-provider-factory.js';
-import { cardPrice } from '../application/website-tools.js';
+import { cardDetails, cardPrice } from '../application/website-tools.js';
 import { InMemoryAiRunRepository } from '../infrastructure/persistence/ai-run.repositories.js';
 import { InMemoryLlmConfigRepository } from '../infrastructure/persistence/llm-config.in-memory-repository.js';
 
@@ -165,6 +165,34 @@ describe('website rich messages', () => {
     expect(result.unknownProductIds).toEqual(['ghost']);
   });
 
+  it('gives cards the summary and facts of the description, and marks the recommended one', async () => {
+    const smart = {
+      ...product('smart', 'Sales Smart', [785_000, 785_000]),
+      description: 'Cho đội sale nhỏ. 5 thành viên, 5 kênh, 7.000 lượt trả lời AI mỗi 30 ngày.',
+    };
+    const { ask } = build(
+      [
+        search,
+        call('show_products', {
+          text: 'Dạ đây ạ',
+          productIds: ['basic', 'smart'],
+          recommendedId: 'Sales Smart',
+        }),
+        { text: 'Dạ ạ.' },
+      ],
+      [basic, smart],
+    );
+    const res = await ask('có những gói nào');
+    const [first, second] = res.messages?.[0]?.ui?.cards ?? [];
+    expect(first).not.toHaveProperty('summary');
+    expect(first).not.toHaveProperty('recommended');
+    expect(second).toMatchObject({
+      summary: 'Cho đội sale nhỏ.',
+      highlights: ['5 thành viên', '5 kênh', '7.000 lượt trả lời AI mỗi 30 ngày'],
+      recommended: true,
+    });
+  });
+
   it('refuses cards for products the turn has not seen', async () => {
     const { fake, ask } = build([
       call('show_products', { text: 'Dạ đây ạ', productIds: ['basic'] }),
@@ -264,6 +292,29 @@ describe('website rich messages', () => {
     ]);
     const res = await ask('giá bao nhiêu');
     expect(res.messages?.some((m) => m.ui)).toBe(false);
+  });
+});
+
+describe('cardDetails', () => {
+  it('takes the first sentence as the summary and short items as facts, figures first', () => {
+    expect(
+      cardDetails('Một người, một fanpage: đủ để thử. Không cần thẻ, 1 thành viên; tối đa 3 kênh.'),
+    ).toEqual({
+      summary: 'Một người, một fanpage: đủ để thử.',
+      highlights: ['1 thành viên', 'Tối đa 3 kênh', 'Không cần thẻ'],
+    });
+  });
+
+  it('gives prose no facts and shortens a long summary at a word', () => {
+    const long = `${'Áo thun cotton mềm mại '.repeat(10)}thoáng mát.`;
+    const { summary, highlights } = cardDetails(long);
+    expect(summary.length).toBeLessThanOrEqual(160);
+    expect(summary.endsWith('…')).toBe(true);
+    expect(highlights).toEqual([]);
+    expect(
+      cardDetails('Áo đẹp. Chất vải được dệt từ sợi bông hữu cơ trồng tại vùng cao nguyên Đà Lạt.'),
+    ).toEqual({ summary: 'Áo đẹp.', highlights: [] });
+    expect(cardDetails('')).toEqual({ summary: '', highlights: [] });
   });
 });
 

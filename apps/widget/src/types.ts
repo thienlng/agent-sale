@@ -38,6 +38,11 @@ export interface MessageCard {
   title: string;
   price: string;
   imageUrl: string | null;
+  /** With a summary or highlights the card is drawn as a plan card (text, facts, no picture). */
+  summary?: string;
+  highlights?: string[];
+  /** The card the bot recommends: drawn as the featured card. */
+  recommended?: boolean;
 }
 
 /** A follow-up button: a reply sent as the visitor, or a place on the site to go to. */
@@ -82,6 +87,8 @@ export interface WidgetPollResponse {
   messages: WidgetMessage[];
   botTyping: boolean;
   phoneCaptured: boolean;
+  /** A phone or an email was left; absent from older backends. */
+  contactCaptured?: boolean;
   phoneRequired: boolean;
 }
 

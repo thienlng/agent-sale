@@ -19,6 +19,7 @@ import {
   type SitePlan,
   SITE_PROFILE_FIELDS,
   SITE_PROFILE_NOTES,
+  SITE_AVATAR_PATH,
   SITE_WIDGET,
 } from './content.js';
 
@@ -120,10 +121,13 @@ export async function seedRapizSiteBot(
   const connectionId =
     existingSite ??
     (await deps.channels.createWebsite(ws, { name: SITE_CHANNEL_NAME, domains, botId })).id;
+  // The bubble shows the bot avatar: the faceted R the site publishes, on its first public domain.
+  const publicDomain = domains.find((d) => d.includes('.') && !/^[\d.]+$/.test(d));
   const site = await deps.channels.updateWebsite(ws, connectionId, {
     enabled: true,
     domains,
     ...SITE_WIDGET,
+    ...(publicDomain ? { avatarUrl: `https://${publicDomain}${SITE_AVATAR_PATH}` } : {}),
   });
 
   return {

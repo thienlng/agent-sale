@@ -93,6 +93,8 @@ export const WidgetPollResponse = z.object({
   messages: z.array(WidgetMessageDto),
   botTyping: z.boolean(),
   phoneCaptured: z.boolean(),
+  /** The visitor left a phone or an email (the lead form is done); absent from older backends. */
+  contactCaptured: z.boolean().optional(),
   phoneRequired: z.boolean(),
 });
 export type WidgetPollResponse = z.infer<typeof WidgetPollResponse>;
@@ -109,6 +111,16 @@ export type WidgetPhoneRequest = z.infer<typeof WidgetPhoneRequest>;
 
 export const WidgetPhoneResponse = z.object({ phoneCaptured: z.literal(true) });
 export type WidgetPhoneResponse = z.infer<typeof WidgetPhoneResponse>;
+
+/** The lead form: a phone number or an email in one field, and an optional name. */
+export const WidgetContactRequest = z.object({
+  contact: z.string().trim().min(3).max(254),
+  name: z.string().trim().max(80).optional(),
+});
+export type WidgetContactRequest = z.infer<typeof WidgetContactRequest>;
+
+export const WidgetContactResponse = z.object({ captured: z.enum(['phone', 'email']) });
+export type WidgetContactResponse = z.infer<typeof WidgetContactResponse>;
 
 /** What staff see about a website visitor in the conversation side panel. */
 export const WebsiteVisitorDto = z.object({
