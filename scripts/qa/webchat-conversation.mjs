@@ -74,6 +74,7 @@ async function collect(sentAt) {
       state.after = m.id;
     }
     if (p.botTyping) quietSince = null;
+    else if (got.length) quietSince ??= Date.now();
     if (got.length && quietSince && Date.now() - quietSince > 5000) break;
   }
   return got;
