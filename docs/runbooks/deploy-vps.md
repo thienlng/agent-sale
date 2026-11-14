@@ -153,7 +153,7 @@ Bots can run on a ChatGPT-plan login through the Hermes bridge (`services/hermes
 
 1. Build the image on the server. The context is a staging folder with `hermes-agent/` (the Hermes source, without `.git`, `tests`, `website`, `apps`) and `bridge/` (a copy of `services/hermes` without `var/`):
    `docker build -f hermes.Dockerfile -t rapiz-hermes:local <staging folder>`
-2. In `.env`: `COMPOSE_PROFILES=hermes`, `HERMES_BRIDGE_KEY=<random, 32+ characters>` and `HERMES_SUBSCRIPTION_LOGIN=true` (shows the sign-in panel in production).
+2. In `.env`: `COMPOSE_PROFILES=hermes`, `HERMES_BRIDGE_KEY=<random, 32+ characters>` and `HERMES_SUBSCRIPTION_LOGIN=true` (shows the sign-in panel in production). `HERMES_BRIDGE_CONCURRENCY` (1..4, default 1) is how many turns the bridge serves at once; production uses 3 since 2026-11-14 so several testers are not queued behind each other.
 3. `RAPIZ_TAG=$(cat .deployed-tag) docker compose --env-file .env up -d hermes api agent worker`.
 4. Admin → Mô hình AI: add a **Hermes** provider with address `http://hermes:8788` and the bridge key as API key, press "Đăng nhập ChatGPT" and approve the code, then route the tiers to a model from the list.
 
