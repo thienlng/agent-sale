@@ -37,6 +37,11 @@ export interface CaseResult {
   latencyMs: number | null;
   /** Model calls of the turn (1 without tools; each tool round adds one). */
   modelCalls: number;
+  /** Tokens of every model call of the turn together (0 when the provider reports none). */
+  inputTokens: number;
+  outputTokens: number;
+  /** Set when the case ran more than once (`--repeat`): how many runs passed. */
+  repeats?: { passed: number; total: number };
   /** Pictures sent in the turn, every message together. */
   images: number;
   /** Messages delivered in the turn (`send_message` ones and the final one). */
@@ -327,6 +332,8 @@ const errorResult = (c: EvalCase, error: string): CaseResult => ({
   model: null,
   latencyMs: null,
   modelCalls: 0,
+  inputTokens: 0,
+  outputTokens: 0,
   images: 0,
   messages: 0,
   tools: [],
@@ -344,9 +351,14 @@ export async function runCase(
   // Count the model calls of the turn by wrapping the runtime the pipeline uses.
   const generate = llm.generate.bind(llm);
   let modelCalls = 0;
-  llm.generate = (req) => {
+  let inputTokens = 0;
+  let outputTokens = 0;
+  llm.generate = async (req) => {
     modelCalls += 1;
-    return generate(req);
+    const res = await generate(req);
+    inputTokens += res.usage.inputTokens;
+    outputTokens += res.usage.outputTokens;
+    return res;
   };
   try {
     const now = new Date();
@@ -394,6 +406,8 @@ export async function runCase(
       model: res.model,
       latencyMs: res.latencyMs,
       modelCalls,
+      inputTokens,
+      outputTokens,
       images,
       messages: delivered.length,
       tools,
