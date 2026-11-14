@@ -9,7 +9,8 @@ export interface ViewHandlers {
   onPickImage(file: File): void;
   onRetry(id: string): void;
   onPhoneChip(): void;
-  onPhoneSubmit(raw: string): void;
+  /** The lead form: a phone or an email, and a name ('' when left empty). */
+  onPhoneSubmit(contact: string, name: string): void;
   onPhoneCancel(): void;
   /** A suggested place on the site: a section of this page or another page (ADR-029). */
   onNavigate(url: string): void;
@@ -240,7 +241,8 @@ export function createView(
   field.append(attach, input, send);
   composer.append(file, field);
 
-  // Phone composer: the prompt, then the number in the same field as a message.
+  // Lead form: the prompt, an optional name, then a phone number or an email (a phone only while
+  // the site requires one) next to the send button.
   const phoneForm = el('form', 'phoneform');
   phoneForm.hidden = true;
   const phoneHead = el('div', 'phead');
@@ -252,12 +254,26 @@ export function createView(
   phoneCancel.setAttribute('aria-label', strings.phoneCancel);
   phoneCancel.appendChild(icon(ICON_CLOSE));
   phoneHead.append(phoneBadge, hint, phoneCancel);
+  const nameInput = el('input');
+  nameInput.type = 'text';
+  nameInput.autocomplete = 'name';
+  nameInput.maxLength = 80;
+  nameInput.placeholder = strings.namePlaceholder;
+  nameInput.setAttribute('aria-label', strings.namePlaceholder);
+  const nameField = el('div', 'field');
+  nameField.append(nameInput);
   const phoneInput = el('input');
-  phoneInput.type = 'tel';
-  phoneInput.autocomplete = 'tel';
-  phoneInput.inputMode = 'tel';
-  phoneInput.placeholder = strings.phonePlaceholder;
-  phoneInput.setAttribute('aria-label', strings.phonePlaceholder);
+  phoneInput.type = 'text';
+  phoneInput.maxLength = 254;
+  phoneInput.autocomplete = 'on';
+  /** The contact field takes an email too, unless the site requires a phone number. */
+  const contactField = (phoneOnly: boolean): void => {
+    const label = phoneOnly ? strings.phonePlaceholder : strings.contactPlaceholder;
+    phoneInput.inputMode = phoneOnly ? 'tel' : 'text';
+    phoneInput.placeholder = label;
+    phoneInput.setAttribute('aria-label', label);
+  };
+  contactField(false);
   const phoneSend = el('button', 'send');
   phoneSend.type = 'submit';
   phoneSend.setAttribute('aria-label', strings.phoneSend);
@@ -267,7 +283,7 @@ export function createView(
   const phoneErr = el('p', 'err');
   phoneErr.hidden = true;
   phoneErr.setAttribute('role', 'alert');
-  phoneForm.append(phoneHead, phoneField, phoneErr);
+  phoneForm.append(phoneHead, nameField, phoneField, phoneErr);
 
   lead.append(chip, phoneForm);
   const foot = el('div', 'foot');
@@ -321,7 +337,7 @@ export function createView(
   });
   phoneForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    h.onPhoneSubmit(phoneInput.value);
+    h.onPhoneSubmit(phoneInput.value, nameInput.value);
   });
   phoneCancel.addEventListener('click', () => h.onPhoneCancel());
 
@@ -571,6 +587,7 @@ export function createView(
       composer.hidden = phoneMode;
       phoneForm.hidden = !phoneMode;
       phoneCancel.hidden = s.phoneRequired;
+      contactField(s.phoneRequired);
       chip.hidden = !showPhoneChip(s);
       lead.hidden = chip.hidden && !phoneMode;
       // Last, once the chip or the phone form has resized the list: a reader at the bottom stays there.
@@ -596,7 +613,7 @@ export function createView(
       grow();
     },
     focusInput() {
-      (phoneForm.hidden ? input : phoneInput).focus();
+      (phoneForm.hidden ? input : nameInput).focus();
     },
   };
   return view;

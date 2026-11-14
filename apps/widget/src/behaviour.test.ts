@@ -185,7 +185,7 @@ describe('boot behaviour', () => {
     localStorage.setItem('rapiz_v_abc', 'tok');
     let required = true;
     const { calls, root, send, settle } = await mount((url, init) => {
-      if (url.endsWith('/phone')) return new Response(JSON.stringify({ phoneCaptured: true }));
+      if (url.endsWith('/contact')) return new Response(JSON.stringify({ captured: 'phone' }));
       if (init?.method === 'POST') {
         return required
           ? new Response(JSON.stringify({ error: 'PHONE_REQUIRED' }), { status: 409 })
@@ -197,7 +197,9 @@ describe('boot behaviour', () => {
     expect(root.querySelector<HTMLElement>('form.phoneform')!.hidden).toBe(false);
     expect(posts(calls)).toHaveLength(1);
     required = false;
-    root.querySelector<HTMLInputElement>('input[type=tel]')!.value = '0912345678';
+    const contact = root.querySelector<HTMLInputElement>('form.phoneform input[inputmode=tel]')!;
+    expect(contact.placeholder).toBe('Số điện thoại của bạn');
+    contact.value = '0912345678';
     root
       .querySelector<HTMLFormElement>('form.phoneform')!
       .dispatchEvent(new Event('submit', { cancelable: true }));
@@ -302,10 +304,12 @@ describe('boot behaviour', () => {
     const sentTexts = (calls: { url: string; init: RequestInit | undefined }[]) =>
       posts(calls).map((c) => (JSON.parse(String(c.init?.body)) as { text?: string }).text);
 
-    async function richMount() {
+    async function richMount(route?: (url: string) => Response | null) {
       localStorage.setItem('rapiz_v_abc', 'tok');
       let answered = false;
-      const env = await mount((_u, init) => {
+      const env = await mount((url, init) => {
+        const routed = route?.(url);
+        if (routed) return routed;
         if (init?.method === 'POST') {
           answered = true;
           return echo(init);
@@ -359,6 +363,34 @@ describe('boot behaviour', () => {
       await settle();
       expect(form.hidden).toBe(true);
       expect(chip.hidden).toBe(false);
+    });
+
+    it('the lead form takes a name and an email; the chip goes once it is saved', async () => {
+      const { root, calls, settle } = await richMount((url) =>
+        url.endsWith('/contact') ? new Response(JSON.stringify({ captured: 'email' })) : null,
+      );
+      root.querySelector<HTMLElement>('.lead > .chip')!.click();
+      await settle();
+      const form = root.querySelector<HTMLFormElement>('form.phoneform')!;
+      const [name, contact] = [...form.querySelectorAll<HTMLInputElement>('input')];
+      expect(name!.placeholder).toBe('Tên của bạn (không bắt buộc)');
+      expect(contact!.placeholder).toBe('Số điện thoại hoặc email');
+      contact!.value = 'lan@';
+      form.dispatchEvent(new Event('submit', { cancelable: true }));
+      await settle();
+      expect(form.querySelector('.err')?.textContent).toBe(
+        'Số điện thoại hoặc email chưa đúng, vui lòng kiểm tra lại.',
+      );
+      name!.value = '  Lan  Nguyễn ';
+      contact!.value = ' lan@shop.vn ';
+      form.dispatchEvent(new Event('submit', { cancelable: true }));
+      await settle();
+      const sent = calls.filter((c) => c.url.endsWith('/contact'));
+      expect(sent.map((c) => JSON.parse(String(c.init?.body)))).toEqual([
+        { contact: 'lan@shop.vn', name: 'Lan Nguyễn' },
+      ]);
+      expect(form.hidden).toBe(true);
+      expect(root.querySelector<HTMLElement>('.lead > .chip')!.hidden).toBe(true);
     });
 
     it('draws a card with a summary as a plan card, the recommended one featured', async () => {

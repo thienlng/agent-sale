@@ -87,6 +87,8 @@ export interface WidgetPollResponse {
   messages: WidgetMessage[];
   botTyping: boolean;
   phoneCaptured: boolean;
+  /** A phone or an email was left; absent from older backends. */
+  contactCaptured?: boolean;
   phoneRequired: boolean;
 }
 

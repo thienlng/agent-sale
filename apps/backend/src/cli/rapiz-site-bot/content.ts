@@ -22,6 +22,7 @@ export const SITE_WIDGET = {
   greeting: SITE_GREETING,
   requirePhoneAfter: 0,
   phoneChipText: 'Để lại thông tin để được tư vấn chuyên sâu',
+  phonePrompt: 'Anh/chị để lại số điện thoại hoặc email, đội Rapiz sẽ liên hệ tư vấn chuyên sâu.',
 } as const;
 
 export const SITE_MISSION = [

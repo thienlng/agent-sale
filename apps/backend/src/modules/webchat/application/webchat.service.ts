@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 
 import type { NormalizedEvent } from '@agent-sales/channels';
 import {
+  WidgetContactRequest,
   WidgetPhoneRequest,
   WidgetSendRequest,
   type WidgetConfigDto,
@@ -16,6 +17,7 @@ import {
   maskEmail,
   maskPhone,
   newId,
+  normalizeLeadEmail,
   normalizeLeadPhone,
 } from '@agent-sales/shared';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
@@ -287,6 +289,7 @@ export class WebchatService {
       messages: page.messages,
       botTyping,
       phoneCaptured: Boolean(visitor?.phoneE164),
+      contactCaptured: Boolean(visitor?.phoneE164 || visitor?.email),
       phoneRequired: phoneRequired(site, visitor),
     };
   }
@@ -357,16 +360,42 @@ export class WebchatService {
   }
 
   /**
+   * The lead form: a phone number or an email in one field (an `@` makes it an email) and an
+   * optional name. Invalid values answer 422 (`INVALID_PHONE` / `INVALID_EMAIL`).
+   */
+  async contact(call: PublicCall, rawBody: unknown): Promise<{ captured: 'phone' | 'email' }> {
+    const site = await this.site(call.key, call.origin, call.ip);
+    const visitorId = await this.requireVisitor(site, call.authorization);
+    await this.limit(`ip:${this.ipHash(call.ip)}:ph`, 30, HOUR);
+    await this.limit(`v:${visitorId}:ph`, 10, HOUR);
+    const parsed = WidgetContactRequest.safeParse(rawBody);
+    if (!parsed.success) throw new WidgetError(400, 'VALIDATION_FAILED');
+    const { contact } = parsed.data;
+    const name = parsed.data.name?.replace(/\s+/g, ' ') || undefined;
+    const isEmail = contact.includes('@');
+    const email = isEmail ? normalizeLeadEmail(contact) : null;
+    const phone = isEmail ? null : normalizeLeadPhone(contact);
+    const value = email ? { email } : phone ? { phone } : null;
+    if (!value) throw new WidgetError(422, isEmail ? 'INVALID_EMAIL' : 'INVALID_PHONE');
+    const visitor = await this.visitors.find(site.workspaceId, site.connectionId, visitorId);
+    if (!visitor) throw new WidgetError(401, 'INVALID_VISITOR');
+    await this.capture(site, visitorId, value, visitor.firstUrl, name);
+    return { captured: email ? 'email' : 'phone' };
+  }
+
+  /**
    * One capture: customer in the CRM (found by phone or email, or created), the contact on the
    * visitor, lead flag on the conversation. Repeating it with the same value changes nothing; a new
    * number replaces the visitor's lead (the earlier customer is left alone). The visitor's earlier
-   * customer is passed along, so a phone and an email of one visitor end on one customer.
+   * customer is passed along, so a phone and an email of one visitor end on one customer. A `name`
+   * (lead form) names a new customer and replaces a generated name, even on a repeated capture.
    */
   private async capture(
     site: WebsiteSite,
     visitorId: string,
     key: { phone: string } | { email: string },
     firstUrl: string | null,
+    name?: string,
   ): Promise<void> {
     const visitor = await this.visitors.find(site.workspaceId, site.connectionId, visitorId);
     if (!visitor) return;
@@ -375,11 +404,13 @@ export class WebchatService {
     let contactId: string | null;
     if ('phone' in key) {
       contactId = visitor.phoneE164 === key.phone ? visitor.contactId : null;
-      if (!contactId) {
+      if (!contactId || name) {
+        const generated = websiteLeadName(key.phone);
         const lead = await this.crm.upsertLeadByPhone(ws, {
           phoneE164: key.phone,
           sourceKey: 'website',
-          displayName: websiteLeadName(key.phone),
+          displayName: name ?? generated,
+          ...(name ? { renameFrom: generated } : {}),
           firstUrl,
           ...earlier,
         });
@@ -389,11 +420,13 @@ export class WebchatService {
       }
     } else {
       contactId = visitor.email === key.email ? visitor.contactId : null;
-      if (!contactId) {
+      if (!contactId || name) {
+        const generated = websiteEmailLeadName(key.email);
         const lead = await this.crm.upsertLeadByEmail(ws, {
           email: key.email,
           sourceKey: 'website',
-          displayName: websiteEmailLeadName(key.email),
+          displayName: name ?? generated,
+          ...(name ? { renameFrom: generated } : {}),
           firstUrl,
           ...earlier,
         });

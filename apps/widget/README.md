@@ -15,8 +15,10 @@ The site key is read from the script URL (`?key=`). The API origin is the script
 The launcher is a 52 px rounded square: the bot's avatar (`config.avatarUrl`) on charcoal, else a
 chat icon in the shop colour (`--c`), with a status dot and a "Chat với …" tooltip. The panel
 (380 × ≤600 px, 8 px above the launcher, full screen under 640 px) has a header with the avatar, name and "Sẵn sàng hỗ trợ",
-the phone strip right under it, the messages (agent bubbles carry the avatar), the composer and a
-"Được hỗ trợ bởi Rapiz AI" footer. Colours derive from the shop colour; motion is a 200 ms open and
+the lead strip right under it (a chip opening a form: optional name, then a phone number or an
+email in one field; a phone only while the site requires one, `POST …/contact`), the messages (agent bubbles carry the avatar), the composer and a
+"Được hỗ trợ bởi Rapiz AI" footer. Sizes are compact on desktop (14 px text in the fields, 30 px
+buttons); with a touch screen the fields use 16 px text (iOS does not zoom) and buttons are 44 px. Colours derive from the shop colour; motion is a 200 ms open and
 a 150 ms fade on close, none with `prefers-reduced-motion`.
 
 `data-starters="Xem bảng giá|Tìm hiểu tính năng|Đặt lịch demo"` on the script tag shows up to 4

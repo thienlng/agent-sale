@@ -95,6 +95,8 @@ describe('seedRapizSiteBot', () => {
       domains: ['rapiz.io', 'localhost', '127.0.0.1'],
       agentName: 'Rapiz AI',
       phoneChipText: 'Để lại thông tin để được tư vấn chuyên sâu',
+      phonePrompt:
+        'Anh/chị để lại số điện thoại hoặc email, đội Rapiz sẽ liên hệ tư vấn chuyên sâu.',
       color: '#FF7A45',
       greeting: SITE_GREETING,
       requirePhoneAfter: 0,

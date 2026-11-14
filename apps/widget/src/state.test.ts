@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { initialState, reduce, type State } from './state.js';
+import { initialState, reduce, showPhoneChip, type State } from './state.js';
 import type { WidgetMessage, WidgetPollResponse } from './types.js';
 
 const msg = (over: Partial<WidgetMessage> & { id: string }): WidgetMessage => ({
@@ -121,11 +121,26 @@ describe('widget state', () => {
   it('phoneRequired switches the input mode to phone', () => {
     let s = reduce(initialState('g'), poll([], { phoneRequired: true }));
     expect(s.inputMode).toBe('phone');
-    s = reduce(s, { type: 'phoneSaved' });
+    s = reduce(s, { type: 'contactSaved', kind: 'email' });
+    expect(s.inputMode).toBe('phone');
+    expect(s.phoneCaptured).toBe(false);
+    s = reduce(s, { type: 'contactSaved', kind: 'phone' });
     expect(s.inputMode).toBe('text');
     expect(s.phoneCaptured).toBe(true);
     s = reduce(initialState('g'), { type: 'phoneRequired' });
     expect(s.inputMode).toBe('phone');
+  });
+
+  it('an email from the lead form or a poll ends the lead chip', () => {
+    const answered = reduce(
+      reduce(initialState('g'), { type: 'token', has: true }),
+      poll([msg({ id: 'a1' })]),
+    );
+    expect(showPhoneChip(answered)).toBe(true);
+    const saved = reduce(answered, { type: 'contactSaved', kind: 'email' });
+    expect(saved).toMatchObject({ contactCaptured: true, phoneCaptured: false, inputMode: 'text' });
+    expect(showPhoneChip(saved)).toBe(false);
+    expect(showPhoneChip(reduce(answered, poll([], { contactCaptured: true })))).toBe(false);
   });
 
   it('send failure and retry flip the message status', () => {

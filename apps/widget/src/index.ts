@@ -1,6 +1,6 @@
 import { createApi, type Api } from './api.js';
 import { compressImage } from './image.js';
-import { checkPhone } from './phone.js';
+import { checkEmail, checkPhone } from './phone.js';
 import { pageNav, sectionTarget, visibleSections } from './page-context.js';
 import { createPoller, type PollMode } from './poller.js';
 import { initialState, reduce, type Action, type State } from './state.js';
@@ -212,7 +212,7 @@ function start(api: Api, key: string, config: WidgetConfig, starters: string[]):
         view.setPhoneError(null);
         dispatch({ type: 'inputMode', mode: 'text' });
       },
-      onPhoneSubmit: (raw) => void submitPhone(raw),
+      onPhoneSubmit: (contact, name) => void submitContact(contact, name),
       onNavigate(url) {
         let to: URL;
         try {
@@ -383,12 +383,15 @@ function start(api: Api, key: string, config: WidgetConfig, starters: string[]):
     }
   }
 
-  async function submitPhone(raw: string): Promise<void> {
-    const phone = checkPhone(raw);
-    if (!phone) {
-      view.setPhoneError(strings.invalidPhone);
+  async function submitContact(raw: string, rawName: string): Promise<void> {
+    const phoneOnly = state.phoneRequired;
+    const contact = raw.includes('@') && !phoneOnly ? checkEmail(raw) : checkPhone(raw);
+    const invalid = phoneOnly ? strings.invalidPhone : strings.invalidContact;
+    if (!contact) {
+      view.setPhoneError(invalid);
       return;
     }
+    const name = rawName.trim().replace(/\s+/g, ' ').slice(0, 80);
     if (!token) {
       view.setPhoneError(strings.genericError);
       return;
@@ -396,9 +399,9 @@ function start(api: Api, key: string, config: WidgetConfig, starters: string[]):
     view.setPhoneError(null);
     view.setBusy(true);
     try {
-      const r = await api.phone(token, phone);
+      const r = await api.contact(token, name ? { contact, name } : { contact });
       if (r.status === 422) {
-        view.setPhoneError(strings.invalidPhone);
+        view.setPhoneError(invalid);
         return;
       }
       if (r.status === 429) {
@@ -410,8 +413,8 @@ function start(api: Api, key: string, config: WidgetConfig, starters: string[]):
         view.setPhoneError(strings.genericError);
         return;
       }
-      dispatch({ type: 'phoneSaved' });
-      for (const m of held.splice(0)) enqueue(m, false);
+      dispatch({ type: 'contactSaved', kind: r.body.captured });
+      if (r.body.captured === 'phone') for (const m of held.splice(0)) enqueue(m, false);
     } finally {
       view.setBusy(false);
     }

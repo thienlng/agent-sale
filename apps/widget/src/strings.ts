@@ -23,6 +23,9 @@ export interface Strings {
   phoneSend: string;
   phoneCancel: string;
   invalidPhone: string;
+  contactPlaceholder: string;
+  namePlaceholder: string;
+  invalidContact: string;
   uploadFailed: string;
   genericError: string;
   defaultGreeting: string;
@@ -57,6 +60,9 @@ const vi: Strings = {
   phoneSend: 'Gửi số',
   phoneCancel: 'Quay lại',
   invalidPhone: 'Số điện thoại chưa đúng, vui lòng kiểm tra lại.',
+  contactPlaceholder: 'Số điện thoại hoặc email',
+  namePlaceholder: 'Tên của bạn (không bắt buộc)',
+  invalidContact: 'Số điện thoại hoặc email chưa đúng, vui lòng kiểm tra lại.',
   uploadFailed: 'Không gửi được ảnh, vui lòng thử ảnh khác.',
   genericError: 'Có lỗi xảy ra, vui lòng thử lại sau.',
   defaultGreeting: 'Xin chào! Bạn cần hỗ trợ gì ạ?',
@@ -89,6 +95,9 @@ const en: Strings = {
   phoneSend: 'Send number',
   phoneCancel: 'Back',
   invalidPhone: 'That phone number looks wrong, please check it.',
+  contactPlaceholder: 'Phone number or email',
+  namePlaceholder: 'Your name (optional)',
+  invalidContact: 'That phone number or email looks wrong, please check it.',
   uploadFailed: 'Could not send the image, please try another one.',
   genericError: 'Something went wrong, please try again later.',
   defaultGreeting: 'Hi! How can we help you?',

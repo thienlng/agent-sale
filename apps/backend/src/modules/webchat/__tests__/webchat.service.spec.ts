@@ -283,7 +283,12 @@ describe('WebchatService poll', () => {
       call({ authorization: `Visitor ${first.visitorToken}` }),
       undefined,
     );
-    expect(res).toMatchObject({ botTyping: true, phoneCaptured: false, phoneRequired: false });
+    expect(res).toMatchObject({
+      botTyping: true,
+      phoneCaptured: false,
+      contactCaptured: false,
+      phoneRequired: false,
+    });
     expect([...visitors.rows.values()][0]?.conversationId).toBe(
       '018d0000-0000-7000-8000-000000000009',
     );
@@ -637,6 +642,71 @@ describe('WebchatService lead capture', () => {
       conversationId,
       expect.objectContaining({ phoneE164: null, email: 'lan@shop.vn' }),
     );
+  });
+  it('captures a phone from the lead form and names the customer', async () => {
+    const a = await auth();
+    const res = await service.contact(call({ authorization: a }), {
+      contact: '0912 345 679',
+      name: '  Lan   Nguyễn ',
+    });
+    expect(res).toEqual({ captured: 'phone' });
+    expect(upsertLead).toHaveBeenCalledWith(ws, {
+      phoneE164: '+84912345679',
+      sourceKey: 'website',
+      displayName: 'Lan Nguyễn',
+      renameFrom: 'Khách website 5679',
+      firstUrl: 'https://shop.test/a?utm=1',
+    });
+    expect(linkLead).toHaveBeenCalledWith(
+      ws,
+      conversationId,
+      expect.objectContaining({ contactId, phoneE164: '+84912345679' }),
+    );
+  });
+  it('captures an email from the lead form; without a name the generated one is kept', async () => {
+    const a = await auth();
+    const res = await service.contact(call({ authorization: a }), { contact: 'Lan@Shop.vn' });
+    expect(res).toEqual({ captured: 'email' });
+    expect(upsertLead).not.toHaveBeenCalled();
+    expect(upsertLeadByEmail).toHaveBeenCalledWith(ws, {
+      email: 'lan@shop.vn',
+      sourceKey: 'website',
+      displayName: 'Khách website lan',
+      firstUrl: 'https://shop.test/a?utm=1',
+    });
+    expect(await service.poll(call({ authorization: a }), undefined)).toMatchObject({
+      phoneCaptured: false,
+      contactCaptured: true,
+    });
+  });
+  it('renames on a repeated lead form with a name, but not on a repeat without one', async () => {
+    const a = await auth();
+    await service.contact(call({ authorization: a }), { contact: '0912345679' });
+    await service.contact(call({ authorization: a }), { contact: '0912345679' });
+    expect(upsertLead).toHaveBeenCalledOnce();
+    await service.contact(call({ authorization: a }), { contact: '0912345679', name: 'Lan' });
+    expect(upsertLead).toHaveBeenLastCalledWith(
+      ws,
+      expect.objectContaining({ displayName: 'Lan', renameFrom: 'Khách website 5679', contactId }),
+    );
+  });
+  it.each([
+    ['0123456789', 'INVALID_PHONE'],
+    ['abcdefgh', 'INVALID_PHONE'],
+    ['lan@', 'INVALID_EMAIL'],
+    ['ban@example.com', 'INVALID_EMAIL'],
+  ])('answers 422 for a lead form with %s', async (contact, code) => {
+    const a = await auth();
+    const e = await failure(service.contact(call({ authorization: a }), { contact }));
+    expect(e).toMatchObject({ status: 422, code });
+    expect(upsertLead).not.toHaveBeenCalled();
+    expect(upsertLeadByEmail).not.toHaveBeenCalled();
+  });
+  it('needs a token and a valid body for the lead form', async () => {
+    expect((await failure(service.contact(call(), { contact: '0912345679' })))?.status).toBe(401);
+    const a = await auth();
+    for (const bad of [null, {}, { contact: 'x' }, { contact: '0912345679', name: 'x'.repeat(81) }])
+      expect((await failure(service.contact(call({ authorization: a }), bad)))?.status).toBe(400);
   });
   it('reports phoneCaptured on the next poll', async () => {
     const a = await auth();
