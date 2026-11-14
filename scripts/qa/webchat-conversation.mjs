@@ -45,6 +45,8 @@ const page = {
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const state = { visitor: null, after: null, conversationId: null, staffToken: null };
+// The widget shows staff and bot messages alike (role `agent`): staff texts sent here are skipped.
+const staffTexts = new Set();
 let log = `# ${script.title}\n`;
 const write = () => fs.writeFileSync(a.out, log);
 
@@ -65,7 +67,7 @@ async function collect(sentAt) {
     const p = await poll();
     if (!Array.isArray(p.messages)) continue;
     for (const m of p.messages) {
-      if (m.role !== 'customer') {
+      if (m.role !== 'customer' && !staffTexts.delete(m.text)) {
         got.push(m);
         quietSince = Date.now();
       }
@@ -139,6 +141,7 @@ for (const turn of script.turns) {
     continue;
   }
   if (typeof turn === 'object' && turn.staff) {
+    staffTexts.add(turn.staff);
     await staff('/messages', 'POST', { text: turn.staff, idempotencyKey: crypto.randomUUID() });
     log += `\nNHÂN VIÊN: ${turn.staff}\n`;
     continue;
