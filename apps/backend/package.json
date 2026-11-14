@@ -60,11 +60,11 @@
   },
   "devDependencies": {
     "@agent-sales/testing": "workspace:*",
-    "@nestjs/testing": "^12.3.2",
+    "@nestjs/testing": "^12.4.2",
     "@types/node": "^26.6.6",
     "@types/web-push": "^3.6.4",
     "tsx": "^4.20.0",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   }
 }

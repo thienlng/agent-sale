@@ -34,18 +34,18 @@
     "@eslint/js": "^10.0.1",
     "@turbo/gen": "^2.5.4",
     "@types/node": "^26.6.6",
-    "dependency-cruiser": "^18.0.0",
+    "dependency-cruiser": "^18.7.2",
     "eslint": "^10.14.0",
     "eslint-config-prettier": "^10.1.5",
     "eslint-import-resolver-typescript": "^4.4.5",
-    "eslint-plugin-boundaries": "^7.4.0",
+    "eslint-plugin-boundaries": "^7.4.2",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
     "prettier": "^3.6.2",
     "turbo": "^2.11.10",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "typescript-eslint": "^8.72.1",
-    "vitest": "^5.0.5"
+    "typescript-eslint": "^8.72.2",
+    "vitest": "^5.1.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
