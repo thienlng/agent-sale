@@ -12,5 +12,7 @@
   script.async = true;
   script.src = `${src}${src.includes('?') ? '&' : '?'}key=${encodeURIComponent(key)}`;
   if (api) script.dataset.api = api;
+  // Questions offered under the greeting (apps/widget README "Starter questions").
+  script.dataset.starters = 'Xem bảng giá|Tìm hiểu tính năng|Đặt lịch demo';
   document.head.append(script);
 })();

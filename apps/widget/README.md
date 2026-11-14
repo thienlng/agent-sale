@@ -10,6 +10,23 @@ Output is ES2017, at most 20 KB gzip; no framework, no zod.
 The site key is read from the script URL (`?key=`). The API origin is the script origin unless
 `data-api="https://api.example.com"` is set. API routes: `/api/v1/webchat/v1/sites/{key}/...`.
 
+## Look
+
+The launcher is a 60 px rounded square: the bot's avatar (`config.avatarUrl`) on charcoal, else a
+chat icon in the shop colour (`--c`), with a status dot and a "Chat với …" tooltip. The panel
+(420 × ≤680 px, full screen under 640 px) has a header with the avatar, name and "Sẵn sàng hỗ trợ",
+the phone strip right under it, the messages (agent bubbles carry the avatar), the composer and a
+"Được hỗ trợ bởi Rapiz AI" footer. Colours derive from the shop colour; motion is a 200 ms open and
+a 150 ms fade on close, none with `prefers-reduced-motion`.
+
+`data-starters="Xem bảng giá|Tìm hiểu tính năng|Đặt lịch demo"` on the script tag shows up to 4
+buttons (80 characters each) under the greeting while the visitor has not written; a tap sends
+the text.
+
+A card with a `summary` or `highlights` is drawn as a plan card (title, summary, price, up to 3
+facts, "Tìm hiểu thêm →", no picture, two per row); `recommended` marks the featured one. Other
+cards keep the picture carousel.
+
 ## Page context
 
 Each message tells the bot what the visitor has on screen, but only parts of the page the site

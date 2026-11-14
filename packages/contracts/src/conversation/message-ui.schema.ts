@@ -14,6 +14,12 @@ export const MessageCard = z.object({
     .url({ protocol: /^https$/ })
     .max(2000)
     .nullable(),
+  /** The first sentence of the product description (cards of rich widgets; absent on old messages). */
+  summary: z.string().max(160).optional(),
+  /** Up to 3 short facts from the description ("5 thành viên", "7.000 lượt AI mỗi 30 ngày"). */
+  highlights: z.array(z.string().min(1).max(48)).max(3).optional(),
+  /** The one card the bot recommends for this visitor (drawn as the featured card). */
+  recommended: z.boolean().optional(),
 });
 export type MessageCard = z.infer<typeof MessageCard>;
 

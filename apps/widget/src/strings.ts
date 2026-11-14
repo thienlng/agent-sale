@@ -3,6 +3,13 @@ import type { WidgetLanguage } from './types.js';
 export interface Strings {
   open: string;
   close: string;
+  minimize: string;
+  /** Next to the bubble on hover. */
+  chatWith(name: string): string;
+  /** Under the composer. */
+  poweredBy: string;
+  /** The device lost its network connection. */
+  offline: string;
   send: string;
   /** Under the agent name in the header. */
   status: string;
@@ -34,8 +41,12 @@ export interface Strings {
 const vi: Strings = {
   open: 'Mở chat',
   close: 'Đóng',
+  minimize: 'Thu nhỏ',
+  chatWith: (name) => `Chat với ${name}`,
+  poweredBy: 'Được hỗ trợ bởi Rapiz AI',
+  offline: 'Mất kết nối mạng, vui lòng kiểm tra lại kết nối.',
   send: 'Gửi',
-  status: 'Thường trả lời ngay',
+  status: 'Sẵn sàng hỗ trợ',
   placeholder: 'Nhập tin nhắn...',
   attach: 'Gửi ảnh',
   rateLimited: 'Bạn nhắn hơi nhanh, vui lòng thử lại sau ít giây.',
@@ -62,8 +73,12 @@ const vi: Strings = {
 const en: Strings = {
   open: 'Open chat',
   close: 'Close',
+  minimize: 'Minimize',
+  chatWith: (name) => `Chat with ${name}`,
+  poweredBy: 'Powered by Rapiz AI',
+  offline: 'You are offline, please check your connection.',
   send: 'Send',
-  status: 'Usually replies right away',
+  status: 'Ready to help',
   placeholder: 'Type a message...',
   attach: 'Send an image',
   rateLimited: 'You are sending messages too fast, please try again in a few seconds.',

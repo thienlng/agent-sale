@@ -79,6 +79,17 @@ function defaultConfig(): WidgetConfig {
 interface Target {
   key: string;
   origin: string;
+  /** `data-starters="Xem bảng giá|Đặt lịch demo"`: questions offered under the greeting. */
+  starters: string[];
+}
+
+/** At most 4 starter questions of up to 80 characters, `|` separated. */
+export function readStarters(raw: string | null): string[] {
+  return (raw ?? '')
+    .split('|')
+    .map((x) => x.trim())
+    .filter((x) => x.length > 0 && x.length <= 80)
+    .slice(0, 4);
 }
 
 function resolveTarget(script: HTMLScriptElement): Target | null {
@@ -91,7 +102,11 @@ function resolveTarget(script: HTMLScriptElement): Target | null {
   const key = url.searchParams.get('key') || script.getAttribute('data-key');
   if (!key) return null;
   const api = script.getAttribute('data-api');
-  return { key, origin: api ? api.replace(/\/+$/, '') : url.origin };
+  return {
+    key,
+    origin: api ? api.replace(/\/+$/, '') : url.origin,
+    starters: readStarters(script.getAttribute('data-starters')),
+  };
 }
 
 /** Finds the widget `<script>`: `document.currentScript`, else the last script whose src contains `widget.js`. */
@@ -124,7 +139,7 @@ export async function boot(script: HTMLScriptElement | null): Promise<void> {
       ? { ...defaultConfig(), ...res.body }
       : defaultConfig();
 
-  const mount = (): void => start(api, target.key, config);
+  const mount = (): void => start(api, target.key, config, target.starters);
   if (document.readyState === 'loading') {
     await new Promise<void>((r) =>
       document.addEventListener('DOMContentLoaded', () => r(), { once: true }),
@@ -139,7 +154,7 @@ interface Outgoing {
   attachmentUrl?: string;
 }
 
-function start(api: Api, key: string, config: WidgetConfig): void {
+function start(api: Api, key: string, config: WidgetConfig, starters: string[]): void {
   const strings = getStrings(config.language);
   let state: State = initialState(config.greeting);
   let token = readItem(tokenKey(key));
@@ -175,45 +190,52 @@ function start(api: Api, key: string, config: WidgetConfig): void {
     },
   });
 
-  const view = createView(config, strings, {
-    onToggle(open) {
-      dispatch({ type: open ? 'open' : 'close' });
-      if (open) view.focusInput();
-      if (poller.running) poller.kick();
+  const view = createView(
+    config,
+    strings,
+    {
+      onToggle(open) {
+        dispatch({ type: open ? 'open' : 'close' });
+        if (open) view.focusInput();
+        if (poller.running) poller.kick();
+      },
+      onSend: (text) => enqueue({ id: uuid(), text }, true),
+      onPickImage: (file) => void sendImage(file),
+      onRetry(id) {
+        const m = state.messages.find((x) => x.id === id);
+        if (!m) return;
+        dispatch({ type: 'retry', id });
+        enqueue(m.imageUrl ? { id, attachmentUrl: m.imageUrl } : { id, text: m.text }, false);
+      },
+      onPhoneChip: () => dispatch({ type: 'inputMode', mode: 'phone' }),
+      onPhoneCancel: () => {
+        view.setPhoneError(null);
+        dispatch({ type: 'inputMode', mode: 'text' });
+      },
+      onPhoneSubmit: (raw) => void submitPhone(raw),
+      onNavigate(url) {
+        let to: URL;
+        try {
+          to = new URL(url, window.location.href);
+        } catch {
+          return;
+        }
+        if (to.origin !== window.location.origin || !/^https?:$/.test(to.protocol)) return;
+        const target = sameDocument(to.href) ? sectionTarget(to.hash) : null;
+        if (target) {
+          // A full-screen panel would hide the section it points at.
+          if (window.innerWidth <= 640) dispatch({ type: 'close' });
+          reveal(target, config.color);
+          return;
+        }
+        writeItem(reopenKey(key), String(Date.now()));
+        window.location.assign(to.href);
+      },
     },
-    onSend: (text) => enqueue({ id: uuid(), text }, true),
-    onPickImage: (file) => void sendImage(file),
-    onRetry(id) {
-      const m = state.messages.find((x) => x.id === id);
-      if (!m) return;
-      dispatch({ type: 'retry', id });
-      enqueue(m.imageUrl ? { id, attachmentUrl: m.imageUrl } : { id, text: m.text }, false);
-    },
-    onPhoneChip: () => dispatch({ type: 'inputMode', mode: 'phone' }),
-    onPhoneCancel: () => {
-      view.setPhoneError(null);
-      dispatch({ type: 'inputMode', mode: 'text' });
-    },
-    onPhoneSubmit: (raw) => void submitPhone(raw),
-    onNavigate(url) {
-      let to: URL;
-      try {
-        to = new URL(url, window.location.href);
-      } catch {
-        return;
-      }
-      if (to.origin !== window.location.origin || !/^https?:$/.test(to.protocol)) return;
-      const target = sameDocument(to.href) ? sectionTarget(to.hash) : null;
-      if (target) {
-        // A full-screen panel would hide the section it points at.
-        if (window.innerWidth <= 640) dispatch({ type: 'close' });
-        reveal(target, config.color);
-        return;
-      }
-      writeItem(reopenKey(key), String(Date.now()));
-      window.location.assign(to.href);
-    },
-  });
+    { starters },
+  );
+  window.addEventListener('offline', () => view.setNotice(strings.offline));
+  window.addEventListener('online', () => view.setNotice(null));
 
   function dropToken(): void {
     token = null;

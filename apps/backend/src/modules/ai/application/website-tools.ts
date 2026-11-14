@@ -18,6 +18,7 @@ const MAX_CARDS = 6;
 const ShowProductsInput = z.object({
   text: z.string().trim().min(1).max(500),
   productIds: z.array(z.string().max(64)).min(1).max(MAX_CARDS),
+  recommendedId: z.string().max(64).optional(),
 });
 
 const SuggestNextInput = z
@@ -35,7 +36,7 @@ const SuggestNextInput = z
 const SHOW_PRODUCTS_DEFINITION: ToolDefinition = {
   name: SHOW_PRODUCTS_TOOL,
   description:
-    'Website chat only. Sends one message with a short intro text and a row of product cards (picture, name, price, a "learn more" button) built from the catalog: use it when the visitor wants to see or compare several products, plans or packages (2 to 6 ids, copied exactly, of products a catalog tool returned or from <focus_products>). Do not repeat the cards in your answer.',
+    'Website chat only. Sends one message with a short intro text and a row of product cards (picture, name, price, a "learn more" button) built from the catalog: use it when the visitor wants to see or compare several products, plans or packages (2 to 6 ids, copied exactly, of products a catalog tool returned or from <focus_products>). `recommendedId`: optionally one of those ids, the product that best fits what the visitor told you; its card is highlighted. Do not repeat the cards in your answer.',
   input: ShowProductsInput,
 };
 
@@ -62,6 +63,34 @@ export function cardPrice(product: ProductDto, language: 'vi' | 'en'): string {
     return note && note.length <= SHORT_NOTE ? `${price} ${note}` : price;
   }
   return note.slice(0, 80);
+}
+
+const SUMMARY_MAX = 160;
+const HIGHLIGHT_MAX = 48;
+const HIGHLIGHTS = 3;
+
+/**
+ * The text of a card from the product description: its first sentence as the summary, and up to 3
+ * short facts from the rest (comma or semicolon separated items, those with a figure first:
+ * "5 thành viên", "7.000 lượt trả lời AI mỗi 30 ngày"). Prose without short items gives none.
+ */
+export function cardDetails(description: string): { summary: string; highlights: string[] } {
+  const text = description.replace(/\s+/g, ' ').trim();
+  const end = text.search(/[.!?](\s|$)/);
+  const first = end < 0 ? text : text.slice(0, end + 1);
+  const summary =
+    first.length <= SUMMARY_MAX
+      ? first
+      : `${first.slice(0, SUMMARY_MAX - 1).replace(/\s+\S*$/, '')}…`;
+  const items = (end < 0 ? '' : text.slice(end + 1))
+    .split(/[,;]|[.!?](?:\s|$)/)
+    .map((x) => x.trim())
+    .filter((x) => x.length >= 2 && x.length <= HIGHLIGHT_MAX);
+  const figure = (x: string): boolean => /\d/.test(x);
+  const highlights = [...items.filter(figure), ...items.filter((x) => !figure(x))]
+    .slice(0, HIGHLIGHTS)
+    .map((x) => x.charAt(0).toUpperCase() + x.slice(1));
+  return { summary, highlights };
 }
 
 const KNOWN_LIMIT = 12;
@@ -123,11 +152,18 @@ export function websiteTools(ctx: WebsiteToolContext): {
         if (shown.has(product.id)) continue;
         shown.add(product.id);
         const first = productImages([product])[0];
+        const { summary, highlights } = cardDetails(product.description);
+        const recommended =
+          args.recommendedId !== undefined &&
+          shownProduct(ctx.products, args.recommendedId.trim())?.id === product.id;
         cards.push({
           productId: product.id,
           title: product.name.slice(0, 120),
           price: cardPrice(product, ctx.language),
           imageUrl: first ? ctx.allowlist.publicUrl(first.url) : null,
+          ...(summary ? { summary } : {}),
+          ...(highlights.length ? { highlights } : {}),
+          ...(recommended ? { recommended: true } : {}),
         });
       }
       const extra = unknown.length ? { unknownProductIds: unknown } : {};

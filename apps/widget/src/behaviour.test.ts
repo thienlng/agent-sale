@@ -49,7 +49,7 @@ describe('boot behaviour', () => {
   const authOf = (c: { init: RequestInit | undefined }) =>
     (c.init?.headers as Record<string, string> | undefined)?.['Authorization'];
 
-  async function mount(handler: Handler) {
+  async function mount(handler: Handler, starters?: string) {
     const calls: { url: string; init: RequestInit | undefined }[] = [];
     vi.stubGlobal(
       'fetch',
@@ -59,7 +59,9 @@ describe('boot behaviour', () => {
         return Promise.resolve(handler(String(url), init));
       }),
     );
-    await boot(script('https://cdn.example/widget.js?key=abc'));
+    const tag = script('https://cdn.example/widget.js?key=abc');
+    if (starters) tag.setAttribute('data-starters', starters);
+    await boot(tag);
     const root = document.querySelector<HTMLElement>('[data-rapiz-widget]')!.shadowRoot!;
     const settle = async () => {
       for (let i = 0; i < 5; i++) await vi.advanceTimersByTimeAsync(0);
@@ -241,6 +243,37 @@ describe('boot behaviour', () => {
     expect(root.querySelector<HTMLElement>('.badge')!.hidden).toBe(true);
   });
 
+  it('offers the starter questions under the greeting of a new conversation only', async () => {
+    const { root, calls, settle } = await mount(
+      (_u, init) => (init?.method === 'POST' ? echo(init) : new Response(JSON.stringify(empty))),
+      'Xem bảng giá| |Đặt lịch demo',
+    );
+    root.querySelector<HTMLElement>('.bubble')!.click();
+    const pills = [...root.querySelectorAll<HTMLElement>('.sugg .sg')];
+    expect(pills.map((b) => b.textContent)).toEqual(['Xem bảng giá', 'Đặt lịch demo']);
+    pills[0]!.click();
+    await settle();
+    const sent = posts(calls).map(
+      (c) => (JSON.parse(String(c.init?.body)) as { text: string }).text,
+    );
+    expect(sent).toEqual(['Xem bảng giá']);
+    expect(root.querySelector('.sugg')).toBeNull();
+  });
+
+  it('sends only some text, and says when the device is offline', async () => {
+    const { root } = await mount(() => new Response(JSON.stringify(empty)));
+    const input = root.querySelector<HTMLTextAreaElement>('textarea')!;
+    const sendButton = root.querySelector<HTMLButtonElement>('form.composer .send')!;
+    expect(sendButton.disabled).toBe(true);
+    input.value = 'chào';
+    input.dispatchEvent(new Event('input'));
+    expect(sendButton.disabled).toBe(false);
+    window.dispatchEvent(new Event('offline'));
+    expect(root.querySelector<HTMLElement>('.notice')!.hidden).toBe(false);
+    window.dispatchEvent(new Event('online'));
+    expect(root.querySelector<HTMLElement>('.notice')!.hidden).toBe(true);
+  });
+
   describe('rich messages (ADR-029)', () => {
     const rich = {
       id: 'a1',
@@ -308,9 +341,9 @@ describe('boot behaviour', () => {
       expect(root.querySelector('.sugg')).toBeNull();
     });
 
-    it('offers the phone chip in the composer; the phone form closes back to it', async () => {
+    it('offers the phone chip under the header; the phone form closes back to it', async () => {
       const { root, settle } = await richMount();
-      const chip = root.querySelector<HTMLElement>('form.composer > .chip')!;
+      const chip = root.querySelector<HTMLElement>('.head + .lead > .chip')!;
       expect(chip.hidden).toBe(false);
       expect(chip.textContent).toBe('Để lại SĐT');
       chip.click();
@@ -326,6 +359,39 @@ describe('boot behaviour', () => {
       await settle();
       expect(form.hidden).toBe(true);
       expect(chip.hidden).toBe(false);
+    });
+
+    it('draws a card with a summary as a plan card, the recommended one featured', async () => {
+      localStorage.setItem('rapiz_v_abc', 'tok');
+      const plans = {
+        ...rich,
+        ui: {
+          cards: [
+            { productId: 'p1', title: 'Miễn phí', price: '0đ', imageUrl: null, summary: 'Thử.' },
+            {
+              productId: 'p2',
+              title: 'Sales Smart',
+              price: '785.000đ / tháng',
+              imageUrl: 'https://img.example/s.jpg',
+              summary: 'Đội sale nhỏ.',
+              highlights: ['5 thành viên', '5 kênh'],
+              recommended: true,
+            },
+          ],
+        },
+      };
+      const { root, settle } = await mount(
+        () => new Response(JSON.stringify({ ...empty, messages: [plans] })),
+      );
+      await settle();
+      root.querySelector<HTMLElement>('.bubble')!.click();
+      await settle();
+      const cards = [...root.querySelectorAll<HTMLElement>('.card')];
+      expect(cards.map((c) => c.className)).toEqual(['card plan', 'card plan rec']);
+      expect(cards[1]!.textContent).toBe(
+        'Sales SmartĐội sale nhỏ.785.000đ / tháng5 thành viên5 kênhTìm hiểu thêm',
+      );
+      expect(root.querySelector('.card img')).toBeNull();
     });
 
     it('a reply suggestion is sent as typed', async () => {

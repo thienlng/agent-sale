@@ -93,10 +93,11 @@ describe('seedRapizSiteBot', () => {
     expect(d.channels.updateWebsite).toHaveBeenCalledWith(WS, SITE, {
       enabled: true,
       domains: ['rapiz.io', 'localhost', '127.0.0.1'],
-      agentName: 'Rapiz',
+      agentName: 'Rapiz AI',
       color: '#FF7A45',
       greeting: SITE_GREETING,
       requirePhoneAfter: 0,
+      avatarUrl: 'https://rapiz.io/images/rapiz-symbol-faceted.svg',
     });
     expect(result).toEqual({
       workspaceId: WS,
