@@ -926,6 +926,47 @@ describe('AssistantFacade (contract)', () => {
       );
     });
 
+    it('still finds the sibling when the database clock runs a little ahead of the process', async () => {
+      const villa = newId();
+      const first = await withProposal({
+        routeKey: 'PATCH /lodging/properties/{id}',
+        path: `/lodging/properties/${villa}`,
+        body: { version: 1, patch: { name: 'Sunshine Villa' } },
+      });
+      const { repo, scope, facade, me, t, invoke } = first;
+      const wall = Date.now();
+      vi.useFakeTimers({ toFake: ['Date'], now: wall + 50 });
+      try {
+        const prices = await repo.createProposal(scope, {
+          id: newId(),
+          threadId: t.id,
+          runId: null,
+          businessId: me.businessId,
+          routeKey: 'PATCH /lodging/properties/{id}',
+          path: `/lodging/properties/${villa}`,
+          query: null,
+          body: { version: 1, patch: { description: 'Biệt thự view sân golf' } },
+          summary: 'Cập nhật mô tả',
+          preview: null,
+          expiresAt: new Date(wall + 86_400_000),
+        });
+        // The first proposal is decided by the process clock, 50 ms behind the stored createdAt.
+        vi.setSystemTime(wall);
+        expect(await facade.approveProposal(me, first.p.id, AUTH)).toMatchObject({
+          status: 'done',
+        });
+        invoke
+          .mockResolvedValueOnce({ status: 409, body: { error: { code: 'CONFLICT' } } })
+          .mockResolvedValueOnce({ status: 200, body: { id: villa, version: 2 } })
+          .mockResolvedValueOnce({ status: 200, body: { id: villa, version: 3 } });
+        expect(await facade.approveProposal(me, prices.id, AUTH)).toMatchObject({
+          status: 'done',
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('keeps a version conflict failed when no proposal of the thread explains it', async () => {
       const { facade, me, p, invoke } = await withProposal({
         routeKey: 'PATCH /lodging/properties/{id}',
