@@ -22,6 +22,7 @@ let enqueue: ReturnType<typeof vi.fn>;
 let visitors: MemoryVisitorStore;
 let service: WebchatService;
 let conversationExists = true;
+let botHolds = true;
 let upsertLead: ReturnType<typeof vi.fn>;
 let upsertLeadByEmail: ReturnType<typeof vi.fn>;
 let linkLead: ReturnType<typeof vi.fn>;
@@ -75,6 +76,7 @@ beforeEach(() => {
     hasPendingCustomerEvent: vi.fn(async () => true),
   } as unknown as ChannelFacade;
   conversationExists = true;
+  botHolds = true;
   history = [];
   linkLead = vi.fn(async () => undefined);
   const conversations = {
@@ -83,6 +85,7 @@ beforeEach(() => {
       messages: history,
     })),
     linkLead,
+    botHolds: vi.fn(async () => botHolds),
   } as unknown as ConversationFacade;
   upsertLead = vi.fn(async () => ({
     contactId: '018d0000-0000-7000-8000-0000000000c1',
@@ -284,6 +287,25 @@ describe('WebchatService poll', () => {
     expect([...visitors.rows.values()][0]?.conversationId).toBe(
       '018d0000-0000-7000-8000-000000000009',
     );
+  });
+  it('shows no typing while staff hold the conversation and the message waits for them', async () => {
+    const first = await service.send(call(), body());
+    botHolds = false;
+    const res = await service.poll(
+      call({ authorization: `Visitor ${first.visitorToken}` }),
+      undefined,
+    );
+    expect(res.botTyping).toBe(false);
+  });
+  it('shows typing for a first message, before the inbox has a conversation', async () => {
+    const first = await service.send(call(), body());
+    conversationExists = false;
+    botHolds = false;
+    const res = await service.poll(
+      call({ authorization: `Visitor ${first.visitorToken}` }),
+      undefined,
+    );
+    expect(res.botTyping).toBe(true);
   });
   it('rejects a malformed cursor', async () => {
     const first = await service.send(call(), body());
