@@ -26,6 +26,11 @@ export interface EvalReport {
   stats: RunStats;
   /** Cases that passed some runs and failed others. */
   flaky: string[];
+  /**
+   * Cases with a run that ended in an error (provider unavailable, usage limit…) instead of a reply:
+   * not the model's answer, so rerun them before reading the score.
+   */
+  errored: string[];
   startedAt: string;
   results: CaseResult[];
   groups: GroupSummary[];
@@ -112,6 +117,7 @@ export function buildReport(
     promptVersion,
     repeat: Math.max(1, ...results.map((r) => r.repeats?.total ?? 1)),
     stats: runStats(runs),
+    errored: results.filter((r) => r.error !== null).map((r) => r.id),
     flaky: results
       .filter((r) => r.repeats && r.repeats.passed > 0 && r.repeats.passed < r.repeats.total)
       .map((r) => r.id),
@@ -137,6 +143,11 @@ function statsLines(report: EvalReport): string[] {
     `Model: ${s.models.join(', ') || 'none'} · ${report.repeat} run(s) per case`,
     `Latency per turn: P50 ${ms(s.latencyP50Ms)}, P95 ${ms(s.latencyP95Ms)} · ${s.modelCalls} model calls · tokens in ${s.inputTokens}, out ${s.outputTokens}`,
     ...(report.flaky.length ? [`Flaky (mixed results): ${report.flaky.join(', ')}`] : []),
+    ...(report.errored.length
+      ? [
+          `Errored, not graded (rerun with --id): ${report.errored.length} case(s): ${report.errored.join(',')}`,
+        ]
+      : []),
   ];
 }
 

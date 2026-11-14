@@ -84,8 +84,9 @@ if (forced !== undefined) {
   opts.promptVersion = n as SalesPromptVersion;
 }
 
+const ids = values.id?.split(',').map((x) => x.trim()) ?? [];
 const cases = loadCases().filter(
-  (c) => (!values.group || c.group === values.group) && (!values.id || c.id === values.id),
+  (c) => (!values.group || c.group === values.group) && (!ids.length || ids.includes(c.id)),
 );
 if (!cases.length) {
   console.error('no eval case matches the --group / --id filter');

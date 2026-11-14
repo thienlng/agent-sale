@@ -100,6 +100,20 @@ describe('eval --repeat and run stats', () => {
     expect(text).toContain('FAIL sample (1/2 runs)');
     expect(text).toContain('Flaky (mixed results): sample');
     expect(text).toContain('2 run(s) per case');
+    expect(report.errored).toEqual([]);
+  });
+
+  it('lists cases that ended in an error as not graded', async () => {
+    const ok = await runCaseFake(parseCase(MINIMAL));
+    const down = {
+      ...ok,
+      id: 'down',
+      pass: false,
+      error: 'The AI model is temporarily unavailable',
+    };
+    const report = buildReport('live', [ok, down]);
+    expect(report.errored).toEqual(['down']);
+    expect(renderText(report)).toContain('Errored, not graded (rerun with --id): 1 case(s): down');
   });
 
   it('keeps a single run unchanged', async () => {

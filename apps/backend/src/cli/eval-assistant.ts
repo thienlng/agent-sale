@@ -50,7 +50,8 @@ if (values.model !== undefined) {
   }
 }
 
-const cases = loadAssistantCases().filter((c) => !values.id || c.id === values.id);
+const ids = values.id?.split(',').map((x) => x.trim()) ?? [];
+const cases = loadAssistantCases().filter((c) => !ids.length || ids.includes(c.id));
 if (!cases.length) {
   console.error('no assistant eval case matches --id');
   process.exit(1);
@@ -70,9 +71,17 @@ const models = new Set<string>();
 let modelCalls = 0;
 let inputTokens = 0;
 let outputTokens = 0;
+/** Set when a model call of the current run threw (provider unavailable, usage limit…). */
+let callFailed: boolean;
 const metered = (gateway: LlmGatewayPort): LlmGatewayPort => ({
   async generate(req: GenerateRequest): Promise<GenerateResponse> {
-    const res = await gateway.generate(req);
+    let res: GenerateResponse;
+    try {
+      res = await gateway.generate(req);
+    } catch (error) {
+      callFailed = true;
+      throw error;
+    }
     modelCalls += 1;
     inputTokens += res.usage.inputTokens;
     outputTokens += res.usage.outputTokens;
@@ -85,19 +94,24 @@ try {
   let criticalFailed = false;
   let passed = 0;
   const flaky: string[] = [];
+  const errored: string[] = [];
   for (const c of cases) {
     const runs = [];
+    let caseErrored = false;
     for (let i = 0; i < repeat; i += 1) {
       const started = Date.now();
+      callFailed = false;
       runs.push(await runAssistantCase(c, metered(live ?? fakeAssistantModel(c))));
       turnMs.push(Date.now() - started);
+      caseErrored ||= callFailed;
     }
+    if (caseErrored) errored.push(c.id);
     const ok = runs.filter((r) => r.ok).length;
     const shown = runs.find((r) => !r.ok) ?? runs.at(-1);
     if (!shown) continue;
     const tally = repeat > 1 ? ` (${ok}/${repeat} runs)` : '';
     console.log(
-      `${ok === repeat ? 'PASS' : 'FAIL'} ${c.id}${shown.critical ? ' (critical)' : ''}${tally}`,
+      `${ok === repeat ? 'PASS' : caseErrored ? 'ERROR' : 'FAIL'} ${c.id}${shown.critical ? ' (critical)' : ''}${tally}`,
     );
     for (const p of shown.problems) console.log(`  - ${p}`);
     if (ok === repeat) passed += 1;
@@ -111,6 +125,11 @@ try {
     `Turn time: P50 ${sec(percentile(turnMs, 50))}, P95 ${sec(percentile(turnMs, 95))} · ${modelCalls} model calls · tokens in ${inputTokens}, out ${outputTokens}`,
   );
   if (flaky.length) console.log(`Flaky (mixed results): ${flaky.join(', ')}`);
+  if (errored.length) {
+    console.log(
+      `Errored, not graded (a model call failed; rerun with --id): ${errored.length} case(s): ${errored.join(',')}`,
+    );
+  }
   if (criticalFailed) process.exitCode = 1;
 } finally {
   await close?.();
