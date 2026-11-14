@@ -120,6 +120,24 @@ describe('WebPushChannel', () => {
     expect([...repo.pushSubscriptions.values()][0]?.failures).toBe(1);
   });
 
+  it('sends through the real web-push library when no sender is injected', async () => {
+    // web-push 4 is ESM with named exports only; a default import was undefined at runtime.
+    const { generateVAPIDKeys, sendNotification } = await import('web-push');
+    const keys = generateVAPIDKeys();
+    const vapidDetails = { subject: CONFIG.subject, ...keys };
+    await expect(
+      sendNotification(
+        { endpoint: 'https://push.example.test/1', keys: { p256dh: 'x', auth: 'y' } },
+        'hi',
+        {
+          vapidDetails,
+        },
+      ),
+    ).rejects.toThrow(/p256dh/);
+    const repo = new InMemoryNotificationRepository();
+    expect(new WebPushChannel({ ...vapidDetails }, repo)['send_']).toBe(sendNotification);
+  });
+
   it('refuses to send while unconfigured', async () => {
     const off = new WebPushChannel(null, new InMemoryNotificationRepository());
     expect(off.available()).toBe(false);
