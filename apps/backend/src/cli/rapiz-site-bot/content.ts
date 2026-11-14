@@ -21,6 +21,7 @@ export const SITE_WIDGET = {
   color: '#FF7A45',
   greeting: SITE_GREETING,
   requirePhoneAfter: 0,
+  phoneChipText: 'Để lại thông tin để được tư vấn chuyên sâu',
 } as const;
 
 export const SITE_MISSION = [
